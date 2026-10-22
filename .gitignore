@@ -8,3 +8,4 @@ node_modules/
 PRIVATE-KEYS.txt
 *.log
 .DS_Store
+wrangler.pre-oauth.jsonc
