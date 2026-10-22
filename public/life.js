@@ -1,0 +1,57 @@
+// Optional scheduling and a gentle pause when the day changes unexpectedly.
+export function DDvalidAnchor(value){return typeof value==='string'&&/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);}
+function DDlifeDate(date){if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||+date.slice(0,4)<1900)return false;const value=new Date(date+'T12:00:00Z');return Number.isFinite(+value)&&value.toISOString().slice(0,10)===date;}
+function DDlifeShift(date){const value=new Date(date+'T12:00:00Z');value.setUTCDate(value.getUTCDate()+1);return value.toISOString().slice(0,10);}
+function DDlifeSubRefs(items,blockId){return (items||[]).flatMap(item=>['sub:'+blockId+':'+item.id,...DDlifeSubRefs(item.children,blockId)]);}
+function DDlifeCleanBoard(day,blocks){
+ const removed=new Set(blocks.flatMap(block=>['b:'+block.id,...DDlifeSubRefs(block.subtasks,block.id)])),board=day.canvas?.board4;
+ if(!board)return;board.links=(board.links||[]).filter(link=>!removed.has(link.from)&&!removed.has(link.to));
+ for(const positions of Object.values(board.layouts||{}))for(const id of removed)delete positions[id];
+ for(const [key,link]of Object.entries(board.overrides||{}))if(removed.has(link.from)||removed.has(link.to))delete board.overrides[key];
+ for(const field of ['locked','hidden'])if(board[field])board[field]=board[field].filter(id=>!removed.has(id));
+ for(const [key,refs]of Object.entries(board.groups||{})){board.groups[key]=refs.filter(id=>!removed.has(id));if(board.groups[key].length<2)delete board.groups[key];}
+}
+function DDappendDayBlock(day,block){const copy=structuredClone(block);if(day.blocks.some(b=>b.id===copy.id))copy.id=crypto.randomUUID();delete copy.bx;delete copy.by;day.blocks.push(copy);return copy;}
+export function DDscheduleLater(snapshot,id,date,ensureDay){
+ if(!DDlifeDate(date))return snapshot;const data=structuredClone(snapshot),block=(data.setup.later||[]).find(b=>b.id===id);if(!block)return snapshot;
+ const day=data.days[date]||(data.days[date]=structuredClone(ensureDay(date)));DDappendDayBlock(day,block);data.setup.later=data.setup.later.filter(b=>b.id!==id);return data;
+}
+export function DDbeginPause(snapshot,date,wasRunning,ensureDay,label='Outside event'){
+ const data=structuredClone(snapshot),day=data.days[date]||(data.days[date]=structuredClone(ensureDay(date)));if(day.pause?.active)return snapshot;
+ const id=crypto.randomUUID();day.pause={active:true,closed:false,at:new Date().toISOString(),wasRunning:!!wasRunning,eventId:id};day.bugs||=[];
+ day.bugs.push({id,text:label,type:'',on:'',fixed:false,category:'plan',triggerTag:'outside-event',antidote:''});return data;
+}
+export function DDresolvePause(snapshot,date,choice,ensureDay){
+ if(!['continue','move','close'].includes(choice))return snapshot;const data=structuredClone(snapshot),day=data.days[date];if(!day?.pause)return snapshot;
+ if(choice==='move'){
+  const pending=day.blocks.filter(block=>!block.done),tomorrow=DDlifeShift(date);
+  if(pending.length){const target=data.days[tomorrow]||(data.days[tomorrow]=structuredClone(ensureDay(tomorrow)));for(const block of pending)DDappendDayBlock(target,block);day.blocks=day.blocks.filter(block=>block.done);DDlifeCleanBoard(day,pending);}
+ }
+ const event=(day.bugs||[]).find(bug=>bug.id===day.pause.eventId);if(event)event.fixed=true;
+ day.pause.active=false;day.pause.closed=choice!=='continue';return data;
+}
+export function DDLifeTools({React:R,data,day,date,today,language,view,setData,ensureDay,parseTask,onPause,onResume,timer,onToast}){
+ const h=R.createElement,fa=language==='fa',t=(en,fr)=>fa?fr:en;
+ const [panel,setPanel]=R.useState(null),[text,setText]=R.useState(''),[target,setTarget]=R.useState(today),[armed,setArmed]=R.useState(null),[error,setError]=R.useState('');
+ const dialog=R.useRef(null),entry=R.useRef(null),opener=R.useRef(null),later=data.setup.later||[],paused=!!day.pause?.active,closed=!!day.pause?.closed;
+ R.useEffect(()=>{document.body.classList.toggle('dd-day-paused',(paused||closed)&&(view==='plan'||view==='board'));if(paused||closed)onPause();return()=>document.body.classList.remove('dd-day-paused');},[paused,closed,view]);
+ R.useEffect(()=>{const open=event=>{if(event.detail==='later')setPanel('later');};window.addEventListener('debug-day-open-capture',open);return()=>window.removeEventListener('debug-day-open-capture',open);},[]);
+ R.useEffect(()=>{if(!panel)return;opener.current=document.activeElement;const old=document.body.style.overflow;document.body.style.overflow='hidden';(entry.current||dialog.current?.querySelector('button'))?.focus();return()=>{document.body.style.overflow=old;opener.current?.isConnected&&opener.current.focus();};},[panel]);
+ function pause(){if(!paused&&!closed)setData(old=>DDbeginPause(old,date,timer.running,ensureDay,t('Outside event','اتفاق خارج از برنامه')));onPause();setPanel('pause');}
+ function resolve(choice){const resume=day.pause?.wasRunning;setData(old=>DDresolvePause(old,date,choice,ensureDay));if(choice==='continue'&&resume)onResume();setPanel(null);onToast(choice==='move'?t('Remaining tasks moved to tomorrow','کارهای باقی‌مانده به فردا منتقل شدند'):choice==='close'?t('Today is closed. Your tasks are kept.','امروز بسته شد. کارهایت حفظ شده‌اند.'):t('Continue at your own pace','با ریتم خودت ادامه بده'));}
+ function add(event){event.preventDefault();if(!text.trim())return;const task=parseTask(text,{blocks:later});if(!task)return;setData(old=>({...old,setup:{...old.setup,later:[...(old.setup.later||[]),task]}}));setText('');entry.current?.focus();}
+ function edit(id,patch){setData(old=>({...old,setup:{...old.setup,later:(old.setup.later||[]).map(block=>block.id===id?{...block,...patch}:block)}}));}
+ function schedule(id,d){if(!DDlifeDate(d)){setError(t('Choose a valid date','یک تاریخ معتبر انتخاب کن'));return;}setData(old=>DDscheduleLater(old,id,d,ensureDay));setError('');onToast(t('Task scheduled','کار زمان‌بندی شد'));}
+ function remove(id){if(armed!==id){setArmed(id);return;}setData(old=>({...old,setup:{...old.setup,later:(old.setup.later||[]).filter(block=>block.id!==id)}}));setArmed(null);}
+ function key(event){if(event.key==='Escape'){event.preventDefault();event.stopPropagation();setPanel(null);}if(event.key==='Tab'){const nodes=[...dialog.current.querySelectorAll('button,input,select,summary')].filter(el=>!el.disabled&&el.getClientRects().length);if(!nodes.length)return;if(event.shiftKey&&document.activeElement===nodes[0]){event.preventDefault();nodes.at(-1).focus();}else if(!event.shiftKey&&document.activeElement===nodes.at(-1)){event.preventDefault();nodes[0].focus();}}}
+ return h('section',{className:'dd-life-root',dir:fa?'rtl':'ltr'},
+  h('div',{className:'dd-life-bar'},h('button',{type:'button',className:'textbtn',onClick:()=>setPanel('later')},t('Later tray','سبد بعداً'),' · ',later.length),(view==='plan'||view==='board')&&h('button',{type:'button',className:'textbtn',onClick:pause},paused?t('Day paused','روز متوقف است'):closed?t('Today is closed','امروز بسته است'):t('Life happened','اتفاقی افتاد'))),
+  (paused||closed)&&(view==='plan'||view==='board')&&h('div',{className:'dd-pause-status',role:'status'},h('p',null,closed?t('Today is closed. Remaining tasks are kept, without marking them done.','امروز بسته است. کارهای باقی‌مانده حفظ شده‌اند و انجام‌شده حساب نشده‌اند.'):t('The timer is paused. Choose what would help now.','زمان‌سنج متوقف است. هر گزینه‌ای که الان کمک می‌کند انتخاب کن.')),h('button',{type:'button',className:'btn',onClick:()=>setPanel('pause')},t('Choose next step','انتخاب قدم بعدی'))),
+  panel&&h('div',{className:'dd-capture-backdrop',onClick:()=>setPanel(null)},h('div',{className:'dd-capture-dialog dd-life-dialog',ref:dialog,role:'dialog','aria-modal':true,'aria-label':panel==='pause'?t('Life happened','اتفاقی افتاد'):t('Later tray','سبد بعداً'),onClick:e=>e.stopPropagation(),onKeyDown:key},
+   h('header',null,h('h2',null,panel==='pause'?t('Life happened','اتفاقی افتاد'):t('Later tray','سبد بعداً')),h('button',{type:'button','aria-label':t('Close day tools','بستن ابزارهای روز'),onClick:()=>setPanel(null)},'×')),
+   panel==='pause'?h('div',{className:'dd-pause-choices'},h('p',null,t('You can change the plan. Nothing here needs to be earned back.','می‌توانی برنامه را تغییر بدهی. لازم نیست چیزی را جبران کنی.')),h('button',{type:'button',className:'btn solid',onClick:()=>resolve('continue')},t('Continue the day','ادامهٔ روز')),h('button',{type:'button',className:'btn',onClick:()=>resolve('move')},t('Move the rest to tomorrow','انتقال باقی‌مانده به فردا')),h('button',{type:'button',className:'btn',onClick:()=>resolve('close')},t('Close today, keep the tasks','بستن امروز و حفظ کارها'))):
+   h('div',{className:'dd-later-list'},h('p',null,t('Tasks without a day. Schedule them when they belong somewhere.','کارهایی که هنوز روزی ندارند. هر وقت مناسب بود برایشان روز انتخاب کن.')),h('form',{onSubmit:add,className:'dd-later-add'},h('input',{ref:entry,value:text,onChange:e=>setText(e.target.value),dir:'auto',maxLength:4000,'aria-label':t('Later task','کار برای بعداً'),placeholder:t('Something for later…','کاری برای بعداً…')}),h('button',{type:'submit',className:'btn solid',disabled:!text.trim()},t('Add to Later','افزودن به بعداً'))),
+    h('label',{className:'dd-later-date'},t('Schedule date','روز زمان‌بندی'),h('input',{type:'date',value:target,onChange:e=>setTarget(e.target.value),'aria-label':t('Schedule date','روز زمان‌بندی')})),error&&h('p',{role:'alert'},error),
+    !later.length&&h('p',null,t('Nothing in Later.','کاری در سبد بعداً نیست.')),
+    later.map(block=>h('article',{key:block.id,className:'dd-later-item'},h('h3',{dir:'auto'},block.name),h('small',null,block.at?block.at+' · ':'',block.min,t(' min',' دقیقه')),h('details',null,h('summary',null,t('Task options','گزینه‌های کار')),h('label',null,t('Name','نام'),h('input',{value:block.name,dir:'auto',onChange:e=>edit(block.id,{name:e.target.value}),'aria-label':t('Later task name','نام کار بعداً')})),h('label',null,t('Minutes','دقیقه'),h('input',{type:'number',min:15,max:720,step:15,value:block.min,onChange:e=>{const value=+e.target.value;if(Number.isFinite(value)&&value>=15&&value<=720)edit(block.id,{min:value});},'aria-label':t('Later task minutes','مدت کار بعداً')})),h('label',null,t('Category','دسته'),h('select',{value:block.type,onChange:e=>edit(block.id,{type:e.target.value})},data.setup.types.map(type=>h('option',{value:type.id,key:type.id},type.name)))),h('label',null,t('Lane','بخش'),h('select',{value:block.lane,onChange:e=>edit(block.id,{lane:e.target.value})},data.setup.lanes.map(lane=>h('option',{value:lane.id,key:lane.id},lane.name)))),h('label',null,t('Anchor time (optional)','ساعت ثابت (اختیاری)'),h('input',{type:'time',value:block.at||'',onChange:e=>edit(block.id,{at:e.target.value}),'aria-label':t('Later anchor time','ساعت ثابت کار بعداً')}))),h('div',{className:'dd-later-actions'},h('button',{type:'button',onClick:()=>schedule(block.id,today)},t('Schedule today','برای امروز')),h('button',{type:'button',onClick:()=>schedule(block.id,DDlifeShift(today))},t('Schedule tomorrow','برای فردا')),h('button',{type:'button',onClick:()=>schedule(block.id,target)},t('Schedule for selected date','برای تاریخ انتخاب‌شده')),h('button',{type:'button',onClick:()=>remove(block.id)},armed===block.id?t('Confirm delete','تأیید حذف'):t('Delete','حذف')))))))));
+}

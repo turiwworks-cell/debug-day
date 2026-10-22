@@ -85,6 +85,7 @@ export function DDcleanBoard(day,refs){
 }
 // Always resolve a result against the latest snapshot before applying an action.
 export function DDeditSearchResult(snapshot,row,action,value,ensureDay){
+  if(action==='move'&&value===row.date)return snapshot;
   const data=structuredClone(snapshot),setup=data.setup,day=data.days[row.date];
   function destination(date){return data.days[date]||(data.days[date]=structuredClone(ensureDay(date)));}
   if(row.kind==='block'||row.kind==='subtask'){
@@ -96,7 +97,7 @@ export function DDeditSearchResult(snapshot,row,action,value,ensureDay){
     else if(action==='delete'||action==='move'){
       if(row.kind==='block'){
         day.blocks=day.blocks.filter(b=>b.id!==block.id);DDcleanBoard(day,['b:'+block.id,...DDsubRefs(block.subtasks,block.id)]);
-        if(action==='move'){const moved=structuredClone(block);delete moved.bx;delete moved.by;destination(value).blocks.push(moved);}
+        if(action==='move'){const moved=structuredClone(block);delete moved.bx;delete moved.by;const dest=destination(value);if(dest.blocks.some(b=>b.id===moved.id))moved.id=crypto.randomUUID();dest.blocks.push(moved);}
       }else{
         block.subtasks=DDremoveSub(block.subtasks,target.id);DDcleanBoard(day,['sub:'+block.id+':'+target.id,...DDsubRefs(target.children,block.id)]);
         if(action==='move')destination(value).blocks.push({id:crypto.randomUUID(),name:target.text,type:block.type,lane:block.lane,min:target.min||30,note:'',pri:block.pri||0,emo:'',done:!!target.done,expanded:true,subtasks:target.children||[]});
@@ -110,7 +111,7 @@ export function DDeditSearchResult(snapshot,row,action,value,ensureDay){
     else return snapshot;
   }else if(row.kind==='note'){
     const note=day?.notes?.find(n=>n.id===row.itemId);if(!note)return snapshot;
-    if(action==='delete'||action==='move'){day.notes=day.notes.filter(n=>n.id!==note.id);DDcleanBoard(day,['sticky:'+note.id,'note:'+note.id]);if(action==='move')destination(value).notes.push(note);}else return snapshot;
+    if(action==='delete'||action==='move'){day.notes=day.notes.filter(n=>n.id!==note.id);DDcleanBoard(day,['sticky:'+note.id,'note:'+note.id]);if(action==='move'){const dest=destination(value);if(dest.notes.some(n=>n.id===note.id))note.id=crypto.randomUUID();dest.notes.push(note);}}else return snapshot;
   }else if(row.kind==='feedback'||row.kind==='thread'){
     const feedback=(setup.feedbacks||[]).find(f=>f.id===(row.feedbackId||row.itemId));if(!feedback)return snapshot;
     if(action==='done')feedback.done=!feedback.done;
@@ -126,7 +127,7 @@ export function DDeditSearchResult(snapshot,row,action,value,ensureDay){
     if(action==='done'){block.done=!block.done;DDsetSubDone(block.subtasks,block.done);}
     else if(action==='category')block.type=value;
     else if(action==='duration')block.min=Math.max(15,Math.min(720,Math.round(Number(value)/15)*15));
-    else if(action==='delete'||action==='move'){setup.later=setup.later.filter(b=>b.id!==row.itemId);if(action==='move')destination(value).blocks.push(block);}
+    else if(action==='delete'||action==='move'){setup.later=setup.later.filter(b=>b.id!==row.itemId);if(action==='move'){const dest=destination(value);if(dest.blocks.some(b=>b.id===block.id))block.id=crypto.randomUUID();dest.blocks.push(block);}}
     else return snapshot;
   }else return snapshot;
   return data;
@@ -156,6 +157,7 @@ export function DDCommandPalette(props){
  R.useEffect(()=>{setActive(0);setExpanded({});setMenu(null);setEdit(null);setError('');},[raw]);
  R.useEffect(()=>{if(active>=flat.length)setActive(Math.max(0,flat.length-1));},[flat.length,active]);
  R.useEffect(()=>{document.getElementById('dd-result-'+active)?.scrollIntoView({block:'nearest'});},[active]);
+ R.useEffect(()=>{if(menu&&!edit)input.current?.closest('.dd-command-modal')?.querySelectorAll('[role=menuitem]')[menuIndex]?.focus();},[menu,menuIndex,edit]);
  function remember(row){const next=[row.id,...recent.filter(id=>id!==row.id)].slice(0,12);setRecent(next);DDrememberSearch('debug-day:search-recent',next);}
  function run(row,mode){if(!row)return;remember(row);if(row.kind==='command')row.action();else onOpen(row,mode);onClose();}
  function isolate(){if(!raw.trim()||query.commandsOnly||!matches.some(row=>row.kind!=='command'))return;onIsolate(raw);onClose();}
@@ -183,7 +185,7 @@ export function DDCommandPalette(props){
   if(event.key==='Tab'&&menu){event.preventDefault();setMenuIndex(n=>(n+(event.shiftKey?-1:1)+menuActions.length)%menuActions.length);return;}
   if(event.key==='ArrowLeft'&&menu){event.preventDefault();setMenu(null);input.current?.focus();}
  }
- function chip(prefix){setRaw(value=>(value.trim()?value.trim()+' ':'')+prefix);input.current?.focus();}
+ function chip(prefix){setRaw(value=>prefix==='>'?'> '+value.trim().replace(/^>\s*/,''):(value.trim()?value.trim()+' ':'')+prefix);input.current?.focus();}
  function create(kind,targetDate){
   try{
    setData(previous=>{const next=structuredClone(previous);

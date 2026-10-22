@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 import {DatabaseSync} from 'node:sqlite';
 import worker from '../src/worker.js';
+import {DDsameSnapshot} from '../public/sync.js';
 const html=readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
 const source=html.slice(html.indexOf('function DDreadBoardView('),html.indexOf('const DDCloud='));
 function fixture(){
@@ -71,7 +72,7 @@ test('ten MCP additions succeed between simulated board navigation and sync; con
       window:new EventTarget(),document:Object.assign(new EventTarget(),{hidden:false}),Event,
       navigator:{onLine:true},AbortSignal,
       setTimeout:()=>1,clearTimeout:()=>{},setInterval:()=>1,
-      DDvalidateSnapshot:value=>value,DDnormalizeSnapshot:value=>value,
+      DDsameSnapshot,DDvalidateSnapshot:value=>value,DDnormalizeSnapshot:value=>JSON.parse(JSON.stringify(value,(_key,item)=>item&&typeof item==='object'&&!Array.isArray(item)?Object.fromEntries(Object.keys(item).sort().map(key=>[key,item[key]])):item)),
       async fetch(url,options){if(options.method==='PUT')puts++;return worker.fetch(new Request(url,options),env)}
     });
     let local=structuredClone(data);
