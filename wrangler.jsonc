@@ -4,6 +4,7 @@
   "main": "src/worker.js",
   "compatibility_date": "2026-10-22",
   "workers_dev": true,
+  "keep_vars": true,
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
@@ -12,7 +13,7 @@
   "d1_databases": [{
     "binding": "DB",
     "database_name": "debug-day-data",
-    "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+    "database_id": "633cfa06-e22e-4d86-85b0-211310a946ba"
   }],
   "observability": {"enabled": false}
 }
