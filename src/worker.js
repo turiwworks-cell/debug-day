@@ -20,18 +20,44 @@ const READ_TOOLS=[
  tool('get_setup','Read activity types, lane IDs, templates and preferences to prepare valid edits.',{})
 ];
 const WRITE_TOOLS=[
+ tool('create_day','Create a saved day using the default template or a template ID. Read get_setup first for the current revision. Existing days are preserved.',{date:daySchema,expected_revision:revisionSchema,template:string},['date','expected_revision'],true),
+ tool('set_day','Set the focus and/or mood of an existing day. Read get_day first. Empty strings clear a field. Requires explicit user intent to edit.',{date:daySchema,expected_revision:revisionSchema,focus:{type:'string',maxLength:4000},mood:{type:'string',maxLength:16}},['date','expected_revision'],true),
  tool('add_block','Add a time block to an existing day. Read get_day/get_setup first. Requires a write key and expected_revision. Ask the user before making changes.',{date:daySchema,expected_revision:revisionSchema,name:{type:'string',minLength:1,maxLength:300},minutes:{type:'integer',minimum:15,maximum:720},type_id:string,lane_id:string,note:{type:'string',maxLength:4000}},['date','expected_revision','name','minutes','type_id','lane_id'],true),
  tool('update_block','Update specified fields of a block, preserving its children, position and connections. Read get_day first. Requires explicit user intent to edit.',{date:daySchema,expected_revision:revisionSchema,block_id:string,name:{type:'string',minLength:1,maxLength:300},minutes:{type:'integer',minimum:15,maximum:720},done:{type:'boolean'},note:{type:'string',maxLength:4000},lane_id:string,type_id:string},['date','expected_revision','block_id'],true),
  tool('add_note','Add a sticky note to an existing day and its board. Read get_day first. Requires explicit user intent to edit.',{date:daySchema,expected_revision:revisionSchema,text:{type:'string',minLength:1,maxLength:4000}},['date','expected_revision','text'],true),
  tool('delete_block','Permanently remove a block, its subtasks and related board links. Only call after the user explicitly requests deletion. Requires a current revision.',{date:daySchema,expected_revision:revisionSchema,block_id:string,confirm:{type:'boolean',const:true}},['date','expected_revision','block_id','confirm'],true)
 ];
 function validateArgs(args,schema){if(!args||typeof args!=='object'||Array.isArray(args))throw Error('Arguments must be an object');for(const k of schema.required||[])if(!Object.hasOwn(args,k))throw Error('Missing '+k);for(const[k,v]of Object.entries(args)){const p=schema.properties[k];if(!p)throw Error('Unknown argument '+k);if(p.type==='string'&&(typeof v!=='string'||(p.minLength&&v.trim().length<p.minLength)||(p.maxLength&&v.length>p.maxLength)||(p.pattern&&!new RegExp(p.pattern).test(v))))throw Error('Invalid '+k);if(p.type==='integer'&&(!Number.isSafeInteger(v)||(p.minimum!==undefined&&v<p.minimum)||(p.maximum!==undefined&&v>p.maximum)))throw Error('Invalid '+k);if(p.type==='boolean'&&typeof v!=='boolean')throw Error('Invalid '+k);if(p.const!==undefined&&v!==p.const)throw Error('Invalid '+k);}if(args.date&&!dateValid(args.date))throw Error('Invalid date');}
+function createDay(setup,date,templateId){
+ const templates=setup.templates||[],template=templates.find(t=>t.id===(templateId??setup.defaultTpl))||(templateId===undefined?templates[0]:null);
+ if(templateId!==undefined&&!template)throw Error('Unknown template');
+ const resetSubs=items=>(items||[]).map(s=>({...s,id:crypto.randomUUID(),done:false,children:resetSubs(s.children)}));
+ const blocks=(template?.blocks||[]).map(b=>{const copy={...b,id:crypto.randomUUID(),done:false,subtasks:resetSubs(b.subtasks)};delete copy.bx;delete copy.by;return copy;});
+ const anchor=setup.rhythm?.anchor,offset=dateValid(anchor)?Math.round((Date.parse(date+'T12:00:00Z')-Date.parse(anchor+'T12:00:00Z'))/86400000):0;
+ const heavy=setup.pair?((offset%2+2)%2===0?Number(setup.rhythm?.heavy===1):Number(setup.rhythm?.heavy!==1)):0;
+ if(setup.pair){const [a,b]=setup.pair.map(type=>blocks.find(block=>block.type===type));if(a&&b&&a!==b){const longer=Math.max(a.min,b.min),shorter=Math.min(a.min,b.min);a.min=heavy===0?longer:shorter;b.min=heavy===1?longer:shorter;}}
+ return {date,heavy,tpl:template?.id||'',focus:'',mood:'',journal:'',blocks,bugs:[],notes:[],canvas:null};
+}
 async function callTool(name,args,env,access){const definition=[...READ_TOOLS,...(access==='write'?WRITE_TOOLS:[])].find(t=>t.name===name);if(!definition)throw Error('Unknown or unauthorized tool');validateArgs(args,definition.inputSchema);const state=await read(env);if(!state.data)throw Error('No cloud data yet. Connect and sync the app first.');const data=state.data,revision=state.revision;
  if(name==='list_days'){if(args.from&&!dateValid(args.from)||args.to&&!dateValid(args.to))throw Error('Invalid date range');return {revision,days:Object.entries(data.days).filter(([k])=>(!args.from||k>=args.from)&&(!args.to||k<=args.to)).sort(([a],[b])=>b.localeCompare(a)).slice(0,args.limit||50).map(([date,d])=>({date,focus:d.focus,mood:d.mood,blocks:d.blocks.length,plannedMinutes:d.blocks.reduce((n,b)=>n+b.min,0),doneMinutes:d.blocks.filter(b=>b.done).reduce((n,b)=>n+b.min,0)}))};}
  if(name==='get_setup')return {revision,setup:data.setup};
  if(name==='search_blocks'){const q=args.query.toLocaleLowerCase(),results=[];for(const[date,d]of Object.entries(data.days)){for(const block of d.blocks){if(JSON.stringify({name:block.name,note:block.note,subtasks:block.subtasks}).toLocaleLowerCase().includes(q))results.push({date,block});if(results.length>=50)return {revision,results,truncated:true};}}return {revision,results,truncated:false};}
- const day=data.days[args.date];if(!day)throw Error('Date not found. Create the day in the app first.');if(name==='get_day')return {revision,day};
+ if(name==='create_day'){
+  if(args.expected_revision!==revision)throw Error('Conflict: the planner changed. Read get_setup again before creating a day.');
+  if(data.days[args.date])return {revision,day:args.date,changed:false};
+  data.days[args.date]=createDay(data.setup,args.date,args.template);
+  return {...await save(env,data,revision),day:args.date,changed:true};
+ }
+ const day=data.days[args.date];if(!day)throw Error('Date not found. Use create_day first.');if(name==='get_day')return {revision,day};
  if(args.expected_revision!==revision)throw Error('Conflict: the planner changed. Read get_day again before editing.');
+ if(name==='set_day'){
+  const fields=['focus','mood'].filter(field=>Object.hasOwn(args,field));
+  if(!fields.length)throw Error('Provide focus and/or mood');
+  const changed=fields.some(field=>(day[field]||'')!==args[field]);
+  if(!changed)return {revision,day:args.date,changed:false};
+  for(const field of fields)day[field]=args[field];
+  return {...await save(env,data,revision),day:args.date,changed:true};
+ }
  if(args.type_id&&!data.setup.types.some(t=>t.id===args.type_id))throw Error('Unknown type_id');if(args.lane_id!==undefined&&args.lane_id!==''&&!data.setup.lanes.some(l=>l.id===args.lane_id))throw Error('Unknown lane_id');let id=args.block_id;
  if(name==='add_block'){id=crypto.randomUUID();day.blocks.push({id,name:args.name.trim(),min:args.minutes,type:args.type_id,lane:args.lane_id,note:args.note||'',pri:0,emo:'',done:false,expanded:true,subtasks:[]});}
  else if(name==='update_block'){const b=day.blocks.find(b=>b.id===id);if(!b)throw Error('Block not found');for(const[k,field]of Object.entries({name:'name',minutes:'min',done:'done',note:'note',lane_id:'lane',type_id:'type'}))if(Object.hasOwn(args,k))b[field]=args[k];}
