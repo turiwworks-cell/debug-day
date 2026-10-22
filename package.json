@@ -1,0 +1,15 @@
+{
+  "name": "debug-day-cloudflare",
+  "version": "5.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:local": "wrangler d1 execute debug-day-data --local --file=schema.sql",
+    "db:remote": "wrangler d1 execute debug-day-data --remote --file=schema.sql",
+    "setup": "node setup.mjs"
+  },
+  "devDependencies": {"wrangler": "^4.0.0"},
+  "engines": {"node": ">=22"}
+}

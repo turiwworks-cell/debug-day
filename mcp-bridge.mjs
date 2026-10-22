@@ -1,0 +1,9 @@
+// stdio bridge for MCP clients which do not expose custom HTTP auth headers.
+// Node 22+, no dependencies. Secrets are read from environment, never logged.
+import readline from 'node:readline';
+const endpoint=process.env.DEBUG_DAY_MCP_URL,token=process.env.DEBUG_DAY_MCP_TOKEN;
+if(!endpoint||!token){process.stderr.write('Set DEBUG_DAY_MCP_URL and DEBUG_DAY_MCP_TOKEN.\n');process.exit(1);}
+const url=new URL(endpoint);if(url.protocol!=='https:'&&!(url.protocol==='http:'&&['localhost','127.0.0.1'].includes(url.hostname))){process.stderr.write('MCP URL must use HTTPS.\n');process.exit(1);}
+const header=v=>/[^\x20-\x7E]|^\s|\s$/.test(v)||v.startsWith('=?base64?')?'=?base64?'+Buffer.from(v).toString('base64')+'?=':v;
+const lines=readline.createInterface({input:process.stdin,crlfDelay:Infinity});let version='2025-11-25';
+lines.on('line',async line=>{let msg;try{msg=JSON.parse(line);const modern=msg.params?._meta?.['io.modelcontextprotocol/protocolVersion']==='2026-07-28';if(msg.method==='initialize')version=msg.params?.protocolVersion||version;const headers={'Content-Type':'application/json',Accept:'application/json, text/event-stream',Authorization:'Bearer '+token,'MCP-Protocol-Version':modern?'2026-07-28':version};if(modern){headers['Mcp-Method']=msg.method;const name=msg.params?.name||msg.params?.uri;if(name)headers['Mcp-Name']=header(name);}const r=await fetch(url,{method:'POST',headers,body:JSON.stringify(msg),signal:AbortSignal.timeout(30000)});if(r.status===202)return;const result=await r.json();if(!r.ok&&!result.jsonrpc)throw Error(result.error||'HTTP '+r.status);process.stdout.write(JSON.stringify(result)+'\n');}catch(e){if(msg&&Object.hasOwn(msg,'id'))process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:msg.id,error:{code:-32000,message:e.message}})+'\n');else process.stderr.write('MCP request failed.\n');}});

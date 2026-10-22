@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "debug-day",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-10-22",
+  "workers_dev": true,
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*", "/mcp"]
+  },
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "debug-day-data",
+    "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+  }],
+  "observability": {"enabled": false}
+}
