@@ -9,6 +9,10 @@ A personal daily planner with a time-scaled board, mind maps, Persian/English UI
 - `schema.sql` — D1 schema and recent-revision recovery.
 - `mcp-bridge.mjs` — stdio bridge for MCP clients.
 
+## Deploy
+
+Every push to `main` deploys automatically through Cloudflare Workers Builds (`npx wrangler deploy`). Worker secrets stay in Cloudflare and are not touched by deploys.
+
 ## Setup
 
 Requires Node.js 22+ and a Cloudflare account.
