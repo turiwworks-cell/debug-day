@@ -714,7 +714,7 @@ section[data-collapsed=true]>.sec-h{margin-bottom:0}
 .b4 .b2-viewport.b4-small .b4-node:is(:hover,.selected,:focus-within)>.b4-node-actions{visibility:visible;pointer-events:auto}
 .b4 .b2-viewport.b4-small .b4-node-actions button{opacity:1}
 /* Details of the selected card, in screen space so they never need zooming. */
-.dd-card-details{position:absolute;z-index:56;top:112px;inset-inline-end:16px;width:290px;max-height:calc(100% - 230px);overflow:auto;background:var(--paper);color:var(--ink);border-radius:10px;box-shadow:0 10px 30px #0002,inset 0 0 0 1px var(--rule-2);padding:12px;display:grid;gap:12px;font-size:13px}
+.dd-card-details{position:absolute;z-index:56;top:112px;right:16px;width:290px;max-height:calc(100% - 230px);overflow:auto;background:var(--paper);color:var(--ink);border-radius:10px;box-shadow:0 10px 30px #0002,inset 0 0 0 1px var(--rule-2);padding:12px;display:grid;gap:12px;font-size:13px}
 .dd-card-details header{display:flex;align-items:center;gap:8px}
 .dd-card-details header strong{flex:1;min-width:0;font-weight:600;overflow-wrap:anywhere}
 .dd-card-details header button{width:28px;height:28px;border-radius:6px;font-size:18px;color:var(--ink-3)}
@@ -732,7 +732,7 @@ section[data-collapsed=true]>.sec-h{margin-bottom:0}
 .dd-card-linked button.is-feeling{background:color-mix(in srgb,var(--chip) 18%,var(--panel));box-shadow:inset 3px 0 0 var(--chip)}
 .dd-card-add{justify-self:start;padding:6px 10px;border-radius:6px;background:var(--ink);color:var(--paper);font-weight:500}
 .dd-card-add:disabled{opacity:.4}
-@media(max-width:700px){.dd-card-details{top:auto;bottom:150px;inset-inline:10px;width:auto;max-height:42%}}
+@media(max-width:700px){.dd-card-details{top:auto;bottom:150px;left:10px;right:10px;width:auto;max-height:42%}}
 .dd-step-box{width:13px;height:13px;border:1.6px solid currentColor;border-radius:3px;display:block;opacity:.8}
 </style>
 </head>
