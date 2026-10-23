@@ -499,7 +499,13 @@ async function scenario(h, mobile, language) {
     true,
   );
   await nav(3);
+  await select(empty);
   await activate(page.locator(".dd-review-analysis>summary"));
+  assert.match(
+    await page.locator(".dd-review-analysis").innerText(),
+    /One calm step/,
+    "Detailed charts share the selected day with the monthly calendar",
+  );
   assert.equal(
     await page.locator(".dd-review-analysis").getAttribute("open"),
     "",
@@ -511,7 +517,18 @@ async function scenario(h, mobile, language) {
     true,
     "Optional charts fit on mobile too",
   );
-  await activate(page.locator(".dd-review-analysis>summary"));
+  await activate(page.locator(".dd-review-analysis button.btn.solid"));
+  await page.waitForFunction(
+    () =>
+      document.querySelector(".views [aria-selected=true]") ===
+      document.querySelector(".views button"),
+  );
+  assert.equal(
+    await page.locator("#fFocus").inputValue(),
+    "One calm step",
+    "Open Day in Plan opens the same day shown by the charts",
+  );
+  await nav(3);
   await page.keyboard.press("Control+Space");
   const search = page.getByRole("combobox", {
     name: t("Search everything", "جست‌وجوی همه‌چیز"),
