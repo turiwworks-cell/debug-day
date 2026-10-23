@@ -2,6 +2,14 @@
 
 Every change gets an entry here: version, date, branch, and what changed. Newest first. See `CLAUDE.md` for the rules.
 
+## 5.6.0 — 2026-10-23
+Branch: claude/project-thread-xnja7m
+- Every panel has its own color and icon: Plan 📋 blue, Board 🧠 purple, Habits 🌱 green, Feelings 💭 red, Calendar 📅 teal, App changes 🛠️ amber. They show on the view tabs, section headings, the app map, the isolate bar and the Board sections.
+- Ctrl+Space opens on a "Panels" list: pick one and it is isolated right away (Calendar and Feelings open their page). Typing a panel's name finds it first. Rows already shown on the first page are not repeated below.
+- The app map has one card per panel (the two feelings cards are now one). 1–6 isolates or opens, Shift+number shows it with the rest, 0 shows all.
+- Each thing now has one home. Feelings page: mood, writing and editing feelings, worries and the day note for any day. Calendar: a read-only summary of that day's feelings and note, with "Open in Feelings". Plan: a quick one-line feeling box and a list you can tick closed, with "Details in Feelings". The focus is written only in the Plan header.
+- The footer no longer repeats App map, Calendar and Feelings, which are already in the header.
+
 ## 5.5.0 — 2026-10-23
 Branch: claude/project-thread-xnja7m
 - Added habits (like writing): tick them each day and add minutes if you like. Each day gets a color level: done, good (15m), enough (30m), too much (60m). The minutes for each level can be changed in Settings › Habits.
