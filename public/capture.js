@@ -312,6 +312,7 @@ export function DDCaptureTools({
     }
   }
   function card(block, label) {
+    const blocked = day.pause?.active || day.pause?.closed;
     return h(
       "article",
       { className: "dd-current-task" },
@@ -337,11 +338,20 @@ export function DDCaptureTools({
                   {
                     type: "button",
                     className: "btn solid",
-                    onClick: () => onFocus(block),
+                    onClick: () =>
+                      blocked
+                        ? window.dispatchEvent(
+                            new CustomEvent("debug-day-open-capture", {
+                              detail: "resume",
+                            }),
+                          )
+                        : onFocus(block),
                   },
-                  timer.running
-                    ? t("Restart focus", "شروع دوبارهٔ تمرکز")
-                    : t("Start focus", "شروع تمرکز"),
+                  blocked
+                    ? t("Continue the day", "ادامهٔ روز")
+                    : timer.running
+                      ? t("Restart focus", "شروع دوبارهٔ تمرکز")
+                      : t("Start focus", "شروع تمرکز"),
                 ),
                 h(
                   "button",
