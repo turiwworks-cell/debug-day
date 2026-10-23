@@ -69,6 +69,19 @@ async function scenario(h,mobile,language){
     await page.locator('[data-block-id="writing"] .dd-playful-emoji[data-symbol="sticker:studio"]:visible,[data-playful-task="writing"] .dd-playful-emoji[data-symbol="sticker:studio"]:visible').first().waitFor();
 
     await openDay();
+    await dialog().getByRole("tab",{name:t("Emoji","ایموجی‌ها"),exact:true}).click();
+    await dialog().getByRole("searchbox").fill("ریتم");
+    assert.equal(await dialog().locator("[data-choice]").count(),1);
+    await page.waitForFunction(()=>{
+      const glyph=document.querySelector('[data-choice="🐢"] .dd-playful-emoji>span');
+      return glyph&&getComputedStyle(glyph).animationName==="dd-emoji-breathe";
+    });
+    await dialog().getByRole("combobox").selectOption("long");
+    await choose("🐢").click();
+    assert.equal((await read(page,f.date)).blocks[1].emo,"🐢");
+    assert.equal((await read(page,f.date)).notes.length,2);
+
+    await openDay();
     await dialog().locator(".dd-sticker-motion").click();
     await page.waitForFunction(()=>document.documentElement.dataset.reduceMotion==="true");
     assert.equal(await choose("sticker:spark").locator(".dd-sticker-character").evaluate(el=>getComputedStyle(el).animationName),"none");
