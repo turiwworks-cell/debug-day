@@ -723,6 +723,7 @@ section[data-collapsed=true]>.sec-h{margin-bottom:0}
 .dd-card-field{display:grid;gap:6px}
 .dd-card-field>span{font:600 10.5px/1.3 var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3)}
 .dd-card-field select,.dd-card-field textarea{width:100%;border:1px solid var(--rule-2);background:var(--panel);color:var(--ink);border-radius:6px;padding:6px 8px;font:inherit;resize:vertical}
+.dd-card-minutes{display:flex;align-items:center;gap:8px}.dd-card-minutes input{width:84px;border:1px solid var(--rule-2);background:var(--panel);color:var(--ink);border-radius:6px;padding:5px 8px;font:inherit}.dd-card-minutes small{color:var(--ink-3);font-size:11px}
 .dd-card-steps,.dd-card-steps ul,.dd-card-linked{list-style:none;margin:0;padding:0;display:grid;gap:4px}
 .dd-card-steps ul{padding-inline-start:18px;margin-top:4px}
 .dd-card-steps label{display:flex;gap:8px;align-items:flex-start;line-height:1.4;cursor:pointer}
@@ -733,6 +734,25 @@ section[data-collapsed=true]>.sec-h{margin-bottom:0}
 .dd-card-add{justify-self:start;padding:6px 10px;border-radius:6px;background:var(--ink);color:var(--paper);font-weight:500}
 .dd-card-add:disabled{opacity:.4}
 @media(max-width:700px){.dd-card-details{top:auto;bottom:150px;left:10px;right:10px;width:auto;max-height:42%}}
+/* Lanes: cards are sections that hold their steps, feelings and notes. */
+.b4-card-section{position:absolute;border-radius:12px;background:color-mix(in srgb,var(--node-color) 10%,var(--paper));box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--node-color) 38%,transparent);pointer-events:none}
+.b4-card-section.is-active{box-shadow:inset 0 0 0 2px var(--node-color),0 6px 18px #0001}
+.b2-viewport[data-mode=lanes] .b4-port{display:none}
+.b2-viewport[data-mode=lanes] .b4-node[data-member] {box-shadow:0 1px 3px #0001,inset 0 0 0 1px #12121118}
+.b4-frame[data-section=feelings]{background:color-mix(in srgb,#D9434A 6%,var(--wash))!important}
+.b4-frame[data-section=notes]{background:color-mix(in srgb,#FFD966 12%,var(--wash))!important}
+/* Notes resize from every edge and corner; handles stay usable at any zoom. */
+.b4 .b6-note-resize[data-edge]{position:absolute;right:auto;bottom:auto;width:22px;height:22px;transform:translate(-50%,-50%) scale(clamp(1,var(--b4-inverse,1),3));opacity:0;transition:opacity .12s}
+.b4 .b4-node:is(:hover,.selected)>.b6-note-resize[data-edge]{opacity:1}
+.b4 .b6-note-resize[data-edge=n]{left:50%;top:0;cursor:ns-resize}.b4 .b6-note-resize[data-edge=s]{left:50%;top:100%;cursor:ns-resize}
+.b4 .b6-note-resize[data-edge=e]{left:100%;top:50%;cursor:ew-resize}.b4 .b6-note-resize[data-edge=w]{left:0;top:50%;cursor:ew-resize}
+.b4 .b6-note-resize[data-edge=ne]{left:100%;top:0;cursor:nesw-resize}.b4 .b6-note-resize[data-edge=sw]{left:0;top:100%;cursor:nesw-resize}
+.b4 .b6-note-resize[data-edge=nw]{left:0;top:0;cursor:nwse-resize}.b4 .b6-note-resize[data-edge=se]{left:100%;top:100%;cursor:nwse-resize}
+.b4 .b6-note-resize[data-edge]:after{width:8px;height:8px;border-width:1.5px;border-radius:50%}
+.b4 .b6-note-resize[data-edge=n]:after,.b4 .b6-note-resize[data-edge=s]:after{width:16px;height:6px;border-radius:3px}
+.b4 .b6-note-resize[data-edge=e]:after,.b4 .b6-note-resize[data-edge=w]:after{width:6px;height:16px;border-radius:3px}
+.b4 .b4-sticky[data-size]::after{content:attr(data-size);position:absolute;left:50%;top:calc(100% + 10px);transform:translateX(-50%) scale(clamp(1,var(--b4-inverse,1),3));transform-origin:top center;background:var(--ink);color:var(--paper);font:11px/1 var(--mono);padding:4px 6px;border-radius:4px;white-space:nowrap;pointer-events:none}
+.b2-viewport.b4-overview .b4-node:not(:hover,.selected)>.b6-note-resize{visibility:hidden}
 .dd-step-box{width:13px;height:13px;border:1.6px solid currentColor;border-radius:3px;display:block;opacity:.8}
 </style>
 </head>

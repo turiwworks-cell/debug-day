@@ -295,11 +295,16 @@ export const DDboardCore = {
     let changed = false;
     for (const node of nodes) {
       const p = positions[node.id];
-      if (!p || locked.has(node.id) || (node.x === p.x && node.y === p.y))
+      if (
+        !p ||
+        node.memberOf ||
+        locked.has(node.id) ||
+        (node.x === p.x && node.y === p.y)
+      )
         continue;
       const x = clamp(finite(p.x, node.x), -100000, 100000),
         y = clamp(finite(p.y, node.y), -100000, 100000);
-      if (node.noteId) {
+      if (node.noteId && mode !== "lanes") {
         const note = next.notes.find((n) => n.id === node.noteId);
         if (note) {
           note.x = x;

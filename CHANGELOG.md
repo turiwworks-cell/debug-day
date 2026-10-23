@@ -2,6 +2,15 @@
 
 Every change gets an entry here: version, date, branch, and what changed. Newest first. See `CLAUDE.md` for the rules.
 
+## 5.3.0 — 2026-10-23
+Branch: claude/project-thread-xnja7m
+- Lanes no longer draw any lines. Each card is now a section that holds its own steps, feelings and linked notes, so what belongs together is shown by placement.
+- Cards in Lanes have a fixed width instead of growing with their hours; time is shown as text and can be changed in the card details panel.
+- Free feelings and free notes get their own "Feelings" and "Notes" sections in Lanes.
+- Drag a note or feeling onto a card to attach it; drag it out of the card to detach it. Steps and attached items move with their card.
+- Notes resize from both bottom corners (Shift keeps the shape), show their size while resizing, and fit their text on double-click of a handle.
+- Notes moved in Lanes keep their own place there and no longer jump around in the mind map.
+
 ## 5.2.0 — 2026-10-23
 Branch: claude/project-thread-xnja7m
 - Board steps now show their whole text, wrap onto more lines, and read clearly as steps ("Step 1/3" label and a checkbox).
