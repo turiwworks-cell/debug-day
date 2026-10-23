@@ -139,14 +139,15 @@ async function scenario(h,mobile,language){
 
     await nav(2);
     await page.locator('.dd-review-day [data-day-sticker="'+id+'"] [data-symbol="sticker:cloud"]').waitFor();
-    await nav(3);
-    await page.locator('.dd-review-day [data-day-sticker="'+id+'"] [data-symbol="sticker:cloud"]').waitFor();
+    await page.locator('[data-review-task="writing"] [data-symbol="sticker:heart"]').waitFor();
     // Reduced motion also blocks reactions while checking a task in the day review.
     await page.emulateMedia({reducedMotion:"reduce"});
     await page.locator('[data-review-task="writing"] .dd-review-check').click();
     assert.equal(await page.evaluate(()=>window.__bursts),1);
     await page.emulateMedia({reducedMotion:"no-preference"});
     await page.locator('[data-review-task="writing"] .dd-review-check').click();
+    await nav(3);
+    await page.locator('.dd-review-day [data-day-sticker="'+id+'"] [data-symbol="sticker:cloud"]').waitFor();
     await nav(0);
     await page.getByRole("button",{name:t("Search","جستجو"),exact:true}).click();
     await page.getByRole("combobox",{name:t("Search everything","جست‌وجوی همه‌چیز"),exact:true}).fill("Cloud break");

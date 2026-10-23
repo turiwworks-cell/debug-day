@@ -1,6 +1,11 @@
 name: UI regression checks
 on:
   pull_request:
+  push:
+    branches: [feat/animated-stickers-interactions]
+concurrency:
+  group: ui-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:

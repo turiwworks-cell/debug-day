@@ -1115,6 +1115,7 @@ export function DDFeelingsPanel({
 }
 function DDReviewTasks({
   React: R,
+  playful,
   data,
   date,
   language,
@@ -1202,6 +1203,7 @@ function DDReviewTasks({
               onClick: () => onOpenPlan(date, block.id),
               dir: "auto",
             },
+            playful && block.emo && h("span", { "aria-hidden": true }, h(playful.Emoji, { emoji: block.emo, size: 23 })),
             block.name,
           ),
           h(
@@ -1583,6 +1585,7 @@ function DDReviewDay({
     !feelingsOnly &&
       h(DDReviewTasks, {
         React: R,
+        playful,
         data,
         date,
         language,
