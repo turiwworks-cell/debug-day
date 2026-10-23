@@ -344,6 +344,15 @@ export function DDmatchSearch(row, query) {
     (term) => hay.includes(term) || compact.includes(term.replace(/\s/g, "")),
   );
 }
+// A panel whose name matches what was typed comes before one that only mentions it.
+export function DDrankPanels(rows, query) {
+  const named = (row) =>
+    query.terms.length > 0 &&
+    query.terms.every((term) =>
+      DDsearchText((row.names || [row.title]).join(" ")).includes(term),
+    );
+  return [...rows.filter(named), ...rows.filter((row) => !named(row))];
+}
 export function DDmatchesBlock(block, raw, setup, date, today) {
   return DDmatchSearch(
     DDbuildSearchIndex(
@@ -734,7 +743,7 @@ export function DDCommandPalette(props) {
     const rows = matches.filter(
       (row) => row.group === id && !shown.has(row.id),
     );
-    groups.push({ id, label, rows });
+    groups.push({ id, label, rows: id === "panels" ? DDrankPanels(rows, query) : rows });
   }
   const visibleGroups = groups
       .filter((group) => group.rows.length)

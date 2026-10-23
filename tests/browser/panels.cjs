@@ -17,12 +17,12 @@ const { start, fixture } = require("./harness.cjs");
     const today = async () => (await read()).days[f.date];
     const banner = page.locator(".isolate-banner");
 
-    // View tabs and section headings carry the panel's icon and color.
+    // View tabs and section headings carry the panel's icon and color. Feelings and Stats are inside Calendar.
     assert.deepEqual(
       await page.locator(".views button").evaluateAll((tabs) => tabs.map((tab) => tab.dataset.panel)),
-      ["plan", "board", "calendar", "feelings"],
+      ["plan", "board", "calendar"],
     );
-    assert.equal(await page.locator(".views button .dd-panel-icon").count(), 4);
+    assert.equal(await page.locator(".views button .dd-panel-icon").count(), 3);
     const color = (selector) => page.locator(selector).first().evaluate((node) => getComputedStyle(node).getPropertyValue("--pc").trim());
     assert.equal(await color('.dd-habits[data-panel="habits"]'), "#2BA672");
     assert.equal(await color('[data-section-id="bugs"][data-panel="feelings"]'), "#D9434A");
@@ -50,7 +50,7 @@ const { start, fixture } = require("./harness.cjs");
     const modal = page.locator(".dd-command-modal");
     const first = modal.locator(".dd-result-group").first();
     assert.equal(await first.getAttribute("data-group"), "panels");
-    assert.equal(await first.locator(".dd-panel-row").count(), 6);
+    assert.equal(await first.locator(".dd-panel-row").count(), 7);
     const ids = await modal.locator(".dd-command-row").evaluateAll((rows) => rows.map((row) => row.id + row.textContent));
     assert.equal(new Set(ids.map((text) => text.replace(/^dd-result-\d+/, ""))).size, ids.length, "nothing is listed twice on the first page");
     await page.keyboard.press("ArrowDown");
@@ -71,12 +71,12 @@ const { start, fixture } = require("./harness.cjs");
     assert.equal(await page.locator('[data-section-id="lab"]').count(), 1);
     assert.equal(await page.locator(".dd-habits").count(), 0);
 
-    // App map: one card per panel. A number isolates, Shift+number shows it with the rest, 0 shows all.
+    // App map: one card per panel, Feelings and Stats share Calendar's. A number isolates, Shift+number shows it with the rest, 0 shows all.
     await page.keyboard.press("Alt+KeyM");
     await page.locator(".dd-panel-map").waitFor();
     assert.deepEqual(
       await page.locator(".dd-panel-map .app-map-card").evaluateAll((cards) => cards.map((card) => card.dataset.panel)),
-      ["plan", "board", "habits", "feelings", "calendar", "lab"],
+      ["plan", "board", "habits", "calendar", "lab"],
     );
     assert.match(await page.locator('.app-map-card[data-panel="habits"] small').innerText(), /0 of 1 today/);
     await page.keyboard.press("Digit0");
@@ -95,7 +95,7 @@ const { start, fixture } = require("./harness.cjs");
 
     // Calendar reads feelings and the day note; writing them happens in Feelings.
     await page.keyboard.press("Alt+KeyM");
-    await page.keyboard.press("Digit5");
+    await page.keyboard.press("Digit4");
     const day = page.locator("#dd-calendar-day");
     await day.waitFor();
     assert.equal(await banner.count(), 0);
@@ -106,7 +106,8 @@ const { start, fixture } = require("./harness.cjs");
     assert.match(await day.locator(".dd-review-note-text").innerText(), /Journal/);
     await day.getByRole("button", { name: "Open in Feelings", exact: true }).click();
     await page.locator("#dd-feelings-day").waitFor();
-    assert.equal(await page.locator('.views button[data-panel="feelings"]').getAttribute("aria-selected"), "true");
+    assert.equal(await page.locator('.views button[data-panel="calendar"]').getAttribute("aria-selected"), "true");
+    assert.equal(await page.locator('.dd-review-sections button[data-panel="feelings"]').getAttribute("aria-selected"), "true");
     assert.equal(await page.locator("#dd-feelings-day").getByRole("textbox", { name: "Day note", exact: true }).inputValue(), "Journal");
     assert.equal(await page.locator('#dd-feelings-day [data-feeling-id="feeling"]').count(), 1);
 

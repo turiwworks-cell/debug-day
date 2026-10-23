@@ -2,6 +2,15 @@
 
 Every change gets an entry here: version, date, branch, and what changed. Newest first. See `CLAUDE.md` for the rules.
 
+## 5.7.0 — 2026-10-23
+Branch: claude/project-thread-pfxhqk
+- Calendar, Feelings and Stats are now one Calendar panel with three sections: Day, Feelings and Stats. The header has one Calendar tab, and it opens the section you used last. The app map has one Calendar card again (1–5).
+- Stats has its own section again, so the streaks, 6-month heatmap, mood wave, recurring patterns and done-by-type are easy to find. Each section can still be hidden in Settings.
+- Ctrl+Space: a panel whose name matches what you typed comes first, so "stats" opens Stats, not Calendar.
+- Dark theme: text and menus on light cards were light on light. Plan rows, the Habits panel, the feelings list, Board card details (the Category menu), Settings fields and the Stats patterns now use dark text on those cards.
+- Stats fixes: a month right after the first column lost its label (May was missing); in Persian the heatmap's month labels pointed at the wrong weeks; the snapshot's Persian date was in English; "open · resolved", "/30d tracked", "no data", "bugs" and the pattern names now follow the app language; done-by-type counts minutes the same way as the done % (counted and waiting cards take none).
+- Calendar cells say "1 feeling" / "1 task" instead of "1 feelings" / "1 tasks".
+
 ## 5.6.0 — 2026-10-23
 Branch: claude/project-thread-xnja7m
 - Every panel has its own color and icon: Plan 📋 blue, Board 🧠 purple, Habits 🌱 green, Feelings 💭 red, Calendar 📅 teal, App changes 🛠️ amber. They show on the view tabs, section headings, the app map, the isolate bar and the Board sections.

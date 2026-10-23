@@ -7,6 +7,7 @@ import {
   DDpanelCSS,
   DDpanelCounts,
   DDpanelCommands,
+  DDPanelMap,
 } from "../public/panels.js";
 
 test("each panel has its own id, color and icon", () => {
@@ -56,4 +57,18 @@ test("map counts read the day without changing it", () => {
   assert.equal(DDpanelCounts(day, setup, "fa").plan, "۲ کارت");
   assert.deepEqual(DDpanelCounts({}, {}, "en"), { plan: "0 cards", habits: null, feelings: null, lab: null });
   assert.equal(JSON.stringify({ day, setup }), before);
+});
+
+test("Feelings and Stats live inside Calendar, so the app map shows one Calendar card", () => {
+  const R = { createElement: (type, props, ...children) => ({ type, props: props || {}, children: children.flat() }) },
+    map = DDPanelMap({ React: R, language: "en", counts: { feelings: "2 open" }, onPick() {} }),
+    cards = map.children.map((card) => card.props["data-panel"]);
+  for (const panel of DDpanelList.filter((panel) => panel.partOf)) {
+    assert.ok(DDpanelOf(panel.partOf), panel.id);
+    assert.ok(!cards.includes(panel.id), panel.id);
+  }
+  assert.deepEqual(cards, ["plan", "board", "habits", "calendar", "lab"]);
+  const calendar = map.children[cards.indexOf("calendar")],
+    count = calendar.children[0].children.find((child) => child && child.type === "small");
+  assert.deepEqual(count.children, ["💭 2 open"]);
 });
