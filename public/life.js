@@ -118,6 +118,26 @@ export function DDresolvePause(snapshot, date, choice, ensureDay) {
   day.pause.closed = choice !== "continue";
   return data;
 }
+const DDlifeIcons = {
+  tray: "M2 9.5h3.5l1 2h3l1-2H14M2 9.5 4 3.5h8l2 6V13H2z",
+  pause: "M6 4v8M10 4v8",
+};
+function DDlifeIcon(h, name) {
+  return h(
+    "svg",
+    {
+      className: "i",
+      viewBox: "0 0 16 16",
+      fill: "none",
+      stroke: "currentColor",
+      strokeWidth: 1.5,
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      "aria-hidden": "true",
+    },
+    h("path", { d: DDlifeIcons[name] }),
+  );
+}
 export function DDLifeTools({
   React: R,
   data,
@@ -145,6 +165,7 @@ export function DDLifeTools({
   const dialog = R.useRef(null),
     entry = R.useRef(null),
     opener = R.useRef(null),
+    pauseRef = R.useRef(null),
     later = data.setup.later || [],
     paused = !!day.pause?.active,
     closed = !!day.pause?.closed;
@@ -160,6 +181,7 @@ export function DDLifeTools({
     const open = (event) => {
       if (event.detail === "later") setPanel("later");
       if (event.detail === "resume") setPanel("pause");
+      if (event.detail === "pause") pauseRef.current?.();
     };
     window.addEventListener("debug-day-open-capture", open);
     return () => window.removeEventListener("debug-day-open-capture", open);
@@ -189,6 +211,7 @@ export function DDLifeTools({
     onPause();
     setPanel("pause");
   }
+  pauseRef.current = pause;
   function resolve(choice) {
     const resume = day.pause?.wasRunning;
     setData((old) => DDresolvePause(old, date, choice, ensureDay));
@@ -284,17 +307,30 @@ export function DDLifeTools({
         "button",
         {
           type: "button",
-          className: "textbtn",
+          className: "dd-pill",
+          title: t(
+            "Tasks that don't have a day yet",
+            "کارهایی که هنوز روز مشخصی ندارند",
+          ),
           onClick: () => setPanel("later"),
         },
+        DDlifeIcon(h, "tray"),
         t("Later tray", "سبد بعداً"),
-        " · ",
-        later.length,
+        later.length > 0 && h("b", { className: "dd-count" }, later.length),
       ),
       (view === "plan" || view === "board") &&
         h(
           "button",
-          { type: "button", className: "textbtn", onClick: pause },
+          {
+            type: "button",
+            className: "dd-pill" + (paused || closed ? " on" : ""),
+            title: t(
+              "Pause the timer and choose what to do with the rest of the day",
+              "زمان‌سنج را نگه دار و برای بقیهٔ روز تصمیم بگیر",
+            ),
+            onClick: pause,
+          },
+          DDlifeIcon(h, "pause"),
           paused
             ? t("Day paused", "روز متوقف است")
             : closed

@@ -61,6 +61,25 @@ export function DDcaptureItem(
   else return snapshot;
   return data;
 }
+export function DDcaptureLane(task, lane, text, lanes = [], blocks = []) {
+  if (!task || !lane || !lanes.some((l) => l.id === lane)) return task;
+  const typed = (" " + text + " ").match(/\s@(\S+)(?=\s)/);
+  if (
+    typed &&
+    lanes.some((l) =>
+      (l.name || "").toLowerCase().startsWith(typed[1].toLowerCase()),
+    )
+  )
+    return task;
+  if (task.lane === lane) return task;
+  const same = blocks.filter((b) => b.lane === lane),
+    tagged = /(?:^|\s)#\S/.test(text);
+  return {
+    ...task,
+    lane,
+    type: !tagged && same.length ? same.at(-1).type : task.type,
+  };
+}
 export function DDconvertWorry(snapshot, id, date, ensureDay) {
   if (date !== "later" && !DDcaptureDate(date)) return snapshot;
   const data = structuredClone(snapshot),
@@ -122,6 +141,27 @@ export function DDdaysWithWorries(days, worries = []) {
   }
   return result;
 }
+const DDcaptureIcons = {
+  cloud:
+    "M4.6 12.5h6.9a3 3 0 0 0 .4-6A4.2 4.2 0 0 0 4 5.6a3.5 3.5 0 0 0 .6 6.9z",
+  plus: "M8 3v10M3 8h10",
+};
+export function DDcaptureIcon(h, name) {
+  return h(
+    "svg",
+    {
+      className: "i",
+      viewBox: "0 0 16 16",
+      fill: "none",
+      stroke: "currentColor",
+      strokeWidth: 1.5,
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      "aria-hidden": "true",
+    },
+    h("path", { d: DDcaptureIcons[name] }),
+  );
+}
 function DDcaptureLocal(key, fallback) {
   try {
     return JSON.parse(localStorage.getItem(key) || "null") ?? fallback;
@@ -181,6 +221,9 @@ export function DDCaptureTools({
     ),
     [coarse, setCoarse] = R.useState(
       () => matchMedia("(pointer:coarse)").matches,
+    ),
+    [lane, setLane] = R.useState(() =>
+      DDcaptureLocal("debug-day:capture-lane", ""),
     );
   const dialog = R.useRef(null),
     entry = R.useRef(null),
@@ -217,6 +260,22 @@ export function DDCaptureTools({
       (opener.current?.isConnected ? opener.current : trigger.current)?.focus();
     };
   }, [panel]);
+  const lanes = data.setup.lanes || [],
+    chosenLane = lanes.some((l) => l.id === lane) ? lane : lanes[0]?.id || "",
+    typedLane = (() => {
+      const m = (" " + text + " ").match(/\s@(\S+)(?=\s)/);
+      return m
+        ? lanes.find((l) =>
+            (l.name || "").toLowerCase().startsWith(m[1].toLowerCase()),
+          )?.id
+        : "";
+    })(),
+    shownLane = typedLane || chosenLane;
+  function pickLane(id) {
+    setLane(id);
+    DDcaptureRemember("debug-day:capture-lane", id);
+    entry.current?.focus();
+  }
   const worries = data.setup.worries || [],
     openWorries = worries.filter((w) => !w.closed),
     pending = day.blocks.filter((b) => !b.done),
@@ -232,15 +291,20 @@ export function DDCaptureTools({
     event.preventDefault();
     if (!text.trim()) return;
     const captureDate = kind === "worry" ? today : target;
-    const task =
-      kind === "task"
-        ? parseTask(
-            text,
-            target === "later"
-              ? { blocks: data.setup.later || [] }
-              : data.days[target] || ensureDay(target),
-          )
-        : null;
+    const scope =
+        target === "later"
+          ? { blocks: data.setup.later || [] }
+          : data.days[target] || ensureDay(target),
+      task =
+        kind === "task"
+          ? DDcaptureLane(
+              parseTask(text, scope),
+              chosenLane,
+              text,
+              lanes,
+              scope.blocks || [],
+            )
+          : null;
     if (kind === "task" && !task) {
       setError(t("Enter a task name", "نام کار را بنویس"));
       entry.current?.focus();
@@ -377,15 +441,13 @@ export function DDCaptureTools({
               t("Task details", "جزئیات کار"),
             ),
           )
-        : h(
-            "p",
-            null,
-            t(
-              "Nothing scheduled. Capture a task when you need one.",
-              "کاری ثبت نشده. هر وقت لازم شد یک کار اضافه کن.",
-            ),
-          ),
+        : null,
     );
+  }
+  function openCapture() {
+    setKind("task");
+    setTarget(today);
+    setPanel("capture");
   }
   return h(
     "section",
@@ -395,7 +457,7 @@ export function DDCaptureTools({
       !isolated &&
       h(
         "div",
-        { className: "dd-today-card" },
+        { className: "dd-today-card" + (details ? " is-details" : "") },
         h(
           "div",
           { className: "dd-today-heading" },
@@ -413,8 +475,42 @@ export function DDCaptureTools({
               : t("Full day / more", "روز کامل / بیشتر"),
           ),
         ),
-        card(current, t("Current", "کار فعلی")),
-        card(next, t("Next", "کار بعدی")),
+        current
+          ? card(current, t("Current", "کار فعلی"))
+          : h(
+              "div",
+              { className: "dd-today-empty" },
+              h(
+                "p",
+                null,
+                day.blocks.length
+                  ? t("Everything for today is done.", "کارهای امروز تمام شد.")
+                  : t("Nothing planned for today yet.", "هنوز برای امروز کاری نیست."),
+              ),
+              h(
+                "button",
+                { type: "button", className: "btn", onClick: openCapture },
+                "+ ",
+                t("Add a task", "افزودن کار"),
+              ),
+            ),
+        next &&
+          !details &&
+          h(
+            "button",
+            {
+              type: "button",
+              className: "dd-next-task",
+              onClick: () => {
+                setDetails(true);
+                DDcaptureRemember("debug-day:today-details", true);
+                onOpenBlock(next.id, date);
+              },
+            },
+            h("small", null, t("Next", "کار بعدی")),
+            h("span", { dir: "auto" }, next.name),
+            h("em", null, next.min, t(" min", " دقیقه")),
+          ),
         timer.running &&
           h(
             "p",
@@ -435,12 +531,17 @@ export function DDCaptureTools({
         "button",
         {
           type: "button",
-          className: "textbtn",
+          className: "dd-pill",
+          title: t(
+            "Put a worry down without turning it into work",
+            "نگرانی را اینجا بگذار، بدون اینکه کار شود",
+          ),
           onClick: () => setPanel("worries"),
         },
+        DDcaptureIcon(h, "cloud"),
         t("Worry parking", "جای نگرانی‌ها"),
-        " · ",
-        openWorries.length,
+        openWorries.length > 0 &&
+          h("b", { className: "dd-count" }, openWorries.length),
       ),
     ),
     h(
@@ -448,15 +549,20 @@ export function DDCaptureTools({
       {
         type: "button",
         ref: trigger,
-        className: "dd-floating-capture",
+        className:
+          "dd-floating-capture" + (view === "board" ? " dd-on-board" : ""),
         "aria-label": t("Quick capture", "ثبت سریع"),
+        title: t(
+          "Quick capture: a task, a worry or a feeling",
+          "ثبت سریع: کار، نگرانی یا حس",
+        ),
         onClick: () => {
           setTarget(today);
           setPanel("capture");
         },
       },
       h("span", { "aria-hidden": true }, "+"),
-      t("Capture", "ثبت سریع"),
+      h("span", { className: "dd-fab-label" }, t("Capture", "ثبت سریع")),
     ),
     panel &&
       h(
@@ -546,6 +652,37 @@ export function DDCaptureTools({
                         ? t("Leave the thought here…", "فکرت را همین‌جا بگذار…")
                         : t("What are you feeling?", "الان چه حسی داری؟"),
                 }),
+                kind === "task" &&
+                  lanes.length > 1 &&
+                  h(
+                    "div",
+                    {
+                      className: "dd-capture-lanes",
+                      role: "group",
+                      "aria-label": t("Goes to", "کجا برود"),
+                    },
+                    h("span", null, t("Goes to", "کجا برود")),
+                    lanes.map((l) =>
+                      h(
+                        "button",
+                        {
+                          type: "button",
+                          key: l.id,
+                          "aria-pressed": shownLane === l.id,
+                          disabled: !!typedLane && typedLane !== l.id,
+                          title: typedLane
+                            ? t(
+                                "Set by @ in the text",
+                                "با @ در متن انتخاب شده",
+                              )
+                            : undefined,
+                          onClick: () => pickLane(l.id),
+                          style: l.color ? { "--lane": l.color } : undefined,
+                        },
+                        l.name || l.id,
+                      ),
+                    ),
+                  ),
                 kind !== "worry" &&
                   h(
                     "label",
