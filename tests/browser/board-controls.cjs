@@ -1,4 +1,8 @@
 const assert = require("node:assert/strict");
+const { mkdirSync } = require("node:fs");
+const { join } = require("node:path");
+const screenshots = process.env.DEBUG_DAY_SCREENSHOTS || join(require("node:os").tmpdir(), "debug-day-screenshots");
+mkdirSync(screenshots, { recursive: true });
 const { start, fixture } = require("./harness.cjs");
 (async () => {
   const h = await start();
@@ -229,7 +233,7 @@ const { start, fixture } = require("./harness.cjs");
         );
         await page.screenshot({
           path:
-            "/workspace/scratch/56babe5c4b81/qa/properties-" +
+            screenshots + "/properties-" +
             language +
             "-" +
             (mobile ? "phone" : "desktop") +
@@ -310,7 +314,7 @@ const { start, fixture } = require("./harness.cjs");
         assert.equal(d.notes[0].y, d.notes[1].y);
         await page.screenshot({
           path:
-            "/workspace/scratch/56babe5c4b81/qa/board-" +
+            screenshots + "/board-" +
             language +
             "-" +
             (mobile ? "phone" : "desktop") +
@@ -482,7 +486,7 @@ const { start, fixture } = require("./harness.cjs");
         assert.notEqual(inputColor.fg, inputColor.bg);
         await page.screenshot({
           path:
-            "/workspace/scratch/56babe5c4b81/qa/dark-" +
+            screenshots + "/dark-" +
             language +
             "-" +
             (mobile ? "phone" : "desktop") +

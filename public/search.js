@@ -230,7 +230,7 @@ export function DDbuildSearchIndex(data, today) {
         itemId: note.id,
         kind: "note",
         date,
-        title: note.text,
+        title: note.label || note.text,
         detail: date,
         done: false,
         group: "notes",

@@ -2,6 +2,33 @@
 
 Every change gets an entry here: version, date, branch, and what changed. Newest first. See `CLAUDE.md` for the rules.
 
+## 5.4.0 — 2026-10-23
+Branch: feat/animated-stickers-interactions
+- Added eight original animated vector stickers and a bilingual emoji library with search, favorites, recent picks, and keyboard navigation.
+- Day stickers and task icons share the existing planner data across Plan, Board, Lanes, Calendar, and Feelings; changes and removals stay in sync.
+- Added sticker placement and editing from the board dock, context menu, and E shortcut, with clipboard, undo, resizing, and SVG export support.
+- Added gentle reactions to completion, mood selection, and button presses, respecting both app and system reduced-motion settings.
+- Kept stickers self-contained in offline HTML exports and added browser coverage on desktop, phone, Persian, English, dark theme, and reduced motion.
+- Added portable GitHub Actions browser checks and screenshot artifacts.
+
+## 5.3.0 — 2026-10-23
+Branch: claude/project-thread-xnja7m
+- Lanes no longer draw any lines. Each card is now a section that holds its own steps, feelings and linked notes, so what belongs together is shown by placement.
+- Cards in Lanes have a fixed width instead of growing with their hours; time is shown as text and can be changed in the card details panel.
+- Free feelings and free notes get their own "Feelings" and "Notes" sections in Lanes.
+- Drag a note or feeling onto a card to attach it; drag it out of the card to detach it. Steps and attached items move with their card.
+- Notes resize from both bottom corners (Shift keeps the shape), show their size while resizing, and fit their text on double-click of a handle.
+- Notes moved in Lanes keep their own place there and no longer jump around in the mind map.
+
+## 5.2.0 — 2026-10-23
+Branch: claude/project-thread-xnja7m
+- Board steps now show their whole text, wrap onto more lines, and read clearly as steps ("Step 1/3" label and a checkbox).
+- Selecting a card opens a details panel with its category, note, steps (tick them there) and linked notes and feelings. It can be hidden.
+- Added "Step" to the selection bar, so a step can be added without zooming in.
+- When zoomed out, hovering or selecting a card shows its buttons at a usable size instead of hiding them.
+- Block cards in the mind map show their category name.
+- Shortcuts (Ctrl/Cmd+Z, Y, C, X, V, D, G, A, Ctrl+K, Alt+M and tool keys) now work with the Persian keyboard layout.
+
 ## 5.1.0 — 2026-10-23
 Branch: feat/board-interaction-controls
 - Added contextual right-click menus with icons, keyboard navigation, clipboard actions, alignment, grouping, locking, and layer order.

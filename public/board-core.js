@@ -32,6 +32,16 @@ export const DDboardCore = {
     "#FF9E42",
     "#FFC943",
   ],
+  // Shortcuts follow the physical key, so Persian and other layouts work too.
+  shortcutKey(event) {
+    const key = String(event?.key || "");
+    if (/^[\x20-\x7e]$/.test(key)) return key.toLowerCase();
+    const code = String(event?.code || "");
+    if (/^Key[A-Z]$/.test(code)) return code.slice(3).toLowerCase();
+    if (/^Digit\d$/.test(code)) return code.slice(5);
+    if (key === "؟") return "?";
+    return key.length === 1 ? key.toLowerCase() : key;
+  },
   digits(value) {
     return String(value)
       .replace(/[۰-۹٠-٩]/g, (char) => String(char.charCodeAt(0) % 16))
@@ -285,11 +295,16 @@ export const DDboardCore = {
     let changed = false;
     for (const node of nodes) {
       const p = positions[node.id];
-      if (!p || locked.has(node.id) || (node.x === p.x && node.y === p.y))
+      if (
+        !p ||
+        node.memberOf ||
+        locked.has(node.id) ||
+        (node.x === p.x && node.y === p.y)
+      )
         continue;
       const x = clamp(finite(p.x, node.x), -100000, 100000),
         y = clamp(finite(p.y, node.y), -100000, 100000);
-      if (node.noteId) {
+      if (node.noteId && mode !== "lanes") {
         const note = next.notes.find((n) => n.id === node.noteId);
         if (note) {
           note.x = x;

@@ -72,10 +72,21 @@ const { start, fixture } = require("./harness.cjs");
     const zoom = p.getByRole("textbox", { name: "Zoom percentage", exact: true });
     await zoom.fill("125"); await zoom.press("Enter");
     await p.waitForFunction(() => document.querySelector(".b2-viewport").dataset.zoom === "1.25");
+    // Original vectors and the picker stay usable in the self-contained file.
+    await p.locator(".views button").nth(0).click();
+    await p.locator("#plan .dd-sticker-add").click();
+    await p.locator('dialog[open] [data-choice="sticker:orbit"]').click();
+    await p.waitForFunction(date=>JSON.parse(localStorage.getItem("debug-day:v2")).days[date].notes.some(n=>n.text==="sticker:orbit"),f.date);
+    const stickerId=await p.evaluate(date=>JSON.parse(localStorage.getItem("debug-day:v2")).days[date].notes.find(n=>n.text==="sticker:orbit").id,f.date);
+    await p.reload();
+    await p.locator(".views button").nth(0).click();
+    await p.locator('[data-day-sticker="'+stickerId+'"] svg.dd-sticker-art').waitFor();
+    await p.locator(".views button").nth(1).click();
+    await p.locator('[data-board-id="sticky:'+stickerId+'"] [data-symbol="sticker:orbit"] svg').waitFor();
     assert.deepEqual(offlineErrors, []);
     await offline.close();
     console.log(
-      "Standalone HTML works without network: search, calendar, feelings, save and reload",
+      "Standalone HTML works without network: search, calendar, feelings, animated stickers, save and reload",
     );
   } finally {
     await h.stop();
