@@ -128,9 +128,17 @@ async function scenario(h,mobile,language){
     await page.getByRole("button",{name:t("Stickers & emoji","استیکر و ایموجی"),exact:true}).click();
     await dialog().waitFor();await within(dialog());await page.keyboard.press("Escape");
 
+    if(mobile) await page.evaluate(()=>{
+      window.__touchTrace=[];
+      for(const type of ["pointerdown","pointerup","pointercancel","click","dblclick"])document.addEventListener(type,e=>{
+        const el=e.target;
+        window.__touchTrace.push({type,pointer:e.pointerType,target:el.tagName+"."+el.className,ref:el.closest?.("[data-board-id]")?.dataset.boardId,port:el.closest?.("[data-port]")?.dataset.port,x:e.clientX,y:e.clientY,selected:[...document.querySelectorAll(".b4-node.selected")].map(n=>n.dataset.boardId)});
+      },true);
+    });
     // Replacing from the board keeps the same object and its persisted size.
     if(mobile){
       await node().tap();
+      await page.waitForFunction(id=>document.querySelector('[data-board-id="sticky:'+id+'"]')?.classList.contains("selected"),id);
       await page.getByRole("button",{name:t("Zoom to selection","زوم روی انتخاب"),exact:true}).click();
       await node().tap();await node().tap();
     }else await node().dblclick();
@@ -198,6 +206,7 @@ async function scenario(h,mobile,language){
     assert.deepEqual(errors,[]);
     console.log("Playful interactions:",language,mobile?"phone":"desktop","passed");
   }catch(error){
+    console.error("Touch event trace:",await page.evaluate(()=>window.__touchTrace||[]));
     console.error("Playful failure context:",language,mobile,await page.locator("body").innerText().then(s=>s.slice(-4500)),errors);
     const preview=await page.screenshot({path:join(screenshots,"playful-failure-"+language+"-"+mobile+".png"),type:"png"});
     const jpeg=await page.screenshot({type:"jpeg",quality:35});

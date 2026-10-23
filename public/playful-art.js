@@ -122,4 +122,10 @@ html[data-reduce-motion=true] .dd-playful-burst{display:none}html[data-reduce-mo
 
 .dd-current-task h2 .dd-playful-emoji{margin-inline-end:8px;vertical-align:middle}
 .dd-review-task-name .dd-playful-emoji{margin-inline-end:6px;vertical-align:middle}
+
+@media(max-width:700px){
+  .b6 .b2-dock{gap:4px;overscroll-behavior-x:contain;scroll-padding-inline:6px}
+  .b6 .b2-dock>.b2-icon{flex:0 0 46px;min-width:46px;padding:3px 4px;min-height:44px}
+  .b6 .b2-dock .dd-btn-label{font-size:10px!important;line-height:12px!important;letter-spacing:0;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+}
 `;
