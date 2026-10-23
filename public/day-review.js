@@ -301,6 +301,8 @@ const DDreviewCategories = [
   ["creative", "Starting & ideas", "شروع و ایده‌ها"],
   ["energy", "Energy & rest", "انرژی و استراحت"],
 ];
+// The same topics name feelings on the Board.
+export const DDfeelingTopics = DDreviewCategories;
 const DDreviewMoods = [
   ["😫", "A hard day", "روز سخت"],
   ["😕", "Not great", "چندان خوب نیست"],
