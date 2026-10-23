@@ -2,6 +2,15 @@
 
 Every change gets an entry here: version, date, branch, and what changed. Newest first. See `CLAUDE.md` for the rules.
 
+## 5.4.0 — 2026-10-23
+Branch: claude/project-thread-xnja7m
+- Cards can be measured by time, by times ("3 times", with a tally to tap) or as waiting (like waiting for an email reply). Only timed cards use up hours in the day.
+- Pick the measure in Plan's card editor or in the Board card details panel; it shows the same everywhere (Plan, Board, Lanes, Calendar, search).
+- Quick add understands "3x", "3 times", "۳ بار" or "دفعه" for counted cards, and "⏳", "منتظر…" or "waiting for…" for waiting cards.
+- Waiting cards show since when you have been waiting and have an "Arrived" button. Ticking a counted card fills its tally.
+- New days from a template start counted cards at zero.
+- Fixed a stray "0" showing on Board cards without hours.
+
 ## 5.3.0 — 2026-10-23
 Branch: claude/project-thread-xnja7m
 - Lanes no longer draw any lines. Each card is now a section that holds its own steps, feelings and linked notes, so what belongs together is shown by placement.
