@@ -208,7 +208,9 @@ export function DDCaptureTools({
 }) {
   const h = R.createElement,
     fa = language === "fa",
-    t = (en, fr) => (fa ? fr : en);
+    t = (en, fr) => (fa ? fr : en),
+    reviewingDay = view === "calendar" || view === "stats",
+    defaultCaptureDay = reviewingDay ? date : today;
   const [panel, setPanel] = R.useState(null),
     [kind, setKind] = R.useState("task"),
     [text, setText] = R.useState(""),
@@ -244,11 +246,17 @@ export function DDCaptureTools({
   R.useEffect(() => {
     const open = (event) => {
       if (event.detail === "worry") setPanel("worries");
-      else if (event.detail === "capture") setPanel("capture");
+      else if (event.detail === "capture") {
+        setTarget(defaultCaptureDay);
+        setPanel("capture");
+      } else if (event.detail === "full-day") {
+        setDetails(true);
+        DDcaptureRemember("debug-day:today-details", true);
+      }
     };
     window.addEventListener("debug-day-open-capture", open);
     return () => window.removeEventListener("debug-day-open-capture", open);
-  }, []);
+  }, [defaultCaptureDay]);
   R.useEffect(() => {
     if (!panel) return;
     opener.current = document.activeElement;
@@ -557,7 +565,7 @@ export function DDCaptureTools({
           "ثبت سریع: کار، نگرانی یا حس",
         ),
         onClick: () => {
-          setTarget(today);
+          setTarget(defaultCaptureDay);
           setPanel("capture");
         },
       },
@@ -627,7 +635,7 @@ export function DDCaptureTools({
                         onClick: () => {
                           setKind(id);
                           if (id !== "task" && target === "later")
-                            setTarget(today);
+                            setTarget(defaultCaptureDay);
                           entry.current?.focus();
                         },
                       },
@@ -696,6 +704,10 @@ export function DDCaptureTools({
                         "aria-label": t("Capture day", "روز ثبت"),
                       },
                       h("option", { value: today }, t("Today", "امروز")),
+                      reviewingDay &&
+                        date !== today &&
+                        date !== DDcaptureTomorrow(today) &&
+                        h("option", { value: date }, t("Selected day", "روز انتخاب‌شده") + " · " + date),
                       h(
                         "option",
                         { value: DDcaptureTomorrow(today) },

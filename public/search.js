@@ -575,7 +575,7 @@ const DDcommandNames = {
   "cmd-iso-lab": ["Isolate app changes", "فقط تغییرات اپ"],
   "cmd-iso-board": ["Open board", "باز کردن برد"],
   "cmd-cal": ["Open calendar", "باز کردن تقویم"],
-  "cmd-stats": ["Open charts", "باز کردن نمودارها"],
+  "cmd-stats": ["Open feelings", "باز کردن احساسات"],
 };
 function DDsearchStored(key, fallback) {
   try {
@@ -663,9 +663,15 @@ export function DDCommandPalette(props) {
       detail: lane ? "@" + lane.id : "",
       group: command.id === "cmd-iso-clear" ? "actions" : "goto",
       searchText: DDsearchText(
-        [command.title, command.subtitle, ...names, lane?.name, lane?.id].join(
-          " ",
-        ),
+        [
+          command.id,
+          command.title,
+          command.subtitle,
+          ...names,
+          command.id === "cmd-stats" ? "charts mood نمودار حال" : "",
+          lane?.name,
+          lane?.id,
+        ].join(" "),
       ),
     };
   });
