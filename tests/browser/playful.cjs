@@ -18,7 +18,7 @@ async function scenario(h,mobile,language){
   await page.reload();await page.waitForSelector("#qa",{state:"attached"});
   const nav=async index=>{await page.locator(".views button").nth(index).click();};
   const dialog=()=>page.locator("dialog.dd-sticker-dialog[open]");
-  const openDay=async()=>{await page.locator("#plan .dd-day-stickers .dd-sticker-add").click();await dialog().waitFor();};
+  const openDay=async()=>{await page.locator(".dd-day-stickers .dd-sticker-add:visible").first().click();await dialog().waitFor();};
   const choose=value=>dialog().locator('[data-choice="'+value+'"]');
   const within=async locator=>{
     const b=await locator.boundingBox(),v=page.viewportSize();
@@ -39,7 +39,7 @@ async function scenario(h,mobile,language){
     assert.equal(await choose("sticker:cloud").count(),1);
     await page.keyboard.press("Escape");await dialog().waitFor({state:"hidden"});
     assert.equal(JSON.stringify(await read(page,f.date)),baseline,"browsing does not edit a day");
-    assert.equal(await page.locator("#plan .dd-sticker-add").evaluate(el=>el===document.activeElement),true);
+    assert.equal(await page.locator(".dd-sticker-add:visible").first().evaluate(el=>el===document.activeElement),true);
     await openDay();
     assert.equal(await dialog().getByRole("button",{name:t("Favorite Cloud break","علاقه‌مندی ابر آروم"),exact:true}).getAttribute("aria-pressed"),"true");
     await choose("sticker:spark").focus();await page.keyboard.press("ArrowRight");
@@ -54,7 +54,7 @@ async function scenario(h,mobile,language){
     await page.waitForFunction(date=>JSON.parse(localStorage.getItem("debug-day:v2")).days[date].notes.some(n=>n.text==="sticker:spark"),f.date);
     let day=await read(page,f.date),symbol=day.notes.find(n=>n.text==="sticker:spark"),id=symbol.id;
     assert.match(symbol.label,/Little spark.*جرقه/);assert.equal(day.notes.length,2);
-    const shelf=page.locator('#plan [data-day-sticker="'+id+'"]');
+    const shelf=page.locator('[data-day-sticker="'+id+'"]:visible').first();
     await shelf.locator(".dd-sticker-character").waitFor();
     await page.waitForFunction(id=>{
       const el=document.querySelector('[data-day-sticker="'+id+'"] .dd-sticker-character');
@@ -65,7 +65,7 @@ async function scenario(h,mobile,language){
     await choose("sticker:studio").click();
     await page.waitForFunction(date=>JSON.parse(localStorage.getItem("debug-day:v2")).days[date].blocks[0].emo==="sticker:studio",f.date);
     assert.equal((await read(page,f.date)).notes.length,2,"task icon adds no duplicate day note");
-    await page.locator('[data-block-id="writing"] .dd-playful-emoji[data-symbol="sticker:studio"]').first().waitFor();
+    await page.locator('[data-block-id="writing"] .dd-playful-emoji[data-symbol="sticker:studio"]:visible,[data-playful-task="writing"] .dd-playful-emoji[data-symbol="sticker:studio"]:visible').first().waitFor();
 
     await openDay();
     await dialog().locator(".dd-sticker-motion").click();
@@ -79,7 +79,8 @@ async function scenario(h,mobile,language){
     await page.emulateMedia({reducedMotion:"no-preference"});
     await page.keyboard.press("Escape");
 
-    await page.locator('[data-block-id="writing"] .rn, .cap-item[data-block-id="writing"]').first().click();
+    if(mobile) await page.locator(".dd-current-task>.textbtn").click();
+    else await page.locator('[data-block-id="writing"] .rn, .cap-item[data-block-id="writing"]').first().click();
     await page.locator(".dd-task-sticker>button").click();
     await choose("sticker:heart").click();
     assert.equal((await read(page,f.date)).blocks[0].emo,"sticker:heart");
@@ -161,6 +162,12 @@ async function scenario(h,mobile,language){
     await page.locator('#plan [data-day-sticker="'+id+'"] .dd-day-sticker-remove').click();
     assert.equal((await read(page,f.date)).notes.some(n=>n.id===id),false);
     await nav(1);assert.equal(await node().count(),0);
+    if(mobile){
+      await nav(0);await page.locator(".dd-today-heading button").click();
+      const count=await page.evaluate(()=>window.__bursts);
+      await page.locator('[data-playful-task="writing"] [data-playful-complete]').click();
+      await page.waitForFunction(count=>window.__bursts===count+1,count);
+    }
     assert.equal((await read(page,f.date)).blocks[0].emo,"sticker:heart");
     assert.deepEqual(errors,[]);
     console.log("Playful interactions:",language,mobile?"phone":"desktop","passed");

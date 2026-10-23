@@ -107,9 +107,9 @@ export function DDcreatePlayful({React:R,Legacy,Art,styles,language}){
       function click(event){
         const button=event.target.closest('button,[role=checkbox],[role=button]');
         if(!button||button.disabled)return;
-        const label=button.getAttribute('aria-label')||'',node=button.closest('[data-board-id]'),row=button.closest('[data-block-id],[data-review-task]');
-        if(!button.matches('.b4-node-icon')&&!/^Mark |^Toggle /.test(label)&&!button.matches('[role=checkbox],.sq[aria-pressed],.subnode-check,.dd-review-check,.dd-card-steps button[aria-pressed]'))return;
-        let blockId=row?.dataset.blockId||row?.dataset.reviewTask;
+        const label=button.getAttribute('aria-label')||'',node=button.closest('[data-board-id]'),row=button.closest('[data-block-id],[data-review-task],[data-playful-task]');
+        if(!button.matches('.b4-node-icon')&&!/^Mark |^Toggle /.test(label)&&!button.matches('[role=checkbox],.sq[aria-pressed],.subnode-check,.dd-review-check,[data-playful-complete],.dd-card-steps button[aria-pressed]'))return;
+        let blockId=row?.dataset.blockId||row?.dataset.reviewTask||row?.dataset.playfulTask;
         if(node){const parts=node.dataset.boardId.split(':');if(parts[0]==='b'||parts[0]==='sub')blockId=parts[1];}
         if(!blockId)return;
         const rect=button.getBoundingClientRect();
@@ -145,6 +145,11 @@ export function DDcreatePlayful({React:R,Legacy,Art,styles,language}){
     function keyboard(event){
       event.stopPropagation();
       if(event.key==='Escape'){event.preventDefault();onClose();return;}
+      const tabs=[...dialog.current.querySelectorAll('[role=tab]')],tabIndex=tabs.indexOf(event.target);
+      if(tabIndex>=0&&['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){
+        event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?1:(tabIndex+(event.key==='ArrowRight'?(fa?-1:1):(fa?1:-1))+2)%2;
+        setTab(next?'emoji':'sticker');setFilter('all');tabs[next]?.focus();return;
+      }
       const buttons=[...dialog.current.querySelectorAll('[data-choice]')],index=buttons.indexOf(event.target);
       if(index>=0&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(event.key)){
         event.preventDefault();const grid=dialog.current.querySelector('.dd-sticker-grid'),columns=getComputedStyle(grid).gridTemplateColumns.split(' ').length;
@@ -159,7 +164,7 @@ export function DDcreatePlayful({React:R,Legacy,Art,styles,language}){
       h('header',{className:'dd-sticker-heading'},h('div',null,h('h2',null,title||t('A little personality','کمی حال‌وهوای خودت')),h('p',null,t('Make room for a little play. Pick one that feels like you.','کمی جا برای بازی. یکی را انتخاب کن که شبیه حال توست.'))),h('button',{type:'button',className:'dd-playful-close','aria-label':t('Close sticker library','بستن کتابخانهٔ استیکر'),onClick:onClose},'×')),
       h('div',{className:'dd-sticker-toolbar'},
         h('div',{className:'dd-sticker-tabs',role:'tablist','aria-label':t('Symbol type','نوع نماد')},[['sticker','Stickers','استیکرها'],['emoji','Emoji','ایموجی‌ها']].map(([value,en,fa])=>h('button',{type:'button',key:value,role:'tab','aria-selected':tab===value,onClick:()=>{setTab(value);setFilter('all');}},t(en,fa)))),
-        h('label',{className:'dd-sticker-search'},h('span',{'aria-hidden':true},'⌕'),h('input',{ref:searchInput,type:'search',dir:'auto',value:query,'aria-label':t('Find stickers or emoji','جستجوی استیکر یا ایموجی'),placeholder:t('Search a feeling, color, or idea…','یک حس، رنگ یا ایده را پیدا کن…'),onChange:event=>setQuery(event.target.value)})),
+        h('label',{className:'dd-sticker-search'},h('span',{'aria-hidden':true},'⌕'),h('input',{ref:searchInput,type:'search',dir:'auto',value:query,'aria-label':t('Find stickers or emoji','جستجوی استیکر یا ایموجی'),placeholder:t('Search a feeling or idea…','یک حس یا ایده را پیدا کن…'),onChange:event=>setQuery(event.target.value)})),
         h('div',{className:'dd-sticker-filters',role:'group','aria-label':t('Sticker filters','فیلتر استیکر')},[['all','All','همه'],['favorites','Favorites','علاقه‌مندی‌ها'],['recent','Recent','اخیر'],['create','Create','ساختن'],['calm','Slow down','آروم‌تر'],...(tab==='emoji'?[['play','Play','بازی']]:[])].map(([value,en,fa])=>h('button',{type:'button',key:value,'aria-pressed':filter===value,onClick:()=>setFilter(value)},t(en,fa)))),
         targets.length>0&&h('label',{className:'dd-sticker-target'},t('Use it for','برای'),h('select',{'aria-label':t('Sticker destination','جای استیکر'),value:target,onChange:event=>setTarget(event.target.value)},h('option',{value:''},t('A sticker on this day','استیکرِ این روز')),targets.map(task=>h('option',{key:task.id,value:task.id},task.name||t('Untitled task','کار بی‌نام')))))
       ),

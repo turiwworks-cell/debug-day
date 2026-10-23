@@ -235,6 +235,7 @@ export function DDbuildSearchIndex(data, today) {
         kind: "note",
         date,
         title: note.label || note.text,
+        extra: note.kind === "emoji" ? note.text : undefined,
         detail: date,
         done: false,
         group: "notes",
