@@ -16,8 +16,64 @@ export function DDfeedbackText(note) {
   const replies = (note?.thread || []).map((reply) => "  · " + reply.text);
   return [note?.text || "", ...replies].join("\n");
 }
-export function DDbugText(bug) {
-  return (bug?.text || "") + (bug?.antidote ? "\n  → " + bug.antidote : "");
+export function DDbugColor(bug) {
+  if (bug?.color) return bug.color;
+  return bug?.category === "inner"
+    ? "#7A5FF5"
+    : bug?.category === "energy"
+      ? "#E0A400"
+      : bug?.category === "creative"
+        ? "#1C9AA6"
+        : "#D9434A";
+}
+function DDfindStep(list, id) {
+  for (const step of list || []) {
+    if (step.id === id) return step.text || "";
+    const found = DDfindStep(step.children, id);
+    if (found) return found;
+  }
+  return "";
+}
+export function DDnodeTitle(day, lanes, id) {
+  const [kind, first = "", second = ""] = String(id || "").split(":");
+  if (kind === "day") return day?.focus || day?.date || "";
+  if (kind === "b") return day?.blocks?.find((b) => b.id === first)?.name || "";
+  if (kind === "sub")
+    return DDfindStep(day?.blocks?.find((b) => b.id === first)?.subtasks, second);
+  if (kind === "sticky")
+    return (day?.notes?.find((n) => n.id === first)?.text || "").slice(0, 60);
+  if (kind === "lane") return lanes?.find((l) => l.id === first)?.name || "";
+  if (kind === "bug") return day?.bugs?.find((b) => b.id === first)?.text || "";
+  return "";
+}
+// What a feeling was connected to on the board, with the "how" written on the line.
+export function DDbugEffects(day, lanes, bugId) {
+  const ref = "bug:" + bugId;
+  return (day?.canvas?.board4?.links || [])
+    .filter((link) => link.from === ref || link.to === ref)
+    .map((link) => ({
+      title: DDnodeTitle(day, lanes, link.from === ref ? link.to : link.from),
+      label: (link.label || "").trim(),
+    }))
+    .filter((effect) => effect.title);
+}
+export function DDeffectsText(effects, language) {
+  if (!effects?.length) return "";
+  return (
+    (language === "fa" ? "روی این اثر گذاشت: " : "Affected: ") +
+    effects
+      .map((e) => e.title + (e.label ? " (" + e.label + ")" : ""))
+      .join(language === "fa" ? "، " : ", ")
+  );
+}
+export function DDbugText(bug, effects = []) {
+  return (
+    (bug?.text || "") +
+    (bug?.antidote ? "\n  → " + bug.antidote : "") +
+    effects
+      .map((e) => "\n  ↳ " + e.title + (e.label ? ": " + e.label : ""))
+      .join("")
+  );
 }
 export function DDlistText(texts) {
   return texts
