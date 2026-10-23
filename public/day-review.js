@@ -9,6 +9,12 @@ export function DDreviewValidDate(date) {
   const value = new Date(date + "T12:00:00Z");
   return Number.isFinite(+value) && value.toISOString().slice(0, 10) === date;
 }
+// Counted and waiting cards take no minutes from the day.
+function DDreviewMinutes(block) {
+  return block?.measure === "count" || block?.measure === "wait"
+    ? 0
+    : Number(block?.min) || 0;
+}
 export function DDreviewShift(date, amount) {
   const value = new Date(date + "T12:00:00Z");
   value.setUTCDate(value.getUTCDate() + amount);
@@ -114,12 +120,12 @@ export function DDreviewSummary(day = {}, setup = {}) {
     tasks: blocks.length,
     completed: blocks.filter((block) => block.done).length,
     plannedMinutes: planned.reduce(
-      (sum, block) => sum + (Number(block.min) || 0),
+      (sum, block) => sum + DDreviewMinutes(block),
       0,
     ),
     doneMinutes: planned
       .filter((block) => block.done)
-      .reduce((sum, block) => sum + (Number(block.min) || 0), 0),
+      .reduce((sum, block) => sum + DDreviewMinutes(block), 0),
     parked: blocks.length - planned.length,
     feelings: (day.bugs || []).length,
     openFeelings: (day.bugs || []).filter((bug) => !bug.fixed).length,
@@ -1209,8 +1215,11 @@ function DDReviewTasks({
           h(
             "span",
             { className: "dd-review-minutes" },
-            n(block.min),
-            t(" min", " دقیقه"),
+            block.measure === "count"
+              ? n(block.count || 0) + "/" + n(block.times || 1) + t(" times", " بار")
+              : block.measure === "wait"
+                ? t("Waiting", "در انتظار")
+                : n(block.min) + t(" min", " دقیقه"),
           ),
         ),
         h(

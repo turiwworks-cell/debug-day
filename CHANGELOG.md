@@ -2,7 +2,7 @@
 
 Every change gets an entry here: version, date, branch, and what changed. Newest first. See `CLAUDE.md` for the rules.
 
-## 5.4.0 — 2026-10-23
+## 5.5.0 — 2026-10-23
 Branch: feat/animated-stickers-interactions
 - Added eight original animated vector stickers and a bilingual emoji library with search, favorites, recent picks, and keyboard navigation.
 - Day stickers and task icons share the existing planner data across Plan, Board, Lanes, Calendar, and Feelings; changes and removals stay in sync.
@@ -10,6 +10,15 @@ Branch: feat/animated-stickers-interactions
 - Added gentle reactions to completion, mood selection, and button presses, respecting both app and system reduced-motion settings.
 - Kept stickers self-contained in offline HTML exports and added browser coverage on desktop, phone, Persian, English, dark theme, and reduced motion.
 - Added portable GitHub Actions browser checks and screenshot artifacts.
+
+## 5.4.0 — 2026-10-23
+Branch: claude/project-thread-xnja7m
+- Cards can be measured by time, by times ("3 times", with a tally to tap) or as waiting (like waiting for an email reply). Only timed cards use up hours in the day.
+- Pick the measure in Plan's card editor or in the Board card details panel; it shows the same everywhere (Plan, Board, Lanes, Calendar, search).
+- Quick add understands "3x", "3 times", "۳ بار" or "دفعه" for counted cards, and "⏳", "منتظر…" or "waiting for…" for waiting cards.
+- Waiting cards show since when you have been waiting and have an "Arrived" button. Ticking a counted card fills its tally.
+- New days from a template start counted cards at zero.
+- Fixed a stray "0" showing on Board cards without hours.
 
 ## 5.3.0 — 2026-10-23
 Branch: claude/project-thread-xnja7m

@@ -324,7 +324,7 @@ const { start, fixture } = require("./harness.cjs");
         await within();
         await page.screenshot({
           path:
-            "/workspace/scratch/56babe5c4b81/qa/menu-" +
+            screenshots + "/menu-" +
             language +
             "-" +
             (mobile ? "phone" : "desktop") +

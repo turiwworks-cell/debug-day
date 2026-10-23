@@ -174,7 +174,11 @@ export function DDbuildSearchIndex(data, today) {
           date,
           types.get(block.type) || block.type,
           lanes.get(block.lane),
-          block.min + "m",
+          block.measure === "count"
+            ? (block.count || 0) + "/" + (block.times || 1) + "×"
+            : block.measure === "wait"
+              ? "⏳"
+              : block.min + "m",
         ]
           .filter(Boolean)
           .join(" · "),
@@ -369,6 +373,11 @@ export function DDsetTaskDone(block, done) {
   const next = structuredClone(block);
   next.done = !!done;
   DDsetSubDone(next.subtasks, next.done);
+  // A counted card ("3 times") fills its tally when ticked, and opens one back up when unticked.
+  if (next.measure === "count") {
+    const times = Math.max(1, Math.min(99, Math.round(+next.times || 1)));
+    next.count = next.done ? times : Math.min(Math.round(+next.count || 0), times - 1);
+  }
   return next;
 }
 export function DDtoggleSubtask(block, id) {
