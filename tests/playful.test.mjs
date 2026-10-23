@@ -105,3 +105,13 @@ test("offline bundling can inline both sticker modules without nested imports", 
     assert.doesNotMatch(module,/^\s*import\s/m);
   }
 });
+
+test("day additions find free space while an explicit board position stays exact", () => {
+  const old=day();old.notes[0].x=80;old.notes[0].y=80;
+  const first=symbols.put(old,"sticker:cloud",{id:"one"}),second=symbols.put(first,"sticker:heart",{id:"two"});
+  const a=second.notes.find(n=>n.id==="one"),b=second.notes.find(n=>n.id==="two");
+  assert.ok(a.x>=316||a.y>=256,"a new sticker leaves space around the existing note");
+  assert.ok(a.x+128<=b.x||b.x+128<=a.x||a.y+128<=b.y||b.y+128<=a.y,"day stickers do not pile on each other");
+  const explicit=symbols.put(second,"✨",{id:"here",x:80,y:80}).notes.at(-1);
+  assert.equal(explicit.x,80);assert.equal(explicit.y,80);
+});

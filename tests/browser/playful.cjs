@@ -116,7 +116,11 @@ async function scenario(h,mobile,language){
     await dialog().waitFor();await within(dialog());await page.keyboard.press("Escape");
 
     // Replacing from the board keeps the same object and its persisted size.
-    await node().dblclick({force:true});
+    if(mobile){
+      await node().tap();
+      await page.locator('.b2-icon[aria-label="Zoom to selection"]').click();
+      await node().tap();await node().tap();
+    }else await node().dblclick();
     await dialog().waitFor();assert.equal(await choose("sticker:spark").getAttribute("aria-pressed"),"true");
     await choose("sticker:cloud").click();
     await page.waitForFunction(({date,id})=>JSON.parse(localStorage.getItem("debug-day:v2")).days[date].notes.find(n=>n.id===id).text==="sticker:cloud",{date:f.date,id});
@@ -131,6 +135,14 @@ async function scenario(h,mobile,language){
       await node().click({force:true});await page.keyboard.press("Control+d");
       await page.waitForFunction(date=>JSON.parse(localStorage.getItem("debug-day:v2")).days[date].notes.length===3,f.date);
       assert.equal((await read(page,f.date)).notes.at(-1).text,"sticker:cloud");
+      await page.getByRole("button",{name:"Undo",exact:true}).click();
+      assert.equal((await read(page,f.date)).notes.length,2);
+      const viewport=await page.locator(".b2-viewport").boundingBox();
+      await page.mouse.click(viewport.x+viewport.width-25,Math.min(viewport.y+viewport.height-100,page.viewportSize().height-120),{button:"right"});
+      await page.getByRole("menuitem",{name:"Add sticker / emoji here",exact:true}).click();
+      await choose("sticker:coffee").click();
+      await page.waitForFunction(date=>JSON.parse(localStorage.getItem("debug-day:v2")).days[date].notes.length===3,f.date);
+      assert.equal((await read(page,f.date)).notes.at(-1).text,"sticker:coffee");
       await page.getByRole("button",{name:"Undo",exact:true}).click();
       assert.equal((await read(page,f.date)).notes.length,2);
       const pending=page.waitForEvent("download");

@@ -36,9 +36,18 @@ export const DDplayfulData = {
     if(!options.replace&&existing)return day;
     if(existing?.text===value)return day;
     const label=this.label(value,'en')+' · '+this.label(value,'fa');
-    const number=n=>Number.isFinite(n)?Math.max(-100000,Math.min(100000,n)):80;
-    const note=existing?{...existing,text:value,label}:{id,kind:'emoji',text:value,label,x:number(options.x),y:number(options.y),color:'#FFFFFF'};
     const board=day.canvas?.board4||{},ref='sticky:'+id,size=this.isSticker(value)?128:76;
+    const number=n=>Number.isFinite(n)?Math.max(-100000,Math.min(100000,n)):80;
+    let origin={x:80,y:80};
+    if(!existing&&(!Number.isFinite(options.x)||!Number.isFinite(options.y))){
+      const occupied=(day.notes||[]).map(note=>({x:number(note.x),y:number(note.y),w:board.styles?.['sticky:'+note.id]?.width||(note.kind==='emoji'?128:220),h:board.styles?.['sticky:'+note.id]?.height||(note.kind==='emoji'?128:160)}));
+      for(let index=0;index<1024;index++){
+        const x=80+(index%5)*(size+24),y=80+Math.floor(index/5)*(size+24);
+        origin={x,y};
+        if(!occupied.some(note=>x<note.x+note.w+16&&x+size+16>note.x&&y<note.y+note.h+16&&y+size+16>note.y))break;
+      }
+    }
+    const note=existing?{...existing,text:value,label}:{id,kind:'emoji',text:value,label,x:number(options.x??origin.x),y:number(options.y??origin.y),color:'#FFFFFF'};
     const styles={...board.styles,[ref]:{width:size,height:size,...board.styles?.[ref]}};
     return {...day,notes:existing?day.notes.map(n=>n.id===id?note:n):[...(day.notes||[]),note],canvas:{...day.canvas,board4:{...board,styles}}};
   },
