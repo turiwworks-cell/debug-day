@@ -20,6 +20,7 @@ export function DDcreateBoard(deps) {
     z,
   } = deps;
   const { core, controls } = deps;
+  const measure = deps.measure;
   let sharedClipboard = null;
   return function BoardWorkspace({
     day: day,
@@ -434,13 +435,13 @@ export function DDcreateBoard(deps) {
             kind: "block",
             title: block.name || DDUI("Untitled"),
             subtitle:
-              w(block.min) +
+              measure.DDmeasureText(block, DDlanguage, w) +
               " \xB7 " +
               DDUI(type.name) +
               (stats.total
                 ? ` \xB7 ${stats.done}/${stats.total} ${t("steps", "قدم")}`
                 : ""),
-            min: block.min,
+            min: measure.DDmeasureOf(block) === "time" ? block.min : 0,
             done: block.done,
             emoji: block.emo || type.emo,
             icon: type.icon,
@@ -517,7 +518,9 @@ export function DDcreateBoard(deps) {
           id: `lane:${lane.id || "parked"}`,
           kind: "frame",
           title: lane.name || DDUI("Lane"),
-          subtitle: w(blocks.reduce((sum, block) => sum + block.min, 0)),
+          subtitle: w(
+            blocks.reduce((sum, block) => sum + measure.DDplanMinutes(block), 0),
+          ),
           laneId: lane.id,
           color: "#4A4843",
           textColor: "#fff",
@@ -757,13 +760,13 @@ export function DDcreateBoard(deps) {
                 kind: "block",
                 title: Fn.name || DDUI("Untitled"),
                 subtitle:
-                  w(Fn.min) +
+                  measure.DDmeasureText(Fn, DDlanguage, w) +
                   " \xB7 " +
                   DDUI(Dl.name) +
                   (Pa.total
                     ? ` \xB7 ${Pa.done}/${Pa.total} ${t("steps", "\u0642\u062F\u0645")}`
                     : ""),
-                min: Fn.min,
+                min: measure.DDmeasureOf(Fn) === "time" ? Fn.min : 0,
                 done: Fn.done,
                 emoji: Fn.emo || Dl.emo,
                 icon: Dl.icon,
@@ -787,7 +790,7 @@ export function DDcreateBoard(deps) {
               id: Oa,
               kind: "lane",
               title: ma.name || DDUI("Parked"),
-              subtitle: w(Pl.reduce((Fn, Ga) => Fn + Ga.min, 0)),
+              subtitle: w(Pl.reduce((Fn, Ga) => Fn + measure.DDplanMinutes(Ga), 0)),
               laneId: ma.id,
               parentId: "day:root",
               color: "#4A4843",
@@ -2703,10 +2706,10 @@ export function DDcreateBoard(deps) {
       ));
     const plannedMinutes = day.blocks
         .filter(isScheduled)
-        .reduce((Y, G) => Y + G.min, 0),
+        .reduce((Y, G) => Y + measure.DDplanMinutes(G), 0),
       doneMinutes = day.blocks
         .filter((Y) => isScheduled(Y) && Y.done)
-        .reduce((Y, G) => Y + G.min, 0),
+        .reduce((Y, G) => Y + measure.DDplanMinutes(G), 0),
       completion = plannedMinutes
         ? Math.round((doneMinutes / plannedMinutes) * 100)
         : 0;
@@ -3110,16 +3113,19 @@ export function DDcreateBoard(deps) {
                               _.createElement(
                                 "b",
                                 { "data-duration": !0 },
-                                Y.min ? w(Y.min) : Y.subtitle,
+                                Y.min
+                                  ? w(Y.min)
+                                  : Y.subtitle.split(" \xB7 ")[0],
                               ),
-                              Y.min &&
-                                _.createElement(
-                                  "span",
-                                  null,
-                                  Y.subtitle
-                                    .replace(w(Y.min), "")
-                                    .replace(/^ · /, ""),
-                                ),
+                              _.createElement(
+                                "span",
+                                null,
+                                Y.min
+                                  ? Y.subtitle
+                                      .replace(w(Y.min), "")
+                                      .replace(/^ · /, "")
+                                  : Y.subtitle.split(" \xB7 ").slice(1).join(" \xB7 "),
+                              ),
                             ),
                         ),
               ),
@@ -3343,6 +3349,12 @@ export function DDcreateBoard(deps) {
               bug.on.toLowerCase() === (block.name || "").toLowerCase()),
         ),
         isLocked = locked.has("b:" + block.id),
+        changeMeasure = (change) =>
+          !isLocked &&
+          commit((d) => {
+            d.blocks = d.blocks.map((b) => (b.id === block.id ? change(b) : b));
+            return d;
+          }),
         h = _.createElement;
       const step = (item, depth) =>
         h(
@@ -3423,10 +3435,17 @@ export function DDcreateBoard(deps) {
           ),
         ),
         h(
-          "label",
+          "div",
           { className: "dd-card-field dd-card-time" },
-          h("span", null, t("Time", "زمان")),
-          h(
+          h("span", null, t("Measured by", "اندازه با")),
+          h(measure.DDMeasurePicker, {
+            React: _,
+            block,
+            language: DDlanguage,
+            onChange: changeMeasure,
+          }),
+          measure.DDmeasureOf(block) === "time"
+            ? h(
             "span",
             { className: "dd-card-minutes" },
             h("input", {
@@ -3448,7 +3467,13 @@ export function DDcreateBoard(deps) {
               },
             }),
             h("small", null, t("min", "دقیقه") + " · " + w(block.min)),
-          ),
+          )
+            : h(measure.DDMeasureControl, {
+                React: _,
+                block,
+                language: DDlanguage,
+                onChange: changeMeasure,
+              }),
         ),
         h(
           "label",
@@ -4429,7 +4454,7 @@ export function DDcreateBoard(deps) {
                               DDUI("lines")
                             : ""),
                   ),
-                  selectedNode?.min &&
+                  selectedNode?.min > 0 &&
                     _.createElement("b", null, w(selectedNode.min)),
                 ),
                 selectedNode &&
@@ -4893,7 +4918,7 @@ export function DDcreateBoard(deps) {
                     },
                   },
                   Y.title || DDUI("\u06CC\u0627\u062F\u062F\u0627\u0634\u062A"),
-                  Y.min && _.createElement("small", null, w(Y.min)),
+                  Y.min > 0 && _.createElement("small", null, w(Y.min)),
                 ),
               ),
           ),

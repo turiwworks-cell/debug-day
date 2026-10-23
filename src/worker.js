@@ -1,7 +1,7 @@
 import { oauth, oauthRoute, oauthAccess } from "./oauth.js";
 const MAX_BYTES = 1500000;
 const VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"];
-const INFO = { name: "debug-day", title: "Debug Day", version: "5.3.0" };
+const INFO = { name: "debug-day", title: "Debug Day", version: "5.4.0" };
 class HttpError extends Error {
   constructor(status, message) {
     super(message);
@@ -387,6 +387,9 @@ const WRITE_TOOLS = [
     true,
   ),
 ];
+// Counted and waiting cards ("3 times", "waiting for a reply") take no minutes.
+const timedMinutes = (block) =>
+  block.measure === "count" || block.measure === "wait" ? 0 : block.min || 0;
 function validateArgs(args, schema) {
   if (!args || typeof args !== "object" || Array.isArray(args))
     throw Error("Arguments must be an object");
@@ -438,6 +441,8 @@ function createDay(setup, date, templateId) {
     };
     delete copy.bx;
     delete copy.by;
+    if (copy.measure === "count") copy.count = 0;
+    delete copy.waitSince;
     return copy;
   });
   const anchor = setup.rhythm?.anchor,
@@ -509,10 +514,10 @@ async function callTool(name, args, env, access) {
           focus: d.focus,
           mood: d.mood,
           blocks: d.blocks.length,
-          plannedMinutes: d.blocks.reduce((n, b) => n + b.min, 0),
+          plannedMinutes: d.blocks.reduce((n, b) => n + timedMinutes(b), 0),
           doneMinutes: d.blocks
             .filter((b) => b.done)
-            .reduce((n, b) => n + b.min, 0),
+            .reduce((n, b) => n + timedMinutes(b), 0),
         })),
     };
   }

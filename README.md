@@ -6,6 +6,7 @@ A personal daily planner with a time-scaled board, mind maps, Persian/English UI
 - `public/search.js`, `public/capture.js`, `public/life.js` — readable source for universal search, capture/Today, and optional scheduling/pause tools.
 - `public/board.js`, `public/board-core.js`, `public/board-controls.js` — board gestures, pure object operations, and focused UI controls.
 - `public/sync.js` — content comparison that ignores JSON object key order.
+- `public/measure.js` — how a card is measured: by time, by times (a tally) or as waiting.
 - Download HTML embeds these modules and the planner snapshot into one offline file.
 - `src/worker.js` — Cloudflare Worker for private sync and MCP.
 - `src/oauth.js` — OAuth code + PKCE, consent, rotating refresh tokens, and scoped access.
