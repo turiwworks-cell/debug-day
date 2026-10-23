@@ -116,11 +116,16 @@ async function scenario(h, mobile, language) {
     await page.locator(".dd-review-day").innerText(),
     /Last week outreach/,
   );
+  // Calendar reads the note and feelings; writing them happens in Feelings.
+  assert.equal(
+    await page.locator("#dd-calendar-day .dd-review-note-text").innerText(),
+    "Last week journal",
+  );
   assert.equal(
     await page
       .getByRole("textbox", { name: t("Day note", "یادداشت روز"), exact: true })
-      .inputValue(),
-    "Last week journal",
+      .count(),
+    0,
   );
   assert.equal(
     await page.locator('[data-feeling-id="past-feeling"]').count(),
@@ -133,6 +138,24 @@ async function scenario(h, mobile, language) {
     await read(page),
     baseline,
     "Browsing dates must be read-only",
+  );
+  assert.equal(
+    await page
+      .getByRole("textbox", { name: t("Feeling text", "متن احساس"), exact: true })
+      .count(),
+    0,
+  );
+  await activate(
+    page.getByRole("button", {
+      name: t("Write in Feelings", "نوشتن در احساسات"),
+      exact: true,
+    }),
+  );
+  await page.waitForSelector("#dd-feelings-day");
+  assert.equal(
+    await page.locator(".dd-review-day time").getAttribute("dateTime"),
+    empty,
+    "Feelings opens on the day chosen in Calendar",
   );
   const input = page.getByRole("textbox", {
     name: t("Feeling text", "متن احساس"),
@@ -170,18 +193,17 @@ async function scenario(h, mobile, language) {
   await page
     .getByRole("textbox", { name: t("Day note", "یادداشت روز"), exact: true })
     .fill("A note for the selected day");
-  await page
-    .getByRole("textbox", {
-      name: t("Focus for this day", "هدف این روز"),
-      exact: true,
-    })
-    .fill("One calm step");
+  // The focus is written in the Plan header, for the same day.
+  await nav(0);
+  await page.locator("#fFocus").fill("One calm step");
   await page.waitForFunction(
     (date) =>
       JSON.parse(localStorage.getItem("debug-day:v2")).days[date]?.focus ===
       "One calm step",
     empty,
   );
+  await nav(3);
+  await select(empty);
   let row = page.locator(`[data-feeling-id="${id}"]`);
   await activate(
     row.getByRole("button", {
@@ -538,7 +560,8 @@ async function scenario(h, mobile, language) {
   await page
     .getByRole("listbox")
     .getByRole("option")
-    .filter({ hasText: t("Open feelings", "باز کردن احساسات") })
+    .filter({ hasText: t("Feelings", "احساسات") })
+    .first()
     .waitFor();
   await search.press("Enter");
   await page.waitForSelector(".dd-command-modal", { state: "hidden" });

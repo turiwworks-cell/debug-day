@@ -308,6 +308,7 @@ export function DDHabitsPanel({
   onUpdateDay,
   onUpdateSetup,
   makeId,
+  PanelIcon,
 }) {
   const t = tr(language),
     habits = setup.habits || [],
@@ -333,13 +334,19 @@ export function DDHabitsPanel({
     {
       className: "dd-habits",
       "data-section-id": "habits",
+      "data-panel": "habits",
       dir: language === "fa" ? "rtl" : "ltr",
       "aria-label": t("Habits", "عادت‌ها"),
     },
     R.createElement(
       "div",
       { className: "dd-habits-head" },
-      R.createElement("h2", null, R.createElement("span", { "aria-hidden": true }, "🌱"), " ", t("Habits", "عادت‌ها")),
+      R.createElement(
+        "h2",
+        null,
+        PanelIcon ? R.createElement(PanelIcon, { React: R, id: "habits" }) : R.createElement("span", { "aria-hidden": true }, "🌱 "),
+        t("Habits", "عادت‌ها"),
+      ),
       R.createElement(
         "small",
         null,
