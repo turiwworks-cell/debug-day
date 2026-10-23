@@ -33,6 +33,9 @@ function DDlifeCleanBoard(day, blocks) {
   );
   for (const positions of Object.values(board.layouts || {}))
     for (const id of removed) delete positions[id];
+  for (const ref of removed) if (board.styles) delete board.styles[ref];
+  if (Array.isArray(board.stack))
+    board.stack = board.stack.filter((ref) => !removed.has(ref));
   for (const [key, link] of Object.entries(board.overrides || {}))
     if (removed.has(link.from) || removed.has(link.to))
       delete board.overrides[key];

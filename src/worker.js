@@ -1,7 +1,7 @@
 import { oauth, oauthRoute, oauthAccess } from "./oauth.js";
 const MAX_BYTES = 1500000;
 const VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"];
-const INFO = { name: "debug-day", title: "Debug Day", version: "5.0.1" };
+const INFO = { name: "debug-day", title: "Debug Day", version: "5.1.0" };
 class HttpError extends Error {
   constructor(status, message) {
     super(message);
@@ -736,6 +736,9 @@ async function callTool(name, args, env, access) {
       );
       for (const positions of Object.values(board.layouts || {}))
         for (const ref of removed) delete positions[ref];
+      for (const ref of removed) if (board.styles) delete board.styles[ref];
+      if (Array.isArray(board.stack))
+        board.stack = board.stack.filter((ref) => !removed.has(ref));
       for (const [k, o] of Object.entries(board.overrides || {}))
         if (removed.has(o.from) || removed.has(o.to)) delete board.overrides[k];
       for (const field of ["locked", "hidden"])
