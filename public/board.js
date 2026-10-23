@@ -106,6 +106,10 @@ export function DDcreateBoard(deps) {
       [appearance, setAppearance] = useState(() => core.appearance()),
       [viewPanel, setViewPanel] = useState(false),
       [properties, setProperties] = useState(false),
+      [details, setDetails] = useState(
+        () => !globalThis.matchMedia?.("(max-width: 700px)").matches,
+      ),
+      noteDraft = useRef(null),
       appearanceRef = useRef(appearance),
       guideSvg = useRef(null),
       clipboard = useRef(sharedClipboard),
@@ -252,6 +256,24 @@ export function DDcreateBoard(deps) {
         (dayRef.current = day)),
         (ownUpdate.current = null));
     }, [day]);
+    // Steps wrap instead of hiding words, so their card grows with the text.
+    const stepHeight = (text) =>
+        Math.min(
+          150,
+          40 + 17 * Math.max(1, Math.ceil(String(text || "").length / 30)),
+        ),
+      stepLabel = (index, total, children) =>
+        t("Step ", "قدم ") +
+        (index + 1) +
+        "/" +
+        total +
+        (children?.length
+          ? " · " +
+            children.filter((c) => c.done).length +
+            "/" +
+            children.length +
+            t(" inside", " داخل")
+          : "");
     const layout = useMemo(() => {
         const Y = [],
           G = [],
@@ -294,31 +316,33 @@ export function DDcreateBoard(deps) {
             h: 70,
           });
           const On = (ma, Oa, fa, Pl, kl) => {
-              for (const Fn of ma || []) {
+              (ma || []).forEach((Fn, index, list) => {
                 const Ga = Jt,
-                  Xa = `sub:${fa.id}:${Fn.id}`;
+                  Xa = `sub:${fa.id}:${Fn.id}`,
+                  stepH = stepHeight(Fn.text);
                 Fn.expanded !== !1 && Fn.children?.length
                   ? On(Fn.children, Xa, fa, Pl + 1, kl)
-                  : (Jt += 62);
+                  : (Jt += stepH + 14);
                 const Dl = Pt({
                   id: Xa,
                   kind: "subtask",
                   title: Fn.text,
+                  subtitle: stepLabel(index, list.length, Fn.children),
                   done: Fn.done,
                   color: kl,
                   textColor: ee(kl),
                   blockId: fa.id,
                   subId: Fn.id,
                   parentId: Oa,
-                  x: 720 + (Pl - 1) * 276,
-                  y: (Ga + Math.max(Ga + 48, Jt - 14)) / 2 - 24,
-                  w: 238,
-                  h: 48,
+                  x: 720 + (Pl - 1) * 296,
+                  y: (Ga + Math.max(Ga + stepH, Jt - 14)) / 2 - stepH / 2,
+                  w: 258,
+                  h: stepH,
                   hasChildren: !!Fn.children?.length,
                   expanded: Fn.expanded !== !1,
                 });
                 yn(Oa, Xa, kl);
-              }
+              });
             },
             ra = [
               ...setup.lanes,
@@ -387,8 +411,10 @@ export function DDcreateBoard(deps) {
                 title: Fn.name || DDUI("Untitled"),
                 subtitle:
                   w(Fn.min) +
+                  " \xB7 " +
+                  DDUI(Dl.name) +
                   (Pa.total
-                    ? ` \xB7 ${Pa.done}/${Pa.total} \u0642\u062F\u0645`
+                    ? ` \xB7 ${Pa.done}/${Pa.total} ${t("steps", "\u0642\u062F\u0645")}`
                     : ""),
                 min: Fn.min,
                 done: Fn.done,
@@ -472,7 +498,7 @@ export function DDcreateBoard(deps) {
                   id: `b:${va.id}`,
                   kind: "block",
                   title: va.name || DDUI("Untitled"),
-                  subtitle: w(va.min) + " \xB7 " + Pr.name,
+                  subtitle: w(va.min) + " \xB7 " + DDUI(Pr.name),
                   min: va.min,
                   done: va.done,
                   emoji: va.emo || Pr.emo,
@@ -731,7 +757,8 @@ export function DDcreateBoard(deps) {
       if (!Y || !world.current) return;
       ((world.current.style.transform = `translate3d(${G.x}px,${G.y}px,0) scale(${G.z})`),
         Y.style.setProperty("--b4-inverse", 1 / G.z),
-        Y.classList.toggle("b4-overview", G.z < 0.7));
+        Y.classList.toggle("b4-overview", G.z < 0.7),
+        Y.classList.toggle("b4-small", G.z < 0.95));
       let ct = appearanceRef.current.gridSize;
       Y.style.setProperty(
         "--b6-dot",
@@ -2063,14 +2090,16 @@ export function DDcreateBoard(deps) {
                 viewport.current?.classList.add("b4-panning"));
               return;
             }
-            const St = ot.ctrlKey || ot.metaKey;
-            if (St && ot.key.toLowerCase() === "z") {
+            const St = ot.ctrlKey || ot.metaKey,
+              K = core.shortcutKey(ot),
+              latinLayout = /^[\x20-\x7e]$/.test(ot.key);
+            if (St && K === "z") {
               (ot.preventDefault(),
                 ot.stopImmediatePropagation(),
                 undo(ot.shiftKey));
               return;
             }
-            if (St && ot.key.toLowerCase() === "y") {
+            if (St && K === "y") {
               (ot.preventDefault(), ot.stopImmediatePropagation(), undo(!0));
               return;
             }
@@ -2107,17 +2136,17 @@ export function DDcreateBoard(deps) {
                 deleteNodes());
               return;
             }
-            if (St && ot.key.toLowerCase() === "d" && selected.size) {
+            if (St && K === "d" && selected.size) {
               (ot.preventDefault(), ot.stopImmediatePropagation(), duplicate());
               return;
             }
-            if (St && ot.key.toLowerCase() === "g") {
+            if (St && K === "g") {
               (ot.preventDefault(),
                 ot.stopImmediatePropagation(),
                 groupSelection(ot.shiftKey));
               return;
             }
-            if (St && ot.key.toLowerCase() === "a") {
+            if (St && K === "a") {
               (ot.preventDefault(),
                 ot.stopImmediatePropagation(),
                 setSelected(
@@ -2135,7 +2164,15 @@ export function DDcreateBoard(deps) {
                 setWireId(null));
               return;
             }
-            if (St && ["c", "x", "v"].includes(ot.key.toLowerCase())) return;
+            if (St && ["c", "x", "v"].includes(K)) {
+              // Native copy/paste already fires on Latin layouts; other layouts need a nudge.
+              if (latinLayout) return;
+              ot.preventDefault();
+              ot.stopImmediatePropagation();
+              if (K === "v") pasteClipboard(null);
+              else if (selected.size) copySelection(null, K === "x");
+              return;
+            }
             if (St || ot.altKey) return;
             if (ot.key === "ContextMenu" || (ot.shiftKey && ot.key === "F10")) {
               openContext(
@@ -2212,7 +2249,7 @@ export function DDcreateBoard(deps) {
               (ot.preventDefault(), openEdit(selectedNode.id));
               return;
             }
-            const Tt = ot.key.toLowerCase();
+            const Tt = K;
             if (Tt === "v") setTool("select");
             else if (Tt === "h") setTool("hand");
             else if (Tt === "c") setTool("connector");
@@ -2373,6 +2410,8 @@ export function DDcreateBoard(deps) {
     function nodeIcon(Y) {
       return Y.done
         ? _.createElement(z, { name: "check" })
+        : Y.kind === "subtask"
+          ? _.createElement("span", { className: "dd-step-box", "aria-hidden": true })
         : Y.emoji
           ? _.createElement(B, { emoji: Y.emoji, size: 17 })
           : _.createElement(z, {
@@ -2825,6 +2864,231 @@ export function DDcreateBoard(deps) {
               onPointerDown: (Dn) => portDown(Dn, Y, Kt),
             }),
           ),
+      );
+    }
+    // The selected card shows what belongs to it: category, note, steps and linked notes.
+    function cardDetails() {
+      if (!details || properties || selectedWire || !selectedNode) return null;
+      if (!["block", "subtask"].includes(selectedNode.kind)) return null;
+      const block = day.blocks.find((b) => b.id === selectedNode.blockId);
+      if (!block) return null;
+      const type = typeFor(block.type),
+        color = block.color || type.color,
+        ownRefs = new Set([
+          "b:" + block.id,
+          ...layout.nodes
+            .filter((n) => n.kind === "subtask" && n.blockId === block.id)
+            .map((n) => n.id),
+        ]),
+        linkedNotes = [
+          ...new Set(
+            layout.edges.flatMap((edge) =>
+              ownRefs.has(edge.from) && edge.to.startsWith("sticky:")
+                ? [edge.to.slice(7)]
+                : ownRefs.has(edge.to) && edge.from.startsWith("sticky:")
+                  ? [edge.from.slice(7)]
+                  : [],
+            ),
+          ),
+        ]
+          .map((id) => (day.notes || []).find((n) => n.id === id))
+          .filter(Boolean),
+        feelings = (day.bugs || []).filter(
+          (bug) =>
+            bug.blockId === block.id ||
+            (!bug.blockId &&
+              bug.on &&
+              bug.on.toLowerCase() === (block.name || "").toLowerCase()),
+        ),
+        isLocked = locked.has("b:" + block.id),
+        h = _.createElement;
+      const step = (item, depth) =>
+        h(
+          "li",
+          { key: item.id, style: { "--depth": depth } },
+          h(
+            "label",
+            null,
+            h("input", {
+              type: "checkbox",
+              checked: !!item.done,
+              disabled: isLocked,
+              onChange: () =>
+                toggleDone({
+                  id: "sub:" + block.id + ":" + item.id,
+                  kind: "subtask",
+                  blockId: block.id,
+                  subId: item.id,
+                }),
+            }),
+            h("span", { dir: "auto" }, item.text),
+          ),
+          item.children?.length
+            ? h("ul", null, item.children.map((c) => step(c, depth + 1)))
+            : null,
+        );
+      return h(
+        "aside",
+        {
+          className: "dd-card-details",
+          dir: DDlanguage === "fa" ? "rtl" : "ltr",
+          "aria-label": t("Card details", "جزئیات کارت"),
+          style: { "--card-color": color },
+          onPointerDown: (event) => event.stopPropagation(),
+        },
+        h(
+          "header",
+          null,
+          h("span", { className: "dd-card-swatch" }),
+          h("strong", { dir: "auto" }, block.name || DDUI("Untitled")),
+          h(
+            "button",
+            {
+              type: "button",
+              "aria-label": t("Hide card details", "بستن جزئیات"),
+              onClick: () => setDetails(false),
+            },
+            "×",
+          ),
+        ),
+        h(
+          "label",
+          { className: "dd-card-field" },
+          h("span", null, t("Category", "دسته")),
+          h(
+            "select",
+            {
+              value: block.type,
+              disabled: isLocked,
+              onChange: (event) => {
+                const value = event.target.value;
+                commit(
+                  (d) => {
+                    const b = d.blocks.find((b) => b.id === block.id);
+                    if (b) {
+                      b.type = value;
+                      delete b.color;
+                    }
+                    return d;
+                  },
+                  t("Category changed", "دسته تغییر کرد"),
+                );
+              },
+            },
+            setup.types.map((type) =>
+              h("option", { key: type.id, value: type.id }, DDUI(type.name)),
+            ),
+          ),
+        ),
+        h(
+          "label",
+          { className: "dd-card-field" },
+          h("span", null, t("Note", "یادداشت")),
+          h("textarea", {
+            dir: "auto",
+            rows: 3,
+            maxLength: 4000,
+            value: block.note || "",
+            disabled: isLocked,
+            placeholder: t("Anything to remember about this card…", "چیزی که می‌خواهی یادت بماند…"),
+            onChange: (event) => {
+              const value = event.target.value,
+                first = noteDraft.current !== block.id;
+              noteDraft.current = block.id;
+              commit(
+                (d) => {
+                  const b = d.blocks.find((b) => b.id === block.id);
+                  if (b) b.note = value;
+                  return d;
+                },
+                null,
+                { history: first },
+              );
+            },
+            onBlur: () => (noteDraft.current = null),
+          }),
+        ),
+        block.subtasks?.length
+          ? h(
+              "div",
+              { className: "dd-card-field" },
+              h(
+                "span",
+                null,
+                t("Steps", "قدم‌ها") +
+                  " · " +
+                  de(block.subtasks).done +
+                  "/" +
+                  de(block.subtasks).total,
+              ),
+              h("ul", { className: "dd-card-steps" }, block.subtasks.map((c) => step(c, 0))),
+            )
+          : null,
+        linkedNotes.length || feelings.length
+          ? h(
+              "div",
+              { className: "dd-card-field" },
+              h("span", null, t("Linked", "مرتبط")),
+              h(
+                "ul",
+                { className: "dd-card-linked" },
+                linkedNotes.map((note) =>
+                  h(
+                    "li",
+                    { key: note.id },
+                    h(
+                      "button",
+                      {
+                        type: "button",
+                        dir: "auto",
+                        style: { "--chip": note.color || "#FFE27A" },
+                        onClick: () => {
+                          setSelected(new Set(["sticky:" + note.id]));
+                          setWireId(null);
+                        },
+                      },
+                      (note.text || t("Empty note", "یادداشت خالی")).slice(0, 140),
+                    ),
+                  ),
+                ),
+                feelings.map((bug) =>
+                  h(
+                    "li",
+                    { key: bug.id },
+                    h(
+                      "button",
+                      {
+                        type: "button",
+                        dir: "auto",
+                        className: "is-feeling",
+                        style: { "--chip": DDbugColor(bug) },
+                        onClick: () => {
+                          if (layout.map.has("bug:" + bug.id))
+                            setSelected(new Set(["bug:" + bug.id]));
+                        },
+                      },
+                      bug.text,
+                    ),
+                  ),
+                ),
+              ),
+            )
+          : null,
+        h(
+          "button",
+          {
+            type: "button",
+            className: "dd-card-add",
+            disabled: isLocked,
+            onClick: () =>
+              setChild({
+                blockId: block.id,
+                subId: selectedNode.subId || null,
+                value: "",
+              }),
+          },
+          "+ " + t("Add a step", "افزودن قدم"),
+        ),
       );
     }
     function changeAppearance(patch) {
@@ -3698,6 +3962,18 @@ export function DDcreateBoard(deps) {
                   selectedNode?.min &&
                     _.createElement("b", null, w(selectedNode.min)),
                 ),
+                selectedNode &&
+                  (selectedNode.kind === "block" ||
+                    selectedNode.kind === "subtask") &&
+                  toolButton(
+                    t("Card details", "جزئیات کارت"),
+                    "task",
+                    () => {
+                      setDetails(!details);
+                      setProperties(false);
+                    },
+                    { "aria-pressed": details },
+                  ),
                 toolButton(
                   t("Color & properties", "رنگ و ویژگی‌ها"),
                   "palette",
@@ -3720,6 +3996,21 @@ export function DDcreateBoard(deps) {
                     ),
                 ),
                 toolButton("Zoom to selection", "fit", () => fit(!0)),
+                selectedNode &&
+                  (selectedNode.kind === "block" ||
+                    selectedNode.kind === "subtask") &&
+                  toolButton(
+                    t("Add a step", "افزودن قدم"),
+                    "plus",
+                    () =>
+                      setChild({
+                        blockId: selectedNode.blockId,
+                        subId: selectedNode.subId || null,
+                        value: "",
+                      }),
+                    { "data-add-step": true },
+                    t("Step", "قدم"),
+                  ),
                 selectedNode &&
                   toolButton(DDUI("Edit selected node"), "pen", () =>
                     openEdit(selectedNode.id),
@@ -4058,6 +4349,7 @@ export function DDcreateBoard(deps) {
             viewport.current?.focus({ preventScroll: true });
           },
         }),
+      cardDetails(),
       viewPanel &&
         _.createElement(controls.ViewPanel, {
           React: _,
