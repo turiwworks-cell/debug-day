@@ -159,6 +159,7 @@ export function DDLifeTools({
   R.useEffect(() => {
     const open = (event) => {
       if (event.detail === "later") setPanel("later");
+      if (event.detail === "resume") setPanel("pause");
     };
     window.addEventListener("debug-day-open-capture", open);
     return () => window.removeEventListener("debug-day-open-capture", open);

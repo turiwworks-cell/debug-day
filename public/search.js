@@ -357,22 +357,39 @@ function DDfindSub(items, id) {
   }
   return null;
 }
-// Reopening a child also reopens its containing tasks, leaving siblings alone.
-function DDreopenAncestors(items, id) {
-  for (const item of items || []) {
-    if (item.id === id) return true;
-    if (DDreopenAncestors(item.children, id)) {
-      item.done = false;
-      return true;
-    }
-  }
-  return false;
-}
 function DDsetSubDone(items, done) {
   for (const item of items || []) {
     item.done = done;
     DDsetSubDone(item.children, done);
   }
+}
+// All entry points use the same completion rules: whole tasks cascade down;
+// a subtask updates its branch and recomputes the containing task's status.
+export function DDsetTaskDone(block, done) {
+  const next = structuredClone(block);
+  next.done = !!done;
+  DDsetSubDone(next.subtasks, next.done);
+  return next;
+}
+export function DDtoggleSubtask(block, id) {
+  const next = structuredClone(block);
+  function visit(items) {
+    for (const item of items || []) {
+      if (item.id === id) {
+        item.done = !item.done;
+        DDsetSubDone(item.children, item.done);
+        return true;
+      }
+      if (visit(item.children)) {
+        item.done = item.children.every((child) => child.done);
+        return true;
+      }
+    }
+    return false;
+  }
+  if (!visit(next.subtasks)) return block;
+  next.done = next.subtasks.every((item) => item.done);
+  return next;
 }
 function DDremoveSub(items, id) {
   return (items || [])
@@ -429,15 +446,10 @@ export function DDeditSearchResult(snapshot, row, action, value, ensureDay) {
       row.kind === "subtask" ? DDfindSub(block.subtasks, row.itemId) : block;
     if (!target) return snapshot;
     if (action === "done") {
-      target.done = !target.done;
-      DDsetSubDone(
-        row.kind === "subtask" ? target.children : target.subtasks,
-        target.done,
-      );
-      if (row.kind === "subtask" && !target.done) {
-        block.done = false;
-        DDreopenAncestors(block.subtasks, target.id);
-      }
+      day.blocks[day.blocks.indexOf(block)] =
+        row.kind === "subtask"
+          ? DDtoggleSubtask(block, target.id)
+          : DDsetTaskDone(block, !block.done);
     } else if (action === "category") block.type = value;
     else if (action === "duration") {
       const minutes = Math.max(
@@ -791,7 +803,11 @@ export function DDCommandPalette(props) {
     if (["block", "subtask", "later"].includes(row.kind))
       list.push({
         key: "focus",
-        label: t("Start focus timer", "شروع زمان‌سنج تمرکز"),
+        label:
+          data.days[row.date || today]?.pause?.active ||
+          data.days[row.date || today]?.pause?.closed
+            ? t("Continue the day", "ادامهٔ روز")
+            : t("Start focus timer", "شروع زمان‌سنج تمرکز"),
         run: () => {
           remember(row);
           onFocus(row);
