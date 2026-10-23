@@ -274,6 +274,353 @@ export function DDcreateBoard(deps) {
             children.length +
             t(" inside", " داخل")
           : "");
+    // Lanes: each lane is a section, and each card is a section holding its
+    // steps, feelings and notes. Relations show by placement, so no lines.
+    function lanesLayout(Y, ct, attachedBugs, visible) {
+      const CARD = 300,
+        GAP = 18,
+        PER_ROW = 4,
+        PAD = 16,
+        HEAD = 54,
+        noteById = new Map((day.notes || []).map((n) => [n.id, n])),
+        notesFor = new Map(),
+        attachedNotes = new Set(),
+        noteVisible = (n) =>
+          !ddNodeMatches || ddNodeMatches.has("note:" + day.date + ":" + n.id),
+        bugVisible = (n) =>
+          !ddNodeMatches || ddNodeMatches.has("bug:" + day.date + ":" + n.id);
+      for (const link of model.links)
+        for (const [a, b] of [
+          [link.from, link.to],
+          [link.to, link.from],
+        ]) {
+          const owner =
+            /^b:(.+)$/.exec(a)?.[1] || /^sub:([^:]+):/.exec(a)?.[1];
+          const note = b.startsWith("sticky:") && noteById.get(b.slice(7));
+          if (!owner || !note || note.kind === "emoji" || !noteVisible(note))
+            continue;
+          if (!day.blocks.some((block) => block.id === owner)) continue;
+          if (attachedNotes.has(note.id)) continue;
+          attachedNotes.add(note.id);
+          notesFor.set(owner, [...(notesFor.get(owner) || []), note]);
+        }
+      const feelingsFor = (block) =>
+        (day.bugs || []).filter(
+          (bug) =>
+            !bug.fixed &&
+            bugVisible(bug) &&
+            !attachedBugs.has(bug.id) &&
+            (bug.blockId === block.id ||
+              (!bug.blockId &&
+                bug.on &&
+                bug.on.toLowerCase() === (block.name || "").toLowerCase())),
+        );
+      const stepH = (text, width) =>
+        Math.min(
+          150,
+          38 +
+            17 *
+              Math.max(
+                1,
+                Math.ceil(
+                  String(text || "").length / Math.max(14, (width - 52) / 7.3),
+                ),
+              ),
+        );
+      const noteH = (note) =>
+        model.styles["sticky:" + note.id]?.height ??
+        Math.min(
+          260,
+          Math.max(
+            96,
+            62 +
+              24 *
+                String(note.text || " ")
+                  .split("\n")
+                  .reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / 34)), 0),
+          ),
+        );
+      // A card section: the block header with its members stacked under it.
+      const cardSection = (block, x, y, laneId) => {
+        const type = block.color
+            ? { ...typeFor(block.type), color: block.color }
+            : typeFor(block.type),
+          ref = "b:" + block.id,
+          stats = de(block.subtasks || []),
+          inner = CARD - 20,
+          members = [];
+        let cy = y + 64 + 8;
+        const steps = (items, depth) =>
+          (items || []).forEach((item, index, list) => {
+            const indent = Math.min(depth, 4) * 14,
+              width = inner - indent,
+              height = stepH(item.text, width);
+            members.push({
+              id: `sub:${block.id}:${item.id}`,
+              kind: "subtask",
+              title: item.text,
+              subtitle: stepLabel(index, list.length, item.children),
+              done: item.done,
+              color: type.color,
+              textColor: ee(type.color),
+              blockId: block.id,
+              subId: item.id,
+              memberOf: ref,
+              hasChildren: !!item.children?.length,
+              expanded: item.expanded !== false,
+              x: x + 10 + indent,
+              y: cy,
+              w: width,
+              h: height,
+            });
+            cy += height + 6;
+            if (item.expanded !== false && item.children?.length)
+              steps(item.children, depth + 1);
+          });
+        if (block.expanded !== false) steps(block.subtasks, 0);
+        for (const bug of feelingsFor(block)) {
+          attachedBugs.add(bug.id);
+          members.push({
+            id: "bug:" + bug.id,
+            kind: "bug",
+            title: bug.text,
+            subtitle: bug.triggerTag ? "#" + bug.triggerTag : DDUI("Feeling"),
+            bugId: bug.id,
+            blockId: block.id,
+            memberOf: ref,
+            color: DDbugColor(bug),
+            textColor: "#fff",
+            x: x + 10,
+            y: cy,
+            w: inner,
+            h: 52,
+          });
+          cy += 58;
+        }
+        for (const note of notesFor.get(block.id) || []) {
+          const height = noteH(note);
+          members.push({
+            id: "sticky:" + note.id,
+            noteId: note.id,
+            kind: "sticky",
+            title: note.text || "",
+            color: note.color || "#FFE27A",
+            textColor: "#121211",
+            memberOf: ref,
+            x: x + 10,
+            y: cy,
+            w: inner,
+            h: height,
+          });
+          cy += height + 8;
+        }
+        const height = members.length ? cy - y + 4 : 64;
+        const nodes = [
+          {
+            id: "sec:" + block.id,
+            kind: "section",
+            title: "",
+            color: type.color,
+            textColor: ee(type.color),
+            blockId: block.id,
+            memberOf: ref,
+            x,
+            y,
+            w: CARD,
+            h: height,
+          },
+          {
+            id: ref,
+            kind: "block",
+            title: block.name || DDUI("Untitled"),
+            subtitle:
+              w(block.min) +
+              " \xB7 " +
+              DDUI(type.name) +
+              (stats.total
+                ? ` \xB7 ${stats.done}/${stats.total} ${t("steps", "قدم")}`
+                : ""),
+            min: block.min,
+            done: block.done,
+            emoji: block.emo || type.emo,
+            icon: type.icon,
+            color: type.color,
+            textColor: ee(type.color),
+            blockId: block.id,
+            laneId,
+            hasChildren: !!block.subtasks?.length,
+            expanded: block.expanded !== false,
+            members: members.map((m) => m.id).concat("sec:" + block.id),
+            x,
+            y,
+            w: CARD,
+            h: 64,
+          },
+          ...members,
+        ];
+        return { nodes, h: height };
+      };
+      const placeFrame = (frame, items, place) => {
+        const saved = ct[frame.id];
+        frame.x = finite(saved?.x, frame.x);
+        frame.y = finite(saved?.y, frame.y);
+        const cols = Math.min(PER_ROW, Math.max(2, items.length));
+        frame.w = PAD * 2 + cols * (CARD + GAP) - GAP;
+        let col = 0,
+          rowY = frame.y + HEAD,
+          rowH = 0,
+          right = frame.x + frame.w,
+          bottom = frame.y + 150;
+        Y.push(frame);
+        for (const item of items) {
+          const result = place(item, {
+            x: frame.x + PAD + col * (CARD + GAP),
+            y: rowY,
+          });
+          if (!result) continue;
+          if (!result.custom) {
+            rowH = Math.max(rowH, result.h);
+            if (++col >= cols) {
+              col = 0;
+              rowY += rowH + GAP;
+              rowH = 0;
+            }
+          }
+          right = Math.max(right, result.x + result.w + PAD);
+          bottom = Math.max(bottom, result.y + result.h + PAD);
+        }
+        frame.w = right - frame.x;
+        frame.h = Math.max(150, bottom - frame.y, rowY + rowH + PAD - frame.y);
+        return frame.y + frame.h;
+      };
+      const placeCard = (laneId) => (block, auto) => {
+        if (!visible.has(block.id)) return null;
+        const saved = ct["b:" + block.id] || day.canvas?.positions?.[block.id],
+          x = finite(saved?.x, auto.x),
+          y = finite(saved?.y, auto.y),
+          section = cardSection(block, x, y, laneId);
+        Y.push(...section.nodes);
+        return { x, y, w: CARD, h: section.h, custom: !!saved };
+      };
+      let top = 48;
+      const lanes = [
+        ...setup.lanes,
+        ...(day.blocks.some((block) => !isScheduled(block))
+          ? [{ id: "", name: DDUI("Parked") }]
+          : []),
+      ];
+      for (const lane of lanes) {
+        const blocks = day.blocks.filter((block) =>
+          lane.id ? block.lane === lane.id : !isScheduled(block),
+        );
+        const frame = {
+          id: `lane:${lane.id || "parked"}`,
+          kind: "frame",
+          title: lane.name || DDUI("Lane"),
+          subtitle: w(blocks.reduce((sum, block) => sum + block.min, 0)),
+          laneId: lane.id,
+          color: "#4A4843",
+          textColor: "#fff",
+          x: setup.board?.[lane.id]?.x ?? 48,
+          y: setup.board?.[lane.id]?.y ?? top,
+          w: 0,
+          h: 150,
+        };
+        top = Math.max(top, placeFrame(frame, blocks, placeCard(lane.id)) + 48);
+      }
+      const linked = new Set(model.links.flatMap((l) => [l.from, l.to]));
+      const freeBugs = (day.bugs || []).filter(
+        (bug) =>
+          bugVisible(bug) &&
+          !attachedBugs.has(bug.id) &&
+          (!bug.fixed || linked.has("bug:" + bug.id)),
+      );
+      freeBugs.forEach((bug) => attachedBugs.add(bug.id));
+      if (freeBugs.length)
+        top =
+          placeFrame(
+            {
+              id: "section:feelings",
+              kind: "frame",
+              section: "feelings",
+              title: t("Feelings", "احساسات"),
+              subtitle: String(freeBugs.length),
+              color: "#4A4843",
+              textColor: "#fff",
+              x: 48,
+              y: top,
+              w: 0,
+              h: 150,
+            },
+            freeBugs,
+            (bug, auto) => {
+              const saved = ct["bug:" + bug.id],
+                node = {
+                  id: "bug:" + bug.id,
+                  kind: "bug",
+                  title: bug.text,
+                  subtitle: bug.triggerTag
+                    ? "#" + bug.triggerTag
+                    : DDUI("Feeling"),
+                  bugId: bug.id,
+                  done: !!bug.fixed,
+                  sectionId: "feelings",
+                  color: DDbugColor(bug),
+                  textColor: "#fff",
+                  x: finite(saved?.x, auto.x),
+                  y: finite(saved?.y, auto.y),
+                  w: CARD,
+                  h: 52,
+                };
+              Y.push(node);
+              return { ...node, custom: !!saved };
+            },
+          ) + 48;
+      const freeNotes = (day.notes || []).filter(
+        (note) => noteVisible(note) && !attachedNotes.has(note.id),
+      );
+      if (freeNotes.length)
+        placeFrame(
+          {
+            id: "section:notes",
+            kind: "frame",
+            section: "notes",
+            title: t(
+              "Notes",
+              "یادداشت‌ها",
+            ),
+            subtitle: String(freeNotes.length),
+            color: "#4A4843",
+            textColor: "#fff",
+            x: 48,
+            y: top,
+            w: 0,
+            h: 150,
+          },
+          freeNotes,
+          (note, auto) => {
+            const saved = ct["sticky:" + note.id],
+              emoji = note.kind === "emoji",
+              node = {
+                id: "sticky:" + note.id,
+                noteId: note.id,
+                kind: emoji ? "emoji" : "sticky",
+                title: note.text || "",
+                color: note.color || "#FFE27A",
+                textColor: "#121211",
+                sectionId: "notes",
+                x: finite(saved?.x, auto.x),
+                y: finite(saved?.y, auto.y),
+                w: emoji
+                  ? 64
+                  : (model.styles["sticky:" + note.id]?.width ?? CARD),
+                h: emoji ? 64 : noteH(note),
+              };
+            Y.push(node);
+            return { ...node, custom: !!saved };
+          },
+        );
+    }
     const layout = useMemo(() => {
         const Y = [],
           G = [],
@@ -453,100 +800,7 @@ export function DDcreateBoard(deps) {
             (Xn.push(kl), yn("day:root", Oa, "#85827A"), (Jt += 30));
           }
           ct["day:root"] || (Y[0].y = Math.max(60, Jt / 2 - 35));
-        } else {
-          let Jt = 48;
-          for (const On of setup.lanes) {
-            const ra = `lane:${On.id}`,
-              ma = ct[ra],
-              Oa = setup.board?.[On.id],
-              fa = finite(ma?.x, Oa?.x ?? 48),
-              Pl = finite(ma?.y, Oa?.y ?? Jt),
-              kl = day.blocks.filter((va) => va.lane === On.id),
-              Fn = Math.max(940, ...kl.map((va) => 136 + va.min * 3 + 32));
-            let Ga = fa + 16,
-              Xa = Pl + 54,
-              Dl = Xa + 64,
-              Pa = fa + Fn;
-            const ba = {
-              id: ra,
-              kind: "frame",
-              title: On.name || DDUI("Lane"),
-              subtitle: w(kl.reduce((va, lr) => va + lr.min, 0)),
-              laneId: On.id,
-              color: "#4A4843",
-              textColor: "#fff",
-              x: fa,
-              y: Pl,
-              w: Fn,
-              h: 160,
-            };
-            Y.push(ba);
-            for (const va of kl) {
-              const lr = 136 + va.min * 3;
-              Ga + lr > fa + Fn - 16 &&
-                Ga > fa + 16 &&
-                ((Ga = fa + 16), (Xa += 82));
-              const Uc = day.canvas?.positions?.[va.id],
-                eo = ct[`b:${va.id}`] || Uc,
-                to = finite(eo?.x, Ga),
-                ri = finite(eo?.y, Xa),
-                Pr = va.color
-                  ? { ...typeFor(va.type), color: va.color }
-                  : typeFor(va.type);
-              (St.has(va.id) &&
-                Y.push({
-                  id: `b:${va.id}`,
-                  kind: "block",
-                  title: va.name || DDUI("Untitled"),
-                  subtitle: w(va.min) + " \xB7 " + DDUI(Pr.name),
-                  min: va.min,
-                  done: va.done,
-                  emoji: va.emo || Pr.emo,
-                  icon: Pr.icon,
-                  color: Pr.color,
-                  textColor: ee(Pr.color),
-                  blockId: va.id,
-                  laneId: On.id,
-                  x: to,
-                  y: ri,
-                  w: lr,
-                  h: 64,
-                }),
-                (Ga += lr + 14),
-                (Dl = Math.max(Dl, ri + 84)),
-                (Pa = Math.max(Pa, to + lr + 16)));
-            }
-            ((ba.w = Pa - fa),
-              (ba.h = Math.max(150, Dl - Pl)),
-              (Jt = Math.max(Jt, Pl + ba.h + 48)));
-          }
-          let Xn = 48;
-          for (const On of day.blocks.filter((ra) => !isScheduled(ra))) {
-            const ra = On.color
-              ? { ...typeFor(On.type), color: On.color }
-              : typeFor(On.type);
-            (St.has(On.id) &&
-              Pt({
-                id: `b:${On.id}`,
-                kind: "block",
-                title: On.name || DDUI("Untitled"),
-                subtitle: w(On.min) + " \xB7 Parked",
-                min: On.min,
-                done: On.done,
-                emoji: On.emo || ra.emo,
-                icon: ra.icon,
-                color: ra.color,
-                textColor: ee(ra.color),
-                blockId: On.id,
-                laneId: "",
-                x: On.bx ?? Xn,
-                y: On.by ?? Jt + 20,
-                w: 136 + On.min * 3,
-                h: 64,
-              }),
-              (Xn += 150 + On.min * 3));
-          }
-        }
+        } else lanesLayout(Y, ct, ot, St, Pt);
         {
           const ddL = new Set(model.links.flatMap((l) => [l.from, l.to])),
             ddB = (day.bugs || []).filter(
@@ -579,8 +833,9 @@ export function DDcreateBoard(deps) {
         }
         for (const Jt of (day.notes || []).filter(
           (n) =>
-            !ddNodeMatches ||
-            ddNodeMatches.has("note:" + day.date + ":" + n.id),
+            mode !== "lanes" &&
+            (!ddNodeMatches ||
+              ddNodeMatches.has("note:" + day.date + ":" + n.id)),
         ))
           Y.push({
             id: `sticky:${Jt.id}`,
@@ -606,7 +861,7 @@ export function DDcreateBoard(deps) {
           }
           if (n.kind === "sticky") n.textColor = core.contrast(n.color);
           if (style.textColor) n.textColor = style.textColor;
-          if (n.noteId) {
+          if (n.noteId && !n.memberOf) {
             n.w = style.width ?? n.w;
             n.h = style.height ?? n.h;
           }
@@ -614,7 +869,7 @@ export function DDcreateBoard(deps) {
         }
         const An = new Map(Y.map((Jt) => [Jt.id, Jt])),
           Kt = new Set(model.hidden),
-          Dn = [
+          Dn = (mode === "lanes" ? [] : [
             ...G,
             ...model.links.map((Jt) => ({
               ...Jt,
@@ -629,7 +884,7 @@ export function DDcreateBoard(deps) {
                 Jt.from !== Jt.to &&
                 An.has(Jt.from) &&
                 An.has(Jt.to),
-            );
+            ));
         return { nodes: Y, map: An, edges: Dn, automatic: G };
       }, [
         day.blocks,
@@ -874,10 +1129,32 @@ export function DDcreateBoard(deps) {
       setWireId(null);
       G.blockId && onSelectBlock?.(G.blockId);
       if (!ct.has(G.id) || locked.has(G.id)) return;
+      const moving = new Set(ct);
       if (G.kind === "frame")
         for (const node of layout.nodes)
-          if (node.laneId === G.laneId && node.id !== G.id) ct.add(node.id);
-      const refs = [...ct].filter(
+          if (
+            node.id !== G.id &&
+            (G.section
+              ? node.sectionId === G.section
+              : node.kind === "block" && node.laneId === G.laneId)
+          )
+            moving.add(node.id);
+      // In lanes a card moves with everything inside it; a step moves its card.
+      if (mode === "lanes")
+        for (const ref of [...moving]) {
+          const node = layout.map.get(ref);
+          const owner =
+            node?.kind === "block"
+              ? node
+              : node?.kind === "subtask" && node.memberOf
+                ? layout.map.get(node.memberOf)
+                : null;
+          if (!owner) continue;
+          if (node !== owner) moving.delete(ref);
+          moving.add(owner.id);
+          for (const member of owner.members || []) moving.add(member);
+        }
+      const refs = [...moving].filter(
         (ref) => layout.map.has(ref) && !locked.has(ref),
       );
       gesture.current = {
@@ -1035,16 +1312,32 @@ export function DDcreateBoard(deps) {
         return;
       }
       if (G.kind === "note-resize") {
-        G.size = {
-          width: Math.max(144, Math.min(1200, G.width + ct / cam.current.z)),
-          height: Math.max(96, Math.min(1800, G.height + ot / cam.current.z)),
-        };
+        const edge = G.edge || "se",
+          dx = ct / cam.current.z,
+          dy = ot / cam.current.z;
+        let width =
+            G.width + (edge.includes("e") ? dx : edge.includes("w") ? -dx : 0),
+          height =
+            G.height + (edge.includes("s") ? dy : edge.includes("n") ? -dy : 0);
+        if (Y.shiftKey && edge.length === 2) {
+          const scale = Math.max(width / G.width, height / G.height);
+          width = G.width * scale;
+          height = G.height * scale;
+        }
+        width = Math.round(Math.max(144, Math.min(1200, width)));
+        height = Math.round(Math.max(96, Math.min(1800, height)));
+        const x = G.x + (edge.includes("w") ? G.width - width : 0),
+          y = G.y + (edge.includes("n") ? G.height - height : 0);
+        G.size = { width, height };
+        G.position = { x, y };
         const el = elementRefs.current.get(G.ref);
         if (el) {
-          el.style.width = G.size.width + "px";
-          el.style.height = G.size.height + "px";
+          el.style.width = width + "px";
+          el.style.height = height + "px";
+          el.style.transform = `translate3d(${x - G.x}px,${y - G.y}px,0)`;
+          el.dataset.size = width + " \u00d7 " + height;
         }
-        preview.current.set(G.ref, { w: G.size.width, h: G.size.height });
+        preview.current.set(G.ref, { x, y, w: width, h: height });
         paintWires();
         return;
       }
@@ -1189,24 +1482,93 @@ export function DDcreateBoard(deps) {
             );
           return;
         }
+        if (ct.kind === "note-resize") {
+          const el = elementRefs.current.get(ct.ref);
+          if (el) delete el.dataset.size;
+        }
         if (ct.kind === "note-resize" && ct.moved) {
           const n = layout.map.get(ct.ref);
           if (n && ct.size)
             commit(
-              (d) => core.setStyle(d, [n], ct.size),
+              (d) => {
+                let next = core.setStyle(d, [n], n.memberOf ? { height: ct.size.height } : ct.size);
+                if (
+                  !n.memberOf &&
+                  ct.position &&
+                  (ct.position.x !== n.x || ct.position.y !== n.y)
+                )
+                  next = core.place(next, [n], { [n.id]: ct.position }, mode);
+                return next;
+              },
               t("Note resized", "اندازهٔ نوت تغییر کرد"),
             );
         } else if (ct.kind === "move" && ct.moved) {
           setConnecting(null);
           if (ct.connect) setTool("select");
           const ot = Object.fromEntries(preview.current),
-            St = layout.nodes.filter((Tt) => Tt.kind === "frame");
+            St = layout.nodes.filter(
+              (Tt) => Tt.kind === "frame" && !Tt.section,
+            );
           commit((Tt) => {
             const Pt = clean(Tt.canvas?.board4),
               yn = { ...(Pt.layouts[mode] || {}) };
             for (const [An, Kt] of Object.entries(ot)) {
               const Dn = layout.map.get(An);
-              if (Dn?.noteId) {
+              if (!Dn) continue;
+              if (mode === "lanes" && (Dn.memberOf || Dn.sectionId)) {
+                if (Dn.kind === "section" || Dn.kind === "subtask") continue;
+                if (Dn.memberOf && ot[Dn.memberOf]) continue;
+                // A note or feeling dropped on a card joins it; dragged out, it leaves.
+                const center = { x: Kt.x + Dn.w / 2, y: Kt.y + Dn.h / 2 },
+                  target = layout.nodes.find(
+                    (n) =>
+                      n.kind === "section" &&
+                      !ot[n.id] &&
+                      center.x >= n.x &&
+                      center.x <= n.x + n.w &&
+                      center.y >= n.y &&
+                      center.y <= n.y + n.h,
+                  ),
+                  targetBlock = target?.blockId,
+                  current = Dn.memberOf ? Dn.memberOf.slice(2) : null;
+                if (targetBlock && targetBlock === current) continue;
+                if (Dn.kind === "bug") {
+                  const bug = Tt.bugs.find((b) => b.id === Dn.bugId);
+                  if (bug) {
+                    bug.blockId = targetBlock || "";
+                    if (!targetBlock) bug.on = "";
+                  }
+                } else if (Dn.noteId) {
+                  const blockRefs = (id) => (ref) =>
+                    ref === "b:" + id || ref.startsWith("sub:" + id + ":");
+                  if (current)
+                    Pt.links = Pt.links.filter(
+                      (l) =>
+                        !(
+                          (l.from === An && blockRefs(current)(l.to)) ||
+                          (l.to === An && blockRefs(current)(l.from))
+                        ),
+                    );
+                  if (targetBlock)
+                    Pt.links = [
+                      ...Pt.links,
+                      {
+                        id: "link:" + C(),
+                        from: "b:" + targetBlock,
+                        to: An,
+                        style: "curve",
+                        arrow: !1,
+                        label: "",
+                        color: "#7A5FF5",
+                      },
+                    ];
+                }
+                if (targetBlock) delete yn[An];
+                else yn[An] = Kt;
+                continue;
+              }
+              if (Dn.memberOf) continue;
+              if (Dn.noteId && mode !== "lanes") {
                 const Jt = Tt.notes.find((Xn) => Xn.id === Dn.noteId);
                 Jt && ((Jt.x = Kt.x), (Jt.y = Kt.y));
               } else yn[An] = Kt;
@@ -1299,6 +1661,7 @@ export function DDcreateBoard(deps) {
               .filter(
                 (Tt) =>
                   Tt.kind !== "frame" &&
+                  Tt.kind !== "section" &&
                   Tt.x < ot.x + ot.w &&
                   Tt.x + Tt.w > ot.x &&
                   Tt.y < ot.y + ot.h &&
@@ -1737,6 +2100,23 @@ export function DDcreateBoard(deps) {
               color: appearanceRef.current.stickyColor,
             },
           ],
+          ...(mode === "lanes"
+            ? {
+                canvas: {
+                  ...(ot.canvas || {}),
+                  board4: {
+                    ...clean(ot.canvas?.board4),
+                    layouts: {
+                      ...clean(ot.canvas?.board4).layouts,
+                      lanes: {
+                        ...(clean(ot.canvas?.board4).layouts.lanes || {}),
+                        ["sticky:" + G]: { x: ct.x - 110, y: ct.y - 70 },
+                      },
+                    },
+                  },
+                },
+              }
+            : {}),
         }),
         DDUI(
           "\u06CC\u0627\u062F\u062F\u0627\u0634\u062A \u0633\u0627\u062E\u062A\u0647 \u0634\u062F",
@@ -2155,6 +2535,7 @@ export function DDcreateBoard(deps) {
                       .filter(
                         (Pt) =>
                           Pt.kind !== "frame" &&
+                          Pt.kind !== "section" &&
                           Pt.kind !== "day" &&
                           Pt.kind !== "lane",
                       )
@@ -2228,8 +2609,8 @@ export function DDcreateBoard(deps) {
                       On = { ...(Xn.layouts[mode] || {}) };
                     for (const ra of selected) {
                       const ma = layout.map.get(ra);
-                      if (!(!ma || locked.has(ra)))
-                        if (ma.noteId) {
+                      if (!(!ma || locked.has(ra) || ma.memberOf))
+                        if (ma.noteId && mode !== "lanes") {
                           const Oa = Jt.notes.find((fa) => fa.id === ma.noteId);
                           ((Oa.x += yn), (Oa.y += An));
                         } else On[ra] = { x: ma.x + yn, y: ma.y + An };
@@ -2424,6 +2805,23 @@ export function DDcreateBoard(deps) {
                     : "tree"),
             });
     }
+    // Grow or shrink a note so its whole text shows.
+    function fitNote(node) {
+      const el = elementRefs.current.get(node.id),
+        text = el?.querySelector(".dd-note-preview"),
+        head = el?.querySelector(".b4-sticky-head");
+      if (!text) return;
+      const height = Math.round(
+        Math.max(
+          96,
+          Math.min(1800, (head?.offsetHeight || 36) + text.scrollHeight + 4),
+        ),
+      );
+      commit(
+        (d) => core.setStyle(d, [node], { height }),
+        t("Note fits its text", "اندازهٔ نوت با متن هماهنگ شد"),
+      );
+    }
     function saveNote(noteId, text) {
       const first = noteSession.current !== noteId;
       commit(
@@ -2497,6 +2895,28 @@ export function DDcreateBoard(deps) {
       );
     }
     function renderNode(Y) {
+      if (Y.kind === "section")
+        return _.createElement("div", {
+          key: Y.id,
+          ref: (el) => {
+            el
+              ? elementRefs.current.set(Y.id, el)
+              : elementRefs.current.delete(Y.id);
+          },
+          className:
+            "b4-card-section" +
+            (selected.has(Y.memberOf) ? " is-active" : ""),
+          "data-board-id": Y.id,
+          "aria-hidden": true,
+          style: {
+            left: Y.x,
+            top: Y.y,
+            width: Y.w,
+            height: Y.h,
+            "--node-color": Y.color,
+            zIndex: 3,
+          },
+        });
       const G = selected.has(Y.id),
         ct = locked.has(Y.id),
         ot = editing?.ref === Y.id,
@@ -2516,6 +2936,8 @@ export function DDcreateBoard(deps) {
           },
           "data-board-id": Y.id,
           "data-node-kind": Y.kind,
+          "data-section": Y.section || Y.sectionId,
+          "data-member": Y.memberOf ? true : undefined,
           "data-node-done": !!Y.done,
           role: "group",
           "aria-label": Y.title + (Y.min ? ", " + w(Y.min) : ""),
@@ -2761,9 +3183,16 @@ export function DDcreateBoard(deps) {
                     "button",
                     {
                       type: "button",
-                      "aria-label": "Add block to " + Y.title,
-                      title: DDUI("Add block here"),
-                      onClick: () => addBlock(Y.laneId),
+                      "aria-label": "Add to " + Y.title,
+                      title: Y.section
+                        ? t("Add here", "\u0627\u0641\u0632\u0648\u062f\u0646 \u0627\u06cc\u0646\u062c\u0627")
+                        : DDUI("Add block here"),
+                      onClick: () =>
+                        Y.section === "feelings"
+                          ? ddAddFeeling({ x: Y.x + 170, y: Y.y + Y.h - 40 })
+                          : Y.section === "notes"
+                            ? addSticky({ x: Y.x + 170, y: Y.y + Y.h + 90 })
+                            : addBlock(Y.laneId),
                     },
                     "+",
                   ),
@@ -2772,37 +3201,50 @@ export function DDcreateBoard(deps) {
               ),
             ),
         Tt &&
-          G &&
           !ct &&
           !ot &&
-          _.createElement("button", {
-            type: "button",
-            className: "b6-note-resize",
-            "data-resize": true,
-            "aria-label": t("Resize note", "تغییر اندازهٔ نوت"),
-            title: t(
-              "Drag to resize; use Properties for exact size",
-              "برای تغییر اندازه بکش؛ مقدار دقیق در ویژگی‌ها",
-            ),
-            onPointerDown: (event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              gesture.current = {
-                kind: "note-resize",
-                ref: Y.id,
-                width: Y.w,
-                height: Y.h,
-                sx: event.clientX,
-                sy: event.clientY,
-                pointerId: event.pointerId,
-                moved: false,
-              };
-              viewport.current.setPointerCapture(event.pointerId);
-            },
-          }),
-        mode === "lanes" &&
-          Y.kind === "block" &&
-          !ct &&
+          (Y.memberOf ? ["s"] : ["sw", "se"]).map(
+            (edge) =>
+              _.createElement("button", {
+                type: "button",
+                key: edge,
+                className: "b6-note-resize",
+                "data-resize": true,
+                "data-edge": edge,
+                "aria-label":
+                  t("Resize note", "تغییر اندازهٔ نوت") +
+                  (edge === "se" || (Y.memberOf && edge === "s") ? "" : " (" + edge + ")"),
+                title: t(
+                  "Drag to resize (Shift keeps the shape). Double-click to fit the text.",
+                  "برای تغییر اندازه بکش (با Shift شکلش حفظ می‌شود). دابل‌کلیک: اندازه به اندازهٔ متن",
+                ),
+                onDoubleClick: (event) => {
+                  event.stopPropagation();
+                  fitNote(Y);
+                },
+                onPointerDown: (event) => {
+                  if (event.button !== 0) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setSelected(new Set([Y.id]));
+                  gesture.current = {
+                    kind: "note-resize",
+                    ref: Y.id,
+                    edge,
+                    x: Y.x,
+                    y: Y.y,
+                    width: Y.w,
+                    height: Y.h,
+                    sx: event.clientX,
+                    sy: event.clientY,
+                    pointerId: event.pointerId,
+                    moved: false,
+                  };
+                  viewport.current.setPointerCapture(event.pointerId);
+                },
+              }),
+          ),
+        false &&
           _.createElement("span", {
             className: "b4-resize",
             "data-resize": !0,
@@ -2978,6 +3420,34 @@ export function DDcreateBoard(deps) {
             setup.types.map((type) =>
               h("option", { key: type.id, value: type.id }, DDUI(type.name)),
             ),
+          ),
+        ),
+        h(
+          "label",
+          { className: "dd-card-field dd-card-time" },
+          h("span", null, t("Time", "زمان")),
+          h(
+            "span",
+            { className: "dd-card-minutes" },
+            h("input", {
+              type: "number",
+              min: 5,
+              max: 720,
+              step: 5,
+              value: block.min,
+              disabled: isLocked,
+              "aria-label": t("Minutes", "دقیقه"),
+              onChange: (event) => {
+                const value = Math.round(+event.target.value);
+                if (!Number.isFinite(value) || value < 5 || value > 720) return;
+                commit((d) => {
+                  const b = d.blocks.find((b) => b.id === block.id);
+                  if (b) b.min = value;
+                  return d;
+                });
+              },
+            }),
+            h("small", null, t("min", "دقیقه") + " · " + w(block.min)),
           ),
         ),
         h(
@@ -4060,6 +4530,7 @@ export function DDcreateBoard(deps) {
           "aria-label":
             "Canvas. Drag nodes; Space to pan. C to connect. Delete to remove selection.",
           "data-tool": tool,
+          "data-mode": mode,
           "data-grid": grid,
           onPointerDownCapture: downCapture,
           onPointerDown: backgroundDown,
@@ -4394,6 +4865,7 @@ export function DDcreateBoard(deps) {
             null,
             layout.nodes
               .filter((Y) =>
+                Y.kind !== "section" &&
                 (Y.title + " " + (Y.subtitle || ""))
                   .toLowerCase()
                   .includes(search.toLowerCase()),
@@ -4498,8 +4970,14 @@ export function DDcreateBoard(deps) {
                 width: Y.w,
                 height: Y.h,
                 rx: 5,
-                fill: Y.kind === "frame" ? "none" : Y.color,
-                stroke: Y.kind === "frame" ? "#85827A" : "none",
+                fill:
+                  Y.kind === "frame" || Y.kind === "section"
+                    ? "none"
+                    : Y.color,
+                stroke:
+                  Y.kind === "frame" || Y.kind === "section"
+                    ? "#85827A"
+                    : "none",
                 opacity: selected.has(Y.id) ? 1 : 0.65,
               }),
             ),
@@ -4523,7 +5001,9 @@ export function DDcreateBoard(deps) {
         [
           ["select", DDUI("\u0627\u0646\u062A\u062E\u0627\u0628"), "sort"],
           ["hand", DDUI("\u062F\u0633\u062A"), "hand"],
-          ["connector", DDUI("\u0627\u062A\u0635\u0627\u0644"), "tree"],
+          ...(mode === "lanes"
+            ? []
+            : [["connector", DDUI("\u0627\u062A\u0635\u0627\u0644"), "tree"]]),
           ["block", DDUI("\u0628\u0644\u0627\u06A9"), "plus"],
           [
             "sticky",
