@@ -40,6 +40,7 @@ async function scenario(h,mobile,language){
     await page.keyboard.press("Escape");await dialog().waitFor({state:"hidden"});
     assert.equal(JSON.stringify(await read(page,f.date)),baseline,"browsing does not edit a day");
     assert.equal(await page.locator(".dd-sticker-add:visible").first().evaluate(el=>el===document.activeElement),true);
+    await openDay();await page.mouse.click(2,2);await dialog().waitFor({state:"hidden"});
     await openDay();
     assert.equal(await dialog().getByRole("button",{name:t("Favorite Cloud break","علاقه‌مندی ابر آروم"),exact:true}).getAttribute("aria-pressed"),"true");
     await choose("sticker:spark").focus();await page.keyboard.press("ArrowRight");

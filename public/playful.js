@@ -126,7 +126,7 @@ export function DDcreatePlayful({React:R,Legacy,Art,styles,language}){
     },[data,date]);
   }
   function Picker({onPick,onClose,current='',onClear,targets=[],target:initialTarget='',title}){
-    const dialog=R.useRef(null),searchInput=R.useRef(null),ending=R.useRef(false);
+    const dialog=R.useRef(null),searchInput=R.useRef(null),ending=R.useRef(false),backdropDown=R.useRef(false);
     const[tab,setTab]=R.useState(current&&!DDplayfulData.isSticker(current)?'emoji':'sticker'),[query,setQuery]=R.useState(''),[filter,setFilter]=R.useState('all'),[favorites,setFavorites]=R.useState(()=>local('debug-day:sticker-favorites',[])),[recent,setRecent]=R.useState(()=>local('debug-day:sticker-recent',[])),[target,setTarget]=R.useState(initialTarget),[motionTick,setMotionTick]=R.useState(0);
     const fa=language()==='fa',base=tab==='sticker'?stickers:emojis,q=query.normalize('NFKC').toLowerCase().replace(/ي/g,'ی').replace(/ك/g,'ک').trim();
     const saved=Array.isArray(favorites)?favorites.filter(value=>DDplayfulData.valid(value)):[],used=Array.isArray(recent)?recent.filter(value=>DDplayfulData.valid(value)):[];
@@ -157,8 +157,12 @@ export function DDcreatePlayful({React:R,Legacy,Art,styles,language}){
         buttons[next]?.focus();
       }
     }
-    return h('dialog',{ref:dialog,role:'dialog',className:'dd-sticker-dialog',dir:fa?'rtl':'ltr','aria-label':t('Sticker library','کتابخانهٔ استیکر و ایموجی'),onKeyDown:keyboard,onCancel:event=>{event.preventDefault();onClose();},onClose:()=>{if(!ending.current)onClose();},onContextMenu:event=>event.stopPropagation(),onPointerDown:event=>event.stopPropagation(),onClick:event=>{
-      if(event.target!==event.currentTarget)return;const rect=event.currentTarget.getBoundingClientRect();
+    return h('dialog',{ref:dialog,role:'dialog',className:'dd-sticker-dialog',dir:fa?'rtl':'ltr','aria-label':t('Sticker library','کتابخانهٔ استیکر و ایموجی'),onKeyDown:keyboard,onCancel:event=>{event.preventDefault();onClose();},onClose:()=>{if(!ending.current)onClose();},onContextMenu:event=>event.stopPropagation(),onPointerDown:event=>{
+      event.stopPropagation();const rect=event.currentTarget.getBoundingClientRect();
+      backdropDown.current=event.target===event.currentTarget&&(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom);
+    },onClick:event=>{
+      if(event.target!==event.currentTarget||!backdropDown.current)return;
+      backdropDown.current=false;const rect=event.currentTarget.getBoundingClientRect();
       if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)onClose();
     }},
       h('header',{className:'dd-sticker-heading'},h('div',null,h('h2',null,title||t('A little personality','کمی حال‌وهوای خودت')),h('p',null,t('Make room for a little play. Pick one that feels like you.','کمی جا برای بازی. یکی را انتخاب کن که شبیه حال توست.'))),h('button',{type:'button',className:'dd-playful-close','aria-label':t('Close sticker library','بستن کتابخانهٔ استیکر'),onClick:onClose},'×')),
