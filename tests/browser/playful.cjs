@@ -118,7 +118,7 @@ async function scenario(h,mobile,language){
     // Replacing from the board keeps the same object and its persisted size.
     if(mobile){
       await node().tap();
-      await page.locator('.b2-icon[aria-label="Zoom to selection"]').click();
+      await page.getByRole("button",{name:t("Zoom to selection","زوم روی انتخاب"),exact:true}).click();
       await node().tap();await node().tap();
     }else await node().dblclick();
     await dialog().waitFor();assert.equal(await choose("sticker:spark").getAttribute("aria-pressed"),"true");
