@@ -63,11 +63,12 @@ test('ten MCP additions succeed between simulated board navigation and sync; con
     ]);
     const merge=html.slice(html.indexOf('function DDmerge('),html.indexOf('function DDreadBoardView('));
     const cloud=html.slice(html.indexOf('const DDCloud='),html.indexOf('function useDebugDayEnhancements('));
-    const camera=html.slice(html.indexOf('function Tr(){'),html.indexOf('function er(){'));
+    const board=readFileSync(new URL('../public/board.js',import.meta.url),'utf8');
+    const camera=board.slice(board.indexOf('function saveCamera()'),board.indexOf('function scheduleCamera()'));
     let puts=0;
     const app=runInNewContext(source+merge+cloud+
-      'let oa={current:{date:"'+date+'"}},wn={current:null},dn,hr={current:0};'+camera+
-      ';({cloud:DDCloud,navigate(camera,mode){wn.current=camera;dn=mode;Tr()}})',{
+      'let dayRef={current:{date:"'+date+'"}},cam={current:null},mode,cameraTimer={current:0};'+camera+
+      ';({cloud:DDCloud,navigate(camera,nextMode){cam.current=camera;mode=nextMode;saveCamera()}})',{
       localStorage:{getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value)},
       window:new EventTarget(),document:Object.assign(new EventTarget(),{hidden:false}),Event,
       navigator:{onLine:true},AbortSignal,

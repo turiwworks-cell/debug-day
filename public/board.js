@@ -1,0 +1,4489 @@
+// Board interaction engine. Legacy planner adapters are injected once by the app.
+export function DDcreateBoard(deps) {
+  const {
+    B,
+    C,
+    DDUI,
+    DDbugColor,
+    DDprefs,
+    DDreadBoardView,
+    DDsaveBoardView,
+    DDsetTaskDone,
+    DDtoggleSubtask,
+    E,
+    S,
+    _,
+    de,
+    ee,
+    ie,
+    w,
+    z,
+  } = deps;
+  const { core, controls } = deps;
+  let sharedClipboard = null;
+  return function BoardWorkspace({
+    day: day,
+    setup: setup,
+    selectedBlockId: selectedBlockId,
+    onSelectBlock: onSelectBlock,
+    onUpdateDay: onUpdateDay,
+    onUpdateSetup: onUpdateSetup,
+    onToast: onToast,
+    matchesFilter: matchesFilter,
+    nodeMatches: ddNodeMatches,
+    searchNode: ddSearchNode,
+    onExitIsolation: ddExitIsolation,
+  }) {
+    const DDlanguage = deps.language(),
+      t = (en, fa) => (DDlanguage === "fa" ? fa : en);
+    const {
+        useState: useState,
+        useRef: useRef,
+        useMemo: useMemo,
+        useEffect: useEffect,
+        useLayoutEffect: useLayoutEffect,
+      } = _,
+      copy = (Y) => JSON.parse(JSON.stringify(Y)),
+      finite = (Y, G = 0) =>
+        Number.isFinite(Y) ? Math.max(-1e5, Math.min(1e5, Y)) : G,
+      clean = (Y) => (
+        (Y = Y && typeof Y == "object" ? Y : {}),
+        {
+          version: 1,
+          mode: Y.mode === "lanes" ? "lanes" : "mindmap",
+          layouts: Y.layouts && typeof Y.layouts == "object" ? Y.layouts : {},
+          links: Array.isArray(Y.links)
+            ? Y.links
+                .filter(
+                  (G) =>
+                    G &&
+                    typeof G.id == "string" &&
+                    typeof G.from == "string" &&
+                    typeof G.to == "string",
+                )
+                .slice(0, 2e3)
+            : [],
+          hidden: Array.isArray(Y.hidden)
+            ? Y.hidden.filter((G) => typeof G == "string")
+            : [],
+          overrides:
+            Y.overrides && typeof Y.overrides == "object" ? Y.overrides : {},
+          locked: Array.isArray(Y.locked) ? Y.locked : [],
+          groups: Y.groups && typeof Y.groups == "object" ? Y.groups : {},
+          styles: core.styles(Y.styles),
+          stack: Array.isArray(Y.stack)
+            ? Y.stack.filter((ref) => typeof ref === "string").slice(0, 5000)
+            : [],
+          camera:
+            Y.camera && Number.isFinite(Y.camera.z)
+              ? {
+                  x: finite(Y.camera.x),
+                  y: finite(Y.camera.y),
+                  z: core.zoom(Y.camera.z),
+                }
+              : { x: 24, y: 72, z: 0.8 },
+        }
+      ),
+      model = clean(DDreadBoardView(day.date, day.canvas?.board4)),
+      prefs = DDprefs(setup.preferences),
+      [mode, setMode] = useState(model.mode),
+      [tool, setTool] = useState("select"),
+      [selected, setSelected] = useState(new Set()),
+      [wireId, setWireId] = useState(null),
+      [wireSelection, setWireSelection] = useState(null),
+      [editing, setEditing] = useState(null),
+      [child, setChild] = useState(null),
+      [focus, setFocus] = useState(!1),
+      [grid, setGrid] = useState(() =>
+        core.local("debug-day:board-grid", prefs.boardGrid),
+      ),
+      [snap, setSnap] = useState(() =>
+        core.local("debug-day:board-snap", prefs.boardSnap),
+      ),
+      [showMap, setShowMap] = useState(() =>
+        core.local("debug-day:board-map", prefs.boardMinimap),
+      ),
+      [appearance, setAppearance] = useState(() => core.appearance()),
+      [viewPanel, setViewPanel] = useState(false),
+      [properties, setProperties] = useState(false),
+      appearanceRef = useRef(appearance),
+      guideSvg = useRef(null),
+      clipboard = useRef(sharedClipboard),
+      pendingContext = useRef(null),
+      suppressContext = useRef(false),
+      stylePreview = useRef(false),
+      [search, setSearch] = useState(null),
+      [help, setHelp] = useState(!1),
+      [menu, setMenu] = useState(null),
+      [connecting, setConnecting] = useState(null),
+      [tick, setTick] = useState(0),
+      [status, setStatus] = useState(""),
+      [inspector, setInspector] = useState(!0),
+      viewport = useRef(null),
+      world = useRef(null),
+      root = useRef(null),
+      zoomLabel = useRef(null),
+      mapSvg = useRef(null),
+      marquee = useRef(null),
+      draftPath = useRef(null),
+      elementRefs = useRef(new Map()),
+      wireRefs = useRef(new Map()),
+      cam = useRef(model.camera),
+      cameraRAF = useRef(0),
+      moveRAF = useRef(0),
+      cameraTimer = useRef(0),
+      latestMove = useRef(null),
+      gesture = useRef(null),
+      touches = useRef(new Map()),
+      pinch = useRef(null),
+      space = useRef(!1),
+      preview = useRef(new Map()),
+      pointerWire = useRef(null),
+      history = useRef({ past: [], future: [] }),
+      dayRef = useRef(day),
+      ownUpdate = useRef(null),
+      propsRef = useRef({
+        day: day,
+        setup: setup,
+        onSelectBlock: onSelectBlock,
+        onUpdateDay: onUpdateDay,
+        onToast: onToast,
+      }),
+      api = useRef(null),
+      editingRef = useRef(null),
+      lastTap = useRef(null),
+      lastNodeTap = useRef(0),
+      mounted = useRef(!0),
+      lastNudge = useRef(0),
+      noteSession = useRef(null);
+    ((propsRef.current = {
+      day: day,
+      setup: setup,
+      onSelectBlock: onSelectBlock,
+      onUpdateDay: onUpdateDay,
+      onToast: onToast,
+    }),
+      (editingRef.current = editing),
+      (appearanceRef.current = appearance));
+    useEffect(() => {
+      if (!status) return;
+      const timer = setTimeout(() => setStatus(""), 2600);
+      return () => clearTimeout(timer);
+    }, [status]);
+    const typeFor = (Y) =>
+        setup.types.find((G) => G.id === Y) || {
+          id: Y,
+          name: "Other",
+          color: "#8E8A80",
+          icon: "dot",
+        },
+      laneIds = setup.lanes.map((Y) => Y.id),
+      isScheduled = (Y) => laneIds.includes(Y.lane),
+      locked = new Set(model.locked),
+      selectedWires = new Set(
+        wireSelection && wireSelection.sel === selected
+          ? wireSelection.ids
+          : [],
+      ),
+      visibleKey = day.blocks
+        .filter((Y) => !matchesFilter || matchesFilter(Y))
+        .map((Y) => Y.id)
+        .join("|");
+    function remember(Y) {
+      const G = history.current;
+      (G.past.push({ day: copy(Y), bytes: JSON.stringify(Y).length }),
+        (G.future = []));
+      let ct = G.past.reduce((ot, St) => ot + St.bytes, 0);
+      for (; G.past.length > 50 || (ct > 24e6 && G.past.length > 1); )
+        ct -= G.past.shift().bytes;
+    }
+    function commit(Y, G, ct = {}) {
+      const ot = dayRef.current,
+        St = Y(copy(ot));
+      !St ||
+        JSON.stringify(St) === JSON.stringify(ot) ||
+        (ct.history !== !1 && remember(ot),
+        (dayRef.current = St),
+        (ownUpdate.current = St),
+        propsRef.current.onUpdateDay(() => St),
+        setTick((Tt) => Tt + 1),
+        G && setStatus(G));
+    }
+    function boardChange(Y, G, ct) {
+      commit(
+        (ot) => (
+          (ot.canvas = {
+            ...(ot.canvas || {}),
+            board4: Y(clean(ot.canvas?.board4)),
+          }),
+          ot
+        ),
+        G,
+        ct,
+      );
+    }
+    function undo(Y = !1) {
+      (finishEdit(), cancelGesture());
+      const G = history.current,
+        ct = Y ? G.future : G.past,
+        ot = Y ? G.past : G.future,
+        St = ct.pop();
+      if (!St) return;
+      const Tt = copy(dayRef.current);
+      (ot.push({ day: Tt, bytes: JSON.stringify(Tt).length }),
+        (dayRef.current = copy(St.day)),
+        (ownUpdate.current = dayRef.current),
+        propsRef.current.onUpdateDay(() => dayRef.current),
+        setSelected(new Set()),
+        setWireId(null),
+        setConnecting(null),
+        setTick((Pt) => Pt + 1),
+        setStatus(
+          Y
+            ? "\u0627\u0646\u062C\u0627\u0645 \u0645\u062C\u062F\u062F"
+            : "\u0628\u0627\u0632\u06AF\u0634\u062A \u062A\u063A\u06CC\u06CC\u0631",
+        ));
+    }
+    useLayoutEffect(() => {
+      (day !== dayRef.current &&
+        (day !== ownUpdate.current &&
+          JSON.stringify(day) !== JSON.stringify(dayRef.current) &&
+          remember(dayRef.current),
+        (dayRef.current = day)),
+        (ownUpdate.current = null));
+    }, [day]);
+    const layout = useMemo(() => {
+        const Y = [],
+          G = [],
+          ct = model.layouts[mode] || {},
+          ot = new Set(),
+          St = new Set(visibleKey.split("|")),
+          Tt = (Jt, Xn, On) => ({
+            x: finite(ct[Jt]?.x, Xn),
+            y: finite(ct[Jt]?.y, On),
+          }),
+          Pt = (Jt) => (Y.push({ ...Jt, ...Tt(Jt.id, Jt.x, Jt.y) }), Y.at(-1)),
+          yn = (Jt, Xn, On, ra = !1) =>
+            G.push({
+              id: `auto:${Jt}->${Xn}`,
+              from: Jt,
+              to: Xn,
+              color: On,
+              dashed: ra,
+              automatic: !0,
+              style: "curve",
+            });
+        if (mode === "mindmap") {
+          let Jt = 56;
+          const Xn = [];
+          Pt({
+            id: "day:root",
+            kind: "day",
+            title: ie.format(E(day.date)),
+            subtitle:
+              day.focus ||
+              DDUI(
+                "\u0628\u0631\u0646\u0627\u0645\u0647 \u0627\u0645\u0631\u0648\u0632",
+              ),
+            emoji: day.mood,
+            color: "#121211",
+            textColor: "#fff",
+            x: 24,
+            y: 220,
+            w: 184,
+            h: 70,
+          });
+          const On = (ma, Oa, fa, Pl, kl) => {
+              for (const Fn of ma || []) {
+                const Ga = Jt,
+                  Xa = `sub:${fa.id}:${Fn.id}`;
+                Fn.expanded !== !1 && Fn.children?.length
+                  ? On(Fn.children, Xa, fa, Pl + 1, kl)
+                  : (Jt += 62);
+                const Dl = Pt({
+                  id: Xa,
+                  kind: "subtask",
+                  title: Fn.text,
+                  done: Fn.done,
+                  color: kl,
+                  textColor: ee(kl),
+                  blockId: fa.id,
+                  subId: Fn.id,
+                  parentId: Oa,
+                  x: 720 + (Pl - 1) * 276,
+                  y: (Ga + Math.max(Ga + 48, Jt - 14)) / 2 - 24,
+                  w: 238,
+                  h: 48,
+                  hasChildren: !!Fn.children?.length,
+                  expanded: Fn.expanded !== !1,
+                });
+                yn(Oa, Xa, kl);
+              }
+            },
+            ra = [
+              ...setup.lanes,
+              ...(day.blocks.some((ma) => !isScheduled(ma))
+                ? [{ id: "", name: "Parked" }]
+                : []),
+            ];
+          for (const ma of ra) {
+            const Oa = `lane:${ma.id || "parked"}`,
+              fa = Jt,
+              Pl = day.blocks.filter((Fn) =>
+                ma.id ? Fn.lane === ma.id : !isScheduled(Fn),
+              );
+            for (const Fn of Pl) {
+              if (!St.has(Fn.id)) continue;
+              const Ga = Jt,
+                Xa = `b:${Fn.id}`,
+                Dl = Fn.color
+                  ? { ...typeFor(Fn.type), color: Fn.color }
+                  : typeFor(Fn.type);
+              Fn.expanded !== !1 && Fn.subtasks?.length
+                ? On(Fn.subtasks, Xa, Fn, 1, Dl.color)
+                : (Jt += 82);
+              for (const ba of (day.bugs || []).filter(
+                (n) =>
+                  !ddNodeMatches ||
+                  ddNodeMatches.has("bug:" + day.date + ":" + n.id),
+              )) {
+                if (
+                  ba.fixed ||
+                  ot.has(ba.id) ||
+                  !(
+                    ba.blockId === Fn.id ||
+                    (!ba.blockId &&
+                      ba.on &&
+                      ba.on.toLowerCase() === Fn.name.toLowerCase())
+                  )
+                )
+                  continue;
+                ot.add(ba.id);
+                const va = `bug:${ba.id}`;
+                (Pt({
+                  id: va,
+                  kind: "bug",
+                  title: ba.text,
+                  subtitle: ba.triggerTag
+                    ? "#" + ba.triggerTag
+                    : DDUI("\u0627\u0634\u06A9\u0627\u0644 \u0628\u0627\u0632"),
+                  bugId: ba.id,
+                  blockId: Fn.id,
+                  parentId: Xa,
+                  color: DDbugColor(ba),
+                  textColor: "#fff",
+                  x: 720,
+                  y: Jt,
+                  w: 238,
+                  h: 52,
+                }),
+                  yn(Xa, va, "#D9434A", !0),
+                  (Jt += 66));
+              }
+              const Pa = de(Fn.subtasks || []);
+              (Pt({
+                id: Xa,
+                kind: "block",
+                title: Fn.name || DDUI("Untitled"),
+                subtitle:
+                  w(Fn.min) +
+                  (Pa.total
+                    ? ` \xB7 ${Pa.done}/${Pa.total} \u0642\u062F\u0645`
+                    : ""),
+                min: Fn.min,
+                done: Fn.done,
+                emoji: Fn.emo || Dl.emo,
+                icon: Dl.icon,
+                color: Dl.color,
+                textColor: ee(Dl.color),
+                blockId: Fn.id,
+                laneId: Fn.lane,
+                parentId: Oa,
+                pri: Fn.pri,
+                hasChildren: !!Fn.subtasks?.length,
+                expanded: Fn.expanded !== !1,
+                x: 410,
+                y: (Ga + Math.max(Ga + 64, Jt - 18)) / 2 - 32,
+                w: 264,
+                h: 64,
+              }),
+                yn(Oa, Xa, Dl.color));
+            }
+            Jt === fa && (Jt += 84);
+            const kl = Pt({
+              id: Oa,
+              kind: "lane",
+              title: ma.name || DDUI("Parked"),
+              subtitle: w(Pl.reduce((Fn, Ga) => Fn + Ga.min, 0)),
+              laneId: ma.id,
+              parentId: "day:root",
+              color: "#4A4843",
+              textColor: "#fff",
+              x: 252,
+              y: (fa + Jt) / 2 - 27,
+              w: 126,
+              h: 54,
+            });
+            (Xn.push(kl), yn("day:root", Oa, "#85827A"), (Jt += 30));
+          }
+          ct["day:root"] || (Y[0].y = Math.max(60, Jt / 2 - 35));
+        } else {
+          let Jt = 48;
+          for (const On of setup.lanes) {
+            const ra = `lane:${On.id}`,
+              ma = ct[ra],
+              Oa = setup.board?.[On.id],
+              fa = finite(ma?.x, Oa?.x ?? 48),
+              Pl = finite(ma?.y, Oa?.y ?? Jt),
+              kl = day.blocks.filter((va) => va.lane === On.id),
+              Fn = Math.max(940, ...kl.map((va) => 136 + va.min * 3 + 32));
+            let Ga = fa + 16,
+              Xa = Pl + 54,
+              Dl = Xa + 64,
+              Pa = fa + Fn;
+            const ba = {
+              id: ra,
+              kind: "frame",
+              title: On.name || DDUI("Lane"),
+              subtitle: w(kl.reduce((va, lr) => va + lr.min, 0)),
+              laneId: On.id,
+              color: "#4A4843",
+              textColor: "#fff",
+              x: fa,
+              y: Pl,
+              w: Fn,
+              h: 160,
+            };
+            Y.push(ba);
+            for (const va of kl) {
+              const lr = 136 + va.min * 3;
+              Ga + lr > fa + Fn - 16 &&
+                Ga > fa + 16 &&
+                ((Ga = fa + 16), (Xa += 82));
+              const Uc = day.canvas?.positions?.[va.id],
+                eo = ct[`b:${va.id}`] || Uc,
+                to = finite(eo?.x, Ga),
+                ri = finite(eo?.y, Xa),
+                Pr = va.color
+                  ? { ...typeFor(va.type), color: va.color }
+                  : typeFor(va.type);
+              (St.has(va.id) &&
+                Y.push({
+                  id: `b:${va.id}`,
+                  kind: "block",
+                  title: va.name || DDUI("Untitled"),
+                  subtitle: w(va.min) + " \xB7 " + Pr.name,
+                  min: va.min,
+                  done: va.done,
+                  emoji: va.emo || Pr.emo,
+                  icon: Pr.icon,
+                  color: Pr.color,
+                  textColor: ee(Pr.color),
+                  blockId: va.id,
+                  laneId: On.id,
+                  x: to,
+                  y: ri,
+                  w: lr,
+                  h: 64,
+                }),
+                (Ga += lr + 14),
+                (Dl = Math.max(Dl, ri + 84)),
+                (Pa = Math.max(Pa, to + lr + 16)));
+            }
+            ((ba.w = Pa - fa),
+              (ba.h = Math.max(150, Dl - Pl)),
+              (Jt = Math.max(Jt, Pl + ba.h + 48)));
+          }
+          let Xn = 48;
+          for (const On of day.blocks.filter((ra) => !isScheduled(ra))) {
+            const ra = On.color
+              ? { ...typeFor(On.type), color: On.color }
+              : typeFor(On.type);
+            (St.has(On.id) &&
+              Pt({
+                id: `b:${On.id}`,
+                kind: "block",
+                title: On.name || DDUI("Untitled"),
+                subtitle: w(On.min) + " \xB7 Parked",
+                min: On.min,
+                done: On.done,
+                emoji: On.emo || ra.emo,
+                icon: ra.icon,
+                color: ra.color,
+                textColor: ee(ra.color),
+                blockId: On.id,
+                laneId: "",
+                x: On.bx ?? Xn,
+                y: On.by ?? Jt + 20,
+                w: 136 + On.min * 3,
+                h: 64,
+              }),
+              (Xn += 150 + On.min * 3));
+          }
+        }
+        {
+          const ddL = new Set(model.links.flatMap((l) => [l.from, l.to])),
+            ddB = (day.bugs || []).filter(
+              (n) =>
+                (!ddNodeMatches ||
+                  ddNodeMatches.has("bug:" + day.date + ":" + n.id)) &&
+                !ot.has(n.id) &&
+                (!n.fixed || ddL.has("bug:" + n.id)),
+            );
+          if (ddB.length) {
+            const ddY = Math.max(60, ...Y.map((n) => n.y + n.h)) + 56,
+              ddX = mode === "mindmap" ? 24 : 48;
+            ddB.forEach((ba, i) =>
+              Pt({
+                id: "bug:" + ba.id,
+                kind: "bug",
+                title: ba.text,
+                subtitle: ba.triggerTag ? "#" + ba.triggerTag : DDUI("Feeling"),
+                bugId: ba.id,
+                done: !!ba.fixed,
+                color: DDbugColor(ba),
+                textColor: "#fff",
+                x: ddX + (i % 4) * 262,
+                y: ddY + Math.floor(i / 4) * 70,
+                w: 238,
+                h: 52,
+              }),
+            );
+          }
+        }
+        for (const Jt of (day.notes || []).filter(
+          (n) =>
+            !ddNodeMatches ||
+            ddNodeMatches.has("note:" + day.date + ":" + n.id),
+        ))
+          Y.push({
+            id: `sticky:${Jt.id}`,
+            noteId: Jt.id,
+            kind: Jt.kind === "emoji" ? "emoji" : "sticky",
+            title: Jt.text || "",
+            color: Jt.color || "#FFE27A",
+            textColor: "#121211",
+            x: finite(Jt.x, 40),
+            y: finite(Jt.y, 40),
+            w: Jt.kind === "emoji" ? 64 : 220,
+            h: Jt.kind === "emoji" ? 64 : 160,
+          });
+        for (const n of Y) {
+          const style = model.styles[n.id] || {};
+          Object.assign(n, style, {
+            opacity: style.opacity ?? 1,
+            locked: model.locked.includes(n.id),
+          });
+          if (style.fill) {
+            n.color = style.fill;
+            n.textColor = core.contrast(style.fill);
+          }
+          if (n.kind === "sticky") n.textColor = core.contrast(n.color);
+          if (style.textColor) n.textColor = style.textColor;
+          if (n.noteId) {
+            n.w = style.width ?? n.w;
+            n.h = style.height ?? n.h;
+          }
+          n.stack = 15 + Math.max(0, model.stack.indexOf(n.id) + 1);
+        }
+        const An = new Map(Y.map((Jt) => [Jt.id, Jt])),
+          Kt = new Set(model.hidden),
+          Dn = [
+            ...G,
+            ...model.links.map((Jt) => ({
+              ...Jt,
+              color: Jt.color || "var(--now)",
+              automatic: !1,
+            })),
+          ]
+            .map((Jt) => ({ ...Jt, ...(model.overrides[Jt.id] || {}) }))
+            .filter(
+              (Jt) =>
+                !Kt.has(Jt.id) &&
+                Jt.from !== Jt.to &&
+                An.has(Jt.from) &&
+                An.has(Jt.to),
+            );
+        return { nodes: Y, map: An, edges: Dn, automatic: G };
+      }, [
+        day.blocks,
+        day.bugs,
+        day.notes,
+        day.focus,
+        day.mood,
+        day.date,
+        setup.types,
+        setup.lanes,
+        setup.board,
+        setup.preferences?.language,
+        mode,
+        visibleKey,
+        day.canvas,
+        ddNodeMatches,
+      ]),
+      layoutRef = useRef(layout);
+    layoutRef.current = layout;
+    const selectedWire = layout.edges.find((Y) => Y.id === wireId),
+      selectedNode =
+        selected.size === 1 ? layout.map.get([...selected][0]) : null;
+    function nodeBounds(Y = layout.nodes) {
+      if (!Y.length) return { x: 0, y: 0, w: 500, h: 350 };
+      const G = Math.min(...Y.map((ot) => ot.x)),
+        ct = Math.min(...Y.map((ot) => ot.y));
+      return {
+        x: G,
+        y: ct,
+        w: Math.max(...Y.map((ot) => ot.x + ot.w)) - G,
+        h: Math.max(...Y.map((ot) => ot.y + ot.h)) - ct,
+      };
+    }
+    const bounds = nodeBounds();
+    function nodeFor(Y) {
+      const G = layoutRef.current.map.get(Y);
+      return G ? { ...G, ...(preview.current.get(Y) || {}) } : null;
+    }
+    function portPoint(Y, G) {
+      return G === "top"
+        ? { x: Y.x + Y.w / 2, y: Y.y }
+        : G === "bottom"
+          ? { x: Y.x + Y.w / 2, y: Y.y + Y.h }
+          : G === "left"
+            ? { x: Y.x, y: Y.y + Y.h / 2 }
+            : { x: Y.x + Y.w, y: Y.y + Y.h / 2 };
+    }
+    function wireGeometry(Y) {
+      let G = nodeFor(Y.from),
+        ct = nodeFor(Y.to);
+      if (!G || !ct) return null;
+      let ot = Y.fromPort,
+        St = Y.toPort;
+      if (!ot || !St) {
+        const Jt = ct.x + ct.w / 2 - G.x - G.w / 2,
+          Xn = ct.y + ct.h / 2 - G.y - G.h / 2;
+        Math.abs(Jt) > Math.abs(Xn) * 0.65
+          ? ((ot = ot || (Jt >= 0 ? "right" : "left")),
+            (St = St || (Jt >= 0 ? "left" : "right")))
+          : ((ot = ot || (Xn >= 0 ? "bottom" : "top")),
+            (St = St || (Xn >= 0 ? "top" : "bottom")));
+      }
+      let Tt = portPoint(G, ot),
+        Pt = portPoint(ct, St);
+      const yn = pointerWire.current;
+      yn?.id === Y.id &&
+        (yn.end === "from"
+          ? (Tt = yn.point)
+          : yn.end === "to" && (Pt = yn.point));
+      const An = yn?.id === Y.id && yn.end === "bend" ? yn.point : Y.bend,
+        Kt = An || { x: (Tt.x + Pt.x) / 2, y: (Tt.y + Pt.y) / 2 };
+      let Dn;
+      if (Y.style === "straight") Dn = `M${Tt.x} ${Tt.y}L${Pt.x} ${Pt.y}`;
+      else if (Y.style === "elbow")
+        Dn = `M${Tt.x} ${Tt.y}L${Kt.x} ${Tt.y}L${Kt.x} ${Pt.y}L${Pt.x} ${Pt.y}`;
+      else if (An)
+        Dn = `M${Tt.x} ${Tt.y}Q${2 * Kt.x - (Tt.x + Pt.x) / 2} ${2 * Kt.y - (Tt.y + Pt.y) / 2} ${Pt.x} ${Pt.y}`;
+      else {
+        const Jt = Math.max(
+            48,
+            Math.abs(Pt.x - Tt.x) * 0.48,
+            Math.abs(Pt.y - Tt.y) * 0.2,
+          ),
+          Xn = (ma, Oa, fa) => ({
+            x: Oa.x + (ma === "left" ? -Jt : ma === "right" ? Jt : 0) * fa,
+            y: Oa.y + (ma === "top" ? -Jt : ma === "bottom" ? Jt : 0) * fa,
+          }),
+          On = Xn(ot, Tt, 1),
+          ra = Xn(St, Pt, 1);
+        Dn = `M${Tt.x} ${Tt.y}C${On.x} ${On.y},${ra.x} ${ra.y},${Pt.x} ${Pt.y}`;
+      }
+      return { d: Dn, p: Tt, q: Pt, mid: Kt };
+    }
+    function paintWires() {
+      for (const Y of layoutRef.current.edges) {
+        const G = wireGeometry(Y),
+          ct = wireRefs.current.get(Y.id);
+        if (!G || !ct) continue;
+        for (const St of ct.querySelectorAll("path[data-wire-path]"))
+          St.setAttribute("d", G.d);
+        for (const [St, Tt] of [
+          ["from", G.p],
+          ["to", G.q],
+          ["bend", G.mid],
+        ]) {
+          const Pt = ct.querySelector(`[data-end="${St}"]`);
+          Pt &&
+            Pt.setAttribute(
+              "transform",
+              `translate(${Tt.x} ${Tt.y}) scale(${1 / cam.current.z})`,
+            );
+        }
+        const ot = ct.querySelector("[data-wire-label]");
+        ot &&
+          ot.setAttribute(
+            "transform",
+            `translate(${G.mid.x} ${G.mid.y - 12 / cam.current.z}) scale(${1 / cam.current.z})`,
+          );
+      }
+    }
+    function paintCamera() {
+      cameraRAF.current = 0;
+      const Y = viewport.current,
+        G = cam.current;
+      if (!Y || !world.current) return;
+      ((world.current.style.transform = `translate3d(${G.x}px,${G.y}px,0) scale(${G.z})`),
+        Y.style.setProperty("--b4-inverse", 1 / G.z),
+        Y.classList.toggle("b4-overview", G.z < 0.7));
+      let ct = appearanceRef.current.gridSize;
+      Y.style.setProperty(
+        "--b6-dot",
+        core.rgba(
+          appearanceRef.current.gridColor,
+          appearanceRef.current.gridOpacity / 100,
+        ),
+      );
+      if (Y.dataset.zoom !== String(G.z)) {
+        Y.dataset.zoom = String(G.z);
+        Y.dispatchEvent(
+          new CustomEvent("debug-day-camera", { detail: { ...G } }),
+        );
+      }
+      for (; ct * G.z < 15; ) ct *= 2;
+      ((Y.style.backgroundSize = `${ct * G.z}px ${ct * G.z}px`),
+        (Y.style.backgroundPosition = `${G.x}px ${G.y}px`),
+        zoomLabel.current &&
+          (zoomLabel.current.textContent = Math.round(G.z * 100) + "%"));
+      const ot = mapSvg.current?.querySelector("[data-map-camera]");
+      (ot &&
+        (ot.setAttribute("x", -G.x / G.z),
+        ot.setAttribute("y", -G.y / G.z),
+        ot.setAttribute("width", Y.clientWidth / G.z),
+        ot.setAttribute("height", Y.clientHeight / G.z)),
+        paintWires());
+    }
+    function queueCamera() {
+      cameraRAF.current ||
+        (cameraRAF.current = requestAnimationFrame(paintCamera));
+    }
+    function saveCamera() {
+      clearTimeout(cameraTimer.current);
+      DDsaveBoardView(dayRef.current.date, { ...cam.current }, mode);
+    }
+    function scheduleCamera() {
+      (clearTimeout(cameraTimer.current),
+        (cameraTimer.current = setTimeout(() => {
+          gesture.current || saveCamera();
+        }, 220)));
+    }
+    function toWorld(Y, G) {
+      const ct = viewport.current.getBoundingClientRect(),
+        ot = cam.current;
+      return { x: (Y - ct.left - ot.x) / ot.z, y: (G - ct.top - ot.y) / ot.z };
+    }
+    function setZoom(value, clientX, clientY) {
+      const el = viewport.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      cam.current = core.zoomAt(cam.current, value, {
+        x: clientX == null ? el.clientWidth / 2 : clientX - rect.left,
+        y: clientY == null ? el.clientHeight / 2 : clientY - rect.top,
+      });
+      queueCamera();
+      scheduleCamera();
+    }
+    function fit(selection = false) {
+      const el = viewport.current;
+      if (!el) return;
+      const nodes =
+        selection && selected.size
+          ? layout.nodes.filter((n) => selected.has(n.id))
+          : layout.nodes;
+      cam.current = core.fit(nodes, el.clientWidth, el.clientHeight, {
+        left: 36,
+        right: 36,
+        top: 48,
+        bottom: el.clientWidth < 700 ? 132 : 100,
+        maxZoom: selection ? 1.6 : 1.05,
+      });
+      queueCamera();
+      scheduleCamera();
+    }
+    function selectOne(Y) {
+      (setSelected(new Set([Y])), setWireId(null));
+      const G = layout.map.get(Y);
+      G?.blockId && onSelectBlock?.(G.blockId);
+    }
+    function groupFor(Y) {
+      return (
+        Object.values(model.groups).find(
+          (ct) => Array.isArray(ct) && ct.includes(Y),
+        ) || [Y]
+      );
+    }
+    function nodeDown(Y, G, ddMove = false) {
+      if (
+        Y.button === 2 ||
+        Y.target.closest("input,textarea,select,[data-port],[data-resize]") ||
+        (Y.target.closest("button") && !ddMove)
+      )
+        return;
+      lastNodeTap.current = Date.now();
+      Y.preventDefault();
+      Y.stopPropagation();
+      finishEdit();
+      setMenu(null);
+      if (space.current || (tool === "hand" && !ddMove) || Y.button === 1)
+        return startPan(Y);
+      const ddConnect = tool === "connector" && !ddMove && !Y.shiftKey;
+      if (ddMove) {
+        setConnecting(null);
+        setTool("select");
+      }
+      let ct = new Set(selected);
+      if (ddConnect) ct = new Set([G.id]);
+      else if (Y.shiftKey)
+        for (const ref of groupFor(G.id))
+          ct.has(ref) ? ct.delete(ref) : ct.add(ref);
+      else if (!ct.has(G.id)) ct = new Set(groupFor(G.id));
+      setSelected(ct);
+      setWireId(null);
+      G.blockId && onSelectBlock?.(G.blockId);
+      if (!ct.has(G.id) || locked.has(G.id)) return;
+      if (G.kind === "frame")
+        for (const node of layout.nodes)
+          if (node.laneId === G.laneId && node.id !== G.id) ct.add(node.id);
+      const refs = [...ct].filter(
+        (ref) => layout.map.has(ref) && !locked.has(ref),
+      );
+      gesture.current = {
+        kind: "move",
+        pointerId: Y.pointerId,
+        sx: Y.clientX,
+        sy: Y.clientY,
+        refs,
+        starts: Object.fromEntries(
+          refs.map((ref) => {
+            const node = layout.map.get(ref);
+            return [ref, { x: node.x, y: node.y }];
+          }),
+        ),
+        moved: false,
+        frame: G.kind === "frame",
+        tapRef: G.id,
+        shift: Y.shiftKey,
+        connect: ddConnect,
+        connectFrom: connecting,
+      };
+      viewport.current.setPointerCapture(Y.pointerId);
+      viewport.current.focus({ preventScroll: true });
+    }
+    function startPan(Y) {
+      ((gesture.current = {
+        kind: "pan",
+        pointerId: Y.pointerId,
+        sx: Y.clientX,
+        sy: Y.clientY,
+        camera: { ...cam.current },
+        moved: !1,
+      }),
+        viewport.current.setPointerCapture(Y.pointerId),
+        viewport.current.focus({ preventScroll: !0 }));
+    }
+    function wireDown(Y, G, ct) {
+      if (Y.button !== 0) return;
+      (Y.preventDefault(),
+        Y.stopPropagation(),
+        finishEdit(),
+        setSelected(new Set()),
+        setWireId(G.id),
+        setInspector(!0),
+        setMenu(null));
+      const ot = wireGeometry(G);
+      ((gesture.current = {
+        kind: ct === "from" || ct === "to" ? "rewire" : "wire",
+        end: ct || "bend",
+        link: G,
+        sx: Y.clientX,
+        sy: Y.clientY,
+        start: toWorld(Y.clientX, Y.clientY),
+        bend: ot.mid,
+        pointerId: Y.pointerId,
+        moved: !1,
+      }),
+        viewport.current.setPointerCapture(Y.pointerId),
+        viewport.current.focus({ preventScroll: !0 }));
+    }
+    function portDown(Y, G, ct) {
+      if (Y.button !== 0) return;
+      (Y.preventDefault(),
+        Y.stopPropagation(),
+        setSelected(new Set([G.id])),
+        setWireId(null),
+        (gesture.current = {
+          kind: "newlink",
+          from: G.id,
+          port: ct,
+          sx: Y.clientX,
+          sy: Y.clientY,
+          start: portPoint(G, ct),
+          pointerId: Y.pointerId,
+          moved: !1,
+        }),
+        viewport.current.setPointerCapture(Y.pointerId));
+    }
+    function nodeAt(Y, G) {
+      const ct = layout.nodes.filter(
+        (ot) =>
+          ot.id !== G &&
+          Y.x >= ot.x - 10 / cam.current.z &&
+          Y.x <= ot.x + ot.w + 10 / cam.current.z &&
+          Y.y >= ot.y - 10 / cam.current.z &&
+          Y.y <= ot.y + ot.h + 10 / cam.current.z,
+      );
+      return ct.filter((ot) => ot.kind !== "frame").at(-1) || ct.at(-1);
+    }
+    function nearestPort(Y, G) {
+      return [
+        ["left", Math.abs(G.x - Y.x)],
+        ["right", Math.abs(G.x - Y.x - Y.w)],
+        ["top", Math.abs(G.y - Y.y)],
+        ["bottom", Math.abs(G.y - Y.y - Y.h)],
+      ].sort((ct, ot) => ct[1] - ot[1])[0][0];
+    }
+    function paintGesture(Y) {
+      const G = gesture.current;
+      if (!G || G.pointerId !== Y.pointerId) return;
+      const ct = Y.clientX - G.sx,
+        ot = Y.clientY - G.sy,
+        St = Y.pointerType === "touch" ? 7 : 4;
+      if ((Math.hypot(ct, ot) >= St && (G.moved = !0), !G.moved)) return;
+      const Tt = toWorld(Y.clientX, Y.clientY);
+      if (G.kind === "pan") {
+        ((cam.current = {
+          ...G.camera,
+          x: G.camera.x + ct,
+          y: G.camera.y + ot,
+        }),
+          queueCamera());
+        return;
+      }
+      if (G.kind === "move") {
+        let Pt = ct / cam.current.z,
+          yn = ot / cam.current.z;
+        if (
+          (Y.shiftKey && (Math.abs(Pt) > Math.abs(yn) ? (yn = 0) : (Pt = 0)),
+          snap)
+        ) {
+          const An = G.starts[G.refs[0]],
+            step = appearanceRef.current.gridSize;
+          An &&
+            ((Pt = Math.round((An.x + Pt) / step) * step - An.x),
+            (yn = Math.round((An.y + yn) / step) * step - An.y));
+        }
+        if (appearanceRef.current.guides && !Y.shiftKey) {
+          const guides = core.guides(
+            layout.nodes,
+            G.refs,
+            G.starts,
+            { x: Pt, y: yn },
+            cam.current.z,
+          );
+          Pt = guides.x;
+          yn = guides.y;
+          if (guideSvg.current)
+            guideSvg.current.innerHTML = guides.lines
+              .map((line) =>
+                line.axis === "x"
+                  ? `<line x1="${line.position}" y1="${line.from}" x2="${line.position}" y2="${line.to}"/>`
+                  : `<line x1="${line.from}" y1="${line.position}" x2="${line.to}" y2="${line.position}"/>`,
+              )
+              .join("");
+        }
+        for (const An of G.refs) {
+          const Kt = G.starts[An],
+            Dn = { x: Kt.x + Pt, y: Kt.y + yn };
+          preview.current.set(An, Dn);
+          const Jt = elementRefs.current.get(An);
+          Jt && (Jt.style.transform = `translate3d(${Pt}px,${yn}px,0)`);
+        }
+        paintWires();
+        return;
+      }
+      if (G.kind === "note-resize") {
+        G.size = {
+          width: Math.max(144, Math.min(1200, G.width + ct / cam.current.z)),
+          height: Math.max(96, Math.min(1800, G.height + ot / cam.current.z)),
+        };
+        const el = elementRefs.current.get(G.ref);
+        if (el) {
+          el.style.width = G.size.width + "px";
+          el.style.height = G.size.height + "px";
+        }
+        preview.current.set(G.ref, { w: G.size.width, h: G.size.height });
+        paintWires();
+        return;
+      }
+      if (G.kind === "resize") {
+        G.min = Math.max(
+          15,
+          Math.min(720, S(G.startMin + ct / (3 * cam.current.z))),
+        );
+        const Pt = elementRefs.current.get(G.ref);
+        if (Pt) {
+          Pt.style.width = 136 + G.min * 3 + "px";
+          const yn = Pt.querySelector("[data-duration]");
+          yn && (yn.textContent = w(G.min));
+        }
+        return;
+      }
+      if (G.kind === "wire" || G.kind === "rewire") {
+        ((pointerWire.current = {
+          id: G.link.id,
+          end: G.end,
+          point:
+            G.kind === "wire"
+              ? {
+                  x: G.bend.x + ct / cam.current.z,
+                  y: G.bend.y + ot / cam.current.z,
+                }
+              : Tt,
+        }),
+          paintWires(),
+          showPreview(
+            G.kind === "rewire"
+              ? nodeAt(Tt, G.link[G.end === "from" ? "to" : "from"])?.id
+              : null,
+          ));
+        return;
+      }
+      if (G.kind === "newlink") {
+        ((draftPath.current.style.display = "block"),
+          draftPath.current.setAttribute(
+            "d",
+            `M${G.start.x} ${G.start.y}L${Tt.x} ${Tt.y}`,
+          ),
+          showPreview(nodeAt(Tt, G.from)?.id));
+        return;
+      }
+      if (G.kind === "marquee") {
+        const Pt = {
+          x: Math.min(G.start.x, Tt.x),
+          y: Math.min(G.start.y, Tt.y),
+          w: Math.abs(Tt.x - G.start.x),
+          h: Math.abs(Tt.y - G.start.y),
+        };
+        ((G.box = Pt),
+          marquee.current &&
+            ((marquee.current.style.display = "block"),
+            Object.assign(marquee.current.style, {
+              left: Pt.x + "px",
+              top: Pt.y + "px",
+              width: Pt.w + "px",
+              height: Pt.h + "px",
+            })));
+        return;
+      }
+    }
+    function showPreview(Y) {
+      for (const [G, ct] of elementRefs.current)
+        ct.classList.toggle("b4-drop-target", G === Y);
+    }
+    function clearPreview() {
+      if (guideSvg.current) guideSvg.current.replaceChildren();
+      for (const [Y, G] of elementRefs.current) {
+        ((G.style.transform = ""), G.classList.remove("b4-drop-target"));
+        const ct = layout.map.get(Y);
+        if (ct) {
+          G.style.width = ct.w + "px";
+          G.style.height = ct.h + "px";
+        }
+        const ot = G.querySelector("[data-duration]");
+        ot && ct?.min && (ot.textContent = w(ct.min));
+      }
+      (preview.current.clear(),
+        (pointerWire.current = null),
+        draftPath.current && (draftPath.current.style.display = "none"),
+        marquee.current && (marquee.current.style.display = "none"),
+        paintWires());
+    }
+    function cancelGesture() {
+      pendingContext.current = null;
+      (moveRAF.current && cancelAnimationFrame(moveRAF.current),
+        (moveRAF.current = 0),
+        (latestMove.current = null));
+      const Y = gesture.current;
+      if (
+        ((gesture.current = null),
+        Y?.kind === "pan" && ((cam.current = Y.camera), queueCamera()),
+        Y)
+      )
+        try {
+          viewport.current.releasePointerCapture(Y.pointerId);
+        } catch {}
+      (clearPreview(),
+        (pinch.current = null),
+        touches.current.clear(),
+        setStatus(""));
+    }
+    function endGesture(Y, G = !1) {
+      const ct = gesture.current;
+      if (!(!ct || ct.pointerId !== Y.pointerId)) {
+        (moveRAF.current && cancelAnimationFrame(moveRAF.current),
+          (moveRAF.current = 0),
+          G || paintGesture(Y),
+          (gesture.current = null));
+        try {
+          viewport.current.releasePointerCapture(Y.pointerId);
+        } catch {}
+        if (G) {
+          clearPreview();
+          return;
+        }
+        if (ct.kind === "pan") {
+          const context = pendingContext.current;
+          pendingContext.current = null;
+          if (ct.right && ct.moved) {
+            setMenu(null);
+            suppressContext.current = true;
+            setTimeout(() => {
+              suppressContext.current = false;
+            }, 180);
+          }
+          (ct.moved && saveCamera(), clearPreview());
+          if (ct.right && !ct.moved && context)
+            openContext(
+              {
+                target: viewport.current,
+                currentTarget: viewport.current,
+                clientX: context.clientX,
+                clientY: context.clientY,
+                preventDefault() {},
+                stopPropagation() {},
+              },
+              context.target,
+            );
+          return;
+        }
+        if (ct.kind === "note-resize" && ct.moved) {
+          const n = layout.map.get(ct.ref);
+          if (n && ct.size)
+            commit(
+              (d) => core.setStyle(d, [n], ct.size),
+              t("Note resized", "اندازهٔ نوت تغییر کرد"),
+            );
+        } else if (ct.kind === "move" && ct.moved) {
+          setConnecting(null);
+          if (ct.connect) setTool("select");
+          const ot = Object.fromEntries(preview.current),
+            St = layout.nodes.filter((Tt) => Tt.kind === "frame");
+          commit((Tt) => {
+            const Pt = clean(Tt.canvas?.board4),
+              yn = { ...(Pt.layouts[mode] || {}) };
+            for (const [An, Kt] of Object.entries(ot)) {
+              const Dn = layout.map.get(An);
+              if (Dn?.noteId) {
+                const Jt = Tt.notes.find((Xn) => Xn.id === Dn.noteId);
+                Jt && ((Jt.x = Kt.x), (Jt.y = Kt.y));
+              } else yn[An] = Kt;
+            }
+            if (mode === "lanes" && !ct.frame)
+              for (const An of ct.refs) {
+                const Kt = layout.map.get(An),
+                  Dn = ot[An];
+                if (Kt?.kind !== "block" || !Dn) continue;
+                const Jt = St.find(
+                    (On) =>
+                      Dn.x + Kt.w / 2 >= On.x &&
+                      Dn.x + Kt.w / 2 <= On.x + On.w &&
+                      Dn.y + Kt.h / 2 >= On.y &&
+                      Dn.y + Kt.h / 2 <= On.y + On.h,
+                  ),
+                  Xn = Tt.blocks.find((On) => On.id === Kt.blockId);
+                ((Xn.lane = Jt?.laneId || ""),
+                  Jt
+                    ? (delete Xn.bx, delete Xn.by)
+                    : ((Xn.bx = Dn.x), (Xn.by = Dn.y)));
+              }
+            return (
+              (Pt.layouts = { ...Pt.layouts, [mode]: yn }),
+              (Tt.canvas = { ...(Tt.canvas || {}), board4: Pt }),
+              Tt
+            );
+          }, DDUI("\u062C\u0627\u06CC \u0646\u0648\u062F\u0647\u0627 \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F"));
+        } else if (ct.kind === "resize" && ct.moved && ct.min !== ct.startMin)
+          commit(
+            (ot) => ({
+              ...ot,
+              blocks: ot.blocks.map((St) =>
+                St.id === ct.blockId ? { ...St, min: ct.min } : St,
+              ),
+            }),
+            DDUI(
+              "\u0632\u0645\u0627\u0646 \u0628\u0644\u0627\u06A9 \u062A\u063A\u06CC\u06CC\u0631 \u06A9\u0631\u062F",
+            ),
+          );
+        else if (ct.kind === "wire" && ct.moved)
+          patchWire(
+            ct.link.id,
+            {
+              bend: { ...pointerWire.current.point },
+              style:
+                ct.link.style === "straight"
+                  ? "curve"
+                  : ct.link.style || "curve",
+            },
+            DDUI(
+              "\u0645\u0633\u06CC\u0631 \u0627\u062A\u0635\u0627\u0644 \u062C\u0627\u0628\u0647\u200C\u062C\u0627 \u0634\u062F",
+            ),
+          );
+        else if (ct.kind === "rewire" && ct.moved) {
+          const ot = toWorld(Y.clientX, Y.clientY),
+            St = nodeAt(ot, ct.link[ct.end === "from" ? "to" : "from"]);
+          St
+            ? patchWire(
+                ct.link.id,
+                { [ct.end]: St.id, [ct.end + "Port"]: nearestPort(St, ot) },
+                DDUI(
+                  "\u0633\u0631 \u0627\u062A\u0635\u0627\u0644 \u062C\u0627\u0628\u0647\u200C\u062C\u0627 \u0634\u062F",
+                ),
+              )
+            : setStatus(
+                DDUI(
+                  "\u0627\u062A\u0635\u0627\u0644 \u0642\u0628\u0644\u06CC \u062D\u0641\u0638 \u0634\u062F\u061B \u0633\u0631 \u062E\u0637 \u0631\u0627 \u0631\u0648\u06CC \u06CC\u06A9 \u0646\u0648\u062F \u0631\u0647\u0627 \u06A9\u0646",
+                ),
+              );
+        } else if (ct.kind === "newlink") {
+          const point = toWorld(Y.clientX, Y.clientY),
+            target = nodeAt(point, ct.from);
+          if (target && ct.moved)
+            addLink(ct.from, target.id, {
+              fromPort: ct.port,
+              toPort: nearestPort(target, point),
+            });
+          else
+            setStatus(
+              DDlanguage === "fa"
+                ? "برای اتصال، نقطه را تا نود مقصد بکش"
+                : "Drag the connection point to the target node",
+            );
+          setConnecting(null);
+          setTool("select");
+        } else if (ct.kind === "marquee" && ct.moved && ct.box) {
+          const ot = ct.box,
+            St = layout.nodes
+              .filter(
+                (Tt) =>
+                  Tt.kind !== "frame" &&
+                  Tt.x < ot.x + ot.w &&
+                  Tt.x + Tt.w > ot.x &&
+                  Tt.y < ot.y + ot.h &&
+                  Tt.y + Tt.h > ot.y,
+              )
+              .map((Tt) => Tt.id);
+          selectMarquee(new Set([...(ct.shift ? ct.initial : []), ...St]), ot);
+        } else if (ct.kind === "move" && !ct.moved && ct.connect) {
+          if (ct.connectFrom && ct.connectFrom !== ct.tapRef) {
+            addLink(ct.connectFrom, ct.tapRef);
+            setConnecting(null);
+            setTool("select");
+          } else {
+            setConnecting(ct.tapRef);
+            setStatus(
+              DDlanguage === "fa"
+                ? "نود مقصد را انتخاب کن؛ کشیدن برای جابه‌جایی است"
+                : "Select the target node; dragging moves the node",
+            );
+          }
+        } else if (ct.kind === "move" && !ct.moved) {
+          const ot = lastTap.current;
+          ot?.ref === ct.tapRef && Date.now() - ot.time < 340
+            ? (openEdit(ct.tapRef), (lastTap.current = null))
+            : (lastTap.current = { ref: ct.tapRef, time: Date.now() });
+        }
+        clearPreview();
+      }
+    }
+    function downCapture(Y) {
+      if (Y.pointerType === "touch")
+        if (
+          (touches.current.set(Y.pointerId, { x: Y.clientX, y: Y.clientY }),
+          touches.current.size === 2)
+        ) {
+          (Y.preventDefault(), Y.stopPropagation());
+          const G = { ...cam.current },
+            ct = [...touches.current.entries()];
+          (cancelGesture(), (cam.current = G), (touches.current = new Map(ct)));
+          const ot = [...touches.current.values()];
+          if (ot.length === 2) {
+            const St = {
+              x: (ot[0].x + ot[1].x) / 2,
+              y: (ot[0].y + ot[1].y) / 2,
+            };
+            pinch.current = {
+              distance: Math.hypot(ot[1].x - ot[0].x, ot[1].y - ot[0].y),
+              camera: { ...cam.current },
+              world: toWorld(St.x, St.y),
+            };
+          }
+          viewport.current.setPointerCapture(Y.pointerId);
+        } else
+          Y.currentTarget._lastTouch = {
+            id: Y.pointerId,
+            x: Y.clientX,
+            y: Y.clientY,
+          };
+    }
+    function pointerMove(Y) {
+      if (
+        Y.pointerType === "touch" &&
+        touches.current.has(Y.pointerId) &&
+        (touches.current.set(Y.pointerId, { x: Y.clientX, y: Y.clientY }),
+        pinch.current && touches.current.size === 2)
+      ) {
+        const G = [...touches.current.values()],
+          ct = { x: (G[0].x + G[1].x) / 2, y: (G[0].y + G[1].y) / 2 },
+          ot = viewport.current.getBoundingClientRect(),
+          St = pinch.current,
+          Tt = Math.max(
+            0.05,
+            Math.min(
+              8,
+              (St.camera.z * Math.hypot(G[1].x - G[0].x, G[1].y - G[0].y)) /
+                Math.max(1, St.distance),
+            ),
+          );
+        ((cam.current = {
+          x: ct.x - ot.left - St.world.x * Tt,
+          y: ct.y - ot.top - St.world.y * Tt,
+          z: Tt,
+        }),
+          queueCamera());
+        return;
+      }
+      gesture.current &&
+        ((latestMove.current = {
+          pointerId: Y.pointerId,
+          pointerType: Y.pointerType,
+          clientX: Y.clientX,
+          clientY: Y.clientY,
+          shiftKey: Y.shiftKey,
+        }),
+        moveRAF.current ||
+          (moveRAF.current = requestAnimationFrame(() => {
+            ((moveRAF.current = 0),
+              latestMove.current && paintGesture(latestMove.current));
+          })));
+    }
+    function pointerUp(Y) {
+      if ((touches.current.delete(Y.pointerId), pinch.current)) {
+        touches.current.size === 0 && ((pinch.current = null), saveCamera());
+        return;
+      }
+      endGesture(Y);
+    }
+    function backgroundDown(Y) {
+      if (
+        Y.target.closest(
+          "button,input,textarea,select,[data-board-id],[data-wire-id]",
+        ) ||
+        pinch.current
+      )
+        return;
+      if (Y.button === 2) {
+        if (appearanceRef.current.rightDragPan) {
+          Y.preventDefault();
+          startPan(Y);
+          gesture.current.right = true;
+        }
+        return;
+      }
+      (Y.preventDefault(), finishEdit(), setMenu(null));
+      const G = toWorld(Y.clientX, Y.clientY);
+      if (tool === "sticky") return addSticky(G);
+      if (tool === "feeling") return ddAddFeeling(G);
+      if (tool === "block") return addBlock(null, G);
+      if (tool === "connector") {
+        setConnecting(null);
+        return;
+      }
+      if (
+        Y.button === 1 ||
+        space.current ||
+        tool === "hand" ||
+        Y.pointerType === "touch"
+      )
+        return startPan(Y);
+      (Y.shiftKey ||
+        (setSelected(new Set()), setWireId(null), onSelectBlock?.(null)),
+        (gesture.current = {
+          kind: "marquee",
+          start: G,
+          sx: Y.clientX,
+          sy: Y.clientY,
+          pointerId: Y.pointerId,
+          initial: [...selected],
+          shift: Y.shiftKey,
+          moved: !1,
+        }),
+        viewport.current.setPointerCapture(Y.pointerId),
+        viewport.current.focus({ preventScroll: !0 }));
+    }
+    function patchWire(Y, G, ct) {
+      boardChange(
+        (ot) => (
+          Y.startsWith("auto:")
+            ? (ot.overrides = {
+                ...ot.overrides,
+                [Y]: { ...(ot.overrides[Y] || {}), ...G },
+              })
+            : (ot.links = ot.links.map((Tt) =>
+                Tt.id === Y ? { ...Tt, ...G } : Tt,
+              )),
+          ot
+        ),
+        ct,
+      );
+    }
+    function addLink(Y, G, ct = {}) {
+      if (Y === G) return;
+      if (layout.edges.some((St) => St.from === Y && St.to === G)) {
+        setStatus(
+          DDUI(
+            "\u0627\u06CC\u0646 \u062F\u0648 \u0646\u0648\u062F \u0642\u0628\u0644\u0627\u064B \u0628\u0647 \u0647\u0645 \u0648\u0635\u0644\u200C\u0627\u0646\u062F",
+          ),
+        );
+        return;
+      }
+      const ot = "link:" + C();
+      (boardChange(
+        (St) => ({
+          ...St,
+          links: [
+            ...St.links,
+            {
+              id: ot,
+              from: Y,
+              to: G,
+              style: "curve",
+              arrow: !0,
+              label: "",
+              color: /^bug:/.test(Y) || /^bug:/.test(G) ? "#D9434A" : "#7A5FF5",
+              ...ct,
+            },
+          ],
+        }),
+        DDUI(
+          "\u0627\u062A\u0635\u0627\u0644 \u0633\u0627\u062E\u062A\u0647 \u0634\u062F",
+        ),
+      ),
+        setWireId(ot),
+        setSelected(new Set()),
+        setInspector(!0));
+    }
+    function deleteWire(Y = wireId) {
+      Y &&
+        (boardChange(
+          (G) =>
+            Y.startsWith("auto:")
+              ? { ...G, hidden: [...new Set([...G.hidden, Y])] }
+              : { ...G, links: G.links.filter((ct) => ct.id !== Y) },
+          DDUI(
+            "\u0641\u0642\u0637 \u0627\u062A\u0635\u0627\u0644 \u062D\u0630\u0641 \u0634\u062F\u061B \u0646\u0648\u062F\u0647\u0627 \u062D\u0641\u0638 \u0634\u062F\u0646\u062F",
+          ),
+        ),
+        setWireId(null));
+    }
+    function updateSub(Y, G, ct) {
+      return (Y || []).map((ot) =>
+        ot.id === G
+          ? ct(ot)
+          : { ...ot, children: updateSub(ot.children, G, ct) },
+      );
+    }
+    function toggleDone(Y) {
+      if (locked.has(Y.id)) return;
+      commit((day) => {
+        if (Y.kind === "block")
+          day.blocks = day.blocks.map((block) =>
+            block.id === Y.blockId ? DDsetTaskDone(block, !block.done) : block,
+          );
+        else if (Y.kind === "subtask")
+          day.blocks = day.blocks.map((block) =>
+            block.id === Y.blockId ? DDtoggleSubtask(block, Y.subId) : block,
+          );
+        else if (Y.kind === "bug")
+          day.bugs = day.bugs.map((bug) =>
+            bug.id === Y.bugId ? { ...bug, fixed: !bug.fixed } : bug,
+          );
+        return day;
+      });
+    }
+    function deleteNodes() {
+      if (wireId) return deleteWire();
+      if (selectedWires.size) {
+        const dw = [...selectedWires];
+        (boardChange(
+          (G) => ({
+            ...G,
+            hidden: [
+              ...new Set([
+                ...G.hidden,
+                ...dw.filter((i) => i.startsWith("auto:")),
+              ]),
+            ],
+            links: G.links.filter((c) => !selectedWires.has(c.id)),
+          }),
+          DDUI("Connections removed"),
+        ),
+          setWireSelection(null));
+        if (!selected.size) return;
+      }
+      const nodes = layout.nodes.filter((n) => selected.has(n.id));
+      commit(
+        (d) => core.remove(d, nodes),
+        t(
+          "Selection deleted · Undo to restore",
+          "انتخاب حذف شد؛ با واگرد برگردان",
+        ),
+      );
+      setSelected(new Set());
+      onSelectBlock?.(null);
+    }
+    function duplicate() {
+      const payload = core.copy(
+        dayRef.current,
+        layout.nodes,
+        layout.edges,
+        selected,
+        mode,
+      );
+      if (payload)
+        pastePayload(payload, {
+          x: payload.origin.x + 32,
+          y: payload.origin.y + 32,
+        });
+    }
+    function revealEdit(Y) {
+      if (
+        Y.kind === "sticky" ||
+        !prefs.boardAutoZoom ||
+        cam.current.z >= 0.75 ||
+        !viewport.current
+      )
+        return;
+      const G = viewport.current,
+        ct = Math.min(1.2, (G.clientWidth - 80) / Y.w);
+      ((cam.current = {
+        x: G.clientWidth / 2 - (Y.x + Y.w / 2) * ct,
+        y: G.clientHeight / 2 - (Y.y + Y.h / 2) * ct,
+        z: ct,
+      }),
+        queueCamera(),
+        scheduleCamera());
+    }
+    function openEdit(Y) {
+      const G = layout.map.get(Y);
+      !G ||
+        G.kind === "frame" ||
+        G.kind === "lane" ||
+        locked.has(Y) ||
+        ((noteSession.current = null),
+        setConnecting(null),
+        setTool("select"),
+        revealEdit(G),
+        setEditing({
+          ref: Y,
+          value: G.kind === "day" ? day.focus || "" : G.title,
+        }),
+        setWireId(null));
+    }
+    function finishEdit(Y) {
+      const G = editingRef.current;
+      if (!G) return;
+      ((editingRef.current = null), setEditing(null));
+      noteSession.current = null;
+      const ct = layout.map.get(G.ref),
+        ot = (Y ?? G.value).trim();
+      if (ct?.kind === "sticky") return;
+      if (ct?.kind === "bug" && !ot && !ct.title) {
+        commit(
+          (St) => ((St.bugs = St.bugs.filter((Tt) => Tt.id !== ct.bugId)), St),
+          null,
+          { history: !1 },
+        );
+        return;
+      }
+      !ct ||
+        ot === ct.title ||
+        commit(
+          (St) => (
+            ct.kind === "block"
+              ? (St.blocks = St.blocks.map((Tt) =>
+                  Tt.id === ct.blockId
+                    ? { ...Tt, name: ot || DDUI("Untitled") }
+                    : Tt,
+                ))
+              : ct.kind === "subtask"
+                ? (St.blocks = St.blocks.map((Tt) =>
+                    Tt.id === ct.blockId
+                      ? {
+                          ...Tt,
+                          subtasks: updateSub(Tt.subtasks, ct.subId, (Pt) => ({
+                            ...Pt,
+                            text:
+                              ot ||
+                              DDUI(
+                                "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646",
+                              ),
+                          })),
+                        }
+                      : Tt,
+                  ))
+                : ct.noteId
+                  ? (St.notes = St.notes.map((Tt) =>
+                      Tt.id === ct.noteId ? { ...Tt, text: ot } : Tt,
+                    ))
+                  : ct.kind === "bug"
+                    ? (St.bugs = St.bugs.map((Tt) =>
+                        Tt.id === ct.bugId
+                          ? { ...Tt, text: ot || Tt.text }
+                          : Tt,
+                      ))
+                    : ct.kind === "day" && (St.focus = ot),
+            St
+          ),
+        );
+    }
+    function addChild() {
+      if (!child?.value.trim()) return;
+      const Y = {
+        id: C(),
+        text: child.value.trim(),
+        done: !1,
+        expanded: !0,
+        children: [],
+      };
+      (commit(
+        (G) => ({
+          ...G,
+          blocks: G.blocks.map((ct) =>
+            ct.id === child.blockId
+              ? {
+                  ...ct,
+                  expanded: !0,
+                  subtasks: child.subId
+                    ? updateSub(ct.subtasks, child.subId, (ot) => ({
+                        ...ot,
+                        expanded: !0,
+                        children: [...(ot.children || []), Y],
+                      }))
+                    : [...(ct.subtasks || []), Y],
+                }
+              : ct,
+          ),
+        }),
+        DDUI(
+          "\u0642\u062F\u0645 \u062C\u062F\u06CC\u062F \u0627\u0636\u0627\u0641\u0647 \u0634\u062F",
+        ),
+      ),
+        setChild(null));
+    }
+    function addSticky(Y) {
+      const G = C(),
+        ct =
+          Y ||
+          toWorld(
+            viewport.current.getBoundingClientRect().left +
+              viewport.current.clientWidth / 2,
+            viewport.current.getBoundingClientRect().top +
+              viewport.current.clientHeight / 2,
+          );
+      (commit(
+        (ot) => ({
+          ...ot,
+          notes: [
+            ...ot.notes,
+            {
+              id: G,
+              kind: "sticky",
+              x: ct.x - 110,
+              y: ct.y - 70,
+              text: "",
+              color: appearanceRef.current.stickyColor,
+            },
+          ],
+        }),
+        DDUI(
+          "\u06CC\u0627\u062F\u062F\u0627\u0634\u062A \u0633\u0627\u062E\u062A\u0647 \u0634\u062F",
+        ),
+      ),
+        setSelected(new Set(["sticky:" + G])),
+        setTool("select"),
+        setEditing({ ref: "sticky:" + G, value: "" }));
+    }
+    function ddAddFeeling(Y) {
+      const G = C();
+      (commit((ot) => {
+        ot.bugs = [
+          ...(ot.bugs || []),
+          {
+            id: G,
+            text: "",
+            type: "",
+            on: "",
+            fixed: !1,
+            category: "inner",
+            triggerTag: "general-friction",
+            antidote: "",
+          },
+        ];
+        const Tt = clean(ot.canvas?.board4);
+        Tt.layouts = {
+          ...Tt.layouts,
+          [mode]: {
+            ...(Tt.layouts[mode] || {}),
+            ["bug:" + G]: { x: Y.x - 119, y: Y.y - 26 },
+          },
+        };
+        ot.canvas = { ...(ot.canvas || {}), board4: Tt };
+        return ot;
+      }, DDUI("Feeling added")),
+        setSelected(new Set(["bug:" + G])),
+        setTool("select"),
+        setEditing({ ref: "bug:" + G, value: "" }));
+    }
+    function addBlock(Y, G) {
+      const ct = C(),
+        ot =
+          Y ??
+          (mode === "lanes" && G
+            ? layout.nodes.find(
+                (St) =>
+                  St.kind === "frame" &&
+                  G.x >= St.x &&
+                  G.x <= St.x + St.w &&
+                  G.y >= St.y &&
+                  G.y <= St.y + St.h,
+              )?.laneId
+            : void 0) ??
+          setup.lanes[0]?.id ??
+          "";
+      (commit((St) => {
+        if (
+          (St.blocks.push({
+            id: ct,
+            name: "\u0628\u0644\u0627\u06A9 \u062C\u062F\u06CC\u062F",
+            type: setup.types[0]?.id || "work",
+            lane: ot,
+            min: prefs.defaultMinutes,
+            note: "",
+            pri: 0,
+            emo: "",
+            done: !1,
+            expanded: !0,
+            subtasks: [],
+          }),
+          G)
+        ) {
+          const Tt = clean(St.canvas?.board4);
+          ((Tt.layouts = {
+            ...Tt.layouts,
+            [mode]: { ...(Tt.layouts[mode] || {}), ["b:" + ct]: G },
+          }),
+            (St.canvas = { ...(St.canvas || {}), board4: Tt }));
+        }
+        return St;
+      }, DDUI("\u0628\u0644\u0627\u06A9 \u062C\u062F\u06CC\u062F \u0633\u0627\u062E\u062A\u0647 \u0634\u062F")),
+        setSelected(new Set(["b:" + ct])),
+        onSelectBlock?.(ct),
+        setTool("select"));
+    }
+    function convertSticky(Y) {
+      const G = Y.title
+          .split(
+            `
+`,
+          )
+          .map((ot) => ot.replace(/^[-*•\d.)\s]+/, "").trim())
+          .filter(Boolean),
+        ct = C();
+      (commit(
+        (ot) => ({
+          ...ot,
+          notes: ot.notes.filter((St) => St.id !== Y.noteId),
+          blocks: [
+            ...ot.blocks,
+            {
+              id: ct,
+              name:
+                G[0] ||
+                DDUI(
+                  "\u0627\u06CC\u062F\u0647 \u0627\u0632 \u0628\u0631\u062F",
+                ),
+              type: setup.types[0]?.id || "work",
+              lane: setup.lanes[0]?.id || "",
+              min: prefs.defaultMinutes,
+              note: DDUI(
+                "\u062A\u0628\u062F\u06CC\u0644\u200C\u0634\u062F\u0647 \u0627\u0632 \u06CC\u0627\u062F\u062F\u0627\u0634\u062A \u0628\u0631\u062F",
+              ),
+              pri: 0,
+              emo: "",
+              done: !1,
+              expanded: !0,
+              subtasks: G.slice(1).map((St) => ({
+                id: C(),
+                text: St,
+                done: !1,
+                expanded: !0,
+                children: [],
+              })),
+            },
+          ],
+        }),
+        DDUI(
+          "\u06CC\u0627\u062F\u062F\u0627\u0634\u062A \u0628\u0647 \u0628\u0644\u0627\u06A9 \u0648 \u0642\u062F\u0645\u200C\u0647\u0627\u06CC \u067E\u0644\u0646 \u062A\u0628\u062F\u06CC\u0644 \u0634\u062F",
+        ),
+      ),
+        setSelected(new Set(["b:" + ct])),
+        onSelectBlock?.(ct));
+    }
+    function selectBranch() {
+      if (!selectedNode) return;
+      const Y = new Set([selectedNode.id]);
+      let G = -1;
+      for (; Y.size !== G; ) {
+        G = Y.size;
+        for (const ct of layout.automatic) Y.has(ct.from) && Y.add(ct.to);
+      }
+      setSelected(Y);
+    }
+    function groupSelection(Y = !1) {
+      boardChange(
+        (G) => {
+          if (Y)
+            for (const [ct, ot] of Object.entries(G.groups))
+              ot.some((St) => selected.has(St)) && delete G.groups[ct];
+          else
+            selected.size > 1 &&
+              (G.groups = { ...G.groups, [C()]: [...selected] });
+          return G;
+        },
+        DDUI(
+          Y
+            ? "\u06AF\u0631\u0648\u0647 \u0628\u0627\u0632 \u0634\u062F"
+            : "\u0646\u0648\u062F\u0647\u0627 \u06AF\u0631\u0648\u0647 \u0634\u062F\u0646\u062F",
+        ),
+      );
+    }
+    function autoArrange() {
+      (boardChange(
+        (Y) => ({ ...Y, layouts: { ...Y.layouts, [mode]: {} } }),
+        DDUI(
+          "\u0686\u06CC\u062F\u0645\u0627\u0646 \u062E\u0648\u062F\u06A9\u0627\u0631 \u0627\u0646\u062C\u0627\u0645 \u0634\u062F\u061B Undo \u0628\u0631\u0627\u06CC \u0628\u0631\u06AF\u0634\u062A",
+        ),
+      ),
+        setTimeout(() => api.current.fit(!1), 0));
+    }
+    function minimapDown(Y) {
+      (Y.preventDefault(), Y.stopPropagation());
+      const G = mapSvg.current,
+        ct = new DOMPoint(Y.clientX, Y.clientY).matrixTransform(
+          G.getScreenCTM().inverse(),
+        );
+      ((cam.current = {
+        ...cam.current,
+        x: viewport.current.clientWidth / 2 - ct.x * cam.current.z,
+        y: viewport.current.clientHeight / 2 - ct.y * cam.current.z,
+      }),
+        queueCamera(),
+        scheduleCamera());
+    }
+    function download(Y, G, ct) {
+      const ot = URL.createObjectURL(new Blob([Y], { type: ct })),
+        St = document.createElement("a");
+      ((St.href = ot),
+        (St.download = G),
+        St.click(),
+        setTimeout(() => URL.revokeObjectURL(ot), 2e3));
+    }
+    function exportSVG() {
+      const Y = selected.size
+          ? layout.nodes.filter((Pt) => selected.has(Pt.id))
+          : layout.nodes,
+        G = nodeBounds(Y),
+        ct = new Set(Y.map((Pt) => Pt.id)),
+        ot = (Pt) =>
+          String(Pt ?? "").replace(
+            /[&<>"']/g,
+            (yn) =>
+              ({
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&apos;",
+              })[yn],
+          ),
+        St =
+          getComputedStyle(root.current).getPropertyValue("--paper").trim() ||
+          "#F1F0EC";
+      let Tt = `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.ceil(G.w + 80)}" height="${Math.ceil(G.h + 80)}" viewBox="${G.x - 40} ${G.y - 40} ${G.w + 80} ${G.h + 80}"><rect x="${G.x - 40}" y="${G.y - 40}" width="${G.w + 80}" height="${G.h + 80}" fill="${St}"/>`;
+      for (const Pt of layout.edges) {
+        if (!ct.has(Pt.from) || !ct.has(Pt.to)) continue;
+        const yn = wireGeometry(Pt);
+        ((Tt += `<path d="${yn.d}" fill="none" stroke="${ot(Pt.color === "var(--now)" ? "#7A5FF5" : Pt.color || "#85827A")}" stroke-width="${Pt.width || 1.8}" opacity="${Pt.opacity ?? 1}" stroke-dasharray="${Pt.pattern === "dotted" ? "1 5" : Pt.dashed || Pt.pattern === "dashed" ? "6 5" : "none"}"/>`),
+          Pt.label &&
+            (Tt += `<text x="${yn.mid.x}" y="${yn.mid.y - 8}" font-family="Arial" font-size="12" text-anchor="middle">${ot(Pt.label)}</text>`));
+      }
+      for (const node of [...Y].sort(
+        (a, b) =>
+          (a.kind === "frame" ? 0 : a.stack) -
+          (b.kind === "frame" ? 0 : b.stack),
+      )) {
+        const size = node.textSize || 14,
+          color = ["sticky", "day", "lane"].includes(node.kind)
+            ? node.color
+            : node.kind === "frame" || node.kind === "emoji"
+              ? "none"
+              : "#FFFFFF";
+        const textColor = ["sticky", "day", "lane"].includes(node.kind)
+          ? node.textColor
+          : "#121211";
+        const lines = ((node.emoji ? node.emoji + " " : "") + node.title)
+          .split("\n")
+          .slice(0, Math.max(1, Math.floor((node.h - 20) / (size * 1.5))));
+        Tt += `<g opacity="${node.opacity ?? 1}"><rect x="${node.x}" y="${node.y}" width="${node.w}" height="${node.h}" rx="7" fill="${ot(color)}" stroke="#aaa"/>`;
+        lines.forEach((line, i) => {
+          Tt += `<text x="${node.x + 12}" y="${node.y + size + 10 + i * size * 1.5}" font-family="Arial,sans-serif" font-size="${size}" fill="${ot(textColor)}">${ot(line.slice(0, Math.max(1, Math.floor((node.w - 24) / (size * 0.55)))))}</text>`;
+        });
+        if (node.subtitle && node.kind !== "sticky")
+          Tt += `<text x="${node.x + 12}" y="${node.y + 43}" font-family="Arial" font-size="11" fill="${node.kind === "lane" || node.kind === "day" ? "#ddd" : "#555"}">${ot(node.subtitle)}</text>`;
+        Tt += "</g>";
+      }
+      download(
+        Tt + "</svg>",
+        "debug-day-board-" + day.date + ".svg",
+        "image/svg+xml",
+      );
+    }
+    ((api.current = {
+      fit: fit,
+      setZoom: setZoom,
+      saveCamera: saveCamera,
+      paintCamera: paintCamera,
+      undo: undo,
+      deleteNodes: deleteNodes,
+      duplicate: duplicate,
+      cancelGesture: cancelGesture,
+      pointerMove: pointerMove,
+      pointerUp: pointerUp,
+      finishEdit: finishEdit,
+    }),
+      useEffect(() => {
+        const n = ddSearchNode && layout.map.get(ddSearchNode.ref);
+        if (!n || !viewport.current) return;
+        setSelected(new Set([n.id]));
+        const z = Math.min(1.2, (viewport.current.clientWidth - 80) / n.w);
+        cam.current = {
+          x: viewport.current.clientWidth / 2 - (n.x + n.w / 2) * z,
+          y: viewport.current.clientHeight / 2 - (n.y + n.h / 2) * z,
+          z,
+        };
+        queueCamera();
+        scheduleCamera();
+      }, [ddSearchNode]),
+      useLayoutEffect(() => {
+        paintCamera();
+      }, [layout, mode, wireId, showMap, tick, focus, appearance]),
+      useEffect(() => {
+        const Y = viewport.current,
+          G = (event) => {
+            event.preventDefault();
+            if (gesture.current) return;
+            const unit =
+              event.deltaMode === 1
+                ? 16
+                : event.deltaMode === 2
+                  ? Y.clientHeight
+                  : 1;
+            const dx = event.deltaX * unit,
+              dy = event.deltaY * unit;
+            if (
+              event.ctrlKey ||
+              event.metaKey ||
+              (appearanceRef.current.wheelZoom && !event.shiftKey)
+            )
+              api.current.setZoom(
+                cam.current.z *
+                  Math.exp(-Math.max(-120, Math.min(120, dy)) * 0.006),
+                event.clientX,
+                event.clientY,
+              );
+            else {
+              cam.current = {
+                ...cam.current,
+                x: cam.current.x - (event.shiftKey && !dx ? dy : dx),
+                y: cam.current.y - (event.shiftKey && !dx ? 0 : dy),
+              };
+              queueCamera();
+              scheduleCamera();
+            }
+          };
+        Y.addEventListener("wheel", G, { passive: !1 });
+        const ct = new ResizeObserver(() => api.current.paintCamera());
+        return (
+          ct.observe(Y),
+          () => {
+            (Y.removeEventListener("wheel", G), ct.disconnect());
+          }
+        );
+      }, []),
+      useEffect(() => {
+        const Y = (ot) => {
+            if (
+              ot.target.closest(
+                "input,textarea,select,[contenteditable=true],.b6-context,.b6-properties,.b6-camera,.b6-view-panel",
+              ) ||
+              (ot.target.closest("[role=dialog]") &&
+                !root.current?.contains(ot.target))
+            )
+              return;
+            if (
+              ot.target !== document.body &&
+              !root.current?.contains(ot.target)
+            )
+              return;
+            if (menu && ot.key === "Escape") {
+              ot.preventDefault();
+              setMenu(null);
+              viewport.current?.focus({ preventScroll: true });
+              return;
+            }
+            if (ot.key === " ") {
+              (ot.preventDefault(),
+                (space.current = !0),
+                viewport.current?.classList.add("b4-panning"));
+              return;
+            }
+            const St = ot.ctrlKey || ot.metaKey;
+            if (St && ot.key.toLowerCase() === "z") {
+              (ot.preventDefault(),
+                ot.stopImmediatePropagation(),
+                undo(ot.shiftKey));
+              return;
+            }
+            if (St && ot.key.toLowerCase() === "y") {
+              (ot.preventDefault(), ot.stopImmediatePropagation(), undo(!0));
+              return;
+            }
+            if (ot.key === "Escape") {
+              ddExitIsolation?.();
+              (ot.preventDefault(),
+                ot.stopImmediatePropagation(),
+                !gesture.current &&
+                  !selected.size &&
+                  !wireId &&
+                  !connecting &&
+                  !help &&
+                  !child &&
+                  search === null &&
+                  setFocus(!1),
+                cancelGesture(),
+                setMenu(null),
+                setHelp(!1),
+                setChild(null),
+                setSearch(null),
+                setConnecting(null),
+                setWireId(null),
+                setSelected(new Set()),
+                setTool("select"));
+              return;
+            }
+            if (
+              (ot.key === "Delete" || ot.key === "Backspace") &&
+              viewport.current?.contains(ot.target) &&
+              (selected.size || wireId || selectedWires.size)
+            ) {
+              (ot.preventDefault(),
+                ot.stopImmediatePropagation(),
+                deleteNodes());
+              return;
+            }
+            if (St && ot.key.toLowerCase() === "d" && selected.size) {
+              (ot.preventDefault(), ot.stopImmediatePropagation(), duplicate());
+              return;
+            }
+            if (St && ot.key.toLowerCase() === "g") {
+              (ot.preventDefault(),
+                ot.stopImmediatePropagation(),
+                groupSelection(ot.shiftKey));
+              return;
+            }
+            if (St && ot.key.toLowerCase() === "a") {
+              (ot.preventDefault(),
+                ot.stopImmediatePropagation(),
+                setSelected(
+                  new Set(
+                    layout.nodes
+                      .filter(
+                        (Pt) =>
+                          Pt.kind !== "frame" &&
+                          Pt.kind !== "day" &&
+                          Pt.kind !== "lane",
+                      )
+                      .map((Pt) => Pt.id),
+                  ),
+                ),
+                setWireId(null));
+              return;
+            }
+            if (St && ["c", "x", "v"].includes(ot.key.toLowerCase())) return;
+            if (St || ot.altKey) return;
+            if (ot.key === "ContextMenu" || (ot.shiftKey && ot.key === "F10")) {
+              openContext(
+                ot,
+                selected.size
+                  ? selectedNode
+                    ? { ref: selectedNode.id }
+                    : { selection: true }
+                  : {
+                      point: toWorld(
+                        viewport.current.getBoundingClientRect().left +
+                          viewport.current.clientWidth / 2,
+                        viewport.current.getBoundingClientRect().top +
+                          viewport.current.clientHeight / 2,
+                      ),
+                    },
+              );
+              return;
+            }
+            if (ot.shiftKey && ["Digit1", "Digit2"].includes(ot.code)) {
+              ot.preventDefault();
+              fit(ot.code === "Digit2");
+              return;
+            }
+            if (["[", "]"].includes(ot.key) && selected.size) {
+              ot.preventDefault();
+              reorder(ot.key === "]" ? "forward" : "backward");
+              return;
+            }
+
+            if (
+              ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(
+                ot.key,
+              ) &&
+              selected.size
+            ) {
+              (ot.preventDefault(), ot.stopImmediatePropagation());
+              const Pt = ot.shiftKey ? 10 : 1,
+                yn =
+                  ot.key === "ArrowLeft"
+                    ? -Pt
+                    : ot.key === "ArrowRight"
+                      ? Pt
+                      : 0,
+                An =
+                  ot.key === "ArrowUp" ? -Pt : ot.key === "ArrowDown" ? Pt : 0,
+                Kt = Date.now(),
+                Dn = Kt - lastNudge.current < 400;
+              ((lastNudge.current = Kt),
+                commit(
+                  (Jt) => {
+                    const Xn = clean(Jt.canvas?.board4),
+                      On = { ...(Xn.layouts[mode] || {}) };
+                    for (const ra of selected) {
+                      const ma = layout.map.get(ra);
+                      if (!(!ma || locked.has(ra)))
+                        if (ma.noteId) {
+                          const Oa = Jt.notes.find((fa) => fa.id === ma.noteId);
+                          ((Oa.x += yn), (Oa.y += An));
+                        } else On[ra] = { x: ma.x + yn, y: ma.y + An };
+                    }
+                    return (
+                      (Xn.layouts = { ...Xn.layouts, [mode]: On }),
+                      (Jt.canvas = { ...(Jt.canvas || {}), board4: Xn }),
+                      Jt
+                    );
+                  },
+                  null,
+                  { history: !Dn },
+                ));
+              return;
+            }
+            if (ot.key === "Enter" && selectedNode) {
+              (ot.preventDefault(), openEdit(selectedNode.id));
+              return;
+            }
+            const Tt = ot.key.toLowerCase();
+            if (Tt === "v") setTool("select");
+            else if (Tt === "h") setTool("hand");
+            else if (Tt === "c") setTool("connector");
+            else if (Tt === "b") setTool("block");
+            else if (Tt === "s") setTool("sticky");
+            else if (Tt === "f") (ot.preventDefault(), fit(ot.shiftKey));
+            else if (Tt === "0") (ot.preventDefault(), setZoom(1));
+            else if (Tt === "+" || Tt === "=")
+              (ot.preventDefault(), setZoom(core.zoomStep(cam.current.z, 1)));
+            else if (Tt === "-")
+              (ot.preventDefault(), setZoom(core.zoomStep(cam.current.z, -1)));
+            else if (Tt === "?") (ot.preventDefault(), setHelp((Pt) => !Pt));
+            else return;
+            ot.stopImmediatePropagation();
+          },
+          G = (ot) => {
+            ot.key === " " &&
+              ((space.current = !1),
+              viewport.current?.classList.remove("b4-panning"));
+          },
+          ct = () => {
+            ((space.current = !1),
+              api.current.cancelGesture(),
+              viewport.current?.classList.remove("b4-panning"));
+          };
+        return (
+          window.addEventListener("keydown", Y, !0),
+          window.addEventListener("keyup", G, !0),
+          window.addEventListener("blur", ct),
+          () => {
+            (window.removeEventListener("keydown", Y, !0),
+              window.removeEventListener("keyup", G, !0),
+              window.removeEventListener("blur", ct));
+          }
+        );
+      }, [
+        selected,
+        wireId,
+        layout,
+        model.locked,
+        model.groups,
+        mode,
+        selectedNode,
+        wireSelection,
+        menu,
+      ]),
+      useEffect(() => {
+        if (!DDreadBoardView(day.date, day.canvas?.board4).camera) {
+          const Y = requestAnimationFrame(() => api.current.fit(!1));
+          return () => cancelAnimationFrame(Y);
+        }
+      }, []),
+      useEffect(() => {
+        const Y = () => saveCamera();
+        return (
+          window.addEventListener("pagehide", Y),
+          () => window.removeEventListener("pagehide", Y)
+        );
+      }, [mode]),
+      useEffect(
+        () => () => {
+          ((mounted.current = !1),
+            cancelAnimationFrame(cameraRAF.current),
+            cancelAnimationFrame(moveRAF.current),
+            clearTimeout(cameraTimer.current),
+            (gesture.current = null),
+            touches.current.clear());
+        },
+        [],
+      ));
+    const plannedMinutes = day.blocks
+        .filter(isScheduled)
+        .reduce((Y, G) => Y + G.min, 0),
+      doneMinutes = day.blocks
+        .filter((Y) => isScheduled(Y) && Y.done)
+        .reduce((Y, G) => Y + G.min, 0),
+      completion = plannedMinutes
+        ? Math.round((doneMinutes / plannedMinutes) * 100)
+        : 0;
+    const shortcutKeys = [
+      ["Undo", "Ctrl+Z"],
+      ["Redo", "Ctrl+Shift+Z"],
+      ["Fit all objects", "F"],
+      ["Zoom to selection", "Shift+F"],
+      ["Board help", "?"],
+      ["Duplicate selection", "Ctrl+D"],
+      ["Group selection", "Ctrl+G"],
+      ["Delete selected nodes", "Delete"],
+      ["Delete connection", "Delete"],
+      ["Exit focus mode", "Esc"],
+      ["Exit full screen", "Esc"],
+    ];
+    function selectMarquee(S, box) {
+      (setSelected(S), setWireId(null));
+      const ids = [];
+      for (const e of layout.edges) {
+        const p = wireRefs.current.get(e.id)?.querySelector("[data-wire-path]");
+        if (!p) continue;
+        let n = 0;
+        try {
+          n = p.getTotalLength();
+        } catch {
+          continue;
+        }
+        for (let i = 0; i <= 24; i++) {
+          const q = p.getPointAtLength((n * i) / 24);
+          if (
+            q.x >= box.x &&
+            q.x <= box.x + box.w &&
+            q.y >= box.y &&
+            q.y <= box.y + box.h
+          ) {
+            ids.push(e.id);
+            break;
+          }
+        }
+      }
+      setWireSelection(ids.length ? { sel: S, ids } : null);
+    }
+    function toolButton(Y, G, ct, ot = {}, lb) {
+      const k = shortcutKeys.find(([a]) => a === Y || DDUI(a) === Y);
+      return _.createElement(
+        "button",
+        {
+          type: "button",
+          className: "b2-icon",
+          "aria-label": DDUI(Y),
+          "data-tip": DDUI(Y) + (k ? " \xB7 " + k[1] : ""),
+          onClick: ct,
+          ...ot,
+        },
+        G === "?"
+          ? _.createElement(
+              "b",
+              { className: "dd-glyph", "aria-hidden": "true" },
+              G,
+            )
+          : G &&
+              _.createElement(controls.Icon, {
+                React: _,
+                name:
+                  {
+                    pen: "edit",
+                    fit: "fit",
+                    copy: "duplicate",
+                    arrange: "align",
+                    gridDots: "grid",
+                    minimap: "map",
+                    magnet: "snap",
+                    "\u25A3": "lock",
+                    sticky: "note",
+                    tree: "branch",
+                  }[G] || G,
+              }),
+        lb && _.createElement("span", { className: "dd-btn-label" }, lb),
+      );
+    }
+    function nodeIcon(Y) {
+      return Y.done
+        ? _.createElement(z, { name: "check" })
+        : Y.emoji
+          ? _.createElement(B, { emoji: Y.emoji, size: 17 })
+          : _.createElement(z, {
+              name:
+                Y.icon ||
+                (Y.kind === "bug"
+                  ? "bang"
+                  : Y.kind === "subtask"
+                    ? "dot"
+                    : "tree"),
+            });
+    }
+    function saveNote(noteId, text) {
+      const first = noteSession.current !== noteId;
+      commit(
+        (day) => ({
+          ...day,
+          notes: day.notes.map((note) =>
+            note.id === noteId ? { ...note, text } : note,
+          ),
+        }),
+        null,
+        { history: first },
+      );
+      noteSession.current = noteId;
+    }
+    function noteEditor(node) {
+      return _.createElement(
+        "div",
+        { className: "dd-note-editor" },
+        _.createElement(
+          "div",
+          { className: "dd-note-editor-head" },
+          _.createElement(
+            "span",
+            null,
+            DDlanguage === "fa" ? "ذخیرهٔ خودکار" : "Saves as you type",
+          ),
+          _.createElement(
+            "button",
+            {
+              type: "button",
+              onClick: () => finishEdit(),
+              "aria-label":
+                DDlanguage === "fa"
+                  ? "پایان ویرایش نوت"
+                  : "Finish editing note",
+            },
+            DDlanguage === "fa" ? "تمام" : "Done",
+          ),
+        ),
+        _.createElement("textarea", {
+          key: node.id,
+          autoFocus: true,
+          dir: "auto",
+          value: editing.value,
+          maxLength: 4000,
+          "aria-label": DDUI("Sticky note text"),
+          placeholder: DDUI("Write your idea\u2026"),
+          onPointerDown: (event) => event.stopPropagation(),
+          onChange: (event) => {
+            const value = event.target.value;
+            setEditing({ ref: node.id, value });
+            saveNote(node.noteId, value);
+          },
+          onBlur: (event) => {
+            if (
+              !event.currentTarget.parentElement.contains(event.relatedTarget)
+            )
+              finishEdit();
+          },
+          onKeyDown: (event) => {
+            if (
+              event.key === "Escape" ||
+              (event.key === "Enter" && (event.ctrlKey || event.metaKey))
+            ) {
+              event.preventDefault();
+              event.stopPropagation();
+              finishEdit();
+            }
+          },
+        }),
+      );
+    }
+    function renderNode(Y) {
+      const G = selected.has(Y.id),
+        ct = locked.has(Y.id),
+        ot = editing?.ref === Y.id,
+        St = Y.kind === "frame",
+        Tt = Y.kind === "sticky",
+        Pt = Y.kind === "emoji",
+        yn = Y.kind === "lane" || Y.kind === "day",
+        An = ["block", "subtask", "bug"].includes(Y.kind);
+      return _.createElement(
+        "div",
+        {
+          key: Y.id,
+          ref: (Kt) => {
+            Kt
+              ? elementRefs.current.set(Y.id, Kt)
+              : elementRefs.current.delete(Y.id);
+          },
+          "data-board-id": Y.id,
+          "data-node-kind": Y.kind,
+          "data-node-done": !!Y.done,
+          role: "group",
+          "aria-label": Y.title + (Y.min ? ", " + w(Y.min) : ""),
+          tabIndex: St ? -1 : 0,
+          className:
+            "b4-node b4-" +
+            Y.kind +
+            (G ? " selected" : "") +
+            (ct ? " locked" : "") +
+            (connecting === Y.id ? " connecting" : ""),
+          style: {
+            left: Y.x,
+            top: Y.y,
+            width: Y.w,
+            height: Y.h,
+            "--node-color": Y.color,
+            "--node-text": Y.textColor,
+            "--object-opacity": Y.opacity,
+            "--object-size": (Y.textSize || 14) + "px",
+            "--object-align": Y.textAlign || "start",
+            background: St
+              ? "var(--wash)"
+              : Tt || Pt || yn
+                ? Pt
+                  ? "transparent"
+                  : core.rgba(Y.color, Y.opacity)
+                : `color-mix(in srgb, var(--panel) ${Y.opacity * 100}%, transparent)`,
+            color: yn || Tt || Pt ? Y.textColor : "var(--pi)",
+            zIndex: St ? 1 : Y.stack,
+          },
+          onPointerDown: (Kt) => nodeDown(Kt, Y),
+          onDoubleClick: (Kt) => {
+            (Kt.stopPropagation(), openEdit(Y.id));
+          },
+          onFocus: () => {},
+          onContextMenu: (event) => openContext(event, { ref: Y.id }),
+        },
+        Pt
+          ? _.createElement(B, { emoji: Y.title, size: 46 })
+          : _.createElement(
+              _.Fragment,
+              null,
+              An &&
+                _.createElement(
+                  "button",
+                  {
+                    type: "button",
+                    className: "b4-node-icon",
+                    "aria-label": "Toggle " + Y.title,
+                    title: DDUI(Y.done ? "Mark not done" : "Mark done"),
+                    "aria-pressed": !!Y.done,
+                    onClick: (Kt) => {
+                      (Kt.stopPropagation(), toggleDone(Y));
+                    },
+                  },
+                  nodeIcon(Y),
+                ),
+              An &&
+                Y.done &&
+                _.createElement(
+                  "span",
+                  { className: "dd-done-badge" },
+                  _.createElement(z, { name: "check" }),
+                  DDUI(Y.kind === "bug" ? "Resolved" : "Done"),
+                ),
+              _.createElement(
+                "div",
+                { className: "b4-node-body" },
+                ot && Tt
+                  ? noteEditor(Y)
+                  : ot
+                    ? _.createElement("input", {
+                        autoFocus: !0,
+                        dir: "auto",
+                        value: editing.value,
+                        maxLength: Y.kind === "sticky" ? 4e3 : 300,
+                        "aria-label": DDUI("Node title"),
+                        onChange: (Kt) =>
+                          setEditing({ ...editing, value: Kt.target.value }),
+                        onPointerDown: (Kt) => Kt.stopPropagation(),
+                        onBlur: (Kt) => finishEdit(Kt.target.value),
+                        onKeyDown: (Kt) => {
+                          (Kt.key === "Enter" &&
+                            (Kt.preventDefault(), finishEdit(Kt.target.value)),
+                            Kt.key === "Escape" &&
+                              (Y.kind === "bug" && !Y.title
+                                ? finishEdit("")
+                                : ((editingRef.current = null),
+                                  setEditing(null)),
+                              Kt.stopPropagation()));
+                        },
+                      })
+                    : Tt
+                      ? _.createElement(
+                          _.Fragment,
+                          null,
+                          _.createElement(
+                            "div",
+                            { className: "b4-sticky-head" },
+                            _.createElement(
+                              "button",
+                              {
+                                type: "button",
+                                className: "dd-note-drag",
+                                "data-drag-handle": true,
+                                "aria-label":
+                                  DDlanguage === "fa"
+                                    ? "جابه‌جایی نوت"
+                                    : "Move note",
+                                title:
+                                  DDlanguage === "fa"
+                                    ? "برای جابه‌جایی بکش"
+                                    : "Drag to move",
+                                onPointerDown: (event) =>
+                                  nodeDown(event, Y, true),
+                                onClick: (event) => {
+                                  event.stopPropagation();
+                                },
+                              },
+                              "⠿",
+                            ),
+                            _.createElement("span", null, DDUI("یادداشت")),
+                            _.createElement(
+                              "button",
+                              {
+                                type: "button",
+                                "aria-label":
+                                  DDlanguage === "fa"
+                                    ? "ویرایش نوت"
+                                    : "Edit note",
+                                onClick: () => openEdit(Y.id),
+                              },
+                              DDlanguage === "fa" ? "ویرایش" : "Edit",
+                            ),
+                            _.createElement(
+                              "button",
+                              {
+                                type: "button",
+                                title: DDUI("Convert note to plan"),
+                                onClick: () => convertSticky(Y),
+                              },
+                              DDUI("→ پلن"),
+                            ),
+                          ),
+                          _.createElement(
+                            "div",
+                            { className: "dd-note-preview", dir: "auto" },
+                            Y.title || DDUI("Double-click or Edit to write"),
+                          ),
+                        )
+                      : _.createElement(
+                          _.Fragment,
+                          null,
+                          _.createElement(
+                            "div",
+                            {
+                              className: "b4-node-title",
+                              dir: "auto",
+                              title: Y.title,
+                            },
+                            Y.kind === "day" &&
+                              Y.emoji &&
+                              _.createElement(B, { emoji: Y.emoji, size: 16 }),
+                            Y.title,
+                          ),
+                          Y.subtitle &&
+                            _.createElement(
+                              "div",
+                              { className: "b4-node-subtitle", dir: "auto" },
+                              _.createElement(
+                                "b",
+                                { "data-duration": !0 },
+                                Y.min ? w(Y.min) : Y.subtitle,
+                              ),
+                              Y.min &&
+                                _.createElement(
+                                  "span",
+                                  null,
+                                  Y.subtitle
+                                    .replace(w(Y.min), "")
+                                    .replace(/^ · /, ""),
+                                ),
+                            ),
+                        ),
+              ),
+              _.createElement(
+                "div",
+                { className: "b4-node-actions" },
+                (Y.kind === "block" || Y.kind === "subtask") &&
+                  _.createElement(
+                    _.Fragment,
+                    null,
+                    Y.hasChildren &&
+                      _.createElement(
+                        "button",
+                        {
+                          type: "button",
+                          "aria-label": "Toggle children of " + Y.title,
+                          title: DDUI(Y.expanded ? "Collapse" : "Expand"),
+                          "aria-expanded": Y.expanded,
+                          onClick: () =>
+                            commit((Kt) => ({
+                              ...Kt,
+                              blocks: Kt.blocks.map((Dn) =>
+                                Dn.id === Y.blockId
+                                  ? Y.kind === "block"
+                                    ? { ...Dn, expanded: !Y.expanded }
+                                    : {
+                                        ...Dn,
+                                        subtasks: updateSub(
+                                          Dn.subtasks,
+                                          Y.subId,
+                                          (Jt) => ({
+                                            ...Jt,
+                                            expanded: !Y.expanded,
+                                          }),
+                                        ),
+                                      }
+                                  : Dn,
+                              ),
+                            })),
+                        },
+                        Y.expanded ? "\u2212" : "\u203A",
+                      ),
+                    _.createElement(
+                      "button",
+                      {
+                        type: "button",
+                        "aria-label": "Add child node under " + Y.title,
+                        title: DDUI("Add sub-step"),
+                        onClick: () =>
+                          setChild({
+                            blockId: Y.blockId,
+                            subId: Y.subId || null,
+                            value: "",
+                          }),
+                      },
+                      "+",
+                    ),
+                  ),
+                (Y.kind === "lane" || Y.kind === "frame") &&
+                  _.createElement(
+                    "button",
+                    {
+                      type: "button",
+                      "aria-label": "Add block to " + Y.title,
+                      title: DDUI("Add block here"),
+                      onClick: () => addBlock(Y.laneId),
+                    },
+                    "+",
+                  ),
+                ct &&
+                  _.createElement("span", { title: DDUI("Locked") }, "\u25A3"),
+              ),
+            ),
+        Tt &&
+          G &&
+          !ct &&
+          !ot &&
+          _.createElement("button", {
+            type: "button",
+            className: "b6-note-resize",
+            "data-resize": true,
+            "aria-label": t("Resize note", "تغییر اندازهٔ نوت"),
+            title: t(
+              "Drag to resize; use Properties for exact size",
+              "برای تغییر اندازه بکش؛ مقدار دقیق در ویژگی‌ها",
+            ),
+            onPointerDown: (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              gesture.current = {
+                kind: "note-resize",
+                ref: Y.id,
+                width: Y.w,
+                height: Y.h,
+                sx: event.clientX,
+                sy: event.clientY,
+                pointerId: event.pointerId,
+                moved: false,
+              };
+              viewport.current.setPointerCapture(event.pointerId);
+            },
+          }),
+        mode === "lanes" &&
+          Y.kind === "block" &&
+          !ct &&
+          _.createElement("span", {
+            className: "b4-resize",
+            "data-resize": !0,
+            role: "slider",
+            tabIndex: 0,
+            "aria-label": "Duration of " + Y.title,
+            "aria-valuemin": 15,
+            "aria-valuemax": 720,
+            "aria-valuenow": Y.min,
+            onPointerDown: (Kt) => {
+              (Kt.preventDefault(),
+                Kt.stopPropagation(),
+                (gesture.current = {
+                  kind: "resize",
+                  ref: Y.id,
+                  blockId: Y.blockId,
+                  startMin: Y.min,
+                  min: Y.min,
+                  sx: Kt.clientX,
+                  sy: Kt.clientY,
+                  pointerId: Kt.pointerId,
+                  moved: !1,
+                }),
+                viewport.current.setPointerCapture(Kt.pointerId));
+            },
+            onKeyDown: (Kt) => {
+              if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(Kt.key)) {
+                (Kt.preventDefault(), Kt.stopPropagation());
+                const Dn =
+                  Kt.key === "Home"
+                    ? 15
+                    : Kt.key === "End"
+                      ? 720
+                      : Math.max(
+                          15,
+                          Math.min(
+                            720,
+                            Y.min + (Kt.key === "ArrowRight" ? 15 : -15),
+                          ),
+                        );
+                commit((Jt) => ({
+                  ...Jt,
+                  blocks: Jt.blocks.map((Xn) =>
+                    Xn.id === Y.blockId ? { ...Xn, min: Dn } : Xn,
+                  ),
+                }));
+              }
+            },
+          }),
+        !ct &&
+          ["left", "right", "top", "bottom"].map((Kt) =>
+            _.createElement("button", {
+              type: "button",
+              key: Kt,
+              className: "b4-port " + Kt,
+              "data-port": Kt,
+              "aria-label": "Connect from " + Y.title + " " + Kt,
+              title: DDUI("Drag to connect"),
+              onPointerDown: (Dn) => portDown(Dn, Y, Kt),
+            }),
+          ),
+      );
+    }
+    function changeAppearance(patch) {
+      const next = { ...appearanceRef.current, ...patch };
+      appearanceRef.current = next;
+      core.remember("debug-day:board-appearance", next);
+      setAppearance(next);
+      queueCamera();
+    }
+    function toggleView(key) {
+      const value = key === "grid" ? !grid : key === "snap" ? !snap : !showMap;
+      core.remember("debug-day:board-" + key, value);
+      if (key === "grid") setGrid(value);
+      else if (key === "snap") setSnap(value);
+      else setShowMap(value);
+    }
+    function openContext(event, target = {}) {
+      if (event.target.closest("input,textarea,select,[contenteditable=true]"))
+        return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (suppressContext.current) return;
+      if (gesture.current?.kind === "pan" && gesture.current.right) {
+        pendingContext.current = {
+          target,
+          clientX: event.clientX,
+          clientY: event.clientY,
+        };
+        return;
+      }
+      finishEdit();
+      restoreStylePreview();
+      setProperties(false);
+      setViewPanel(false);
+      setInspector(false);
+      if (target.ref) {
+        if (!selected.has(target.ref)) selectOne(target.ref);
+        else setWireId(null);
+      } else if (target.wire) {
+        setSelected(new Set());
+        setWireSelection(null);
+        setWireId(target.wire);
+      }
+      const rect = root.current.getBoundingClientRect();
+      const anchor =
+        event.currentTarget.getBoundingClientRect?.() ||
+        viewport.current.getBoundingClientRect();
+      setMenu({
+        ...target,
+        x: (event.clientX || anchor.left + anchor.width / 2) - rect.left,
+        y: (event.clientY || anchor.bottom) - rect.top,
+        stamp: performance.now(),
+      });
+    }
+    function closeContext(focus = false) {
+      setMenu(null);
+      if (focus) viewport.current?.focus({ preventScroll: true });
+    }
+    function restoreStylePreview() {
+      if (!(stylePreview.current instanceof Map)) return;
+      for (const [el, styles] of stylePreview.current)
+        for (const [key, value] of Object.entries(styles))
+          el.style.setProperty(key, value);
+      stylePreview.current = false;
+    }
+    function temporary(el, patch) {
+      if (!el) return;
+      if (!(stylePreview.current instanceof Map))
+        stylePreview.current = new Map();
+      const old = stylePreview.current.get(el) || {};
+      for (const [key, value] of Object.entries(patch)) {
+        if (!(key in old)) old[key] = el.style.getPropertyValue(key);
+        el.style.setProperty(key, value);
+      }
+      stylePreview.current.set(el, old);
+    }
+    function previewStyle(patch) {
+      for (const n of selectedNodes) {
+        if (locked.has(n.id)) continue;
+        const el = elementRefs.current.get(n.id),
+          opacity = patch.opacity ?? n.opacity;
+        const bg =
+          n.kind === "sticky" || n.kind === "day" || n.kind === "lane"
+            ? core.rgba(patch.fill || n.color, opacity)
+            : `color-mix(in srgb, var(--panel) ${opacity * 100}%, transparent)`;
+        temporary(el, {
+          ...(patch.fill ? { "--node-color": patch.fill } : {}),
+          "--object-opacity": String(opacity),
+          background: bg,
+        });
+      }
+    }
+    function previewWire(patch) {
+      const el = wireRefs.current.get(wireId)?.querySelector(".b4-wire-line");
+      temporary(el, {
+        ...(patch.color ? { stroke: patch.color } : {}),
+        ...(patch.opacity !== undefined
+          ? { opacity: String(patch.opacity) }
+          : {}),
+      });
+    }
+    function applyStyle(patch) {
+      restoreStylePreview();
+      commit(
+        (d) => core.setStyle(d, selectedNodes, patch),
+        t("Appearance updated", "ظاهر تغییر کرد"),
+      );
+      if (
+        patch.fill &&
+        selectedNodes.some((n) => n.kind === "sticky" && !n.locked)
+      )
+        changeAppearance({ stickyColor: patch.fill });
+    }
+    function placeSelection(patch) {
+      const nodes = selectedNodes.filter((n) => !locked.has(n.id)),
+        box = core.bounds(nodes);
+      const positions = Object.fromEntries(
+        nodes.map((n) => [
+          n.id,
+          {
+            x: n.x + (patch.x === undefined ? 0 : patch.x - box.x),
+            y: n.y + (patch.y === undefined ? 0 : patch.y - box.y),
+          },
+        ]),
+      );
+      commit(
+        (d) => core.place(d, nodes, positions, mode),
+        t("Position updated", "موقعیت تغییر کرد"),
+      );
+    }
+    function arrangeSelection(operation) {
+      const nodes = selectedNodes.filter(
+        (n) => !locked.has(n.id) && n.kind !== "frame",
+      );
+      commit(
+        (d) => core.place(d, nodes, core.arrange(nodes, operation), mode),
+        t("Selection aligned", "انتخاب تراز شد"),
+      );
+    }
+    function reorder(direction) {
+      commit(
+        (d) =>
+          core.reorder(
+            d,
+            layout.nodes.filter((n) => n.kind !== "frame").map((n) => n.id),
+            new Set([...selected].filter((ref) => !locked.has(ref))),
+            direction,
+          ),
+        t("Layer order updated", "ترتیب لایه‌ها تغییر کرد"),
+      );
+    }
+    function toggleLock() {
+      boardChange(
+        (b) => ({
+          ...b,
+          locked: [
+            ...new Set([
+              ...b.locked.filter((ref) => !selected.has(ref)),
+              ...([...selected].some((ref) => !locked.has(ref))
+                ? [...selected]
+                : []),
+            ]),
+          ],
+        }),
+        t("Lock updated", "قفل تغییر کرد"),
+      );
+    }
+    function copySelection(event, cut = false) {
+      const nodes = cut
+        ? layout.nodes.filter((n) => !locked.has(n.id))
+        : layout.nodes;
+      const payload = core.copy(
+        dayRef.current,
+        nodes,
+        layout.edges,
+        selected,
+        mode,
+      );
+      if (!payload) return;
+      clipboard.current = sharedClipboard = payload;
+      if (event?.clipboardData) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        event.clipboardData.setData(
+          "application/x-debug-day-board",
+          JSON.stringify(payload),
+        );
+        event.clipboardData.setData("text/plain", payload.text);
+      } else navigator.clipboard?.writeText(payload.text).catch(() => {});
+      if (cut) {
+        commit(
+          (d) =>
+            core.remove(
+              d,
+              nodes.filter((n) => selected.has(n.id)),
+            ),
+          t("Selection cut", "انتخاب بریده شد"),
+        );
+        setSelected(new Set());
+      } else
+        setStatus(
+          t("Copied · paste anywhere on the board", "کپی شد؛ هرجای برد بچسبان"),
+        );
+    }
+    function pastePayload(payload, point) {
+      finishEdit();
+      const rect = viewport.current.getBoundingClientRect();
+      const at =
+        point ||
+        toWorld(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      const result = core.paste(dayRef.current, payload, at, mode, C);
+      if (!result.refs.length) return;
+      commit(() => result.day, t("Pasted", "چسبانده شد"));
+      setSelected(new Set(result.refs));
+      setWireId(null);
+      setWireSelection(null);
+      setTool("select");
+    }
+    function pasteText(text, point) {
+      if (!text?.trim()) return;
+      const payload = {
+        version: 1,
+        origin: { x: 0, y: 0 },
+        items: [
+          {
+            kind: "sticky",
+            ref: "sticky:clipboard",
+            x: 0,
+            y: 0,
+            data: {
+              id: "clipboard",
+              kind: "sticky",
+              text: text.slice(0, 4000),
+              color: appearanceRef.current.stickyColor,
+            },
+          },
+        ],
+        links: [],
+      };
+      pastePayload(payload, point);
+    }
+    async function pasteClipboard(point, event) {
+      let text = "",
+        payload;
+      clipboard.current ||= sharedClipboard;
+      if (!event && clipboard.current) {
+        pastePayload(clipboard.current, point);
+        return;
+      }
+      if (event?.clipboardData) {
+        try {
+          payload = core.clipboard(
+            JSON.parse(
+              event.clipboardData.getData("application/x-debug-day-board"),
+            ),
+          );
+        } catch {}
+        text = event.clipboardData.getData("text/plain");
+        if (!payload && !text) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      } else {
+        try {
+          text = await navigator.clipboard.readText();
+        } catch {}
+      }
+      if (
+        !payload &&
+        clipboard.current &&
+        (!text || text === clipboard.current.text)
+      )
+        payload = clipboard.current;
+      if (payload) pastePayload(payload, point);
+      else if (text) pasteText(text, point);
+      else
+        setStatus(
+          t(
+            "Use Ctrl/Cmd+V to paste from your clipboard",
+            "برای چسباندن از کلیپ‌بورد Ctrl/Cmd+V را بزن",
+          ),
+        );
+    }
+    useEffect(() => {
+      const inside = (event) =>
+        root.current?.contains(event.target) &&
+        !event.target.closest("input,textarea,select,[contenteditable=true]");
+      const onCopy = (event) => {
+          if (inside(event)) copySelection(event);
+        },
+        onCut = (event) => {
+          if (inside(event)) copySelection(event, true);
+        },
+        onPaste = (event) => {
+          if (inside(event)) pasteClipboard(null, event);
+        };
+      document.addEventListener("copy", onCopy);
+      document.addEventListener("cut", onCut);
+      document.addEventListener("paste", onPaste);
+      return () => {
+        document.removeEventListener("copy", onCopy);
+        document.removeEventListener("cut", onCut);
+        document.removeEventListener("paste", onPaste);
+      };
+    }, [selected, layout, mode]);
+    useEffect(() => () => restoreStylePreview(), [selected, wireId]);
+    function contextItems() {
+      const item = (id, en, fa, icon, action, rest = {}) => ({
+        id,
+        label: t(en, fa),
+        icon,
+        action,
+        ...rest,
+      });
+      const sep = (id) => ({ id, separator: true });
+      const editable = selectedNodes.some((n) => !locked.has(n.id)),
+        copyable = selectedNodes.some((n) =>
+          ["block", "subtask", "sticky", "emoji", "bug"].includes(n.kind),
+        );
+      const showProperties = () => {
+        setProperties(true);
+        setInspector(true);
+        setViewPanel(false);
+        requestAnimationFrame(() =>
+          root.current
+            ?.querySelector(".b6-properties button")
+            ?.focus({ preventScroll: true }),
+        );
+      };
+      const styleItems = [
+        item(
+          "properties",
+          "Color & properties…",
+          "رنگ و ویژگی‌ها…",
+          "palette",
+          showProperties,
+        ),
+        item("opacity", "Opacity", "شفافیت", "opacity", null, {
+          children: [100, 75, 50, 25, 0].map((n) =>
+            item(
+              "alpha-" + n,
+              n + "%",
+              n + "٪",
+              "opacity",
+              () =>
+                menu.wire
+                  ? patchWire(wireId, { opacity: n / 100 })
+                  : applyStyle({ opacity: n / 100 }),
+              {
+                checked: menu.wire
+                  ? (selectedWire?.opacity ?? 1) === n / 100
+                  : selectedNodes.every((node) => node.opacity === n / 100),
+                disabled: !menu.wire && !editable,
+              },
+            ),
+          ),
+        }),
+      ];
+      if (menu.wire)
+        return [
+          ...styleItems,
+          sep("route-sep"),
+          item("route", "Connection route", "مسیر اتصال", "connector", null, {
+            children: [
+              ["curve", "Curved", "منحنی"],
+              ["straight", "Straight", "مستقیم"],
+              ["elbow", "Elbow", "زاویه‌دار"],
+            ].map(([style, en, fa]) =>
+              item(
+                style,
+                en,
+                fa,
+                "connector",
+                () => patchWire(wireId, { style, bend: null }),
+                { checked: (selectedWire?.style || "curve") === style },
+              ),
+            ),
+          }),
+          item(
+            "arrow",
+            "Arrow at the end",
+            "فلش در انتها",
+            "arrow",
+            () => patchWire(wireId, { arrow: !selectedWire?.arrow }),
+            { checked: !!selectedWire?.arrow },
+          ),
+          item("reverse", "Reverse direction", "معکوس کردن جهت", "swap", () =>
+            patchWire(wireId, {
+              from: selectedWire.to,
+              to: selectedWire.from,
+              fromPort: selectedWire.toPort,
+              toPort: selectedWire.fromPort,
+            }),
+          ),
+          item("reset-route", "Reset route", "بازنشانی مسیر", "undo", () =>
+            patchWire(wireId, { bend: null, fromPort: null, toPort: null }),
+          ),
+          sep("delete-sep"),
+          item(
+            "delete-wire",
+            "Delete connection",
+            "حذف اتصال",
+            "trash",
+            () => deleteWire(),
+            { danger: true, shortcut: "Delete" },
+          ),
+        ];
+      if (menu.ref || menu.selection) {
+        const allLocked =
+          selectedNodes.length > 0 &&
+          selectedNodes.every((n) => locked.has(n.id));
+        const align = [
+          ["left", "Align left", "تراز چپ"],
+          ["center-x", "Align horizontal centers", "تراز مرکز افقی"],
+          ["right", "Align right", "تراز راست"],
+          ["top", "Align top", "تراز بالا"],
+          ["center-y", "Align vertical centers", "تراز مرکز عمودی"],
+          ["bottom", "Align bottom", "تراز پایین"],
+          ["distribute-x", "Distribute horizontally", "فاصلهٔ افقی برابر"],
+          ["distribute-y", "Distribute vertically", "فاصلهٔ عمودی برابر"],
+        ];
+        return [
+          selectedNode &&
+            item(
+              "edit",
+              "Edit text",
+              "ویرایش متن",
+              "edit",
+              () => openEdit(selectedNode.id),
+              {
+                disabled: allLocked || selectedNode.kind === "frame",
+                shortcut: "Enter",
+              },
+            ),
+          ...styleItems,
+          sep("clipboard-sep"),
+          item("copy", "Copy", "کپی", "copy", () => copySelection(), {
+            disabled: !copyable,
+            shortcut: "Ctrl/Cmd+C",
+          }),
+          item("cut", "Cut", "برش", "cut", () => copySelection(null, true), {
+            disabled: !copyable || !editable,
+            shortcut: "Ctrl/Cmd+X",
+          }),
+          item(
+            "duplicate",
+            "Duplicate",
+            "ساخت کپی مستقل",
+            "duplicate",
+            duplicate,
+            { disabled: !copyable, shortcut: "Ctrl/Cmd+D" },
+          ),
+          sep("position-sep"),
+          item(
+            "align",
+            "Align & distribute",
+            "تراز و فاصله‌گذاری",
+            "align",
+            null,
+            {
+              disabled: selectedNodes.filter((n) => !n.locked).length < 2,
+              children: align.map(([op, en, fa]) =>
+                item(op, en, fa, "align", () => arrangeSelection(op), {
+                  disabled:
+                    op.startsWith("distribute") &&
+                    selectedNodes.filter((n) => !n.locked).length < 3,
+                }),
+              ),
+            },
+          ),
+          item("layers", "Layer order", "ترتیب لایه‌ها", "layers", null, {
+            disabled: !editable,
+            children: [
+              ["front", "Bring to front", "آوردن به جلو"],
+              ["forward", "Bring forward", "یک لایه جلو"],
+              ["backward", "Send backward", "یک لایه عقب"],
+              ["back", "Send to back", "فرستادن به پشت"],
+            ].map(([op, en, fa]) =>
+              item(op, en, fa, "layers", () => reorder(op)),
+            ),
+          }),
+          item("group", "Group", "گروه‌کردن", "group", () => groupSelection(), {
+            disabled: selected.size < 2,
+            shortcut: "Ctrl/Cmd+G",
+          }),
+          Object.values(model.groups).some((refs) =>
+            refs.some((ref) => selected.has(ref)),
+          ) &&
+            item(
+              "ungroup",
+              "Ungroup",
+              "بازکردن گروه",
+              "ungroup",
+              () => groupSelection(true),
+              { shortcut: "Ctrl/Cmd+Shift+G" },
+            ),
+          item(
+            "lock",
+            allLocked ? "Unlock" : "Lock",
+            allLocked ? "بازکردن قفل" : "قفل‌کردن",
+            allLocked ? "unlock" : "lock",
+            toggleLock,
+          ),
+          sep("link-sep"),
+          selectedNode &&
+            item(
+              "connect",
+              "Connect from here",
+              "اتصال از اینجا",
+              "connector",
+              () => {
+                setConnecting(selectedNode.id);
+                setTool("connector");
+              },
+              { disabled: allLocked },
+            ),
+          selectedNode?.kind === "sticky" &&
+            item(
+              "convert",
+              "Convert note to task",
+              "تبدیل نوت به کار",
+              "task",
+              () => convertSticky(selectedNode),
+              { disabled: allLocked },
+            ),
+          selectedNode &&
+            mode === "mindmap" &&
+            item(
+              "branch",
+              "Select branch",
+              "انتخاب شاخه",
+              "branch",
+              selectBranch,
+            ),
+          item(
+            "fit-selection",
+            "Zoom to selection",
+            "نمایش انتخاب",
+            "fit",
+            () => fit(true),
+            { shortcut: "Shift+2" },
+          ),
+          sep("delete-sep"),
+          item(
+            "delete",
+            "Delete selection",
+            "حذف انتخاب",
+            "trash",
+            deleteNodes,
+            {
+              danger: true,
+              disabled: !editable || !copyable,
+              shortcut: "Delete",
+            },
+          ),
+        ];
+      }
+      return [
+        item("add-note", "Add note here", "افزودن نوت اینجا", "note", () =>
+          addSticky(menu.point),
+        ),
+        item("add-task", "Add task here", "افزودن کار اینجا", "task", () =>
+          addBlock(null, menu.point),
+        ),
+        item(
+          "add-feeling",
+          "Add feeling here",
+          "افزودن احساس اینجا",
+          "feeling",
+          () => ddAddFeeling(menu.point),
+        ),
+        sep("paste-sep"),
+        item(
+          "paste",
+          "Paste here",
+          "چسباندن اینجا",
+          "paste",
+          () => pasteClipboard(menu.point),
+          { shortcut: "Ctrl/Cmd+V" },
+        ),
+        item(
+          "select-all",
+          "Select all objects",
+          "انتخاب همهٔ اشیا",
+          "select",
+          () => {
+            setSelected(
+              new Set(
+                layout.nodes
+                  .filter((n) => !["day", "lane", "frame"].includes(n.kind))
+                  .map((n) => n.id),
+              ),
+            );
+            setWireId(null);
+          },
+          { shortcut: "Ctrl/Cmd+A" },
+        ),
+        sep("view-sep"),
+        item(
+          "fit-all",
+          "Fit all objects",
+          "نمایش همهٔ اشیا",
+          "fit",
+          () => fit(false),
+          { shortcut: "Shift+1" },
+        ),
+        item("zoom-100", "Zoom to 100%", "زوم ۱۰۰٪", "zoom", () => setZoom(1), {
+          shortcut: "0",
+        }),
+        item("view", "Canvas settings…", "تنظیمات بوم…", "settings", () => {
+          setViewPanel(true);
+          setProperties(false);
+          setInspector(false);
+        }),
+        item(
+          "grid",
+          "Dot grid",
+          "شبکهٔ نقطه‌ای",
+          "grid",
+          () => toggleView("grid"),
+          { checked: grid },
+        ),
+        sep("history-sep"),
+        item("undo", "Undo", "واگرد", "undo", () => undo(), {
+          disabled: !history.current.past.length,
+          shortcut: "Ctrl/Cmd+Z",
+        }),
+        item("redo", "Redo", "انجام مجدد", "redo", () => undo(true), {
+          disabled: !history.current.future.length,
+          shortcut: "Ctrl/Cmd+Shift+Z",
+        }),
+        item("layout", "Layout options", "گزینه‌های چیدمان", "align", null, {
+          children: [
+            item(
+              "reset-layout",
+              "Reset task positions",
+              "بازنشانی جای کارها",
+              "undo",
+              autoArrange,
+            ),
+            model.hidden.length > 0 &&
+              item(
+                "restore-links",
+                "Restore hidden connections",
+                "برگرداندن اتصال‌های پنهان",
+                "connector",
+                () =>
+                  boardChange(
+                    (b) => ({ ...b, hidden: [] }),
+                    t("Connections restored", "اتصال‌ها برگشتند"),
+                  ),
+              ),
+          ].filter(Boolean),
+        }),
+      ];
+    }
+
+    const selectedNodes = [...selected]
+        .map((Y) => layout.map.get(Y))
+        .filter(Boolean),
+      titleFor = (Y) => layout.map.get(Y)?.title || Y;
+    return _.createElement(
+      "section",
+      {
+        className: "b2 b4 b6" + (focus ? " focus-mode" : ""),
+        id: "b2",
+        ref: root,
+        "aria-label": DDUI("Board workspace"),
+        onContextMenu: (event) => {
+          if (
+            event.target.closest(
+              "button,input,textarea,select,[contenteditable],[data-wire-id],[data-board-id],.b6-context",
+            )
+          )
+            return;
+          openContext(event, { point: toWorld(event.clientX, event.clientY) });
+        },
+      },
+      _.createElement(
+        "header",
+        { className: "b2-top" },
+        _.createElement(
+          "div",
+          { className: "b2-brandbar" },
+          _.createElement(
+            "div",
+            null,
+            _.createElement(
+              "strong",
+              null,
+              DDUI("\u0628\u0631\u062F \u062E\u0644\u0627\u0642\u06CC\u062A"),
+            ),
+            _.createElement(
+              "small",
+              null,
+              ie.format(E(day.date)),
+              " \xB7 ",
+              completion,
+              DDUI("% \u0627\u0646\u062C\u0627\u0645\u200C\u0634\u062F\u0647"),
+            ),
+          ),
+          _.createElement(
+            "div",
+            {
+              className: "b4-modes",
+              role: "group",
+              "aria-label": DDUI("Board structure mode"),
+            },
+            _.createElement(
+              "button",
+              {
+                type: "button",
+                "aria-pressed": mode === "mindmap",
+                onClick: () => {
+                  (finishEdit(),
+                    setMode("mindmap"),
+                    setSelected(new Set()),
+                    setWireId(null),
+                    DDsaveBoardView(
+                      dayRef.current.date,
+                      { ...cam.current },
+                      "mindmap",
+                    ),
+                    setTimeout(() => api.current.fit(!1), 0));
+                },
+              },
+              DDUI("\u0645\u0627\u06CC\u0646\u062F\u0645\u067E"),
+            ),
+            _.createElement(
+              "button",
+              {
+                type: "button",
+                "aria-pressed": mode === "lanes",
+                onClick: () => {
+                  (finishEdit(),
+                    setMode("lanes"),
+                    setSelected(new Set()),
+                    setWireId(null),
+                    DDsaveBoardView(
+                      dayRef.current.date,
+                      { ...cam.current },
+                      "lanes",
+                    ),
+                    setTimeout(() => api.current.fit(!1), 0));
+                },
+              },
+              DDUI("\u0644\u0627\u06CC\u0646\u200C\u0647\u0627"),
+            ),
+          ),
+        ),
+        _.createElement(
+          "div",
+          { className: "b2-top-actions" },
+          toolButton(DDUI("Undo"), "undo", () => undo(), {
+            disabled: !history.current.past.length,
+          }),
+          toolButton(DDUI("Redo"), "redo", () => undo(!0), {
+            disabled: !history.current.future.length,
+          }),
+          _.createElement("span", { className: "b2-sep" }),
+          toolButton(
+            DDUI("Search board"),
+            "search",
+            () => setSearch((Y) => (Y === null ? "" : null)),
+            {},
+            DDUI("Search"),
+          ),
+          toolButton(
+            DDUI("Fit all objects"),
+            "fitAll",
+            () => fit(!1),
+            {},
+            DDUI("Fit all"),
+          ),
+          toolButton(
+            DDUI("Export board SVG"),
+            "download",
+            exportSVG,
+            {},
+            DDUI("Export"),
+          ),
+          toolButton(
+            DDUI(focus ? "Exit full screen" : "Full screen"),
+            focus ? "shrink" : "expand",
+            () => setFocus((Y) => !Y),
+            {},
+            DDUI(focus ? "Exit full screen" : "Full screen"),
+          ),
+          toolButton("Board help", "?", () => setHelp((Y) => !Y)),
+        ),
+      ),
+      (selected.size > 0 || selectedWire || selectedWires.size > 0) &&
+        _.createElement(
+          "div",
+          {
+            className: "b4-selectionbar",
+            role: "toolbar",
+            "aria-label": "Selection actions",
+          },
+          selectedWire
+            ? _.createElement(
+                _.Fragment,
+                null,
+                _.createElement(
+                  "strong",
+                  null,
+                  DDUI("\u0627\u062A\u0635\u0627\u0644"),
+                  selectedWire.label ? " \xB7 " + selectedWire.label : "",
+                ),
+                toolButton("Connection details", "gear", () =>
+                  setInspector((Y) => !Y),
+                ),
+                toolButton(DDUI("Reverse connection"), "swap", () =>
+                  patchWire(
+                    selectedWire.id,
+                    {
+                      from: selectedWire.to,
+                      to: selectedWire.from,
+                      fromPort: selectedWire.toPort,
+                      toPort: selectedWire.fromPort,
+                    },
+                    DDUI(
+                      "\u062C\u0647\u062A \u0627\u062A\u0635\u0627\u0644 \u0639\u0648\u0636 \u0634\u062F",
+                    ),
+                  ),
+                ),
+                toolButton(DDUI("Reset connection route"), "fit", () =>
+                  patchWire(
+                    selectedWire.id,
+                    { bend: null, fromPort: null, toPort: null },
+                    DDUI(
+                      "\u0645\u0633\u06CC\u0631 \u0627\u062A\u0635\u0627\u0644 \u062E\u0648\u062F\u06A9\u0627\u0631 \u0634\u062F",
+                    ),
+                  ),
+                ),
+                toolButton(DDUI("Delete connection"), "trash", () =>
+                  deleteWire(),
+                ),
+              )
+            : _.createElement(
+                _.Fragment,
+                null,
+                _.createElement(
+                  "strong",
+                  { className: "b4-readout" },
+                  selectedNode &&
+                    _.createElement(
+                      "span",
+                      {
+                        style: {
+                          background: selectedNode.color,
+                          color: selectedNode.textColor,
+                        },
+                      },
+                      nodeIcon(selectedNode),
+                    ),
+                  _.createElement(
+                    "span",
+                    { dir: "auto" },
+                    selectedNode
+                      ? selectedNode.title
+                      : (selected.size
+                          ? selected.size + t(" objects", " شیء")
+                          : "") +
+                          (selectedWires.size
+                            ? (selected.size ? " \xB7 " : "") +
+                              selectedWires.size +
+                              " " +
+                              DDUI("lines")
+                            : ""),
+                  ),
+                  selectedNode?.min &&
+                    _.createElement("b", null, w(selectedNode.min)),
+                ),
+                toolButton(
+                  t("Color & properties", "رنگ و ویژگی‌ها"),
+                  "palette",
+                  () => {
+                    restoreStylePreview();
+                    setProperties(!properties);
+                    setViewPanel(false);
+                  },
+                  { "aria-pressed": properties },
+                ),
+                toolButton(
+                  t("More actions", "گزینه‌های بیشتر"),
+                  "more",
+                  (event) =>
+                    openContext(
+                      event,
+                      selectedNode
+                        ? { ref: selectedNode.id }
+                        : { selection: true },
+                    ),
+                ),
+                toolButton("Zoom to selection", "fit", () => fit(!0)),
+                selectedNode &&
+                  toolButton(DDUI("Edit selected node"), "pen", () =>
+                    openEdit(selectedNode.id),
+                  ),
+                selectedNode &&
+                  mode === "mindmap" &&
+                  toolButton(DDUI("Select branch"), "tree", selectBranch),
+                toolButton(DDUI("Duplicate selection"), "copy", duplicate),
+                selected.size > 1 &&
+                  toolButton(DDUI("Group selection"), "tree", () =>
+                    groupSelection(),
+                  ),
+                Object.values(model.groups).some((Y) =>
+                  Y.some((G) => selected.has(G)),
+                ) &&
+                  toolButton(DDUI("Ungroup selection"), "swap", () =>
+                    groupSelection(!0),
+                  ),
+                toolButton("Lock or unlock selection", "\u25A3", () =>
+                  boardChange(
+                    (Y) => ({
+                      ...Y,
+                      locked: [
+                        ...new Set([
+                          ...Y.locked.filter((G) => !selected.has(G)),
+                          ...([...selected].some((G) => !locked.has(G))
+                            ? [...selected]
+                            : []),
+                        ]),
+                      ],
+                    }),
+                    DDUI(
+                      "\u0642\u0641\u0644 \u0646\u0648\u062F\u0647\u0627 \u062A\u063A\u06CC\u06CC\u0631 \u06A9\u0631\u062F",
+                    ),
+                  ),
+                ),
+                toolButton("Delete selected nodes", "trash", deleteNodes),
+              ),
+        ),
+      _.createElement(
+        "div",
+        {
+          className: "b2-viewport",
+          ref: viewport,
+          tabIndex: 0,
+          role: "application",
+          "aria-label":
+            "Canvas. Drag nodes; Space to pan. C to connect. Delete to remove selection.",
+          "data-tool": tool,
+          "data-grid": grid,
+          onPointerDownCapture: downCapture,
+          onPointerDown: backgroundDown,
+          onPointerMove: pointerMove,
+          onPointerUp: pointerUp,
+          onPointerCancel: (Y) => {
+            (touches.current.delete(Y.pointerId), api.current.cancelGesture());
+          },
+          onLostPointerCapture: (Y) => {
+            gesture.current?.pointerId === Y.pointerId &&
+              api.current.cancelGesture();
+          },
+          onDoubleClick: (Y) => {
+            Date.now() - lastNodeTap.current > 600 &&
+              !Y.target.closest("[data-board-id],[data-wire-id]") &&
+              tool === "select" &&
+              addSticky(toWorld(Y.clientX, Y.clientY));
+          },
+        },
+        _.createElement(
+          "div",
+          {
+            className: "b2-world",
+            ref: world,
+            style: {
+              transform: `translate3d(${cam.current.x}px,${cam.current.y}px,0) scale(${cam.current.z})`,
+            },
+          },
+          _.createElement(
+            "svg",
+            {
+              className: "b4-wires",
+              "aria-label": "Mindmap connections",
+              style: { zIndex: wireId ? 38 : 8 },
+            },
+            _.createElement(
+              "defs",
+              null,
+              _.createElement(
+                "marker",
+                {
+                  id: "b4-arrow",
+                  viewBox: "0 0 10 10",
+                  refX: "9",
+                  refY: "5",
+                  markerWidth: "7",
+                  markerHeight: "7",
+                  orient: "auto-start-reverse",
+                  markerUnits: "strokeWidth",
+                },
+                _.createElement("path", {
+                  d: "M1 1L9 5 1 9",
+                  fill: "none",
+                  stroke: "context-stroke",
+                  strokeWidth: "1.5",
+                }),
+              ),
+            ),
+            layout.edges.map((Y) => {
+              const G = wireGeometry(Y),
+                ct = wireId === Y.id;
+              return G
+                ? _.createElement(
+                    "g",
+                    {
+                      key: Y.id,
+                      "data-wire-id": Y.id,
+                      ref: (ot) => {
+                        ot
+                          ? wireRefs.current.set(Y.id, ot)
+                          : wireRefs.current.delete(Y.id);
+                      },
+                      className:
+                        ct || selectedWires.has(Y.id)
+                          ? "b4-wire selected"
+                          : "b4-wire",
+                      onContextMenu: (event) =>
+                        openContext(event, { wire: Y.id }),
+                    },
+                    _.createElement("path", {
+                      "data-wire-path": !0,
+                      d: G.d,
+                      className: "b4-wire-hit",
+                      fill: "none",
+                      stroke: "transparent",
+                      strokeWidth: 20,
+                      vectorEffect: "non-scaling-stroke",
+                      tabIndex: 0,
+                      role: "button",
+                      "aria-label":
+                        "Connection: " +
+                        titleFor(Y.from) +
+                        " \u2192 " +
+                        titleFor(Y.to),
+                      onFocus: (event) => {
+                        if (!event.currentTarget.matches(":focus-visible"))
+                          return;
+                        (setWireId(Y.id), setSelected(new Set()));
+                      },
+                      onPointerDown: (ot) => wireDown(ot, Y),
+                      onKeyDown: (ot) => {
+                        (ot.key === "Enter" &&
+                          (ot.preventDefault(),
+                          setWireId(Y.id),
+                          setInspector(!0)),
+                          (ot.key === "Delete" || ot.key === "Backspace") &&
+                            (ot.preventDefault(),
+                            ot.stopPropagation(),
+                            deleteWire(Y.id)));
+                      },
+                    }),
+                    _.createElement("path", {
+                      "data-wire-path": !0,
+                      d: G.d,
+                      fill: "none",
+                      stroke: Y.color || "#85827A",
+                      strokeWidth: Y.width || 1.8,
+                      opacity: Y.opacity ?? 1,
+                      vectorEffect: "non-scaling-stroke",
+                      strokeDasharray:
+                        Y.pattern === "dotted"
+                          ? "1 5"
+                          : Y.dashed || Y.pattern === "dashed"
+                            ? "6 5"
+                            : void 0,
+                      strokeLinecap: "round",
+                      markerEnd: Y.arrow ? "url(#b4-arrow)" : void 0,
+                      className: "b4-wire-line",
+                    }),
+                    Y.label &&
+                      _.createElement(
+                        "g",
+                        {
+                          "data-wire-label": !0,
+                          transform: `translate(${G.mid.x} ${G.mid.y - 12 / cam.current.z}) scale(${1 / cam.current.z})`,
+                        },
+                        _.createElement("rect", {
+                          x: -Math.min(130, Y.label.length * 3.5 + 8),
+                          y: -11,
+                          width: Math.min(260, Y.label.length * 7 + 16),
+                          height: 22,
+                          rx: 5,
+                          fill: "var(--paper)",
+                          stroke: "var(--rule-2)",
+                        }),
+                        _.createElement(
+                          "text",
+                          {
+                            textAnchor: "middle",
+                            dominantBaseline: "middle",
+                            fill: "var(--ink)",
+                            fontSize: 11,
+                          },
+                          Y.label.slice(0, 36),
+                        ),
+                      ),
+                    ct &&
+                      [
+                        ["from", G.p],
+                        ["to", G.q],
+                        ["bend", G.mid],
+                      ].map(([ot, St]) =>
+                        _.createElement(
+                          "g",
+                          {
+                            key: ot,
+                            "data-end": ot,
+                            transform: `translate(${St.x} ${St.y}) scale(${1 / cam.current.z})`,
+                            className: "b4-wire-handle " + ot,
+                            onPointerDown: (Tt) => wireDown(Tt, Y, ot),
+                            role: "button",
+                            tabIndex: 0,
+                            "aria-label":
+                              ot === "bend"
+                                ? "Move connection route"
+                                : ot === "from"
+                                  ? "Move connection start"
+                                  : "Move connection end",
+                          },
+                          _.createElement("circle", {
+                            r: 13,
+                            fill: "transparent",
+                          }),
+                          _.createElement("circle", {
+                            r: ot === "bend" ? 5 : 7,
+                            fill: "var(--paper)",
+                            stroke: "var(--now)",
+                            strokeWidth: 2,
+                          }),
+                          ot === "bend" &&
+                            _.createElement("path", {
+                              d: "M-2 0h4M0-2v4",
+                              stroke: "var(--now)",
+                            }),
+                        ),
+                      ),
+                  )
+                : null;
+            }),
+            _.createElement("path", {
+              ref: draftPath,
+              style: { display: "none" },
+              fill: "none",
+              stroke: "var(--now)",
+              strokeWidth: 2,
+              vectorEffect: "non-scaling-stroke",
+              strokeDasharray: "6 4",
+            }),
+          ),
+          _.createElement("svg", {
+            className: "b6-guides",
+            ref: guideSvg,
+            "aria-hidden": true,
+          }),
+          layout.nodes.map(renderNode),
+          _.createElement("div", {
+            className: "b4-marquee",
+            ref: marquee,
+            style: { display: "none" },
+          }),
+        ),
+      ),
+      connecting &&
+        _.createElement(
+          "div",
+          { className: "b4-connect-hint", role: "status" },
+          DDUI("\u0627\u0632 \xAB"),
+          titleFor(connecting).slice(0, 35),
+          DDUI(
+            "\xBB \u0628\u0647 \u0646\u0648\u062F \u0645\u0642\u0635\u062F \u06A9\u0644\u06CC\u06A9 \u06A9\u0646 ",
+          ),
+          _.createElement(
+            "button",
+            {
+              type: "button",
+              onClick: () => {
+                (setConnecting(null), setTool("select"));
+              },
+            },
+            DDUI("\u0644\u063A\u0648"),
+          ),
+        ),
+      ((selectedWire && inspector) ||
+        (properties && selectedNodes.length > 0)) &&
+        _.createElement(controls.PropertiesPanel, {
+          key: selectedWire?.id || [...selected].join("|"),
+          React: _,
+          language: DDlanguage,
+          nodes: selectedNodes,
+          wire: selectedWire,
+          onStyle: applyStyle,
+          onPreview: previewStyle,
+          onWirePatch: (patch) => {
+            restoreStylePreview();
+            patchWire(
+              wireId,
+              patch,
+              t("Connection updated", "اتصال تغییر کرد"),
+            );
+          },
+          onWirePreview: previewWire,
+          onPosition: placeSelection,
+          category:
+            selectedNode?.kind === "block"
+              ? {
+                  value: day.blocks.find((b) => b.id === selectedNode.blockId)
+                    ?.type,
+                  options: setup.types,
+                }
+              : null,
+          onCategory: (type) =>
+            commit(
+              (d) => {
+                const b = d.blocks.find((b) => b.id === selectedNode.blockId);
+                if (b && !locked.has(selectedNode.id)) {
+                  b.type = type;
+                  delete b.color;
+                }
+                return d;
+              },
+              t("Category changed", "دسته تغییر کرد"),
+            ),
+          onClose: () => {
+            restoreStylePreview();
+            setProperties(false);
+            setInspector(false);
+            viewport.current?.focus({ preventScroll: true });
+          },
+        }),
+      viewPanel &&
+        _.createElement(controls.ViewPanel, {
+          React: _,
+          language: DDlanguage,
+          value: appearance,
+          onChange: changeAppearance,
+          grid,
+          snap,
+          map: showMap,
+          onGrid: () => toggleView("grid"),
+          onSnap: () => toggleView("snap"),
+          onMap: () => toggleView("map"),
+          onClose: () => {
+            setViewPanel(false);
+            viewport.current?.focus({ preventScroll: true });
+          },
+        }),
+      search !== null &&
+        _.createElement(
+          "aside",
+          { className: "b4-search", dir: DDlanguage === "fa" ? "rtl" : "ltr" },
+          _.createElement(
+            "div",
+            { className: "b4-panel-head" },
+            _.createElement("input", {
+              autoFocus: !0,
+              value: search,
+              onChange: (Y) => setSearch(Y.target.value),
+              placeholder: DDUI(
+                "\u062C\u0633\u062A\u062C\u0648 \u062F\u0631 \u0646\u0648\u062F\u0647\u0627 \u0648 \u06CC\u0627\u062F\u062F\u0627\u0634\u062A\u200C\u0647\u0627\u2026",
+              ),
+              "aria-label": DDUI("Search board nodes"),
+            }),
+            _.createElement(
+              "button",
+              { type: "button", onClick: () => setSearch(null) },
+              "\xD7",
+            ),
+          ),
+          _.createElement(
+            "div",
+            null,
+            layout.nodes
+              .filter((Y) =>
+                (Y.title + " " + (Y.subtitle || ""))
+                  .toLowerCase()
+                  .includes(search.toLowerCase()),
+              )
+              .slice(0, 30)
+              .map((Y) =>
+                _.createElement(
+                  "button",
+                  {
+                    type: "button",
+                    key: Y.id,
+                    dir: "auto",
+                    onClick: () => {
+                      (setSelected(new Set([Y.id])), setWireId(null));
+                      const G = nodeBounds([Y]),
+                        ct = viewport.current,
+                        ot = Math.min(1.3, (ct.clientWidth - 100) / G.w);
+                      ((cam.current = {
+                        x: ct.clientWidth / 2 - (G.x + G.w / 2) * ot,
+                        y: ct.clientHeight / 2 - (G.y + G.h / 2) * ot,
+                        z: ot,
+                      }),
+                        queueCamera(),
+                        scheduleCamera());
+                    },
+                  },
+                  Y.title || DDUI("\u06CC\u0627\u062F\u062F\u0627\u0634\u062A"),
+                  Y.min && _.createElement("small", null, w(Y.min)),
+                ),
+              ),
+          ),
+        ),
+      child &&
+        _.createElement(
+          "form",
+          {
+            className: "b4-child",
+            dir: DDlanguage === "fa" ? "rtl" : "ltr",
+            onSubmit: (Y) => {
+              (Y.preventDefault(), addChild());
+            },
+          },
+          _.createElement(
+            "label",
+            null,
+            DDUI("\u0642\u062F\u0645 \u062C\u062F\u06CC\u062F"),
+            _.createElement("input", {
+              autoFocus: !0,
+              value: child.value,
+              onChange: (Y) => setChild({ ...child, value: Y.target.value }),
+              maxLength: 300,
+              placeholder: DDUI(
+                "\u0645\u062B\u0644\u0627\u064B: \u0627\u062A\u0648\u062F \u0627\u0648\u0644 \u0631\u0627 \u0622\u0645\u0627\u062F\u0647 \u06A9\u0646",
+              ),
+              "aria-label": DDUI("New child node"),
+            }),
+          ),
+          _.createElement(
+            "button",
+            {
+              className: "btn solid",
+              type: "submit",
+              disabled: !child.value.trim(),
+            },
+            DDUI("\u0627\u0641\u0632\u0648\u062F\u0646"),
+          ),
+          _.createElement(
+            "button",
+            { className: "btn", type: "button", onClick: () => setChild(null) },
+            DDUI("\u0644\u063A\u0648"),
+          ),
+        ),
+      showMap &&
+        _.createElement(
+          "div",
+          {
+            className: "b2-map b4-minimap",
+            "aria-label": DDUI("Board minimap"),
+            title: DDUI(
+              "\u06A9\u0644\u06CC\u06A9 \u06CC\u0627 \u06A9\u0634\u06CC\u062F\u0646 \u0628\u0631\u0627\u06CC \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u062F\u0648\u0631\u0628\u06CC\u0646",
+            ),
+            onPointerDown: (Y) => {
+              if (Y.button !== 0) return;
+              (minimapDown(Y), Y.currentTarget.setPointerCapture(Y.pointerId));
+            },
+            onPointerMove: (Y) => {
+              Y.currentTarget.hasPointerCapture(Y.pointerId) && minimapDown(Y);
+            },
+          },
+          _.createElement(
+            "svg",
+            {
+              ref: mapSvg,
+              viewBox: `${bounds.x - 70} ${bounds.y - 70} ${bounds.w + 140} ${bounds.h + 140}`,
+              preserveAspectRatio: "xMidYMid meet",
+            },
+            layout.nodes.map((Y) =>
+              _.createElement("rect", {
+                key: Y.id,
+                x: Y.x,
+                y: Y.y,
+                width: Y.w,
+                height: Y.h,
+                rx: 5,
+                fill: Y.kind === "frame" ? "none" : Y.color,
+                stroke: Y.kind === "frame" ? "#85827A" : "none",
+                opacity: selected.has(Y.id) ? 1 : 0.65,
+              }),
+            ),
+            _.createElement("rect", {
+              "data-map-camera": !0,
+              fill: "var(--now)",
+              fillOpacity: 0.08,
+              stroke: "var(--now)",
+              strokeWidth: 1.5,
+              vectorEffect: "non-scaling-stroke",
+            }),
+          ),
+        ),
+      _.createElement(
+        "div",
+        {
+          className: "b2-dock",
+          role: "toolbar",
+          "aria-label": DDUI("Canvas tools"),
+        },
+        [
+          ["select", DDUI("\u0627\u0646\u062A\u062E\u0627\u0628"), "sort"],
+          ["hand", DDUI("\u062F\u0633\u062A"), "hand"],
+          ["connector", DDUI("\u0627\u062A\u0635\u0627\u0644"), "tree"],
+          ["block", DDUI("\u0628\u0644\u0627\u06A9"), "plus"],
+          [
+            "sticky",
+            DDUI("\u06CC\u0627\u062F\u062F\u0627\u0634\u062A"),
+            "sticky",
+          ],
+          ["feeling", DDUI("Feeling"), "smile"],
+        ].map(([Y, G, ct]) =>
+          _.createElement(
+            "button",
+            {
+              type: "button",
+              key: Y,
+              className: "b2-icon",
+              "aria-label": DDUI(
+                Y === "connector"
+                  ? "Connect nodes"
+                  : Y === "hand"
+                    ? "Hand tool"
+                    : Y === "select"
+                      ? "Select tool"
+                      : Y === "block"
+                        ? "Time block tool"
+                        : Y === "feeling"
+                          ? "Feeling or mistake tool"
+                          : "Sticky note tool",
+              ),
+              "aria-pressed": tool === Y,
+              onClick: () => {
+                (setTool(Y), setConnecting(null), setWireId(null));
+              },
+            },
+            _.createElement(controls.Icon, {
+              React: _,
+              name:
+                {
+                  cursor: "select",
+                  move: "hand",
+                  line: "connect",
+                  square: "task",
+                  bang: "spark",
+                  sticky: "note",
+                }[ct] || ct,
+            }),
+            _.createElement("span", null, G),
+          ),
+        ),
+        _.createElement("span", { className: "b2-sep" }),
+        toolButton(
+          DDUI("Snap to grid"),
+          "snap",
+          () => toggleView("snap"),
+          { "aria-pressed": snap, "data-view-toggle": true },
+          DDUI("Snap"),
+        ),
+        toolButton(
+          DDUI("Show grid"),
+          "grid",
+          () => toggleView("grid"),
+          { "aria-pressed": grid, "data-view-toggle": true },
+          DDUI("Grid"),
+        ),
+        toolButton(
+          DDUI("Toggle minimap"),
+          "map",
+          () => toggleView("map"),
+          { "aria-pressed": showMap, "data-view-toggle": true },
+          DDUI("Minimap"),
+        ),
+        toolButton(
+          t("Canvas settings", "تنظیمات بوم"),
+          "settings",
+          () => {
+            setViewPanel(!viewPanel);
+            setProperties(false);
+            setInspector(false);
+          },
+          { "aria-pressed": viewPanel },
+        ),
+      ),
+      _.createElement(controls.ZoomControl, {
+        React: _,
+        language: DDlanguage,
+        viewport,
+        getCamera: () => cam.current,
+        onZoom: setZoom,
+        onFit: fit,
+        onView: () => {
+          setViewPanel(true);
+          setProperties(false);
+          setInspector(false);
+        },
+      }),
+      _.createElement(
+        "div",
+        {
+          className: "b4-status" + (status ? "" : " dd-keyboard-only"),
+          role: "status",
+        },
+        status ||
+          DDUI(
+            wireId
+              ? "\u062E\u0637 \u0631\u0627 \u0628\u06A9\u0634 \u062A\u0627 \u0645\u0633\u06CC\u0631 \u0639\u0648\u0636 \u0634\u0648\u062F\u061B \u062F\u0648 \u0633\u0631 \u062E\u0637 \u0628\u0631\u0627\u06CC \u062A\u063A\u06CC\u06CC\u0631 \u0627\u062A\u0635\u0627\u0644"
+              : "Space: \u062D\u0631\u06A9\u062A \u0628\u0648\u0645 \xB7 C: \u0627\u062A\u0635\u0627\u0644 \xB7 F: \u0646\u0645\u0627\u06CC\u0634 \u0647\u0645\u0647 \xB7 Delete: \u062D\u0630\u0641",
+          ),
+      ),
+      menu &&
+        _.createElement(controls.ContextMenu, {
+          key: menu.stamp,
+          React: _,
+          language: DDlanguage,
+          menu,
+          items: contextItems(),
+          onClose: closeContext,
+          boardRef: root,
+          title: menu.wire
+            ? t("Connection", "اتصال")
+            : menu.ref || menu.selection
+              ? selected.size > 1
+                ? selected.size + t(" selected objects", " شیء انتخاب‌شده")
+                : selectedNode?.title || t("Object", "شیء")
+              : t("Canvas", "بوم"),
+        }),
+      help &&
+        _.createElement(
+          "div",
+          {
+            className: "b4-help-backdrop",
+            role: "dialog",
+            "aria-modal": "true",
+            "aria-label": "Board help",
+            onClick: () => setHelp(!1),
+          },
+          _.createElement(
+            "div",
+            {
+              className: "b4-help",
+              dir: DDlanguage === "fa" ? "rtl" : "ltr",
+              onClick: (Y) => Y.stopPropagation(),
+            },
+            _.createElement(
+              "div",
+              { className: "b4-panel-head" },
+              _.createElement(
+                "strong",
+                null,
+                DDUI(
+                  "\u06A9\u0646\u062A\u0631\u0644\u200C\u0647\u0627\u06CC \u0628\u0631\u062F",
+                ),
+              ),
+              _.createElement(
+                "button",
+                { type: "button", autoFocus: !0, onClick: () => setHelp(!1) },
+                DDUI("\u0628\u0633\u062A\u0646"),
+              ),
+            ),
+            _.createElement(
+              "p",
+              null,
+              DDUI(
+                "\u0628\u0631\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628 \u062E\u0637\u060C \u0631\u0648\u06CC \u0622\u0646 \u06A9\u0644\u06CC\u06A9 \u06A9\u0646. \u062D\u0630\u0641 \u062E\u0637\u060C \u0646\u0648\u062F\u0647\u0627 \u0648 \u06A9\u0627\u0631\u0647\u0627\u06CC \u067E\u0644\u0646 \u0631\u0627 \u062D\u0630\u0641 \u0646\u0645\u06CC\u200C\u06A9\u0646\u062F.",
+              ),
+            ),
+            _.createElement(
+              "p",
+              null,
+              DDUI(
+                "\u062F\u0648 \u0633\u0631 \u062E\u0637 \u0628\u0631\u0627\u06CC \u062A\u063A\u06CC\u06CC\u0631 \u0646\u0648\u062F\u060C \u0648 \u062F\u0633\u062A\u06AF\u06CC\u0631\u0647 \u0648\u0633\u0637 \u0628\u0631\u0627\u06CC \u062A\u063A\u06CC\u06CC\u0631 \u0645\u0633\u06CC\u0631 \u0647\u0633\u062A\u0646\u062F. \u0647\u0645\u06CC\u0646 \u06A9\u0627\u0631\u0647\u0627 \u0627\u0632 \u067E\u0646\u0644 \u0627\u062A\u0635\u0627\u0644 \u0647\u0645 \u062F\u0631 \u062F\u0633\u062A\u0631\u0633\u200C\u0627\u0646\u062F.",
+              ),
+            ),
+            _.createElement(
+              "p",
+              null,
+              DDUI(
+                "\u0628\u0631\u0627\u06CC \u0633\u0627\u062E\u062A \u0627\u062A\u0635\u0627\u0644\u060C \u0627\u0628\u0632\u0627\u0631 \xAB\u0627\u062A\u0635\u0627\u0644\xBB \u0631\u0627 \u0628\u0632\u0646 \u0648 \u062F\u0648 \u0646\u0648\u062F \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u061B \u06CC\u0627 \u0627\u0632 \u0646\u0642\u0637\u0647 \u06A9\u0646\u0627\u0631 \u0646\u0648\u062F \u0628\u06A9\u0634.",
+              ),
+            ),
+            _.createElement(
+              "dl",
+              null,
+              _.createElement("dt", null, "Space / H"),
+              _.createElement(
+                "dd",
+                null,
+                DDUI("\u062D\u0631\u06A9\u062A \u0628\u0648\u0645"),
+              ),
+              _.createElement(
+                "dt",
+                null,
+                DDUI("Ctrl / Cmd + \u0627\u0633\u06A9\u0631\u0648\u0644"),
+              ),
+              _.createElement(
+                "dd",
+                null,
+                DDUI(
+                  "\u0632\u0648\u0645 \u062F\u0648\u0631 \u0646\u0634\u0627\u0646\u06AF\u0631",
+                ),
+              ),
+              _.createElement(
+                "dt",
+                null,
+                DDUI("Shift + \u06A9\u0644\u06CC\u06A9"),
+              ),
+              _.createElement(
+                "dd",
+                null,
+                DDUI(
+                  "\u0627\u0646\u062A\u062E\u0627\u0628 \u0686\u0646\u062F \u0646\u0648\u062F",
+                ),
+              ),
+              _.createElement("dt", null, "Ctrl / Cmd + Z"),
+              _.createElement(
+                "dd",
+                null,
+                DDUI(
+                  "Undo\u061B \u0628\u0627 Shift \u0628\u0631\u0627\u06CC Redo",
+                ),
+              ),
+              _.createElement("dt", null, "Ctrl / Cmd + G"),
+              _.createElement(
+                "dd",
+                null,
+                DDUI(
+                  "\u06AF\u0631\u0648\u0647\u200C\u06A9\u0631\u062F\u0646\u061B \u0628\u0627 Shift \u0628\u0631\u0627\u06CC \u0628\u0627\u0632\u06A9\u0631\u062F\u0646 \u06AF\u0631\u0648\u0647",
+                ),
+              ),
+              _.createElement("dt", null, "F / Shift F"),
+              _.createElement(
+                "dd",
+                null,
+                DDUI(
+                  "\u0646\u0645\u0627\u06CC\u0634 \u0647\u0645\u0647 / \u0627\u0646\u062A\u062E\u0627\u0628",
+                ),
+              ),
+              _.createElement("dt", null, "Esc"),
+              _.createElement(
+                "dd",
+                null,
+                DDUI(
+                  "\u0644\u063A\u0648 \u062D\u0631\u06A9\u062A \u06CC\u0627 \u0627\u062A\u0635\u0627\u0644",
+                ),
+              ),
+            ),
+            _.createElement(
+              "p",
+              null,
+              DDUI(
+                "\u062F\u0631 \u0645\u0648\u0628\u0627\u06CC\u0644: \u06CC\u06A9 \u0627\u0646\u06AF\u0634\u062A \u0628\u0631\u0627\u06CC \u062D\u0631\u06A9\u062A \u0631\u0648\u06CC \u0641\u0636\u0627\u06CC \u062E\u0627\u0644\u06CC\u060C \u062F\u0648 \u0627\u0646\u06AF\u0634\u062A \u0628\u0631\u0627\u06CC \u0632\u0648\u0645\u060C \u062F\u0648 \u0636\u0631\u0628\u0647 \u0631\u0648\u06CC \u0646\u0648\u062F \u0628\u0631\u0627\u06CC \u0648\u06CC\u0631\u0627\u06CC\u0634.",
+              ),
+            ),
+          ),
+        ),
+    );
+  };
+}

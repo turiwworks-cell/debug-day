@@ -241,6 +241,9 @@ export function DDreviewFeelingAction(snapshot, date, id, action) {
       );
       for (const layout of Object.values(board.layouts || {}))
         delete layout[ref];
+      if (board.styles) delete board.styles[ref];
+      if (Array.isArray(board.stack))
+        board.stack = board.stack.filter((value) => value !== ref);
       for (const [key, link] of Object.entries(board.overrides || {}))
         if (link.from === ref || link.to === ref) delete board.overrides[key];
       for (const field of ["locked", "hidden"])

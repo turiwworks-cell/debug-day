@@ -411,6 +411,9 @@ export function DDcleanBoard(day, refs) {
   );
   for (const positions of Object.values(board.layouts || {}))
     for (const ref of refs) delete positions[ref];
+  for (const ref of refs) if (board.styles) delete board.styles[ref];
+  if (Array.isArray(board.stack))
+    board.stack = board.stack.filter((ref) => !removed.has(ref));
   for (const [key, value] of Object.entries(board.overrides || {}))
     if (removed.has(value.from) || removed.has(value.to))
       delete board.overrides[key];
