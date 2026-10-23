@@ -2,6 +2,16 @@
 
 Every change gets an entry here: version, date, branch, and what changed. Newest first. See `CLAUDE.md` for the rules.
 
+## 5.5.0 — 2026-10-23
+Branch: claude/project-thread-xnja7m
+- Added habits (like writing): tick them each day and add minutes if you like. Each day gets a color level: done, good (15m), enough (30m), too much (60m). The minutes for each level can be changed in Settings › Habits.
+- Plan has a Habits panel with tick, minutes, a +15 button and the last two weeks; tap a habit's name to see its last 8 weeks, total time and streak.
+- The Board has its own Feelings and Habits sections, in both Mind map and Lanes. Press + in a section to add one there.
+- Drop a card into Habits to turn it into a habit. In the mind map, drop a feeling on a card to link it, or into Feelings to unlink it.
+- Selecting a feeling on the Board opens a panel with the same words as the Feelings page: topic, related card, what could help, "It passed" and delete. Feeling cards show their topic and a heart instead of "!".
+- Removed the old feelings box under the Board, since feelings now live inside it.
+- Right-click or right-drag on a Board section works like the empty canvas.
+
 ## 5.4.0 — 2026-10-23
 Branch: claude/project-thread-xnja7m
 - Cards can be measured by time, by times ("3 times", with a tally to tap) or as waiting (like waiting for an email reply). Only timed cards use up hours in the day.
