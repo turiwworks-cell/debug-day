@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {DDsearchText,DDsearchDate,DDparseSearch,DDbuildSearchIndex,DDmatchSearch,DDeditSearchResult,DDmatchesBlock} from '../public/search.js';
+import {DDsearchText,DDsearchDate,DDparseSearch,DDbuildSearchIndex,DDmatchSearch,DDeditSearchResult,DDmatchesBlock,DDrankPanels} from '../public/search.js';
+import {DDpanelCommands} from '../public/panels.js';
 const today='2026-10-22';
 function fixture(){const block={id:'b1',name:'Portfolio writing',note:'برنامه می خواهم #outline',type:'writing',lane:'work',min:90,pri:1,done:false,subtasks:[{id:'s1',text:'First step',done:false,children:[{id:'s2',text:'Hidden telescope',done:false,children:[]}]}]};return {setup:{types:[{id:'writing',name:'Create'}],lanes:[{id:'work',name:'Work'}],feedbacks:[{id:'f1',text:'Feedback',createdAt:today,done:false,thread:[{id:'t1',text:'Thread orbit',at:today}]}]},days:{[today]:{date:today,blocks:[block],bugs:[{id:'bug1',text:'Uncertainty',category:'creative',triggerTag:'ابهام',fixed:false}],notes:[{id:'n1',kind:'sticky',text:'Sticky galaxy'}],canvas:{board4:{links:[{id:'l1',from:'b:b1',to:'note:n1'}],layouts:{mindmap:{'b:b1':{x:1,y:2}}},locked:['b:b1'],groups:{g:['b:b1','note:n1']}}}},'2026-10-15':{date:'2026-10-15',blocks:[{...block,id:'old',name:'Last week outreach',done:true}],notes:[],bugs:[]}}};}
 const results=(data,raw)=>DDbuildSearchIndex(data,today).filter(row=>DDmatchSearch(row,DDparseSearch(raw,today)));
@@ -11,3 +12,12 @@ test('prefix filters combine category, lane, priority, date and completion',()=>
 test('moving a task preserves children and cleans its source board references atomically',()=>{const data=fixture(),row=results(data,'Portfolio').find(r=>r.kind==='block'&&r.date===today),next=DDeditSearchResult(data,row,'move','2026-10-23',date=>({date,blocks:[],notes:[],bugs:[],canvas:null}));assert.equal(next.days[today].blocks.length,0);assert.equal(next.days['2026-10-23'].blocks[0].subtasks[0].children[0].text,'Hidden telescope');assert.deepEqual(next.days[today].canvas.board4.links,[]);assert.deepEqual(next.days[today].canvas.board4.groups,{});assert.equal(next.days[today].canvas.board4.layouts.mindmap['b:b1'],undefined);assert.equal(data.days[today].blocks.length,1)});
 test('completion cascades to subtasks; deleting one result preserves unrelated items',()=>{const data=fixture(),row=results(data,'Portfolio').find(r=>r.kind==='block'&&r.date===today);const done=DDeditSearchResult(data,row,'done');assert.equal(done.days[today].blocks[0].subtasks[0].children[0].done,true);const sub=results(data,'Hidden telescope').find(r=>r.kind==='subtask'&&r.itemId==='s2'&&r.date===today);const next=DDeditSearchResult(data,sub,'delete');assert.equal(next.days[today].blocks[0].subtasks[0].children.length,0);assert.equal(next.days[today].notes.length,1);assert.equal(DDeditSearchResult(data,{...row,blockId:'gone'},'done'),data)});
 test('reply deletion and resolved feelings update the actual item without replacing its parent',()=>{const data=fixture(),reply=results(data,'Thread orbit').find(r=>r.kind==='thread'),bug=results(data,'Uncertainty')[0];const next=DDeditSearchResult(data,reply,'delete');assert.equal(next.setup.feedbacks.length,1);assert.equal(next.setup.feedbacks[0].thread.length,0);assert.equal(DDeditSearchResult(data,bug,'done').days[today].bugs[0].fixed,true)});
+
+test('a panel named like the query comes before one that only mentions it',()=>{
+  const rows=DDpanelCommands('en',()=>{}).map(row=>({...row,kind:'command',searchText:DDsearchText(row.words)}));
+  const pick=raw=>{const query=DDparseSearch(raw,today);return DDrankPanels(rows.filter(row=>DDmatchSearch(row,query)),query).map(row=>row.panel.id);};
+  assert.deepEqual(pick('>stats'),['stats','calendar']);
+  assert.deepEqual(pick('feelings'),['feelings','calendar']);
+  assert.equal(pick('آمار')[0],'stats');
+  assert.deepEqual(pick('>'),rows.map(row=>row.panel.id),'with nothing typed the order stays');
+});

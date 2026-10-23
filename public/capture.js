@@ -209,7 +209,7 @@ export function DDCaptureTools({
   const h = R.createElement,
     fa = language === "fa",
     t = (en, fr) => (fa ? fr : en),
-    reviewingDay = view === "calendar" || view === "stats",
+    reviewingDay = view === "calendar" || view === "stats" || view === "insights",
     defaultCaptureDay = reviewingDay ? date : today;
   const [panel, setPanel] = R.useState(null),
     [kind, setKind] = R.useState("task"),

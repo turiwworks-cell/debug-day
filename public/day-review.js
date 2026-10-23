@@ -441,14 +441,16 @@ function DDReviewCalendar({
             new Date(month.start + "T12:00:00Z"),
           ) +
             " " +
-            n(DDreviewParts(month.start, system).year),
+            new Intl.NumberFormat(fa ? "fa-IR" : "en-GB", { useGrouping: false }).format(
+              DDreviewParts(month.start, system).year,
+            ),
         ),
         h(
           "p",
           null,
           t(
-            "Choose a day to see its details below.",
-            "یک روز را انتخاب کن؛ جزئیاتش پایین تقویم می‌آید.",
+            "Choose a day to see its details.",
+            "یک روز را انتخاب کن تا جزئیاتش را ببینی.",
           ),
         ),
       ),
@@ -554,9 +556,9 @@ function DDReviewCalendar({
               DDreviewDateLabel(cell.date, language, system) +
               " · " +
               n(feelingCount) +
-              t(" feelings", " احساس") +
+              t(feelingCount === 1 ? " feeling" : " feelings", " احساس") +
               (!feelingsOnly
-                ? " · " + n(summary.tasks) + t(" tasks", " کار")
+                ? " · " + n(summary.tasks) + t(summary.tasks === 1 ? " task" : " tasks", " کار")
                 : "") +
               (other ? " · " + other : ""),
             className:
@@ -582,13 +584,13 @@ function DDReviewCalendar({
             null,
             !feelingsOnly &&
               summary.tasks > 0 &&
-              h("span", null, n(summary.tasks), t(" tasks", " کار")),
+              h("span", null, n(summary.tasks), t(summary.tasks === 1 ? " task" : " tasks", " کار")),
             feelingCount > 0 &&
               h(
                 "span",
                 { className: "dd-review-has-feeling" },
                 n(feelingCount),
-                t(" feelings", " حس"),
+                t(feelingCount === 1 ? " feeling" : " feelings", " حس"),
               ),
             !feelingCount &&
               (feelingsOnly || !summary.tasks) &&
@@ -1887,15 +1889,26 @@ function DDReviewDay({
         ),
   );
 }
+// Calendar, Feelings and Stats share one panel: one tab in the header and
+// three sections inside it. The month grid sits beside the day on wide screens.
+export const DDcalendarSections = [
+  ["day", "calendar", "Day", "روز"],
+  ["feelings", "feelings", "Feelings", "احساسات"],
+  ["stats", "stats", "Stats", "آمار"],
+];
 export function DDCalendarView(props) {
-  const { React: R, language, feelingsOnly = false } = props,
-    { h, t } = DDreviewUI(R, language);
+  const { React: R, language, feelingsOnly = false, onSection, sections } = props,
+    section = props.section || (feelingsOnly ? "feelings" : "day"),
+    { h, t } = DDreviewUI(R, language),
+    parts = DDcalendarSections.filter(([id]) => !sections || sections.includes(id)),
+    feelings = section === "feelings";
   return h(
     "div",
     {
       className: "dd-review-root",
+      "data-section": section,
       dir: language === "fa" ? "rtl" : "ltr",
-      "data-panel": feelingsOnly ? "feelings" : "calendar",
+      "data-panel": parts.find(([id]) => id === section)?.[1] || "calendar",
     },
     h(
       "header",
@@ -1906,50 +1919,56 @@ export function DDCalendarView(props) {
         h(
           "h1",
           null,
-          props.PanelIcon &&
-            h(props.PanelIcon, { React: R, id: feelingsOnly ? "feelings" : "calendar" }),
-          feelingsOnly ? t("Feelings", "احساسات") : t("Calendar", "تقویم"),
-        ),
-        h(
-          "p",
-          null,
-          feelingsOnly
-            ? t(
-                "Choose a day, record how it felt, and read what happened.",
-                "یک روز را انتخاب کن، حالت را ثبت کن و اتفاق‌هایش را مرور کن.",
-              )
-            : t(
-                "Choose a day to see it at a glance and move tasks between days.",
-                "یک روز را انتخاب کن تا در یک نگاه ببینی‌اش و کارها را بین روزها جابه‌جا کنی.",
-              ),
-        ),
-      ),
-    ),
-    h(DDReviewCalendar, {
-      ...props,
-      onSelect: props.onSelectDay,
-      panelId: feelingsOnly ? "dd-feelings-day" : "dd-calendar-day",
-    }),
-    h(DDReviewDay, props),
-    feelingsOnly &&
-      props.analysis &&
-      h(
-        "details",
-        { className: "dd-review-analysis" },
-        h(
-          "summary",
-          null,
-          t("Trends & detailed charts", "روندها و نمودارهای بیشتر"),
+          props.PanelIcon && h(props.PanelIcon, { React: R, id: "calendar" }),
+          t("Calendar", "تقویم"),
         ),
         h(
           "p",
           null,
           t(
-            "Charts and patterns from the days you have recorded.",
-            "نمودارها و الگوهای روزهایی که ثبت کرده‌ای.",
+            "Your days, how they felt, and the patterns across them.",
+            "روزهایت، حالشان و الگوهایی که در آن‌ها تکرار می‌شود.",
           ),
         ),
-        props.analysis,
       ),
+      onSection &&
+        parts.length > 1 &&
+        h(
+          "div",
+          {
+            className: "dd-review-sections",
+            role: "tablist",
+            "aria-label": t("Calendar sections", "بخش‌های تقویم"),
+          },
+          parts.map(([id, panel, en, fa]) =>
+            h(
+              "button",
+              {
+                key: id,
+                type: "button",
+                role: "tab",
+                "data-panel": panel,
+                "aria-selected": section === id,
+                onClick: () => onSection(id),
+              },
+              props.PanelIcon && h(props.PanelIcon, { React: R, id: panel }),
+              t(en, fa),
+            ),
+          ),
+        ),
+    ),
+    section === "stats"
+      ? h("div", { className: "dd-review-stats" }, props.stats)
+      : h(
+          "div",
+          { className: "dd-review-columns" },
+          h(DDReviewCalendar, {
+            ...props,
+            feelingsOnly: feelings,
+            onSelect: props.onSelectDay,
+            panelId: feelings ? "dd-feelings-day" : "dd-calendar-day",
+          }),
+          h(DDReviewDay, { ...props, feelingsOnly: feelings }),
+        ),
   );
 }

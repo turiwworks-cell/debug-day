@@ -34,17 +34,28 @@ export const DDpanelList = [
     color: "#D9434A",
     name: ["Feelings", "احساسات"],
     about: ["Mood, feelings and earlier days", "حال، احساسات و روزهای قبل"],
-    words: "feeling mood bugs issues stats charts worry احساس حال مسئله نمودار نگرانی",
+    words: "feeling mood bugs issues worry احساس حال مسئله نگرانی",
     isolate: false,
+    partOf: "calendar",
   },
   {
     id: "calendar",
     icon: "📅",
     color: "#1E9BB3",
     name: ["Calendar", "تقویم"],
-    about: ["Any day at a glance", "هر روز در یک نگاه"],
+    about: ["Days, feelings and stats in one place", "روزها، احساسات و آمار در یک جا"],
     words: "calendar days month reminders تقویم روز ماه یادآور",
     isolate: false,
+  },
+  {
+    id: "stats",
+    icon: "📊",
+    color: "#E0529C",
+    name: ["Stats", "آمار"],
+    about: ["Streaks, charts and patterns across your days", "استریک، نمودارها و الگوهای همهٔ روزها"],
+    words: "stats statistics charts trends streak patterns mood wave آمار نمودار روند استریک الگو موج",
+    isolate: false,
+    partOf: "calendar",
   },
   {
     id: "lab",
@@ -110,14 +121,15 @@ export function DDPanelIcon({ React: R, id }) {
   return panel ? R.createElement("span", { className: "dd-panel-icon", "data-panel": id, "aria-hidden": true }, panel.icon) : null;
 }
 
-// The app map: one card per panel, open or isolate it.
+// The app map: one card per panel, open or isolate it. Feelings and Stats
+// live inside the Calendar panel, so they share its card.
 export function DDPanelMap({ React: R, language, counts = {}, onPick }) {
   const fa = language === "fa",
     t = (en, f) => (fa ? f : en);
   return R.createElement(
     "div",
     { className: "app-map-grid dd-panel-map" },
-    DDpanelList.map((panel, index) =>
+    DDpanelList.filter((panel) => !panel.partOf).map((panel, index) =>
       R.createElement(
         "div",
         { key: panel.id, className: "app-map-card", "data-panel": panel.id },
@@ -126,7 +138,8 @@ export function DDPanelMap({ React: R, language, counts = {}, onPick }) {
           { className: "dd-panel-map-head" },
           R.createElement("span", { className: "dd-panel-icon", "aria-hidden": true }, panel.icon),
           R.createElement("b", null, panel.name[fa ? 1 : 0]),
-          counts[panel.id] && R.createElement("small", null, counts[panel.id]),
+          (counts[panel.id] || (panel.id === "calendar" && counts.feelings)) &&
+            R.createElement("small", null, counts[panel.id] || "💭 " + counts.feelings),
         ),
         R.createElement("span", { className: "dd-panel-map-about" }, panel.about[fa ? 1 : 0]),
         R.createElement(
