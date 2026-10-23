@@ -32,6 +32,16 @@ export const DDboardCore = {
     "#FF9E42",
     "#FFC943",
   ],
+  // Shortcuts follow the physical key, so Persian and other layouts work too.
+  shortcutKey(event) {
+    const key = String(event?.key || "");
+    if (/^[\x20-\x7e]$/.test(key)) return key.toLowerCase();
+    const code = String(event?.code || "");
+    if (/^Key[A-Z]$/.test(code)) return code.slice(3).toLowerCase();
+    if (/^Digit\d$/.test(code)) return code.slice(5);
+    if (key === "؟") return "?";
+    return key.length === 1 ? key.toLowerCase() : key;
+  },
   digits(value) {
     return String(value)
       .replace(/[۰-۹٠-٩]/g, (char) => String(char.charCodeAt(0) % 16))
