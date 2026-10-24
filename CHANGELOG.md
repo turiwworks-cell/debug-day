@@ -1,3 +1,13 @@
+## 5.9.0 — 2026-10-24
+Branch: feat/connected-planner-priorities
+- Keep Plan, Board, Lanes, settings and MCP on the same task/section relationships; discard stale positions after membership changes.
+- Make lane connectors edit actual membership; park tasks when detaching, preserve nested steps, reject cycles and keep locked relationships protected.
+- Add shared task tags and clear priority controls; use P1 ×4, P2 ×3, P3 ×2 and normal ×1 for daily completion in every view.
+- Recompute connection endpoints at the nearest facing edges during dragging, route around intervening cards, and add automatic/fixed attachment controls.
+- Reserve scrollbar space and remove App Map buttons.
+- Preserve old connection labels and styles, and keep shared modules available in standalone offline HTML exports.
+- Add regression coverage for alternating edits, MCP metadata, real touch dragging, live routing, undo/redo, persistence and scrollbar stability.
+
 # Changelog
 
 Every change gets an entry here: version, date, branch, and what changed. Newest first. See `CLAUDE.md` for the rules.

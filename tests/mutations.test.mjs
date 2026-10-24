@@ -203,3 +203,22 @@ test("MCP deletion removes hidden references for the task and all its descendant
       "sticky:keep",
     ]);
   }));
+
+test('MCP tags and priorities persist, are searchable, and invalid metadata is rejected',()=>withCloud(async(env)=>{
+ const added=await callTool('add_block',{date,expected_revision:1,name:'Ship design',minutes:30,type_id:'work',lane_id:'work',priority:1,tags:['#Client','پروژه']},env,'write');
+ const created=(await read(env)).data.days[date].blocks.find(b=>b.id===added.id);
+ assert.equal(created.pri,1);assert.deepEqual(created.tags,['Client','پروژه']);
+ const found=await callTool('search_blocks',{query:'پروژه'},env,'read');assert.equal(found.results[0].block.id,added.id);
+ await assert.rejects(()=>callTool('update_block',{date,expected_revision:2,block_id:added.id,tags:['x'.repeat(41)]},env,'write'),/Invalid tags/);
+ await assert.rejects(()=>callTool('update_block',{date,expected_revision:2,block_id:added.id,priority:4},env,'write'),/Invalid priority/);
+ await callTool('update_block',{date,expected_revision:2,block_id:added.id,priority:2,tags:[]},env,'write');
+ const updated=(await read(env)).data.days[date].blocks.find(b=>b.id===added.id);assert.equal(updated.pri,2);assert.deepEqual(updated.tags,[]);
+}));
+test('a lane edit over MCP invalidates old positions in both Board modes and preserves task descendants',()=>withCloud(async(env)=>{
+ const state=await read(env),day=state.data.days[date];state.data.setup.lanes.push({id:'life'});
+ day.canvas.board4.layouts={mindmap:{'b:task':{x:100,y:200}},lanes:{'b:task':{x:600,y:500}}};
+ await save(env,state.data,1);
+ await callTool('update_block',{date,expected_revision:2,block_id:'task',lane_id:'life'},env,'write');
+ const actual=(await read(env)).data.days[date];assert.equal(actual.blocks[0].lane,'life');assert.equal(actual.blocks[0].subtasks[0].children[0].text,'Heading');
+ assert.equal(actual.canvas.board4.layouts.lanes['b:task'],undefined);assert.equal(actual.canvas.board4.layouts.mindmap['b:task'],undefined);
+}));

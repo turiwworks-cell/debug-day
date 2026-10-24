@@ -145,12 +145,13 @@ export function DDbuildSearchIndex(data, today) {
         row.lane,
         lanes.get(row.lane),
         row.extra,
+        ...(row.tags || []),
       ]
         .filter(Boolean)
         .join(" "),
     );
     row.categoryText = DDsearchText(
-      [row.type, types.get(row.type), row.category, row.tag]
+      [row.type, types.get(row.type), row.category, row.tag, ...(row.tags || [])]
         .filter(Boolean)
         .join(" "),
     );
@@ -170,6 +171,7 @@ export function DDbuildSearchIndex(data, today) {
         type: block.type,
         lane: block.lane,
         priority: block.pri || 0,
+        tags: block.tags || [],
         detail: [
           date,
           types.get(block.type) || block.type,
@@ -303,6 +305,7 @@ export function DDbuildSearchIndex(data, today) {
       type: block.type,
       lane: block.lane,
       priority: block.pri || 0,
+        tags: block.tags || [],
       done: !!block.done,
       detail: "Later",
       extra: DDsubText(block.subtasks),

@@ -1,3 +1,6 @@
+import { DDcompletion, DDTaskMetadata, DDTaskTags, DDpriorityLabel, DDprogressLabel } from "./planner.js";
+import { DDreconcileDay, DDrelation, DDconnectRelation, DDdisconnectRelation, DDrewireRelation } from "./relations.js";
+import { DDconnectionGeometry } from "./connections.js";
 // Board interaction engine. Legacy planner adapters are injected once by the app.
 export function DDcreateBoard(deps) {
   const {
@@ -87,7 +90,7 @@ export function DDcreateBoard(deps) {
               : { x: 24, y: 72, z: 0.8 },
         }
       ),
-      model = clean(DDreadBoardView(day.date, day.canvas?.board4)),
+      model = clean(DDreadBoardView(day.date, DDreconcileDay(day, null, setup).canvas?.board4)),
       prefs = DDprefs(setup.preferences),
       [mode, setMode] = useState(model.mode),
       [tool, setTool] = useState("select"),
@@ -207,7 +210,7 @@ export function DDcreateBoard(deps) {
     }
     function commit(Y, G, ct = {}) {
       const ot = dayRef.current,
-        St = Y(copy(ot));
+        St = DDreconcileDay(Y(copy(ot)), ot, propsRef.current.setup);
       !St ||
         JSON.stringify(St) === JSON.stringify(ot) ||
         (ct.history !== !1 && remember(ot),
@@ -639,6 +642,8 @@ export function DDcreateBoard(deps) {
             textColor: ee(type.color),
             blockId: block.id,
             laneId,
+            pri: block.pri,
+            tags: block.tags,
             hasChildren: !!block.subtasks?.length,
             expanded: block.expanded !== false,
             members: members.map((m) => m.id).concat("sec:" + block.id),
@@ -887,6 +892,7 @@ export function DDcreateBoard(deps) {
                 laneId: Fn.lane,
                 parentId: Oa,
                 pri: Fn.pri,
+                tags: Fn.tags,
                 hasChildren: !!Fn.subtasks?.length,
                 expanded: Fn.expanded !== !1,
                 x: 410,
@@ -970,10 +976,10 @@ export function DDcreateBoard(deps) {
               automatic: !1,
             })),
           ]
-            .map((Jt) => ({ ...Jt, ...(model.overrides[Jt.id] || {}) }))
+            .map((Jt) => ({ ...Jt, ...(model.overrides[Jt.id] || {}), from: Jt.from, to: Jt.to }))
             .filter(
               (Jt) =>
-                !Kt.has(Jt.id) &&
+                (!Kt.has(Jt.id) || Jt.automatic) &&
                 Jt.from !== Jt.to &&
                 An.has(Jt.from) &&
                 An.has(Jt.to),
@@ -1028,51 +1034,17 @@ export function DDcreateBoard(deps) {
             ? { x: Y.x, y: Y.y + Y.h / 2 }
             : { x: Y.x + Y.w, y: Y.y + Y.h / 2 };
     }
-    function wireGeometry(Y) {
-      let G = nodeFor(Y.from),
-        ct = nodeFor(Y.to);
-      if (!G || !ct) return null;
-      let ot = Y.fromPort,
-        St = Y.toPort;
-      if (!ot || !St) {
-        const Jt = ct.x + ct.w / 2 - G.x - G.w / 2,
-          Xn = ct.y + ct.h / 2 - G.y - G.h / 2;
-        Math.abs(Jt) > Math.abs(Xn) * 0.65
-          ? ((ot = ot || (Jt >= 0 ? "right" : "left")),
-            (St = St || (Jt >= 0 ? "left" : "right")))
-          : ((ot = ot || (Xn >= 0 ? "bottom" : "top")),
-            (St = St || (Xn >= 0 ? "top" : "bottom")));
+    function wireGeometry(wire) {
+      const a = nodeFor(wire.from), b = nodeFor(wire.to);
+      if (!a || !b) return null;
+      const drag = pointerWire.current;
+      const geometry = DDconnectionGeometry(a, b, drag?.id === wire.id && drag.end === "bend" ? { ...wire, bend: drag.point } : wire, layoutRef.current.nodes.map((n) => nodeFor(n.id)));
+      if (geometry && drag?.id === wire.id && ["from", "to"].includes(drag.end)) {
+        if (drag.end === "from") geometry.p = drag.point; else geometry.q = drag.point;
+        geometry.d = `M${geometry.p.x} ${geometry.p.y}L${geometry.q.x} ${geometry.q.y}`;
+        geometry.mid = { x: (geometry.p.x + geometry.q.x) / 2, y: (geometry.p.y + geometry.q.y) / 2 };
       }
-      let Tt = portPoint(G, ot),
-        Pt = portPoint(ct, St);
-      const yn = pointerWire.current;
-      yn?.id === Y.id &&
-        (yn.end === "from"
-          ? (Tt = yn.point)
-          : yn.end === "to" && (Pt = yn.point));
-      const An = yn?.id === Y.id && yn.end === "bend" ? yn.point : Y.bend,
-        Kt = An || { x: (Tt.x + Pt.x) / 2, y: (Tt.y + Pt.y) / 2 };
-      let Dn;
-      if (Y.style === "straight") Dn = `M${Tt.x} ${Tt.y}L${Pt.x} ${Pt.y}`;
-      else if (Y.style === "elbow")
-        Dn = `M${Tt.x} ${Tt.y}L${Kt.x} ${Tt.y}L${Kt.x} ${Pt.y}L${Pt.x} ${Pt.y}`;
-      else if (An)
-        Dn = `M${Tt.x} ${Tt.y}Q${2 * Kt.x - (Tt.x + Pt.x) / 2} ${2 * Kt.y - (Tt.y + Pt.y) / 2} ${Pt.x} ${Pt.y}`;
-      else {
-        const Jt = Math.max(
-            48,
-            Math.abs(Pt.x - Tt.x) * 0.48,
-            Math.abs(Pt.y - Tt.y) * 0.2,
-          ),
-          Xn = (ma, Oa, fa) => ({
-            x: Oa.x + (ma === "left" ? -Jt : ma === "right" ? Jt : 0) * fa,
-            y: Oa.y + (ma === "top" ? -Jt : ma === "bottom" ? Jt : 0) * fa,
-          }),
-          On = Xn(ot, Tt, 1),
-          ra = Xn(St, Pt, 1);
-        Dn = `M${Tt.x} ${Tt.y}C${On.x} ${On.y},${ra.x} ${ra.y},${Pt.x} ${Pt.y}`;
-      }
-      return { d: Dn, p: Tt, q: Pt, mid: Kt };
+      return geometry;
     }
     function paintWires() {
       for (const Y of layoutRef.current.edges) {
@@ -1715,6 +1687,18 @@ export function DDcreateBoard(deps) {
                 Jt && ((Jt.x = Kt.x), (Jt.y = Kt.y));
               } else yn[An] = Kt;
             }
+            if (mode === "mindmap" && !ct.frame) {
+              for (const ref of ct.refs) {
+                const node = layout.map.get(ref), pos = ot[ref];
+                if (node?.kind !== "block" || !pos || habitRefs.has(ref)) continue;
+                const lane = layout.nodes.find((n) => n.kind === "lane" && !ot[n.id] && pos.x < n.x + n.w && pos.x + node.w > n.x && pos.y < n.y + n.h && pos.y + node.h > n.y);
+                const block = Tt.blocks.find((b) => b.id === node.blockId);
+                if (lane && block && (block.lane || "") !== (lane.laneId || "")) {
+                  block.lane = lane.laneId || "";
+                  for (const ref of [node.id, ...(node.members || [])]) delete yn[ref];
+                }
+              }
+            }
             if (mode === "lanes" && !ct.frame)
               for (const An of ct.refs) {
                 const Kt = layout.map.get(An),
@@ -1965,6 +1949,21 @@ export function DDcreateBoard(deps) {
         viewport.current.focus({ preventScroll: !0 }));
     }
     function patchWire(Y, G, ct) {
+      const current = layoutRef.current.edges.find((e) => e.id === Y);
+      if (current && (Object.hasOwn(G, "from") || Object.hasOwn(G, "to"))) {
+        const next = { ...current, ...G };
+        const relation = DDrewireRelation(dayRef.current, current, next.from, next.to, setup);
+        if (relation !== null) {
+          if (JSON.stringify(relation) === JSON.stringify(dayRef.current)) {
+            setStatus(t("This relationship is already set, locked or would create a cycle", "این رابطه وجود دارد، قفل است یا یک چرخه ایجاد می‌کند"));
+            return;
+          }
+          commit(() => relation, t("Relationship updated in Plan and Board", "رابطه در پلن و برد تغییر کرد"));
+          setWireId(null);
+          return;
+        }
+        if (current.automatic) { setStatus(t("Connect this task to a lane, or this step to a card", "کار را به لاین، یا قدم را به یک کارت وصل کن")); return; }
+      }
       boardChange(
         (ot) => (
           Y.startsWith("auto:")
@@ -1982,6 +1981,16 @@ export function DDcreateBoard(deps) {
     }
     function addLink(Y, G, ct = {}) {
       if (Y === G) return;
+      const relation = DDconnectRelation(dayRef.current, Y, G, setup);
+      if (relation !== null) {
+        if (JSON.stringify(relation) === JSON.stringify(dayRef.current)) {
+          setStatus(t("This relationship is already set, locked or would create a cycle", "این رابطه وجود دارد، قفل است یا یک چرخه ایجاد می‌کند"));
+          return;
+        }
+        commit(() => relation, t("Relationship updated in Plan and Board", "رابطه در پلن و برد تغییر کرد"));
+        setWireId(null); setSelected(new Set());
+        return;
+      }
       if (layout.edges.some((St) => St.from === Y && St.to === G)) {
         setStatus(
           DDUI(
@@ -1995,7 +2004,10 @@ export function DDcreateBoard(deps) {
         (St) => ({
           ...St,
           links: [
-            ...St.links,
+            ...St.links.filter((link) => {
+              const old = DDrelation(link.from, link.to, laneIds), next = DDrelation(Y, G, laneIds);
+              return !(next?.kind === "note" && old?.kind === "note" && old.noteId === next.noteId);
+            }),
             {
               id: ot,
               from: Y,
@@ -2017,6 +2029,16 @@ export function DDcreateBoard(deps) {
         setInspector(!0));
     }
     function deleteWire(Y = wireId) {
+      const edge = layoutRef.current.edges.find((e) => e.id === Y);
+      if (edge?.automatic) {
+        const next = DDdisconnectRelation(dayRef.current, edge.from, edge.to, setup);
+        if (JSON.stringify(next) === JSON.stringify(dayRef.current)) {
+          setStatus(t("This line shows the task hierarchy. Move its step to another card to change it.", "این خط ساختار کار را نشان می‌دهد؛ برای تغییر، قدم را به کارت دیگری وصل کن."));
+          return;
+        }
+        commit(() => next, t("Relationship removed; items kept", "رابطه برداشته شد؛ آیتم‌ها حفظ شدند"));
+        setWireId(null); return;
+      }
       Y &&
         (boardChange(
           (G) =>
@@ -2058,34 +2080,19 @@ export function DDcreateBoard(deps) {
     }
     function deleteNodes() {
       if (wireId) return deleteWire();
-      if (selectedWires.size) {
-        const dw = [...selectedWires];
-        (boardChange(
-          (G) => ({
-            ...G,
-            hidden: [
-              ...new Set([
-                ...G.hidden,
-                ...dw.filter((i) => i.startsWith("auto:")),
-              ]),
-            ],
-            links: G.links.filter((c) => !selectedWires.has(c.id)),
-          }),
-          DDUI("Connections removed"),
-        ),
-          setWireSelection(null));
-        if (!selected.size) return;
-      }
       const nodes = layout.nodes.filter((n) => selected.has(n.id));
-      commit(
-        (d) => core.remove(d, nodes),
-        t(
-          "Selection deleted · Undo to restore",
-          "انتخاب حذف شد؛ با واگرد برگردان",
-        ),
-      );
-      setSelected(new Set());
-      onSelectBlock?.(null);
+      if (!nodes.length && !selectedWires.size) return;
+      commit((day) => {
+        for (const edge of layout.edges.filter((e) => selectedWires.has(e.id) && e.automatic))
+          day = DDdisconnectRelation(day, edge.from, edge.to, setup);
+        const board = day.canvas?.board4;
+        if (board) {
+          board.links = (board.links || []).filter((e) => !selectedWires.has(e.id));
+          if (Array.isArray(board.hidden)) board.hidden = board.hidden.filter((id) => !selectedWires.has(id));
+        }
+        return core.remove(day, nodes);
+      }, t("Selection deleted · Undo to restore", "انتخاب حذف شد؛ با واگرد برگردان"));
+      setSelected(new Set()); setWireSelection(null); onSelectBlock?.(null);
     }
     function duplicate() {
       const payload = core.copy(
@@ -2933,9 +2940,7 @@ export function DDcreateBoard(deps) {
       doneMinutes = day.blocks
         .filter((Y) => isScheduled(Y) && Y.done)
         .reduce((Y, G) => Y + measure.DDplanMinutes(G), 0),
-      completion = plannedMinutes
-        ? Math.round((doneMinutes / plannedMinutes) * 100)
-        : 0;
+      completion = DDcompletion(day, laneIds).percent;
     const shortcutKeys = [
       ["Undo", "Ctrl+Z"],
       ["Redo", "Ctrl+Shift+Z"],
@@ -3332,7 +3337,9 @@ export function DDcreateBoard(deps) {
                               Y.emoji &&
                               _.createElement(B, { emoji: Y.emoji, size: 16 }),
                             Y.title,
+                            Y.kind === "block" && Y.pri > 0 && _.createElement("small", { className: "dd-board-priority pri p" + Y.pri, title: DDpriorityLabel(Y.pri, DDlanguage) }, "P" + Y.pri),
                           ),
+                          Y.kind === "block" && _.createElement(DDTaskTags, { React: _, task: Y, language: DDlanguage }),
                           Y.subtitle &&
                             _.createElement(
                               "div",
@@ -3806,6 +3813,7 @@ export function DDcreateBoard(deps) {
             "select",
             {
               value: block.type,
+              "aria-label": t("Category", "دسته"),
               disabled: isLocked,
               onChange: (event) => {
                 const value = event.target.value;
@@ -3827,6 +3835,10 @@ export function DDcreateBoard(deps) {
             ),
           ),
         ),
+        h("label", { className: "dd-card-field" }, h("span", null, t("Lane", "لاین")),
+          h("select", { value: laneIds.includes(block.lane) ? block.lane : "", disabled: isLocked, "aria-label": t("Task lane", "لاین کار"), onChange: (e) => { const lane = e.target.value; changeMeasure((b) => ({ ...b, lane })); } },
+            ...setup.lanes.map((l) => h("option", { key: l.id, value: l.id }, l.name)), h("option", { value: "" }, t("Parked", "پارک‌شده")))),
+        h(DDTaskMetadata, { React: _, task: block, language: DDlanguage, disabled: isLocked, onChange: (patch) => changeMeasure((b) => ({ ...b, ...patch })) }),
         h(
           "div",
           { className: "dd-card-field dd-card-time" },
@@ -5199,7 +5211,7 @@ export function DDcreateBoard(deps) {
           React: _,
           language: DDlanguage,
           nodes: selectedNodes,
-          wire: selectedWire,
+          wire: selectedWire ? { ...selectedWire, fromPort: wireGeometry(selectedWire)?.from, toPort: wireGeometry(selectedWire)?.to } : null,
           onStyle: applyStyle,
           onPreview: previewStyle,
           onWirePatch: (patch) => {

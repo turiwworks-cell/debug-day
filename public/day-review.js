@@ -1,3 +1,4 @@
+import { DDcompletion, DDprogressLabel } from "./planner.js";
 // Calendar and feelings share one selected day. Reading a day never creates it.
 export function DDreviewValidDate(date) {
   if (
@@ -117,6 +118,7 @@ export function DDreviewSummary(day = {}, setup = {}) {
       (block) => !lanes.length || lanes.some((lane) => lane.id === block.lane),
     );
   return {
+    completionPct: DDcompletion(day, lanes.map((l) => l.id)).percent,
     tasks: blocks.length,
     completed: blocks.filter((block) => block.done).length,
     plannedMinutes: planned.reduce(
@@ -1735,6 +1737,7 @@ function DDReviewDay({
               null,
               h("dt", null, t("Planned time", "زمان برنامه")),
               h("dd", null, n(summary.plannedMinutes), t(" min", " دقیقه")),
+              h("dd", { className: "dd-day-progress", title: DDprogressLabel(language), "data-completion": summary.completionPct }, t("Progress ", "پیشرفت "), n(summary.completionPct), "%"),
             ),
             h(
               "div",

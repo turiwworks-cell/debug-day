@@ -281,8 +281,8 @@ const { start, fixture } = require("./harness.cjs");
           .click();
         assert.equal((await read()).pause.closed, false);
         assert.equal(
-          await page.evaluate(() => document.documentElement.scrollWidth),
-          mobile ? 390 : 1440,
+          await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+          true,
         );
         assert.deepEqual(errors, []);
         console.log({
