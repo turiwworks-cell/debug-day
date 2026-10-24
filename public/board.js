@@ -1950,6 +1950,11 @@ export function DDcreateBoard(deps) {
     }
     function patchWire(Y, G, ct) {
       const current = layoutRef.current.edges.find((e) => e.id === Y);
+      // Visual arrow direction is independent of the task's real parent.
+      if (current && G.from === current.to && G.to === current.from) {
+        G = { ...G, arrowReverse: !current.arrowReverse };
+        for (const key of ["from", "to", "fromPort", "toPort"]) delete G[key];
+      }
       if (current && (Object.hasOwn(G, "from") || Object.hasOwn(G, "to"))) {
         const next = { ...current, ...G };
         const relation = DDrewireRelation(dayRef.current, current, next.from, next.to, setup);
@@ -5088,7 +5093,8 @@ export function DDcreateBoard(deps) {
                             ? "6 5"
                             : void 0,
                       strokeLinecap: "round",
-                      markerEnd: Y.arrow ? "url(#b4-arrow)" : void 0,
+                      markerStart: Y.arrow && Y.arrowReverse ? "url(#b4-arrow)" : void 0,
+                      markerEnd: Y.arrow && !Y.arrowReverse ? "url(#b4-arrow)" : void 0,
                       className: "b4-wire-line",
                     }),
                     Y.label &&

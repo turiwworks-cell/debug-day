@@ -405,7 +405,15 @@ export function DDrewireRelation(day, edge, from, to, setup) {
   const lanes = (setup.lanes || []).map((l) => l.id),
     old = DDrelation(edge.from, edge.to, lanes),
     next = DDrelation(from, to, lanes);
-  if (!edge.automatic) return DDconnectRelation(day, from, to, setup);
+  if (!edge.automatic) {
+    const result = DDconnectRelation(day, from, to, setup);
+    if (result === null || result === day) return result;
+    if (Array.isArray(result.canvas?.board4?.links))
+      result.canvas.board4.links = result.canvas.board4.links.filter(
+        (link) => link.id !== edge.id,
+      );
+    return DDreconcileDay(result, day, setup);
+  }
   if (!old || !next || old.kind !== next.kind) return day;
   const locked = Array.isArray(day.canvas?.board4?.locked)
     ? day.canvas.board4.locked

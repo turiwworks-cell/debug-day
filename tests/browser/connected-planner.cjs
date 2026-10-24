@@ -132,12 +132,10 @@ const { start, fixture } = require("./harness.cjs");
         );
         // Force a scrollbar to appear and disappear. The application's width and left edge stay put.
         const geometry = () =>
-          page
-            .locator(".app")
-            .evaluate((el) => ({
-              x: el.getBoundingClientRect().x,
-              w: el.getBoundingClientRect().width,
-            }));
+          page.locator(".app").evaluate((el) => ({
+            x: el.getBoundingClientRect().x,
+            w: el.getBoundingClientRect().width,
+          }));
         const before = await geometry();
         await page.evaluate(() => {
           const el = document.createElement("div");
@@ -331,6 +329,19 @@ const { start, fixture } = require("./harness.cjs");
             ),
           });
         }
+        await page.locator(".b4-selectionbar button").nth(1).click();
+        const reversed = (await read()).canvas.board4.links.find(
+          (item) => item.id === line.id,
+        );
+        assert.equal(reversed.from, "b:writing");
+        assert.equal(reversed.to, "b:long");
+        assert.equal(reversed.arrowReverse, true);
+        assert.equal(
+          await page
+            .locator('[data-wire-id="' + line.id + '"] [marker-start]')
+            .count(),
+          1,
+        );
         await page
           .getByRole("button", {
             name: t("Close properties", "بستن ویژگی‌ها"),

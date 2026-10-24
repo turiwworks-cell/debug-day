@@ -416,3 +416,19 @@ test("malformed legacy canvas fields cannot prevent editing the actual planner t
     assert.equal(fixed.blocks[0].subtasks[0].children[0].text, "Leaf");
   }
 });
+test("rewiring a decorative connection into a real membership removes the obsolete line", () => {
+  const day = fixture(),
+    edge = { id: "manual", from: "b:a", to: "b:b", automatic: false };
+  day.canvas.board4.links.push(edge);
+  const actual = DDrewireRelation(day, edge, "lane:life", "b:a", setup);
+  assert.equal(actual.blocks[0].lane, "life");
+  assert.equal(
+    actual.canvas.board4.links.some((e) => e.id === "manual"),
+    false,
+  );
+  assert.equal(
+    DDcanonicalEdges(actual, ["work", "life"]).filter((e) => e.to === "b:a")
+      .length,
+    1,
+  );
+});
