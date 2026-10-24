@@ -49,13 +49,18 @@ export function DDnodeTitle(day, lanes, id) {
 // What a feeling was connected to on the board, with the "how" written on the line.
 export function DDbugEffects(day, lanes, bugId) {
   const ref = "bug:" + bugId;
-  return (day?.canvas?.board4?.links || [])
+  const owner = day?.bugs?.find((b) => b.id === bugId)?.blockId;
+  const canonical = owner && day?.blocks?.some((b) => b.id === owner)
+    ? [{ from: "b:" + owner, to: ref, ...(day?.canvas?.board4?.overrides?.["auto:b:" + owner + "->" + ref] || {}) }]
+    : [];
+  const seen = new Set();
+  return [...(day?.canvas?.board4?.links || []), ...canonical]
     .filter((link) => link.from === ref || link.to === ref)
     .map((link) => ({
       title: DDnodeTitle(day, lanes, link.from === ref ? link.to : link.from),
       label: (link.label || "").trim(),
     }))
-    .filter((effect) => effect.title);
+    .filter((effect) => { const key = effect.title + "\n" + effect.label; if (!effect.title || seen.has(key)) return false; seen.add(key); return true; });
 }
 export function DDeffectsText(effects, language) {
   if (!effects?.length) return "";

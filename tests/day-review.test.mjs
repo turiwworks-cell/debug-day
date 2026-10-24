@@ -110,6 +110,7 @@ test("reading summaries and browsing calendar months never creates days or chang
   assert.deepEqual(data, before);
   assert.equal(data.days["2026-10-20"], undefined);
   assert.deepEqual(DDreviewSummary(undefined, data.setup), {
+    completionPct: 0,
     tasks: 0,
     completed: 0,
     plannedMinutes: 0,

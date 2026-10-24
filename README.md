@@ -5,6 +5,7 @@ A personal daily planner with a time-scaled board, mind maps, Persian/English UI
 - `public/index.html` — legacy bundled interface and integration points; starts with an empty workspace.
 - `public/playful.js`, `public/playful-art.js` — original animated vectors, bilingual sticker/emoji picker, shared task/day symbols, and reduced-motion interactions; included in offline exports.
 - `public/search.js`, `public/capture.js`, `public/life.js` — readable source for universal search, capture/Today, and optional scheduling/pause tools.
+- `public/planner.js`, `public/relations.js`, `public/connections.js` — shared tags and priority progress, canonical task membership, and live nearest-edge routing.
 - `public/board.js`, `public/board-core.js`, `public/board-controls.js` — board gestures, pure object operations, and focused UI controls.
 - `public/sync.js` — content comparison that ignores JSON object key order.
 - `public/measure.js` — how a card is measured: by time, by times (a tally) or as waiting.
@@ -53,6 +54,14 @@ Search (`Ctrl+Space` / `Cmd+K`) covers all days, nested subtasks, feelings, stic
 Capture is available on every view. Worries live outside days, feed recurring-pattern statistics and can be closed or turned into tasks. Phones open a compact Today view; Full day restores all existing controls. Later holds unscheduled tasks, and task anchor times are optional. Life happened pauses the timer and offers continue, move remaining work or close today without fabricating completion.
 
 MCP write tools include `create_day`, `set_day`, `add_worry`, `update_worry`, `add_later` and `schedule_later` in addition to block/note operations. Read `get_day` or `get_setup` first and pass the returned `expected_revision`. `anchor_time` uses `HH:MM` and can be cleared through `update_block`.
+
+## One connected planner
+
+Task lane membership lives in `block.lane`; the nested step tree lives in `block.subtasks`. Plan, Board mind maps, Board Lanes and MCP edit those same fields. Connecting a task to a lane changes its membership, dropping it into another lane does the same, and deleting its lane connection parks it without deleting the task or steps. Structural lines are derived from these relationships; their styles can be edited, but a second decorative parent cannot override the real tree. Reparenting steps rejects cycles and preserves descendants. Changing membership clears stale positions in the other layout; a shared state boundary also reconciles settings and cloud changes.
+
+Tags are shared with search and survive reload, copies, templates, sync and offline export. Quick add accepts arbitrary `#tags` alongside the first recognized `#category`. P1 is highest priority. Daily completion uses task weights: **P1 ×4, P2 ×3, P3 ×2, normal ×1**; parked tasks are excluded. Time, counted and waiting cards all count as work. Duration totals still report minutes separately. Plan, Board, Calendar, heatmaps, the mood/completion wave and MCP use the same completion helper. MCP `add_block`, `update_block` and `add_later` accept optional `priority` (0–3) and `tags` (up to 12).
+
+Connections choose the closest facing edges from live node bounds on every drag frame. Curves and elbows can detour around intervening cards. Connection properties can lock the current sides or reset to a smart route. The main document reserves the scrollbar gutter so adding overflow does not shift the app. App Map buttons have been removed; existing keyboard navigation remains compatible.
 
 ## Board controls
 

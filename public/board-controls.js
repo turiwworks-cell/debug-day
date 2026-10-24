@@ -740,6 +740,11 @@ export function DDcreateBoardControls(core) {
                 ),
               ),
             ),
+            h("label", { className: "b6-label" }, t("Attachment", "اتصال به لبه"),
+              h("select", { "aria-label": t("Connection attachment", "جای اتصال به لبه"), value: wire.routing === "fixed" ? "fixed" : "auto", onChange: (e) => onWirePatch({ routing: e.target.value, bend: null, fromPort: wire.fromPort || "right", toPort: wire.toPort || "left" }) },
+                h("option", { value: "auto" }, t("Nearest edges · automatic", "نزدیک‌ترین لبه‌ها · خودکار")),
+                h("option", { value: "fixed" }, t("Fixed sides", "لبه‌های ثابت")))),
+            h("button", { type: "button", className: "b6-text-button", onClick: () => onWirePatch({ routing: "auto", bend: null, fromPort: null, toPort: null }) }, t("Reset to smart route", "بازگشت به مسیر هوشمند")),
             h(NumberField, {
               React: R,
               language,

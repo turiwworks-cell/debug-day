@@ -52,7 +52,7 @@ const { start, fixture } = require("./harness.cjs");
       await page.locator('[data-board-id="b:writing"] .b4-node-body').click();
       const details = page.locator(".dd-card-details");
       await details.waitFor();
-      assert.equal(await details.locator("select").inputValue(), "writing");
+      assert.equal(await details.getByRole("combobox", { name: language === "fa" ? "دسته" : "Category", exact: true }).inputValue(), "writing");
       await details.locator("textarea").fill("Draft the intro first");
       assert.equal((await read()).blocks[0].note, "Draft the intro first");
       assert.equal(await details.locator(".dd-card-steps li").count(), 2);

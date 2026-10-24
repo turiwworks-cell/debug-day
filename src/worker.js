@@ -1,7 +1,9 @@
+import { DDtags, DDcompletion } from "../public/planner.js";
+import { DDreconcileDay } from "../public/relations.js";
 import { oauth, oauthRoute, oauthAccess } from "./oauth.js";
 const MAX_BYTES = 1500000;
 const VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"];
-const INFO = { name: "debug-day", title: "Debug Day", version: "5.8.0" };
+const INFO = { name: "debug-day", title: "Debug Day", version: "5.9.0" };
 class HttpError extends Error {
   constructor(status, message) {
     super(message);
@@ -271,6 +273,8 @@ const WRITE_TOOLS = [
       minutes: { type: "integer", minimum: 15, maximum: 720 },
       type_id: string,
       lane_id: string,
+      priority: { type: "integer", minimum: 0, maximum: 3 },
+      tags: { type: "array", maxItems: 12, items: { type: "string", minLength: 1, maxLength: 40 } },
       note: { type: "string", maxLength: 4000 },
       anchor_time: anchorSchema,
     },
@@ -336,6 +340,8 @@ const WRITE_TOOLS = [
       minutes: { type: "integer", minimum: 15, maximum: 720 },
       type_id: string,
       lane_id: string,
+      priority: { type: "integer", minimum: 0, maximum: 3 },
+      tags: { type: "array", maxItems: 12, items: { type: "string", minLength: 1, maxLength: 40 } },
       note: { type: "string", maxLength: 4000 },
       anchor_time: anchorSchema,
     },
@@ -354,6 +360,8 @@ const WRITE_TOOLS = [
       done: { type: "boolean" },
       note: { type: "string", maxLength: 4000 },
       lane_id: string,
+      priority: { type: "integer", minimum: 0, maximum: 3 },
+      tags: { type: "array", maxItems: 12, items: { type: "string", minLength: 1, maxLength: 40 } },
       type_id: string,
       anchor_time: {
         type: "string",
@@ -398,6 +406,7 @@ function validateArgs(args, schema) {
   for (const [k, v] of Object.entries(args)) {
     const p = schema.properties[k];
     if (!p) throw Error("Unknown argument " + k);
+    if (p.type === "array" && (!Array.isArray(v) || v.length > p.maxItems || v.some((item) => typeof item !== "string" || !item.trim() || item.length > p.items.maxLength))) throw Error("Invalid " + k);
     if (
       p.type === "string" &&
       (typeof v !== "string" ||
@@ -514,6 +523,7 @@ async function callTool(name, args, env, access) {
           focus: d.focus,
           mood: d.mood,
           blocks: d.blocks.length,
+          completionPct: DDcompletion(d, (data.setup.lanes || []).map((l) => l.id)).percent,
           plannedMinutes: d.blocks.reduce((n, b) => n + timedMinutes(b), 0),
           doneMinutes: d.blocks
             .filter((b) => b.done)
@@ -582,7 +592,8 @@ async function callTool(name, args, env, access) {
         lane: args.lane_id,
         note: args.note || "",
         at: args.anchor_time || "",
-        pri: 0,
+        pri: args.priority || 0,
+        tags: DDtags(args.tags),
         emo: "",
         done: false,
         expanded: false,
@@ -612,6 +623,7 @@ async function callTool(name, args, env, access) {
             name: block.name,
             note: block.note,
             subtasks: block.subtasks,
+            tags: block.tags,
           })
             .toLocaleLowerCase()
             .includes(q)
@@ -637,6 +649,7 @@ async function callTool(name, args, env, access) {
     };
   }
   const day = data.days[args.date];
+  const previousDay = day && structuredClone(day);
   if (!day) throw Error("Date not found. Use create_day first.");
   if (name === "get_day") return { revision, day };
   if (args.expected_revision !== revision)
@@ -679,7 +692,8 @@ async function callTool(name, args, env, access) {
       lane: args.lane_id,
       note: args.note || "",
       at: args.anchor_time || "",
-      pri: 0,
+      pri: args.priority || 0,
+      tags: DDtags(args.tags),
       emo: "",
       done: false,
       expanded: true,
@@ -697,9 +711,11 @@ async function callTool(name, args, env, access) {
       lane_id: "lane",
       type_id: "type",
       anchor_time: "at",
+      priority: "pri",
+      tags: "tags",
     }))
       if (Object.hasOwn(args, k))
-        b[field] = k === "name" ? args[k].trim() : args[k];
+        b[field] = k === "name" ? args[k].trim() : k === "tags" ? DDtags(args[k]) : args[k];
     if (Object.hasOwn(args, "done")) {
       function complete(items) {
         for (const item of items || []) {
@@ -755,6 +771,7 @@ async function callTool(name, args, env, access) {
       }
     }
   }
+  data.days[args.date] = DDreconcileDay(day, previousDay, data.setup);
   const saved = await save(env, data, revision);
   return { ...saved, id, day: args.date, changed: true };
 }
