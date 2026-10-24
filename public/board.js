@@ -266,7 +266,9 @@ export function DDcreateBoard(deps) {
         stepTextContext ||= document.createElement("canvas").getContext("2d");
         if (!stepTextContext)
           return Math.min(150, 40 + 17 * Math.max(1, Math.ceil(String(text || "").length / 24)));
-        stepTextContext.font = "550 12.5px " + getComputedStyle(document.body).fontFamily;
+        const family = getComputedStyle(document.documentElement).getPropertyValue("--sans").trim()
+          || getComputedStyle(document.body).fontFamily;
+        stepTextContext.font = "550 12.5px " + family;
         let lines = 1, line = "";
         for (const word of String(text || "").split(/\s+/)) {
           const candidate = line ? line + " " + word : word;
