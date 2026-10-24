@@ -49,7 +49,7 @@ async function scenario(h,mobile,language){
       const screenshot=await dialog().screenshot({path:join(screenshots,"sticker-library-en.png"),type:"png"});
       // A compact JPEG in CI logs also permits visual review without a local browser.
       const preview=await dialog().screenshot({type:"jpeg",quality:40});
-      console.log("PLAYFUL_PREVIEW:"+preview.toString("base64"));
+      if(process.env.DEBUG_DAY_LOG_PREVIEW)console.log("PLAYFUL_PREVIEW:"+preview.toString("base64"));
     }
     await choose("sticker:spark").click();
     await page.waitForFunction(date=>JSON.parse(localStorage.getItem("debug-day:v2")).days[date].notes.some(n=>n.text==="sticker:spark"),f.date);
@@ -135,6 +135,8 @@ async function scenario(h,mobile,language){
       await page.waitForFunction(id=>document.querySelector('[data-board-id="sticky:'+id+'"]')?.classList.contains("selected"),id);
       await page.getByRole("button",{name:t("Zoom to selection","زوم روی انتخاب"),exact:true}).click();
       if(await page.locator(".b2-viewport.dd-board-locked").count())await page.locator(".b2-viewport").tap({position:{x:30,y:140}});
+      // Start a fresh double-tap after the previous selection and zoom action.
+      await page.waitForTimeout(360);
       await node().tap();await node().tap();
     }else await node().dblclick();
     await dialog().waitFor();assert.equal(await choose("sticker:spark").getAttribute("aria-pressed"),"true");
@@ -176,7 +178,7 @@ async function scenario(h,mobile,language){
     assert.equal(await page.evaluate(()=>window.__bursts),1);
     await page.emulateMedia({reducedMotion:"no-preference"});
     await page.locator('[data-review-task="writing"] .dd-review-check').click();
-    await nav(3);
+    await page.locator('.dd-review-sections button[data-panel="feelings"]').click();
     await page.locator('.dd-review-day [data-day-sticker="'+id+'"] [data-symbol="sticker:cloud"]').waitFor();
     await nav(0);
     await page.getByRole("button",{name:t("Search","جستجو"),exact:true}).click();
@@ -204,7 +206,7 @@ async function scenario(h,mobile,language){
     console.error("Playful failure context:",language,mobile,await page.locator("body").innerText().then(s=>s.slice(-4500)),errors);
     const preview=await page.screenshot({path:join(screenshots,"playful-failure-"+language+"-"+mobile+".png"),type:"png"});
     const jpeg=await page.screenshot({type:"jpeg",quality:35});
-    console.log("PLAYFUL_FAILURE_PREVIEW:"+jpeg.toString("base64"));
+    if(process.env.DEBUG_DAY_LOG_PREVIEW)console.log("PLAYFUL_FAILURE_PREVIEW:"+jpeg.toString("base64"));
     throw error;
   }finally{await context.close();}
 }

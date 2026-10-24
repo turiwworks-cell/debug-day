@@ -8,6 +8,8 @@ A personal daily planner with a time-scaled board, mind maps, Persian/English UI
 - `public/board.js`, `public/board-core.js`, `public/board-controls.js` — board gestures, pure object operations, and focused UI controls.
 - `public/sync.js` — content comparison that ignores JSON object key order.
 - `public/measure.js` — how a card is measured: by time, by times (a tally) or as waiting.
+- `public/habits.js` — habits: a daily tick plus minutes, four color levels, stats, and their Plan, Board and Settings panels.
+- `public/panels.js` — the list of panels (Plan, Board, Habits, Feelings, Calendar, App changes), each with one color and icon, used by the tabs, headings, app map and Ctrl+Space.
 - Download HTML embeds these modules and the planner snapshot into one offline file.
 - `src/worker.js` — Cloudflare Worker for private sync and MCP.
 - `src/oauth.js` — OAuth code + PKCE, consent, rotating refresh tokens, and scoped access.

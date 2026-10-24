@@ -70,6 +70,16 @@ async function scenario(h, mobile, language) {
   const baseline = await read(page);
   const activate = (locator) => (mobile ? locator.tap() : locator.click());
   const nav = (index) => activate(page.locator(".views button").nth(index));
+  // Day, Feelings and Stats are sections of the one Calendar tab.
+  async function section(id) {
+    await nav(2);
+    const tab = page.locator(
+      `.dd-review-sections button[data-panel="${id === "day" ? "calendar" : id}"]`,
+    );
+    await tab.waitFor();
+    if ((await tab.getAttribute("aria-selected")) !== "true") await activate(tab);
+    await page.waitForSelector(`.dd-review-root[data-section="${id}"]`);
+  }
   async function select(date) {
     for (let i = 0; i < 14; i++) {
       const cell = page.locator(`[data-review-date="${date}"]`);
@@ -98,7 +108,7 @@ async function scenario(h, mobile, language) {
     }
     throw Error("Date not reachable: " + date);
   }
-  await nav(2);
+  await section("day");
   await page.waitForSelector(".dd-review-calendar");
   assert.equal(await page.locator("[data-review-date]").count(), 42);
   assert.equal(
@@ -116,11 +126,16 @@ async function scenario(h, mobile, language) {
     await page.locator(".dd-review-day").innerText(),
     /Last week outreach/,
   );
+  // Calendar reads the note and feelings; writing them happens in Feelings.
+  assert.equal(
+    await page.locator("#dd-calendar-day .dd-review-note-text").innerText(),
+    "Last week journal",
+  );
   assert.equal(
     await page
       .getByRole("textbox", { name: t("Day note", "یادداشت روز"), exact: true })
-      .inputValue(),
-    "Last week journal",
+      .count(),
+    0,
   );
   assert.equal(
     await page.locator('[data-feeling-id="past-feeling"]').count(),
@@ -133,6 +148,24 @@ async function scenario(h, mobile, language) {
     await read(page),
     baseline,
     "Browsing dates must be read-only",
+  );
+  assert.equal(
+    await page
+      .getByRole("textbox", { name: t("Feeling text", "متن احساس"), exact: true })
+      .count(),
+    0,
+  );
+  await activate(
+    page.getByRole("button", {
+      name: t("Write in Feelings", "نوشتن در احساسات"),
+      exact: true,
+    }),
+  );
+  await page.waitForSelector("#dd-feelings-day");
+  assert.equal(
+    await page.locator(".dd-review-day time").getAttribute("dateTime"),
+    empty,
+    "Feelings opens on the day chosen in Calendar",
   );
   const input = page.getByRole("textbox", {
     name: t("Feeling text", "متن احساس"),
@@ -170,18 +203,17 @@ async function scenario(h, mobile, language) {
   await page
     .getByRole("textbox", { name: t("Day note", "یادداشت روز"), exact: true })
     .fill("A note for the selected day");
-  await page
-    .getByRole("textbox", {
-      name: t("Focus for this day", "هدف این روز"),
-      exact: true,
-    })
-    .fill("One calm step");
+  // The focus is written in the Plan header, for the same day.
+  await nav(0);
+  await page.locator("#fFocus").fill("One calm step");
   await page.waitForFunction(
     (date) =>
       JSON.parse(localStorage.getItem("debug-day:v2")).days[date]?.focus ===
       "One calm step",
     empty,
   );
+  await section("feelings");
+  await select(empty);
   let row = page.locator(`[data-feeling-id="${id}"]`);
   await activate(
     row.getByRole("button", {
@@ -229,12 +261,12 @@ async function scenario(h, mobile, language) {
     row.getByRole("button", { name: t("Cancel", "لغو"), exact: true }),
   );
   assert.equal(await row.count(), 1, "Cancel deletion keeps the feeling");
-  await nav(3);
+  await section("feelings");
   assert.equal(await page.locator(".dd-review-tasks").count(), 0);
   assert.equal(
-    await page.locator(".dd-review-analysis").getAttribute("open"),
-    null,
-    "Detailed charts start collapsed",
+    await page.locator(".statview").count(),
+    0,
+    "Charts live in the Stats section, not under Feelings",
   );
   assert.equal(await input.inputValue(), "");
   await select(f.date);
@@ -293,7 +325,7 @@ async function scenario(h, mobile, language) {
   );
   await page.reload();
   await page.waitForSelector(".views", { state: "attached" });
-  await nav(3);
+  await section("feelings");
   await select(f.date);
   data = await read(page);
   const linked = data.days[f.date].bugs.find(
@@ -336,7 +368,7 @@ async function scenario(h, mobile, language) {
     .selectOption(fa ? "gregory" : "persian");
   await page.reload();
   await page.waitForSelector(".views", { state: "attached" });
-  await nav(2);
+  await section("day");
   assert.equal(
     await page.locator(".dd-review-system select").inputValue(),
     fa ? "gregory" : "persian",
@@ -376,7 +408,7 @@ async function scenario(h, mobile, language) {
       false,
       "Opening a task reveals full Plan details on a phone",
     );
-  await nav(2);
+  await section("day");
   await select(f.date);
   await activate(task.locator("summary"));
   await task
@@ -439,7 +471,7 @@ async function scenario(h, mobile, language) {
       ),
     f.date,
   );
-  await nav(2);
+  await section("day");
   await select(f.date);
   assert.equal(
     await reminder
@@ -452,7 +484,7 @@ async function scenario(h, mobile, language) {
   );
   await page.reload();
   await page.waitForSelector(".views");
-  await nav(2);
+  await section("day");
   await select(f.date);
   assert.equal(
     await reminder
@@ -498,26 +530,22 @@ async function scenario(h, mobile, language) {
     ),
     true,
   );
-  await nav(3);
+  await section("feelings");
   await select(empty);
-  await activate(page.locator(".dd-review-analysis>summary"));
+  await section("stats");
   assert.match(
-    await page.locator(".dd-review-analysis").innerText(),
+    await page.locator(".dd-review-stats").innerText(),
     /One calm step/,
-    "Detailed charts share the selected day with the monthly calendar",
-  );
-  assert.equal(
-    await page.locator(".dd-review-analysis").getAttribute("open"),
-    "",
+    "Stats share the selected day with the monthly calendar",
   );
   assert.equal(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth + 1,
     ),
     true,
-    "Optional charts fit on mobile too",
+    "Stats fit on mobile too",
   );
-  await activate(page.locator(".dd-review-analysis button.btn.solid"));
+  await activate(page.locator(".dd-review-stats .pattern-banner button.btn.solid"));
   await page.waitForFunction(
     () =>
       document.querySelector(".views [aria-selected=true]") ===
@@ -528,7 +556,7 @@ async function scenario(h, mobile, language) {
     "One calm step",
     "Open Day in Plan opens the same day shown by the charts",
   );
-  await nav(3);
+  await section("feelings");
   await page.keyboard.press("Control+Space");
   const search = page.getByRole("combobox", {
     name: t("Search everything", "جست‌وجوی همه‌چیز"),
@@ -538,11 +566,13 @@ async function scenario(h, mobile, language) {
   await page
     .getByRole("listbox")
     .getByRole("option")
-    .filter({ hasText: t("Open feelings", "باز کردن احساسات") })
+    .filter({ hasText: t("Stats", "آمار") })
+    .first()
     .waitFor();
   await search.press("Enter");
   await page.waitForSelector(".dd-command-modal", { state: "hidden" });
-  await nav(2);
+  await page.waitForSelector('.dd-review-sections button[data-panel="stats"][aria-selected="true"]');
+  await section("day");
   const captured = shift(f.date, -3);
   await select(captured);
   await activate(
@@ -571,7 +601,7 @@ async function scenario(h, mobile, language) {
     [],
     "Quick capture also keeps empty review days free of template tasks",
   );
-  await nav(3);
+  await section("feelings");
   await select(f.date);
   if (screenshots) {
     await page.screenshot({
@@ -581,7 +611,7 @@ async function scenario(h, mobile, language) {
       ),
       fullPage: true,
     });
-    await nav(2);
+    await section("day");
     await page.screenshot({
       path: path.join(
         screenshots,

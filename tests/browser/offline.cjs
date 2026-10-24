@@ -25,13 +25,21 @@ const { start, fixture } = require("./harness.cjs");
     await download.saveAs(file);
     assert.deepEqual(errors, []);
     await context.close();
+    // Same time zone as the fixture, so "today" is the same day around midnight too.
     const offline = await h.browser.newContext({
         viewport: { width: 390, height: 844 },
+        timezoneId: "Asia/Tehran",
       }),
       p = await offline.newPage(),
       offlineErrors = [];
     await offline.route("http**/*", (route) => route.abort());
     p.on("pageerror", (error) => offlineErrors.push(error.message));
+    // Feelings is a section of the Calendar tab.
+    const feelings = async () => {
+      await p.locator(".views button").nth(2).click();
+      await p.locator('.dd-review-sections button[data-panel="feelings"]').click();
+      await p.locator("#dd-feelings-day").waitFor();
+    };
     await p.goto(pathToFileURL(file).href);
     await p.waitForSelector(".views");
     await p.getByRole("button", { name: "Search", exact: true }).click();
@@ -51,13 +59,13 @@ const { start, fixture } = require("./harness.cjs");
       await p.locator(".dd-review-day time").getAttribute("dateTime"),
       f.date,
     );
-    await p.locator(".views button").nth(3).click();
+    await feelings();
     await p
       .getByRole("textbox", { name: "Feeling text", exact: true })
       .fill("An offline feeling");
     await p.getByRole("button", { name: "Save feeling", exact: true }).click();
     await p.reload();
-    await p.locator(".views button").nth(3).click();
+    await feelings();
     assert.match(
       await p.locator(".dd-review-feelings").innerText(),
       /An offline feeling/,

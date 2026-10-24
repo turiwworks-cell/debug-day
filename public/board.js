@@ -22,8 +22,10 @@ export function DDcreateBoard(deps) {
   const { core, controls, playful } = deps;
   const measure = deps.measure;
   let sharedClipboard = null;
+  let stepTextContext;
   return function BoardWorkspace({
     day: day,
+    days: allDays,
     setup: setup,
     selectedBlockId: selectedBlockId,
     onSelectBlock: onSelectBlock,
@@ -259,11 +261,30 @@ export function DDcreateBoard(deps) {
         (ownUpdate.current = null));
     }, [day]);
     // Steps wrap instead of hiding words, so their card grows with the text.
-    const stepHeight = (text) =>
-        Math.min(
-          150,
-          40 + 17 * Math.max(1, Math.ceil(String(text || "").length / 30)),
-        ),
+    const stepHeight = (text) => {
+        // Word wrapping depends on the installed font, not just character count.
+        stepTextContext ||= document.createElement("canvas").getContext("2d");
+        if (!stepTextContext)
+          return Math.min(150, 40 + 17 * Math.max(1, Math.ceil(String(text || "").length / 24)));
+        stepTextContext.font = "550 12.5px " + getComputedStyle(document.body).fontFamily;
+        let lines = 1, line = "";
+        for (const word of String(text || "").split(/\s+/)) {
+          const candidate = line ? line + " " + word : word;
+          if (stepTextContext.measureText(candidate).width <= 204) {
+            line = candidate;
+            continue;
+          }
+          if (line) { lines++; line = ""; }
+          for (const letter of word) {
+            if (line && stepTextContext.measureText(line + letter).width > 204) {
+              lines++; line = "";
+            }
+            line += letter;
+          }
+          if (lines >= 6) break;
+        }
+        return Math.min(150, 40 + 17 * lines);
+      },
       stepLabel = (index, total, children) =>
         t("Step ", "قدم ") +
         (index + 1) +
@@ -276,6 +297,172 @@ export function DDcreateBoard(deps) {
             children.length +
             t(" inside", " داخل")
           : "");
+    // Lay items out in rows inside a section frame; the frame grows to hold them.
+    function framePlace(Y, ct, frame, items, place, CARD = 300) {
+      const GAP = 18,
+        PER_ROW = 4,
+        PAD = 16,
+        HEAD = 54,
+        saved = ct[frame.id];
+      frame.x = finite(saved?.x, frame.x);
+      frame.y = finite(saved?.y, frame.y);
+      const cols = Math.min(PER_ROW, Math.max(2, items.length));
+      frame.w = PAD * 2 + cols * (CARD + GAP) - GAP;
+      let col = 0,
+        rowY = frame.y + HEAD,
+        rowH = 0,
+        right = frame.x + frame.w,
+        bottom = frame.y + 150;
+      Y.push(frame);
+      for (const item of items) {
+        const result = place(item, {
+          x: frame.x + PAD + col * (CARD + GAP),
+          y: rowY,
+          frame,
+        });
+        if (!result) continue;
+        if (!result.custom) {
+          rowH = Math.max(rowH, result.h);
+          if (++col >= cols) {
+            col = 0;
+            rowY += rowH + GAP;
+            rowH = 0;
+          }
+        }
+        right = Math.max(right, result.x + result.w + PAD);
+        bottom = Math.max(bottom, result.y + result.h + PAD);
+      }
+      frame.w = right - frame.x;
+      frame.h = Math.max(150, bottom - frame.y, rowY + rowH + PAD - frame.y);
+      return frame.y + frame.h;
+    }
+    const feelingTopic = (bug) => {
+      const topic = (deps.feelingTopics || []).find(([id]) => id === bug.category);
+      return topic ? t(topic[1], topic[2]) : DDUI("Feeling");
+    };
+    // Feelings and Habits have their own sections on the board, in both modes.
+    // Whatever changes here is the same data Plan and Lanes show.
+    function sideSections(Y, ct, attachedBugs, top, left) {
+      const CARD = 280,
+        bugVisible = (n) =>
+          !ddNodeMatches || ddNodeMatches.has("bug:" + day.date + ":" + n.id),
+        linked = new Set(model.links.flatMap((l) => [l.from, l.to])),
+        freeBugs = (day.bugs || []).filter(
+          (bug) =>
+            bugVisible(bug) &&
+            !attachedBugs.has(bug.id) &&
+            (!bug.fixed || linked.has("bug:" + bug.id)),
+        ),
+        // A saved spot counts while it is still in or after its section.
+        near = (saved, auto) =>
+          saved && saved.x >= auto.frame.x - 40 && saved.y >= auto.frame.y + 20
+            ? saved
+            : null;
+      freeBugs.forEach((bug) => attachedBugs.add(bug.id));
+      if (freeBugs.length || !ddNodeMatches)
+        top =
+          framePlace(
+            Y,
+            ct,
+            {
+              id: "section:feelings",
+              kind: "frame",
+              section: "feelings",
+              title: "💭 " + t("Feelings", "احساسات"),
+              subtitle: freeBugs.length
+                ? String(freeBugs.length)
+                : t(
+                    "Press + to note how you feel. Drop one on a card to link it.",
+                    "با + حس‌ات را بنویس. روی کارت بیندازی، به آن وصل می‌شود.",
+                  ),
+              color: "#4A4843",
+              textColor: "#fff",
+              x: left,
+              y: top,
+              w: 0,
+              h: 150,
+            },
+            freeBugs,
+            (bug, auto) => {
+              const saved = near(ct["bug:" + bug.id], auto),
+                node = {
+                  id: "bug:" + bug.id,
+                  kind: "bug",
+                  title: bug.text,
+                  subtitle: feelingTopic(bug),
+                  bugId: bug.id,
+                  done: !!bug.fixed,
+                  sectionId: "feelings",
+                  color: DDbugColor(bug),
+                  textColor: "#fff",
+                  x: finite(saved?.x, auto.x),
+                  y: finite(saved?.y, auto.y),
+                  w: CARD,
+                  h: 52,
+                };
+              Y.push(node);
+              return { ...node, custom: !!saved };
+            },
+            CARD,
+          ) + 48;
+      if (ddNodeMatches || !deps.habits) return top;
+      const H = deps.habits,
+        levels = H.DDhabitLevels(setup.preferences?.habitLevels),
+        habits = setup.habits || [];
+      return (
+        framePlace(
+          Y,
+          ct,
+          {
+            id: "section:habits",
+            kind: "frame",
+            section: "habits",
+            title: "🌱 " + t("Habits", "عادت‌ها"),
+            subtitle: habits.length
+              ? habits.filter((h) => H.DDhabitEntry(day, h.id).done).length +
+                "/" +
+                habits.length +
+                t(" today", " امروز")
+              : t(
+                  "Press + or drop a card here to make it a habit.",
+                  "با + یا انداختن یک کارت اینجا، عادت بساز.",
+                ),
+            color: "#4A4843",
+            textColor: "#fff",
+            x: left,
+            y: top,
+            w: 0,
+            h: 150,
+          },
+          habits,
+          (habit, auto) => {
+            const saved = near(ct["habit:" + habit.id], auto),
+              entry = H.DDhabitEntry(day, habit.id),
+              node = {
+                id: "habit:" + habit.id,
+                kind: "habit",
+                habitId: habit.id,
+                title: habit.name,
+                subtitle: H.DDhabitText(entry, levels, DDlanguage),
+                emoji: habit.emo,
+                icon: "leaf",
+                done: entry.done,
+                level: H.DDhabitLevel(entry, levels),
+                sectionId: "habits",
+                color: habit.color,
+                textColor: ee(habit.color),
+                x: finite(saved?.x, auto.x),
+                y: finite(saved?.y, auto.y),
+                w: CARD,
+                h: 52,
+              };
+            Y.push(node);
+            return { ...node, custom: !!saved };
+          },
+          CARD,
+        ) + 48
+      );
+    }
     // Lanes: each lane is a section, and each card is a section holding its
     // steps, feelings and notes. Relations show by placement, so no lines.
     function lanesLayout(Y, ct, attachedBugs, visible) {
@@ -386,7 +573,7 @@ export function DDcreateBoard(deps) {
             id: "bug:" + bug.id,
             kind: "bug",
             title: bug.text,
-            subtitle: bug.triggerTag ? "#" + bug.triggerTag : DDUI("Feeling"),
+            subtitle: feelingTopic(bug),
             bugId: bug.id,
             blockId: block.id,
             memberOf: ref,
@@ -462,39 +649,8 @@ export function DDcreateBoard(deps) {
         ];
         return { nodes, h: height };
       };
-      const placeFrame = (frame, items, place) => {
-        const saved = ct[frame.id];
-        frame.x = finite(saved?.x, frame.x);
-        frame.y = finite(saved?.y, frame.y);
-        const cols = Math.min(PER_ROW, Math.max(2, items.length));
-        frame.w = PAD * 2 + cols * (CARD + GAP) - GAP;
-        let col = 0,
-          rowY = frame.y + HEAD,
-          rowH = 0,
-          right = frame.x + frame.w,
-          bottom = frame.y + 150;
-        Y.push(frame);
-        for (const item of items) {
-          const result = place(item, {
-            x: frame.x + PAD + col * (CARD + GAP),
-            y: rowY,
-          });
-          if (!result) continue;
-          if (!result.custom) {
-            rowH = Math.max(rowH, result.h);
-            if (++col >= cols) {
-              col = 0;
-              rowY += rowH + GAP;
-              rowH = 0;
-            }
-          }
-          right = Math.max(right, result.x + result.w + PAD);
-          bottom = Math.max(bottom, result.y + result.h + PAD);
-        }
-        frame.w = right - frame.x;
-        frame.h = Math.max(150, bottom - frame.y, rowY + rowH + PAD - frame.y);
-        return frame.y + frame.h;
-      };
+      const placeFrame = (frame, items, place) =>
+        framePlace(Y, ct, frame, items, place, CARD);
       const placeCard = (laneId) => (block, auto) => {
         if (!visible.has(block.id)) return null;
         const saved = ct["b:" + block.id] || day.canvas?.positions?.[block.id],
@@ -532,54 +688,7 @@ export function DDcreateBoard(deps) {
         };
         top = Math.max(top, placeFrame(frame, blocks, placeCard(lane.id)) + 48);
       }
-      const linked = new Set(model.links.flatMap((l) => [l.from, l.to]));
-      const freeBugs = (day.bugs || []).filter(
-        (bug) =>
-          bugVisible(bug) &&
-          !attachedBugs.has(bug.id) &&
-          (!bug.fixed || linked.has("bug:" + bug.id)),
-      );
-      freeBugs.forEach((bug) => attachedBugs.add(bug.id));
-      if (freeBugs.length)
-        top =
-          placeFrame(
-            {
-              id: "section:feelings",
-              kind: "frame",
-              section: "feelings",
-              title: t("Feelings", "احساسات"),
-              subtitle: String(freeBugs.length),
-              color: "#4A4843",
-              textColor: "#fff",
-              x: 48,
-              y: top,
-              w: 0,
-              h: 150,
-            },
-            freeBugs,
-            (bug, auto) => {
-              const saved = ct["bug:" + bug.id],
-                node = {
-                  id: "bug:" + bug.id,
-                  kind: "bug",
-                  title: bug.text,
-                  subtitle: bug.triggerTag
-                    ? "#" + bug.triggerTag
-                    : DDUI("Feeling"),
-                  bugId: bug.id,
-                  done: !!bug.fixed,
-                  sectionId: "feelings",
-                  color: DDbugColor(bug),
-                  textColor: "#fff",
-                  x: finite(saved?.x, auto.x),
-                  y: finite(saved?.y, auto.y),
-                  w: CARD,
-                  h: 52,
-                };
-              Y.push(node);
-              return { ...node, custom: !!saved };
-            },
-          ) + 48;
+      top = sideSections(Y, ct, attachedBugs, top, 48);
       const freeNotes = (day.notes || []).filter(
         (note) => noteVisible(note) && !attachedNotes.has(note.id),
       );
@@ -740,9 +849,7 @@ export function DDcreateBoard(deps) {
                   id: va,
                   kind: "bug",
                   title: ba.text,
-                  subtitle: ba.triggerTag
-                    ? "#" + ba.triggerTag
-                    : DDUI("\u0627\u0634\u06A9\u0627\u0644 \u0628\u0627\u0632"),
+                  subtitle: feelingTopic(ba),
                   bugId: ba.id,
                   blockId: Fn.id,
                   parentId: Xa,
@@ -806,36 +913,14 @@ export function DDcreateBoard(deps) {
           }
           ct["day:root"] || (Y[0].y = Math.max(60, Jt / 2 - 35));
         } else lanesLayout(Y, ct, ot, St, Pt);
-        {
-          const ddL = new Set(model.links.flatMap((l) => [l.from, l.to])),
-            ddB = (day.bugs || []).filter(
-              (n) =>
-                (!ddNodeMatches ||
-                  ddNodeMatches.has("bug:" + day.date + ":" + n.id)) &&
-                !ot.has(n.id) &&
-                (!n.fixed || ddL.has("bug:" + n.id)),
-            );
-          if (ddB.length) {
-            const ddY = Math.max(60, ...Y.map((n) => n.y + n.h)) + 56,
-              ddX = mode === "mindmap" ? 24 : 48;
-            ddB.forEach((ba, i) =>
-              Pt({
-                id: "bug:" + ba.id,
-                kind: "bug",
-                title: ba.text,
-                subtitle: ba.triggerTag ? "#" + ba.triggerTag : DDUI("Feeling"),
-                bugId: ba.id,
-                done: !!ba.fixed,
-                color: DDbugColor(ba),
-                textColor: "#fff",
-                x: ddX + (i % 4) * 262,
-                y: ddY + Math.floor(i / 4) * 70,
-                w: 238,
-                h: 52,
-              }),
-            );
-          }
-        }
+        if (mode === "mindmap")
+          sideSections(
+            Y,
+            ct,
+            ot,
+            Math.max(60, ...Y.map((n) => n.y + n.h)) + 56,
+            24,
+          );
         for (const Jt of (day.notes || []).filter(
           (n) =>
             mode !== "lanes" &&
@@ -896,6 +981,9 @@ export function DDcreateBoard(deps) {
         day.blocks,
         day.bugs,
         day.notes,
+        day.habits,
+        setup.habits,
+        setup.preferences?.habitLevels,
         day.focus,
         day.mood,
         day.date,
@@ -1514,13 +1602,59 @@ export function DDcreateBoard(deps) {
           const ot = Object.fromEntries(preview.current),
             St = layout.nodes.filter(
               (Tt) => Tt.kind === "frame" && !Tt.section,
-            );
+            ),
+            within = (pos, node, area) =>
+              area &&
+              pos.x + node.w / 2 >= area.x &&
+              pos.x + node.w / 2 <= area.x + area.w &&
+              pos.y + node.h / 2 >= area.y &&
+              pos.y + node.h / 2 <= area.y + area.h,
+            habitsArea = layout.map.get("section:habits"),
+            feelingsArea = layout.map.get("section:feelings"),
+            // Cards dropped into the Habits section become habits.
+            toHabits = ct.frame
+              ? []
+              : ct.refs
+                  .map((ref) => layout.map.get(ref))
+                  .filter(
+                    (n) =>
+                      n?.kind === "block" &&
+                      ot[n.id] &&
+                      !locked.has(n.id) &&
+                      within(ot[n.id], n, habitsArea),
+                  ),
+            habitRefs = new Set(toHabits.map((n) => n.id));
           commit((Tt) => {
             const Pt = clean(Tt.canvas?.board4),
               yn = { ...(Pt.layouts[mode] || {}) };
             for (const [An, Kt] of Object.entries(ot)) {
               const Dn = layout.map.get(An);
-              if (!Dn) continue;
+              if (!Dn || habitRefs.has(An)) continue;
+              if (habitRefs.has(Dn.memberOf)) continue;
+              if (Dn.kind === "habit") {
+                yn[An] = Kt;
+                continue;
+              }
+              // Mind map: a feeling dropped on a card links to it; dropped
+              // into Feelings it lets go of its card.
+              if (mode !== "lanes" && Dn.kind === "bug" && !ct.frame) {
+                const card = layout.nodes.find(
+                    (n) => n.kind === "block" && !ot[n.id] && within(Kt, Dn, n),
+                  ),
+                  bug = Tt.bugs.find((b) => b.id === Dn.bugId);
+                if (bug && card && bug.blockId !== card.blockId) {
+                  bug.blockId = card.blockId;
+                  bug.on = "";
+                  delete yn[An];
+                  continue;
+                }
+                if (bug && !card && Dn.blockId && within(Kt, Dn, feelingsArea)) {
+                  bug.blockId = "";
+                  bug.on = "";
+                  yn[An] = Kt;
+                  continue;
+                }
+              }
               if (mode === "lanes" && (Dn.memberOf || Dn.sectionId)) {
                 if (Dn.kind === "section" || Dn.kind === "subtask") continue;
                 if (Dn.memberOf && ot[Dn.memberOf]) continue;
@@ -1583,7 +1717,7 @@ export function DDcreateBoard(deps) {
               for (const An of ct.refs) {
                 const Kt = layout.map.get(An),
                   Dn = ot[An];
-                if (Kt?.kind !== "block" || !Dn) continue;
+                if (Kt?.kind !== "block" || !Dn || habitRefs.has(An)) continue;
                 const Jt = St.find(
                     (On) =>
                       Dn.x + Kt.w / 2 >= On.x &&
@@ -1603,6 +1737,7 @@ export function DDcreateBoard(deps) {
               Tt
             );
           }, DDUI("\u062C\u0627\u06CC \u0646\u0648\u062F\u0647\u0627 \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F"));
+          makeHabits(toHabits);
         } else if (ct.kind === "resize" && ct.moved && ct.min !== ct.startMin)
           commit(
             (ot) => ({
@@ -1776,10 +1911,15 @@ export function DDcreateBoard(deps) {
       endGesture(Y);
     }
     function backgroundDown(Y) {
+      const nodeEl = Y.target.closest("[data-board-id]"),
+        // Right-drag on a section (Feelings, Habits, Notes) pans like the canvas.
+        sectionPan =
+          Y.button === 2 &&
+          nodeEl?.dataset.nodeKind === "frame" &&
+          !!nodeEl.dataset.section;
       if (
-        Y.target.closest(
-          "button,input,textarea,select,[data-board-id],[data-wire-id]",
-        ) ||
+        Y.target.closest("button,input,textarea,select,[data-wire-id]") ||
+        (nodeEl && !sectionPan) ||
         pinch.current
       )
         return;
@@ -1909,6 +2049,8 @@ export function DDcreateBoard(deps) {
           day.bugs = day.bugs.map((bug) =>
             bug.id === Y.bugId ? { ...bug, fixed: !bug.fixed } : bug,
           );
+        else if (Y.kind === "habit" && deps.habits)
+          return deps.habits.DDtoggleHabit(day, Y.habitId);
         return day;
       });
     }
@@ -2000,6 +2142,21 @@ export function DDcreateBoard(deps) {
       const ct = layout.map.get(G.ref),
         ot = (Y ?? G.value).trim();
       if (ct?.kind === "sticky") return;
+      if (ct?.kind === "habit") {
+        if (!ot && !ct.title)
+          onUpdateSetup?.((s) => ({
+            ...s,
+            habits: (s.habits || []).filter((h) => h.id !== ct.habitId),
+          }));
+        else if (ot && ot !== ct.title)
+          onUpdateSetup?.((s) => ({
+            ...s,
+            habits: (s.habits || []).map((h) =>
+              h.id === ct.habitId ? { ...h, name: ot } : h,
+            ),
+          }));
+        return;
+      }
       if (ct?.kind === "bug" && !ot && !ct.title) {
         commit(
           (St) => ((St.bugs = St.bugs.filter((Tt) => Tt.id !== ct.bugId)), St),
@@ -2132,6 +2289,59 @@ export function DDcreateBoard(deps) {
         setSelected(new Set(["sticky:" + G])),
         setTool("select"),
         setEditing({ ref: "sticky:" + G, value: "" }));
+    }
+    // A new habit starts with an empty name, typed right on the board.
+    function ddAddHabit() {
+      if (!onUpdateSetup) return;
+      const id = C(),
+        palette = ["#E2683C", "#3F8CFF", "#2BA672", "#A35BEA", "#D39A00", "#D9434A", "#1E9BB3"];
+      onUpdateSetup((s) => ({
+        ...s,
+        habits: [
+          ...(s.habits || []),
+          { id, name: "", emo: "", color: palette[(s.habits || []).length % palette.length] },
+        ],
+      }));
+      setSelected(new Set(["habit:" + id]));
+      setTool("select");
+      setEditing({ ref: "habit:" + id, value: "" });
+    }
+    // Cards dropped into Habits become habits; a done card counts for today.
+    function makeHabits(nodes) {
+      if (!deps.habits || !onUpdateSetup || !nodes.length) return;
+      const H = deps.habits,
+        made = [];
+      let list = setup.habits || [];
+      for (const node of nodes) {
+        const block = dayRef.current.blocks.find((b) => b.id === node.blockId);
+        if (!block) continue;
+        const result = H.DDhabitForBlock(list, block, node.color, C);
+        list = result.habits;
+        made.push({ block, habit: result.habit });
+      }
+      if (!made.length) return;
+      onUpdateSetup((s) => {
+        const habits = [...(s.habits || [])];
+        for (const { habit } of made)
+          if (!habits.some((h) => h.id === habit.id)) habits.push(habit);
+        return { ...s, habits };
+      });
+      commit(
+        (d) => {
+          let next = core.remove(d, nodes);
+          for (const { block, habit } of made)
+            if (block.done)
+              next = H.DDsetHabitEntry(next, habit.id, {
+                done: true,
+                min: measure.DDplanMinutes(block),
+              });
+          return next;
+        },
+        made.length === 1
+          ? t("“" + made[0].habit.name + "” is now a habit", "«" + made[0].habit.name + "» حالا یک عادت است")
+          : t("Cards are now habits", "کارت‌ها عادت شدند"),
+      );
+      setSelected(new Set(made.map(({ habit }) => "habit:" + habit.id)));
     }
     function ddAddFeeling(Y) {
       const G = C();
@@ -2813,7 +3023,7 @@ export function DDcreateBoard(deps) {
               name:
                 Y.icon ||
                 (Y.kind === "bug"
-                  ? "bang"
+                  ? "heart"
                   : Y.kind === "subtask"
                     ? "dot"
                     : "tree"),
@@ -2938,7 +3148,7 @@ export function DDcreateBoard(deps) {
         Tt = Y.kind === "sticky",
         Pt = Y.kind === "emoji",
         yn = Y.kind === "lane" || Y.kind === "day",
-        An = ["block", "subtask", "bug"].includes(Y.kind);
+        An = ["block", "subtask", "bug", "habit"].includes(Y.kind);
       return _.createElement(
         "div",
         {
@@ -2953,6 +3163,7 @@ export function DDcreateBoard(deps) {
           "data-section": Y.section || Y.sectionId,
           "data-member": Y.memberOf ? true : undefined,
           "data-node-done": !!Y.done,
+          "data-level": Y.kind === "habit" ? Y.level : undefined,
           role: "group",
           "aria-label": Y.title + (Y.min ? ", " + w(Y.min) : ""),
           tabIndex: St ? -1 : 0,
@@ -2987,7 +3198,9 @@ export function DDcreateBoard(deps) {
             (Kt.stopPropagation(), openEdit(Y.id));
           },
           onFocus: () => {},
-          onContextMenu: (event) => openContext(event, { ref: Y.id }),
+          // A section is a place on the canvas: right-click gives the canvas menu.
+          onContextMenu: (event) =>
+            openContext(event, Y.section ? {} : { ref: Y.id }),
         },
         Pt
           ? _.createElement(B, { emoji: Y.symbol || Y.title, size: Math.max(24, Math.min(Y.w,Y.h)-10) })
@@ -3011,6 +3224,7 @@ export function DDcreateBoard(deps) {
                 ),
               An &&
                 Y.done &&
+                Y.kind !== "habit" &&
                 _.createElement(
                   "span",
                   { className: "dd-done-badge" },
@@ -3207,6 +3421,8 @@ export function DDcreateBoard(deps) {
                       onClick: () =>
                         Y.section === "feelings"
                           ? ddAddFeeling({ x: Y.x + 170, y: Y.y + Y.h - 40 })
+                          : Y.section === "habits"
+                            ? ddAddHabit()
                           : Y.section === "notes"
                             ? addSticky({ x: Y.x + 170, y: Y.y + Y.h + 90 })
                             : addBlock(Y.laneId),
@@ -3326,8 +3542,172 @@ export function DDcreateBoard(deps) {
       );
     }
     // The selected card shows what belongs to it: category, note, steps and linked notes.
+    // A selected habit: tick, minutes and its last weeks.
+    function habitDetails(node) {
+      const habit = (setup.habits || []).find((h) => h.id === node.habitId);
+      if (!habit || !deps.habits) return null;
+      return _.createElement(deps.habits.DDHabitDetails, {
+        React: _,
+        Emoji: B,
+        habit,
+        day,
+        days: { ...(allDays || {}), [day.date]: day },
+        date: day.date,
+        setup,
+        language: DDlanguage,
+        onUpdateDay: (change) => commit((d) => change(d)),
+        onUpdateSetup: (change) => onUpdateSetup?.(change),
+        onClose: () => setDetails(false),
+      });
+    }
+    // A selected feeling: the same words and choices as the Feelings page.
+    function feelingDetails(node) {
+      const bug = (day.bugs || []).find((b) => b.id === node.bugId);
+      if (!bug) return null;
+      const h = _.createElement,
+        isLocked = locked.has(node.id),
+        change = (patch, grouped) => {
+          const first = !grouped || noteDraft.current !== "bug:" + bug.id;
+          if (grouped) noteDraft.current = "bug:" + bug.id;
+          commit(
+            (d) => {
+              d.bugs = d.bugs.map((b) => (b.id === bug.id ? { ...b, ...patch } : b));
+              return d;
+            },
+            grouped ? null : t("Feeling updated", "احساس به‌روز شد"),
+            { history: first },
+          );
+        },
+        topics = deps.feelingTopics || [];
+      return h(
+        "aside",
+        {
+          className: "dd-card-details dd-feeling-details",
+          dir: DDlanguage === "fa" ? "rtl" : "ltr",
+          "aria-label": t("Feeling", "احساس"),
+          style: { "--card-color": DDbugColor(bug) },
+          onPointerDown: (event) => event.stopPropagation(),
+        },
+        h(
+          "header",
+          null,
+          h("span", { className: "dd-card-swatch" }),
+          h("strong", null, "💭 " + t("Feeling", "احساس")),
+          h(
+            "button",
+            {
+              type: "button",
+              "aria-label": t("Hide details", "بستن جزئیات"),
+              onClick: () => setDetails(false),
+            },
+            "×",
+          ),
+        ),
+        h(
+          "label",
+          { className: "dd-card-field" },
+          h("span", null, t("What are you feeling, or what happened?", "چه حسی داری، یا چه اتفاقی افتاد؟")),
+          h("textarea", {
+            dir: "auto",
+            rows: 3,
+            maxLength: 4000,
+            value: bug.text || "",
+            disabled: isLocked,
+            onChange: (event) => change({ text: event.target.value }, true),
+            onBlur: () => (noteDraft.current = null),
+          }),
+        ),
+        topics.length > 0 &&
+          h(
+            "div",
+            { className: "dd-card-field" },
+            h("span", null, t("Topic", "موضوع")),
+            h(
+              "div",
+              { className: "dd-feeling-topics", role: "group" },
+              topics.map(([id, en, fa]) =>
+                h(
+                  "button",
+                  {
+                    key: id,
+                    type: "button",
+                    "aria-pressed": bug.category === id,
+                    disabled: isLocked,
+                    style: { "--topic": DDbugColor({ category: id }) },
+                    onClick: () => change({ category: id, color: undefined }),
+                  },
+                  t(en, fa),
+                ),
+              ),
+            ),
+          ),
+        h(
+          "label",
+          { className: "dd-card-field" },
+          h("span", null, t("Related card", "کارت مرتبط")),
+          h(
+            "select",
+            {
+              value: day.blocks.some((b) => b.id === bug.blockId) ? bug.blockId : "",
+              disabled: isLocked,
+              onChange: (event) => change({ blockId: event.target.value, on: "" }),
+            },
+            h("option", { value: "" }, t("No specific card", "کارت خاصی نه")),
+            day.blocks.map((b) =>
+              h("option", { key: b.id, value: b.id }, b.name || DDUI("Untitled")),
+            ),
+          ),
+        ),
+        h(
+          "label",
+          { className: "dd-card-field" },
+          h("span", null, t("What could help?", "چه چیزی می‌تواند کمک کند؟")),
+          h("input", {
+            dir: "auto",
+            maxLength: 4000,
+            value: bug.antidote || "",
+            disabled: isLocked,
+            onChange: (event) => change({ antidote: event.target.value }, true),
+            onBlur: () => (noteDraft.current = null),
+          }),
+        ),
+        h(
+          "div",
+          { className: "dd-feeling-actions" },
+          h(
+            "button",
+            {
+              type: "button",
+              className: "btn",
+              disabled: isLocked,
+              "aria-pressed": !!bug.fixed,
+              onClick: () => toggleDone(node),
+            },
+            bug.fixed ? t("Open again", "دوباره باز کن") : t("It passed", "گذشت"),
+          ),
+          h(
+            "button",
+            {
+              type: "button",
+              className: "textbtn",
+              disabled: isLocked,
+              onClick: () => {
+                commit(
+                  (d) => core.remove(d, [node]),
+                  t("Feeling deleted · Undo to restore", "احساس حذف شد؛ با واگرد برگردان"),
+                );
+                setSelected(new Set());
+              },
+            },
+            t("Delete", "حذف"),
+          ),
+        ),
+      );
+    }
     function cardDetails() {
       if (!details || properties || selectedWire || !selectedNode) return null;
+      if (selectedNode.kind === "habit") return habitDetails(selectedNode);
+      if (selectedNode.kind === "bug") return feelingDetails(selectedNode);
       if (!["block", "subtask"].includes(selectedNode.kind)) return null;
       const block = day.blocks.find((b) => b.id === selectedNode.blockId);
       if (!block) return null;
@@ -4471,8 +4851,7 @@ export function DDcreateBoard(deps) {
                     _.createElement("b", null, w(selectedNode.min)),
                 ),
                 selectedNode &&
-                  (selectedNode.kind === "block" ||
-                    selectedNode.kind === "subtask") &&
+                  ["block", "subtask", "bug", "habit"].includes(selectedNode.kind) &&
                   toolButton(
                     t("Card details", "جزئیات کارت"),
                     "task",

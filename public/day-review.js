@@ -301,6 +301,8 @@ const DDreviewCategories = [
   ["creative", "Starting & ideas", "شروع و ایده‌ها"],
   ["energy", "Energy & rest", "انرژی و استراحت"],
 ];
+// The same topics name feelings on the Board.
+export const DDfeelingTopics = DDreviewCategories;
 const DDreviewMoods = [
   ["😫", "A hard day", "روز سخت"],
   ["😕", "Not great", "چندان خوب نیست"],
@@ -439,14 +441,16 @@ function DDReviewCalendar({
             new Date(month.start + "T12:00:00Z"),
           ) +
             " " +
-            n(DDreviewParts(month.start, system).year),
+            new Intl.NumberFormat(fa ? "fa-IR" : "en-GB", { useGrouping: false }).format(
+              DDreviewParts(month.start, system).year,
+            ),
         ),
         h(
           "p",
           null,
           t(
-            "Choose a day to see its details below.",
-            "یک روز را انتخاب کن؛ جزئیاتش پایین تقویم می‌آید.",
+            "Choose a day to see its details.",
+            "یک روز را انتخاب کن تا جزئیاتش را ببینی.",
           ),
         ),
       ),
@@ -552,9 +556,9 @@ function DDReviewCalendar({
               DDreviewDateLabel(cell.date, language, system) +
               " · " +
               n(feelingCount) +
-              t(" feelings", " احساس") +
+              t(feelingCount === 1 ? " feeling" : " feelings", " احساس") +
               (!feelingsOnly
-                ? " · " + n(summary.tasks) + t(" tasks", " کار")
+                ? " · " + n(summary.tasks) + t(summary.tasks === 1 ? " task" : " tasks", " کار")
                 : "") +
               (other ? " · " + other : ""),
             className:
@@ -580,13 +584,13 @@ function DDReviewCalendar({
             null,
             !feelingsOnly &&
               summary.tasks > 0 &&
-              h("span", null, n(summary.tasks), t(" tasks", " کار")),
+              h("span", null, n(summary.tasks), t(summary.tasks === 1 ? " task" : " tasks", " کار")),
             feelingCount > 0 &&
               h(
                 "span",
                 { className: "dd-review-has-feeling" },
                 n(feelingCount),
-                t(" feelings", " حس"),
+                t(feelingCount === 1 ? " feeling" : " feelings", " حس"),
               ),
             !feelingCount &&
               (feelingsOnly || !summary.tasks) &&
@@ -665,6 +669,7 @@ function DDReviewFeelingForm({
   onToast,
   item,
   onFinish,
+  quick = false,
 }) {
   const { h, t } = DDreviewUI(R, language),
     [drafts, setDrafts] = R.useState(DDreviewDrafts),
@@ -726,6 +731,29 @@ function DDReviewFeelingForm({
     finish();
     if (!item) field.current?.focus();
   }
+  if (quick)
+    return h(
+      "form",
+      { className: "dd-review-feeling-form quick", onSubmit: submit },
+      h("input", {
+        key: date,
+        ref: field,
+        dir: "auto",
+        maxLength: 4000,
+        value: draft.text,
+        "aria-label": t("Feeling text", "متن احساس"),
+        placeholder: t(
+          "A feeling or something that happened…",
+          "یک حس یا اتفاقی که افتاد…",
+        ),
+        onChange: (event) => change({ text: event.target.value }),
+      }),
+      h(
+        "button",
+        { type: "submit", className: "btn solid", disabled: !draft.text.trim() },
+        t("Save feeling", "ثبت احساس"),
+      ),
+    );
   return h(
     "form",
     { className: "dd-review-feeling-form", onSubmit: submit },
@@ -863,6 +891,7 @@ export function DDFeelingsPanel({
   compact = false,
   playful,
   onBrowse,
+  PanelIcon,
 }) {
   const { h, t, n } = DDreviewUI(R, language),
     [filter, setFilter] = R.useState("all"),
@@ -878,12 +907,84 @@ export function DDFeelingsPanel({
     setEditing(null);
     setArmed(null);
   }, [date]);
+  if (compact)
+    return h(
+      "section",
+      {
+        className: "dd-review-feelings compact",
+        dir: language === "fa" ? "rtl" : "ltr",
+        "data-panel": "feelings",
+        "data-section-id": "bugs",
+        "aria-label": t("Feelings for this day", "احساسات این روز"),
+      },
+      h(
+        "div",
+        { className: "dd-review-section-heading" },
+        h(
+          "h2",
+          null,
+          PanelIcon && h(PanelIcon, { React: R, id: "feelings" }),
+          t("Feelings & events", "احساسات و اتفاق‌ها"),
+          all.length > 0 && h("small", null, " · " + n(all.filter((item) => !item.fixed).length) + t(" open", " باز")),
+        ),
+        onBrowse &&
+          h(
+            "button",
+            { type: "button", className: "btn", onClick: onBrowse },
+            t("Details in Feelings", "جزئیات در احساسات"),
+          ),
+      ),
+      h(DDReviewFeelingForm, {
+        React: R,
+        data,
+        date,
+        language,
+        setData,
+        classify,
+        onToast,
+        quick: true,
+      }),
+      all.length > 0 &&
+        h(
+          "ul",
+          { className: "dd-feelings-quick-list" },
+          all.map((item) =>
+            h(
+              "li",
+              {
+                key: item.id,
+                "data-feeling-id": item.id,
+                className: item.fixed ? "closed" : "",
+                style: item.color ? { "--feeling-color": item.color } : undefined,
+              },
+              h(
+                "button",
+                {
+                  type: "button",
+                  className: "dd-feeling-tick",
+                  "aria-pressed": !!item.fixed,
+                  "aria-label": item.fixed
+                    ? t("Reopen", "باز کردن دوباره") + ": " + item.text
+                    : t("Close entry", "بستن این مورد") + ": " + item.text,
+                  onClick: () =>
+                    setData((old) =>
+                      DDreviewFeelingAction(old, date, item.id, "toggle"),
+                    ),
+                },
+                item.fixed ? "✓" : "",
+              ),
+              h("span", { dir: "auto" }, item.text),
+              item.on && h("small", { dir: "auto" }, item.on),
+            ),
+          ),
+        ),
+    );
   return h(
     "section",
     {
       className: "dd-review-feelings",
       dir: language === "fa" ? "rtl" : "ltr",
-      "data-section-id": compact ? "bugs" : undefined,
+      "data-panel": "feelings",
       "aria-label": t("Feelings for this day", "احساسات این روز"),
     },
     h(
@@ -892,25 +993,21 @@ export function DDFeelingsPanel({
       h(
         "div",
         null,
-        h("h2", null, t("Feelings & events", "احساسات و اتفاق‌ها")),
+        h(
+          "h2",
+          null,
+          PanelIcon && h(PanelIcon, { React: R, id: "feelings" }),
+          t("Feelings & events", "احساسات و اتفاق‌ها"),
+        ),
         h(
           "p",
           null,
-          compact
-            ? DDreviewDateLabel(date, language)
-            : t(
-                "A few words are enough. You do not need to choose a category.",
-                "چند کلمه کافی است؛ لازم نیست دسته‌بندی انتخاب کنی.",
-              ),
+          t(
+            "A few words are enough. You do not need to choose a category.",
+            "چند کلمه کافی است؛ لازم نیست دسته‌بندی انتخاب کنی.",
+          ),
         ),
       ),
-      compact &&
-        onBrowse &&
-        h(
-          "button",
-          { type: "button", className: "btn", onClick: onBrowse },
-          t("Browse other days", "مرور روزهای دیگر"),
-        ),
     ),
     h(DDReviewMood, { React: R, data, date, language, setData, playful }),
     h(DDReviewFeelingForm, {
@@ -1117,6 +1214,78 @@ export function DDFeelingsPanel({
             ),
       );
     }),
+  );
+}
+// Calendar shows what was felt; writing and editing live on the Feelings page.
+function DDFeelingsBrief({ React: R, day, language, PanelIcon, onOpen }) {
+  const { h, t, n } = DDreviewUI(R, language),
+    all = day.bugs || [],
+    mood = DDreviewMoods.find(([emoji]) => emoji === day.mood);
+  return h(
+    "section",
+    {
+      className: "dd-review-feelings-brief",
+      "data-panel": "feelings",
+      "aria-label": t("Feelings for this day", "احساسات این روز"),
+    },
+    h(
+      "div",
+      { className: "dd-review-section-heading" },
+      h(
+        "h2",
+        null,
+        PanelIcon && h(PanelIcon, { React: R, id: "feelings" }),
+        t("Feelings & events", "احساسات و اتفاق‌ها"),
+        " · ",
+        n(all.length),
+      ),
+      onOpen &&
+        h(
+          "button",
+          { type: "button", className: "btn", onClick: onOpen },
+          all.length || day.mood
+            ? t("Open in Feelings", "باز کردن در احساسات")
+            : t("Write in Feelings", "نوشتن در احساسات"),
+        ),
+    ),
+    (day.mood || "") &&
+      h(
+        "p",
+        { className: "dd-review-brief-mood" },
+        t("Mood: ", "حال: "),
+        h("span", { "aria-hidden": true }, day.mood),
+        mood ? " " + t(mood[1], mood[2]) : "",
+      ),
+    all.length
+      ? h(
+          "ul",
+          null,
+          all.slice(0, 6).map((item) =>
+            h(
+              "li",
+              {
+                key: item.id,
+                "data-feeling-id": item.id,
+                className: item.fixed ? "closed" : "",
+                style: item.color ? { "--feeling-color": item.color } : undefined,
+              },
+              h(
+                "span",
+                { className: "dd-review-status" },
+                item.fixed ? t("Closed", "بسته‌شده") : t("Open", "باز"),
+              ),
+              h("span", { dir: "auto" }, item.text),
+            ),
+          ),
+          all.length > 6 &&
+            h("li", { className: "more" }, t("and ", "و ") + n(all.length - 6) + t(" more", " مورد دیگر")),
+        )
+      : !day.mood &&
+          h(
+            "p",
+            { className: "dd-review-empty" },
+            t("Nothing recorded for this day.", "برای این روز چیزی ثبت نشده."),
+          ),
   );
 }
 function DDReviewTasks({
@@ -1491,6 +1660,8 @@ function DDReviewDay({
   effectsFor,
   feelingsOnly = false,
   playful,
+  PanelIcon,
+  onOpenFeelings,
 }) {
   const { h, t, n } = DDreviewUI(R, language),
     day = data.days[date] || DDreviewEmptyDay(date),
@@ -1571,23 +1742,14 @@ function DDReviewDay({
               h("dt", null, t("Feelings & events", "احساسات و اتفاق‌ها")),
               h("dd", null, n(summary.feelings)),
             ),
+            day.focus &&
+              h(
+                "div",
+                { className: "dd-review-focus" },
+                h("dt", null, t("Focus", "تمرکز")),
+                h("dd", { dir: "auto" }, day.focus),
+              ),
           ),
-        ),
-        h(
-          "label",
-          { className: "dd-review-focus" },
-          t("Focus for this day", "هدف این روز"),
-          h("input", {
-            value: day.focus || "",
-            maxLength: 4000,
-            dir: "auto",
-            "aria-label": t("Focus for this day", "هدف این روز"),
-            placeholder: t("What matters most?", "مهم‌ترین کار چیست؟"),
-            onChange: (event) => {
-              const value = event.target.value;
-              setData((old) => DDreviewField(old, date, "focus", value));
-            },
-          }),
         ),
       ),
     playful && h(playful.DayStickers, { day, date, onChange: fn => setData(old => ({...old, days: {...old.days, [date]: fn(old.days[date] || DDreviewEmptyDay(date))}})) }),
@@ -1605,19 +1767,29 @@ function DDReviewDay({
         parseTask,
         onToast,
       }),
-    h(DDFeelingsPanel, {
-      playful,
-      React: R,
-      data,
-      date,
-      language,
-      setData,
-      classify,
-      onToast,
-      RowTools,
-      effectsFor,
-    }),
-    worries.length > 0 &&
+    feelingsOnly
+      ? h(DDFeelingsPanel, {
+          playful,
+          React: R,
+          data,
+          date,
+          language,
+          setData,
+          classify,
+          onToast,
+          RowTools,
+          effectsFor,
+          PanelIcon,
+        })
+      : h(DDFeelingsBrief, {
+          React: R,
+          day,
+          language,
+          PanelIcon,
+          onOpen: onOpenFeelings,
+        }),
+    feelingsOnly &&
+      worries.length > 0 &&
       h(
         "section",
         { className: "dd-review-worries" },
@@ -1658,54 +1830,93 @@ function DDReviewDay({
         onScheduleReminder,
         onToast,
       }),
-    h(
-      "section",
-      { className: "dd-review-notes" },
-      h("h2", null, t("Day note", "یادداشت روز")),
-      h("textarea", {
-        value: day.journal || "",
-        rows: 3,
-        maxLength: 4000,
-        dir: "auto",
-        "aria-label": t("Day note", "یادداشت روز"),
-        placeholder: t(
-          "Anything you want to remember about this day…",
-          "هر چیزی که می‌خواهی از این روز یادت بماند…",
-        ),
-        onChange: (event) => {
-          const value = event.target.value;
-          setData((old) => DDreviewField(old, date, "journal", value));
-        },
-      }),
-      h(
-        "small",
-        null,
-        t("Changes save automatically.", "تغییرات خودکار ذخیره می‌شوند."),
-      ),
-      day.notes.length > 0 &&
-        h(
-          "details",
-          null,
+    feelingsOnly
+      ? h(
+          "section",
+          { className: "dd-review-notes" },
+          h("h2", null, t("Day note", "یادداشت روز")),
+          h("textarea", {
+            value: day.journal || "",
+            rows: 3,
+            maxLength: 4000,
+            dir: "auto",
+            "aria-label": t("Day note", "یادداشت روز"),
+            placeholder: t(
+              "Anything you want to remember about this day…",
+              "هر چیزی که می‌خواهی از این روز یادت بماند…",
+            ),
+            onChange: (event) => {
+              const value = event.target.value;
+              setData((old) => DDreviewField(old, date, "journal", value));
+            },
+          }),
           h(
-            "summary",
+            "small",
             null,
-            t("Notes saved on the board", "نوت‌های ثبت‌شده در برد"),
-            " · ",
-            n(day.notes.length),
+            t("Changes save automatically.", "تغییرات خودکار ذخیره می‌شوند."),
           ),
-          day.notes.map((note) =>
-            h("p", { key: note.id, dir: "auto" }, note.kind === "emoji" && playful ? h(playful.Emoji, { emoji: note.text, size: 42 }) : note.label || note.text),
-          ),
+          day.notes.length > 0 &&
+            h(
+              "details",
+              null,
+              h(
+                "summary",
+                null,
+                t("Notes saved on the board", "نوت‌های ثبت‌شده در برد"),
+                " · ",
+                n(day.notes.length),
+              ),
+              day.notes.map((note) =>
+                h("p", { key: note.id, dir: "auto" }, note.kind === "emoji" && playful ? h(playful.Emoji, { emoji: note.text, size: 42 }) : note.label || note.text),
+              ),
+            ),
+        )
+      : (day.journal || day.notes.length > 0) &&
+        h(
+          "section",
+          { className: "dd-review-notes brief" },
+          h("h2", null, t("Day note", "یادداشت روز")),
+          day.journal &&
+            h("p", { className: "dd-review-note-text", dir: "auto" }, day.journal),
+          day.notes.length > 0 &&
+            h(
+              "details",
+              null,
+              h(
+                "summary",
+                null,
+                t("Notes saved on the board", "نوت‌های ثبت‌شده در برد"),
+                " · ",
+                n(day.notes.length),
+              ),
+              day.notes.map((note) =>
+                h("p", { key: note.id, dir: "auto" }, note.kind === "emoji" && playful ? h(playful.Emoji, { emoji: note.text, size: 42 }) : note.label || note.text),
+              ),
+            ),
         ),
-    ),
   );
 }
+// Calendar, Feelings and Stats share one panel: one tab in the header and
+// three sections inside it. The month grid sits beside the day on wide screens.
+export const DDcalendarSections = [
+  ["day", "calendar", "Day", "روز"],
+  ["feelings", "feelings", "Feelings", "احساسات"],
+  ["stats", "stats", "Stats", "آمار"],
+];
 export function DDCalendarView(props) {
-  const { React: R, language, feelingsOnly = false } = props,
-    { h, t } = DDreviewUI(R, language);
+  const { React: R, language, feelingsOnly = false, onSection, sections } = props,
+    section = props.section || (feelingsOnly ? "feelings" : "day"),
+    { h, t } = DDreviewUI(R, language),
+    parts = DDcalendarSections.filter(([id]) => !sections || sections.includes(id)),
+    feelings = section === "feelings";
   return h(
     "div",
-    { className: "dd-review-root", dir: language === "fa" ? "rtl" : "ltr" },
+    {
+      className: "dd-review-root",
+      "data-section": section,
+      dir: language === "fa" ? "rtl" : "ltr",
+      "data-panel": parts.find(([id]) => id === section)?.[1] || "calendar",
+    },
     h(
       "header",
       { className: "dd-review-page-heading" },
@@ -1715,48 +1926,56 @@ export function DDCalendarView(props) {
         h(
           "h1",
           null,
-          feelingsOnly ? t("Feelings", "احساسات") : t("Calendar", "تقویم"),
-        ),
-        h(
-          "p",
-          null,
-          feelingsOnly
-            ? t(
-                "Choose a day, record how it felt, and read what happened.",
-                "یک روز را انتخاب کن، حالت را ثبت کن و اتفاق‌هایش را مرور کن.",
-              )
-            : t(
-                "Choose a day to see its plan, feelings, reminders, and notes together.",
-                "یک روز را انتخاب کن تا کارها، احساسات، یادآورها و یادداشت‌هایش را یک‌جا ببینی.",
-              ),
-        ),
-      ),
-    ),
-    h(DDReviewCalendar, {
-      ...props,
-      onSelect: props.onSelectDay,
-      panelId: feelingsOnly ? "dd-feelings-day" : "dd-calendar-day",
-    }),
-    h(DDReviewDay, props),
-    feelingsOnly &&
-      props.analysis &&
-      h(
-        "details",
-        { className: "dd-review-analysis" },
-        h(
-          "summary",
-          null,
-          t("Trends & detailed charts", "روندها و نمودارهای بیشتر"),
+          props.PanelIcon && h(props.PanelIcon, { React: R, id: "calendar" }),
+          t("Calendar", "تقویم"),
         ),
         h(
           "p",
           null,
           t(
-            "Charts and patterns from the days you have recorded.",
-            "نمودارها و الگوهای روزهایی که ثبت کرده‌ای.",
+            "Your days, how they felt, and the patterns across them.",
+            "روزهایت، حالشان و الگوهایی که در آن‌ها تکرار می‌شود.",
           ),
         ),
-        props.analysis,
       ),
+      onSection &&
+        parts.length > 1 &&
+        h(
+          "div",
+          {
+            className: "dd-review-sections",
+            role: "tablist",
+            "aria-label": t("Calendar sections", "بخش‌های تقویم"),
+          },
+          parts.map(([id, panel, en, fa]) =>
+            h(
+              "button",
+              {
+                key: id,
+                type: "button",
+                role: "tab",
+                "data-panel": panel,
+                "aria-selected": section === id,
+                onClick: () => onSection(id),
+              },
+              props.PanelIcon && h(props.PanelIcon, { React: R, id: panel }),
+              t(en, fa),
+            ),
+          ),
+        ),
+    ),
+    section === "stats"
+      ? h("div", { className: "dd-review-stats" }, props.stats)
+      : h(
+          "div",
+          { className: "dd-review-columns" },
+          h(DDReviewCalendar, {
+            ...props,
+            feelingsOnly: feelings,
+            onSelect: props.onSelectDay,
+            panelId: feelings ? "dd-feelings-day" : "dd-calendar-day",
+          }),
+          h(DDReviewDay, { ...props, feelingsOnly: feelings }),
+        ),
   );
 }

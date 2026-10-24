@@ -345,6 +345,15 @@ export function DDmatchSearch(row, query) {
     (term) => hay.includes(term) || compact.includes(term.replace(/\s/g, "")),
   );
 }
+// A panel whose name matches what was typed comes before one that only mentions it.
+export function DDrankPanels(rows, query) {
+  const named = (row) =>
+    query.terms.length > 0 &&
+    query.terms.every((term) =>
+      DDsearchText((row.names || [row.title]).join(" ")).includes(term),
+    );
+  return [...rows.filter(named), ...rows.filter((row) => !named(row))];
+}
 export function DDmatchesBlock(block, raw, setup, date, today) {
   return DDmatchSearch(
     DDbuildSearchIndex(
@@ -584,11 +593,6 @@ export function DDeditSearchResult(snapshot, row, action, value, ensureDay) {
 const DDcommandNames = {
   "cmd-map": ["Open app map", "نقشهٔ اپ"],
   "cmd-iso-clear": ["Show all", "نمایش همه"],
-  "cmd-iso-bugs": ["Isolate feelings & issues", "فقط احساسات و مسائل"],
-  "cmd-iso-lab": ["Isolate app changes", "فقط تغییرات اپ"],
-  "cmd-iso-board": ["Open board", "باز کردن برد"],
-  "cmd-cal": ["Open calendar", "باز کردن تقویم"],
-  "cmd-stats": ["Open feelings", "باز کردن احساسات"],
 };
 function DDsearchStored(key, fallback) {
   try {
@@ -637,7 +641,7 @@ export function DDCommandPalette(props) {
       DDsearchStored("debug-day:search-recent", []),
     ),
     [pins, setPins] = R.useState(() =>
-      DDsearchStored("debug-day:search-pins", ["cmd-map", "cmd-iso-board"]),
+      DDsearchStored("debug-day:search-pins", ["cmd-map"]),
     );
   const input = R.useRef(null),
     opener = R.useRef(null);
@@ -663,7 +667,8 @@ export function DDCommandPalette(props) {
     [data, date, selectedDay, today],
   );
   const commandRows = commands.map((command) => {
-    const names = DDcommandNames[command.id] || [command.title, command.title],
+    const names = command.names ||
+        DDcommandNames[command.id] || [command.title, command.title],
       lane = command.id.startsWith("lane-")
         ? data.setup.lanes.find((l) => command.id === "lane-" + l.id)
         : null;
@@ -673,15 +678,19 @@ export function DDCommandPalette(props) {
       title: lane
         ? t("Isolate lane: ", "فقط بخش: ") + lane.name
         : names[fa ? 1 : 0],
-      detail: lane ? "@" + lane.id : "",
-      group: command.id === "cmd-iso-clear" ? "actions" : "goto",
+      detail: command.panel ? command.subtitle : lane ? "@" + lane.id : "",
+      group: command.panel
+        ? "panels"
+        : command.id === "cmd-iso-clear"
+          ? "actions"
+          : "goto",
       searchText: DDsearchText(
         [
           command.id,
           command.title,
           command.subtitle,
           ...names,
-          command.id === "cmd-stats" ? "charts mood نمودار حال" : "",
+          command.words,
           lane?.name,
           lane?.id,
         ].join(" "),
@@ -691,21 +700,30 @@ export function DDCommandPalette(props) {
   const query = R.useMemo(() => DDparseSearch(raw, today), [raw, today]),
     all = [...commandRows, ...indexed],
     matches = all.filter((row) => DDmatchSearch(row, query));
-  const groups = [];
+  const groups = [],
+    panelLabel = t("Panels", "پنل‌ها");
   if (!raw.trim()) {
-    const byId = new Map(all.map((row) => [row.id, row]));
+    // First page: every panel, one tap to isolate it. Panels are not repeated below.
+    const byId = new Map(all.map((row) => [row.id, row])),
+      notPanel = (row) => row && !row.panel;
+    groups.push({
+      id: "panels",
+      label: panelLabel,
+      rows: commandRows.filter((row) => row.panel),
+    });
     groups.push({
       id: "recent",
       label: t("Recent items", "موارد اخیر"),
-      rows: recent.map((id) => byId.get(id)).filter(Boolean),
+      rows: recent.map((id) => byId.get(id)).filter(notPanel),
     });
     groups.push({
       id: "pinned",
       label: t("Pinned commands", "دستورهای سنجاق‌شده"),
-      rows: pins.map((id) => byId.get(id)).filter(Boolean),
+      rows: pins.map((id) => byId.get(id)).filter(notPanel),
     });
   }
   const labels = {
+    panels: panelLabel,
     actions: t("Actions", "عملیات"),
     goto: t("Go to / Isolate", "رفتن به / ایزوله"),
     today: t("Today's tasks", "کارهای امروز"),
@@ -715,18 +733,27 @@ export function DDCommandPalette(props) {
   };
   const order =
     raw.trim() && !query.commandsOnly
-      ? ["today", "other", "feelings", "notes", "actions", "goto"]
-      : Object.keys(labels);
+      ? ["panels", "today", "other", "feelings", "notes", "actions", "goto"]
+      : Object.keys(labels).filter((id) => raw.trim() || id !== "panels");
+  // On the first page, a row shown in Panels, Recent or Pinned is not listed again.
+  const shown = new Set(
+    raw.trim() ? [] : groups.flatMap((group) => group.rows.map((row) => row.id)),
+  );
   for (const id of order) {
     const label = labels[id];
-    const rows = matches.filter((row) => row.group === id);
-    groups.push({ id, label, rows });
+    const rows = matches.filter(
+      (row) => row.group === id && !shown.has(row.id),
+    );
+    groups.push({ id, label, rows: id === "panels" ? DDrankPanels(rows, query) : rows });
   }
   const visibleGroups = groups
       .filter((group) => group.rows.length)
       .map((group) => ({
         ...group,
-        visible: group.rows.slice(0, expanded[group.id] || 5),
+        visible:
+          group.id === "panels"
+            ? group.rows
+            : group.rows.slice(0, expanded[group.id] || 5),
       })),
     flat = visibleGroups.flatMap((group) =>
       group.visible.map((row) => ({ ...row, groupKey: group.id })),
@@ -789,7 +816,20 @@ export function DDCommandPalette(props) {
     const list = [
       { key: "open", label: t("Open", "باز کردن"), run: () => run(row) },
     ];
-    if (row.kind === "command") return list;
+    if (row.kind === "command") {
+      if (row.panel?.isolate) list[0].label = t("Isolate", "ایزوله کردن");
+      if (row.showWithRest)
+        list.push({
+          key: "rest",
+          label: t("Show with the rest", "با بقیه ببین"),
+          run: () => {
+            remember(row);
+            row.showWithRest();
+            onClose();
+          },
+        });
+      return list;
+    }
     list.push({
       key: "isolate",
       label: t("Isolate", "ایزوله کردن"),
@@ -1028,6 +1068,7 @@ export function DDCommandPalette(props) {
       noItems;
   function rowView(row, index) {
     const isCommand = row.kind === "command",
+      panel = row.panel,
       pinned = pins.includes(row.id);
     return h(
       "div",
@@ -1036,7 +1077,11 @@ export function DDCommandPalette(props) {
         id: "dd-result-" + index,
         role: "option",
         "aria-selected": active === index,
-        className: "dd-command-row" + (active === index ? " active" : ""),
+        className:
+          "dd-command-row" +
+          (panel ? " dd-panel-row" : "") +
+          (active === index ? " active" : ""),
+        "data-panel": panel?.id,
         dir: "auto",
         onMouseEnter: () => setActive(index),
       },
@@ -1048,11 +1093,23 @@ export function DDCommandPalette(props) {
           tabIndex: -1,
           onClick: () => run(row),
         },
-        h(
-          "span",
-          { className: "dd-result-symbol", "aria-hidden": true },
-          isCommand ? "⌘" : row.kind === "subtask" ? "↳" : row.done ? "✓" : "·",
-        ),
+        panel
+          ? h(
+              "span",
+              { className: "dd-result-symbol dd-panel-icon", "aria-hidden": true },
+              panel.icon,
+            )
+          : h(
+              "span",
+              { className: "dd-result-symbol", "aria-hidden": true },
+              isCommand
+                ? "⌘"
+                : row.kind === "subtask"
+                  ? "↳"
+                  : row.done
+                    ? "✓"
+                    : "·",
+            ),
         h(
           "span",
           { className: "dd-result-body" },
@@ -1062,12 +1119,20 @@ export function DDCommandPalette(props) {
         h(
           "span",
           { className: "dd-default-action" },
-          isCommand && (row.id.includes("iso") || row.id.startsWith("lane-"))
-            ? t("↵ Isolate", "↵ ایزوله")
-            : t("↵ Open", "↵ باز کردن"),
+          panel
+            ? panel.isolate
+              ? t("↵ Isolate", "↵ ایزوله")
+              : t("↵ Open", "↵ باز کردن")
+            : row.id === "cmd-iso-clear"
+              ? t("↵ Show", "↵ نمایش")
+              : isCommand &&
+                  (row.id.includes("iso") || row.id.startsWith("lane-"))
+                ? t("↵ Isolate", "↵ ایزوله")
+                : t("↵ Open", "↵ باز کردن"),
         ),
       ),
       isCommand &&
+        !panel &&
         h(
           "button",
           {
@@ -1270,7 +1335,11 @@ export function DDCommandPalette(props) {
         visibleGroups.map((group) =>
           h(
             "section",
-            { key: group.id, className: "dd-result-group" },
+            {
+              key: group.id,
+              className: "dd-result-group",
+              "data-group": group.id,
+            },
             h(
               "h3",
               null,
