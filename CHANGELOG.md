@@ -2,6 +2,18 @@
 
 Every change gets an entry here: version, date, branch, and what changed. Newest first. See `CLAUDE.md` for the rules.
 
+## 5.8.0 — 2026-10-24
+Branch: feat/animated-stickers-interactions
+- Added eight original animated vector stickers and a bilingual emoji library with search, favorites, recent picks, and keyboard navigation.
+- Day stickers and task icons share the existing planner data across Plan, Board, Lanes, Calendar, and Feelings; changes and removals stay in sync.
+- Added sticker placement and editing from the board dock, context menu, and E shortcut, with clipboard, undo, resizing, and SVG export support.
+- Added gentle reactions to completion, mood selection, and button presses, respecting both app and system reduced-motion settings.
+- Kept stickers self-contained in offline HTML exports and added browser coverage on desktop, phone, Persian, English, dark theme, and reduced motion.
+- Added portable GitHub Actions browser checks and screenshot artifacts.
+- Prevented the touch gesture that opens the sticker picker from choosing a sticker, and kept day additions apart from existing notes.
+- Kept task artwork when converting a card to a habit, including its Plan and Board details views.
+- Step cards now measure wrapped words with the active font so fallback fonts do not cut off their text.
+
 ## 5.7.0 — 2026-10-23
 Branch: claude/project-thread-pfxhqk
 - Calendar, Feelings and Stats are now one Calendar panel with three sections: Day, Feelings and Stats. The header has one Calendar tab, and it opens the section you used last. The app map has one Calendar card again (1–5).

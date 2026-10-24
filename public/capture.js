@@ -188,6 +188,7 @@ function DDcaptureDone(items) {
 }
 export function DDCaptureTools({
   React: R,
+  playful,
   data,
   day,
   date,
@@ -387,13 +388,13 @@ export function DDCaptureTools({
     const blocked = day.pause?.active || day.pause?.closed;
     return h(
       "article",
-      { className: "dd-current-task" },
+      { className: "dd-current-task", "data-playful-task": block?.id },
       h("small", null, label),
       block
         ? h(
             R.Fragment,
             null,
-            h("h2", { dir: "auto" }, block.name),
+            h("h2", { dir: "auto" }, playful && block.emo && h("span", { "aria-hidden": true }, h(playful.Emoji, { emoji: block.emo, size: 32 })), block.name),
             h(
               "p",
               null,
@@ -430,6 +431,7 @@ export function DDCaptureTools({
                   {
                     type: "button",
                     className: "btn",
+                    "data-playful-complete": true,
                     onClick: () => complete(block),
                   },
                   t("Done", "انجام شد"),
@@ -519,6 +521,7 @@ export function DDCaptureTools({
             h("span", { dir: "auto" }, next.name),
             h("em", null, next.min, t(" min", " دقیقه")),
           ),
+        playful && coarse && !details && h(playful.DayStickers, {day,date,onChange:fn=>setData(old=>({...old,days:{...old.days,[date]:fn(old.days[date]||day)}}))}),
         timer.running &&
           h(
             "p",

@@ -615,7 +615,7 @@ function DDReviewCalendar({
     ),
   );
 }
-function DDReviewMood({ React: R, data, date, language, setData }) {
+function DDReviewMood({ React: R, data, date, language, setData, playful }) {
   const { h, t } = DDreviewUI(R, language),
     mood = data.days[date]?.mood || "";
   return h(
@@ -642,7 +642,7 @@ function DDReviewMood({ React: R, data, date, language, setData }) {
                 ),
               ),
           },
-          h("span", { "aria-hidden": true }, emoji),
+          playful ? h(playful.Emoji, { emoji, size: 26, "aria-hidden": true }) : h("span", { "aria-hidden": true }, emoji),
           t(en, fa),
         ),
       ),
@@ -889,6 +889,7 @@ export function DDFeelingsPanel({
   RowTools,
   effectsFor,
   compact = false,
+  playful,
   onBrowse,
   PanelIcon,
 }) {
@@ -1008,7 +1009,7 @@ export function DDFeelingsPanel({
         ),
       ),
     ),
-    h(DDReviewMood, { React: R, data, date, language, setData }),
+    h(DDReviewMood, { React: R, data, date, language, setData, playful }),
     h(DDReviewFeelingForm, {
       React: R,
       data,
@@ -1289,6 +1290,7 @@ function DDFeelingsBrief({ React: R, day, language, PanelIcon, onOpen }) {
 }
 function DDReviewTasks({
   React: R,
+  playful,
   data,
   date,
   language,
@@ -1376,6 +1378,7 @@ function DDReviewTasks({
               onClick: () => onOpenPlan(date, block.id),
               dir: "auto",
             },
+            playful && block.emo && h("span", { "aria-hidden": true }, h(playful.Emoji, { emoji: block.emo, size: 23 })),
             block.name,
           ),
           h(
@@ -1656,6 +1659,7 @@ function DDReviewDay({
   RowTools,
   effectsFor,
   feelingsOnly = false,
+  playful,
   PanelIcon,
   onOpenFeelings,
 }) {
@@ -1748,9 +1752,11 @@ function DDReviewDay({
           ),
         ),
       ),
+    playful && h(playful.DayStickers, { day, date, onChange: fn => setData(old => ({...old, days: {...old.days, [date]: fn(old.days[date] || DDreviewEmptyDay(date))}})) }),
     !feelingsOnly &&
       h(DDReviewTasks, {
         React: R,
+        playful,
         data,
         date,
         language,
@@ -1763,6 +1769,7 @@ function DDReviewDay({
       }),
     feelingsOnly
       ? h(DDFeelingsPanel, {
+          playful,
           React: R,
           data,
           date,
@@ -1860,7 +1867,7 @@ function DDReviewDay({
                 n(day.notes.length),
               ),
               day.notes.map((note) =>
-                h("p", { key: note.id, dir: "auto" }, note.text),
+                h("p", { key: note.id, dir: "auto" }, note.kind === "emoji" && playful ? h(playful.Emoji, { emoji: note.text, size: 42 }) : note.label || note.text),
               ),
             ),
         )
@@ -1883,7 +1890,7 @@ function DDReviewDay({
                 n(day.notes.length),
               ),
               day.notes.map((note) =>
-                h("p", { key: note.id, dir: "auto" }, note.text),
+                h("p", { key: note.id, dir: "auto" }, note.kind === "emoji" && playful ? h(playful.Emoji, { emoji: note.text, size: 42 }) : note.label || note.text),
               ),
             ),
         ),

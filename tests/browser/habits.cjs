@@ -15,6 +15,7 @@ const { start, fixture } = require("./harness.cjs");
           return d.toISOString().slice(0, 10);
         };
       data.setup.habits = [{ id: "write", name: "Writing", emo: "", color: "#E2683C" }];
+      data.days[f.date].blocks.find(b => b.id === "long").emo = "sticker:studio";
       for (const [n, min] of [[1, 10], [2, 40], [3, 0]]) {
         const date = shift(n);
         data.days[date] = data.days[date] || { date, blocks: [], bugs: [], notes: [] };
@@ -80,6 +81,7 @@ const { start, fixture } = require("./harness.cjs");
     await page.waitForFunction(() => JSON.parse(localStorage.getItem("debug-day:v2")).setup.habits.some((x) => x.name === "Long research"));
     assert.ok(!(await today()).blocks.some((b) => b.id === "long"));
     const made = (await read()).setup.habits.find((x) => x.name === "Long research");
+    assert.equal(made.emo, "sticker:studio");
     await page.locator(`[data-board-id="habit:${made.id}"]`).waitFor();
 
     // Back in Plan, everything from the Board is there.
@@ -87,6 +89,7 @@ const { start, fixture } = require("./harness.cjs");
     await panel.waitFor();
     assert.equal(await panel.locator(`[data-habit-id="${stretch.id}"] .dd-habit-tick`).getAttribute("aria-pressed"), "true");
     assert.equal(await panel.locator(`[data-habit-id="${made.id}"]`).count(), 1);
+    await panel.locator(`[data-habit-id="${made.id}"] [data-symbol="sticker:studio"] svg`).waitFor();
 
     // Settings: the minutes for each level can change.
     await page.locator("button", { hasText: "Settings" }).last().click();

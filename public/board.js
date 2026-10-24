@@ -19,9 +19,10 @@ export function DDcreateBoard(deps) {
     w,
     z,
   } = deps;
-  const { core, controls } = deps;
+  const { core, controls, playful } = deps;
   const measure = deps.measure;
   let sharedClipboard = null;
+  let stepTextContext;
   return function BoardWorkspace({
     day: day,
     days: allDays,
@@ -108,6 +109,7 @@ export function DDcreateBoard(deps) {
       [appearance, setAppearance] = useState(() => core.appearance()),
       [viewPanel, setViewPanel] = useState(false),
       [properties, setProperties] = useState(false),
+      [stickerPicker, setStickerPicker] = useState(null),
       [details, setDetails] = useState(
         () => !globalThis.matchMedia?.("(max-width: 700px)").matches,
       ),
@@ -259,11 +261,32 @@ export function DDcreateBoard(deps) {
         (ownUpdate.current = null));
     }, [day]);
     // Steps wrap instead of hiding words, so their card grows with the text.
-    const stepHeight = (text) =>
-        Math.min(
-          150,
-          40 + 17 * Math.max(1, Math.ceil(String(text || "").length / 30)),
-        ),
+    const stepHeight = (text) => {
+        // Word wrapping depends on the installed font, not just character count.
+        stepTextContext ||= document.createElement("canvas").getContext("2d");
+        if (!stepTextContext)
+          return Math.min(150, 40 + 17 * Math.max(1, Math.ceil(String(text || "").length / 24)));
+        const family = getComputedStyle(document.documentElement).getPropertyValue("--sans").trim()
+          || getComputedStyle(document.body).fontFamily;
+        stepTextContext.font = "550 12.5px " + family;
+        let lines = 1, line = "";
+        for (const word of String(text || "").split(/\s+/)) {
+          const candidate = line ? line + " " + word : word;
+          if (stepTextContext.measureText(candidate).width <= 204) {
+            line = candidate;
+            continue;
+          }
+          if (line) { lines++; line = ""; }
+          for (const letter of word) {
+            if (line && stepTextContext.measureText(line + letter).width > 204) {
+              lines++; line = "";
+            }
+            line += letter;
+          }
+          if (lines >= 6) break;
+        }
+        return Math.min(150, 40 + 17 * lines);
+      },
       stepLabel = (index, total, children) =>
         t("Step ", "قدم ") +
         (index + 1) +
@@ -697,16 +720,17 @@ export function DDcreateBoard(deps) {
                 id: "sticky:" + note.id,
                 noteId: note.id,
                 kind: emoji ? "emoji" : "sticky",
-                title: note.text || "",
+                title: emoji ? playful.label(note.text) : note.text || "",
+                symbol: emoji ? note.text : undefined,
                 color: note.color || "#FFE27A",
                 textColor: "#121211",
                 sectionId: "notes",
                 x: finite(saved?.x, auto.x),
                 y: finite(saved?.y, auto.y),
                 w: emoji
-                  ? 64
+                  ? (model.styles["sticky:" + note.id]?.width ?? 64)
                   : (model.styles["sticky:" + note.id]?.width ?? CARD),
-                h: emoji ? 64 : noteH(note),
+                h: emoji ? (model.styles["sticky:" + note.id]?.height ?? 64) : noteH(note),
               };
             Y.push(node);
             return { ...node, custom: !!saved };
@@ -909,7 +933,8 @@ export function DDcreateBoard(deps) {
             id: `sticky:${Jt.id}`,
             noteId: Jt.id,
             kind: Jt.kind === "emoji" ? "emoji" : "sticky",
-            title: Jt.text || "",
+            title: Jt.kind === "emoji" ? playful.label(Jt.text) : Jt.text || "",
+            symbol: Jt.kind === "emoji" ? Jt.text : undefined,
             color: Jt.color || "#FFE27A",
             textColor: "#121211",
             x: finite(Jt.x, 40),
@@ -2096,6 +2121,7 @@ export function DDcreateBoard(deps) {
     }
     function openEdit(Y) {
       const G = layout.map.get(Y);
+      if (G?.kind === "emoji") { if (!locked.has(Y)) { finishEdit(); setStickerPicker({replace:G.noteId,current:G.symbol}); } return; }
       !G ||
         G.kind === "frame" ||
         G.kind === "lane" ||
@@ -2538,6 +2564,12 @@ export function DDcreateBoard(deps) {
           (a.kind === "frame" ? 0 : a.stack) -
           (b.kind === "frame" ? 0 : b.stack),
       )) {
+        if (node.kind === "emoji") {
+          const art = elementRefs.current.get(node.id)?.querySelector("svg.dd-sticker-art");
+          if (art) { const copy = art.cloneNode(true); copy.setAttribute("x", node.x); copy.setAttribute("y", node.y); copy.setAttribute("width", node.w); copy.setAttribute("height", node.h); Tt += '<g opacity="'+(node.opacity??1)+'">'+new XMLSerializer().serializeToString(copy)+'</g>'; }
+          else Tt += '<text x="'+(node.x+node.w/2)+'" y="'+(node.y+node.h*.78)+'" text-anchor="middle" font-size="'+(Math.min(node.w,node.h)*.72)+'" opacity="'+(node.opacity??1)+'">'+ot(node.symbol || node.title)+'</text>';
+          continue;
+        }
         const size = node.textSize || 14,
           color = ["sticky", "day", "lane"].includes(node.kind)
             ? node.color
@@ -2640,7 +2672,7 @@ export function DDcreateBoard(deps) {
         const Y = (ot) => {
             if (
               ot.target.closest(
-                "input,textarea,select,[contenteditable=true],.b6-context,.b6-properties,.b6-camera,.b6-view-panel",
+                "input,textarea,select,[contenteditable=true],.b6-context,.b6-properties,.b6-camera,.b6-view-panel,.dd-sticker-dialog",
               ) ||
               (ot.target.closest("[role=dialog]") &&
                 !root.current?.contains(ot.target))
@@ -2829,6 +2861,7 @@ export function DDcreateBoard(deps) {
             else if (Tt === "c") setTool("connector");
             else if (Tt === "b") setTool("block");
             else if (Tt === "s") setTool("sticky");
+            else if (Tt === "e") { finishEdit(); setStickerPicker({}); }
             else if (Tt === "f") (ot.preventDefault(), fit(ot.shiftKey));
             else if (Tt === "0") (ot.preventDefault(), setZoom(1));
             else if (Tt === "+" || Tt === "=")
@@ -3172,7 +3205,7 @@ export function DDcreateBoard(deps) {
             openContext(event, Y.section ? {} : { ref: Y.id }),
         },
         Pt
-          ? _.createElement(B, { emoji: Y.title, size: 46 })
+          ? _.createElement(B, { emoji: Y.symbol || Y.title, size: Math.max(24, Math.min(Y.w,Y.h)-10) })
           : _.createElement(
               _.Fragment,
               null,
@@ -3517,6 +3550,7 @@ export function DDcreateBoard(deps) {
       if (!habit || !deps.habits) return null;
       return _.createElement(deps.habits.DDHabitDetails, {
         React: _,
+        Emoji: B,
         habit,
         day,
         days: { ...(allDays || {}), [day.date]: day },
@@ -4367,8 +4401,8 @@ export function DDcreateBoard(deps) {
           selectedNode &&
             item(
               "edit",
-              "Edit text",
-              "ویرایش متن",
+              selectedNode.kind === "emoji" ? "Change sticker / emoji" : "Edit text",
+              selectedNode.kind === "emoji" ? "تغییر استیکر / ایموجی" : "ویرایش متن",
               "edit",
               () => openEdit(selectedNode.id),
               {
@@ -4377,6 +4411,7 @@ export function DDcreateBoard(deps) {
               },
             ),
           ...styleItems,
+          selectedNode?.kind === "block" && item("task-symbol","Change task sticker / emoji","تغییر استیکر / ایموجی کار","spark",()=>{finishEdit();setStickerPicker({target:selectedNode.blockId,current:selectedNode.emoji});},{disabled:allLocked}),
           sep("clipboard-sep"),
           item("copy", "Copy", "کپی", "copy", () => copySelection(), {
             disabled: !copyable,
@@ -4503,6 +4538,7 @@ export function DDcreateBoard(deps) {
         item("add-note", "Add note here", "افزودن نوت اینجا", "note", () =>
           addSticky(menu.point),
         ),
+        item("add-symbol","Add sticker / emoji here","افزودن استیکر / ایموجی اینجا","spark",()=>{finishEdit();setStickerPicker({point:menu.point});}),
         item("add-task", "Add task here", "افزودن کار اینجا", "task", () =>
           addBlock(null, menu.point),
         ),
@@ -5431,10 +5467,11 @@ export function DDcreateBoard(deps) {
                   sticky: "note",
                 }[ct] || ct,
             }),
-            _.createElement("span", null, G),
+            _.createElement("span", null, Y === "connector" ? t("Connect","اتصال") : G),
           ),
         ),
         _.createElement("span", { className: "b2-sep" }),
+        toolButton(t("Stickers & emoji","استیکر و ایموجی"),"spark",()=>{finishEdit();setMenu(null);setStickerPicker({target:selectedNode?.kind==="block"?selectedNode.blockId:""});},{},t("Stickers","استیکر")),
         toolButton(
           DDUI("Snap to grid"),
           "snap",
@@ -5510,6 +5547,7 @@ export function DDcreateBoard(deps) {
                 : selectedNode?.title || t("Object", "شیء")
               : t("Canvas", "بوم"),
         }),
+      stickerPicker && _.createElement(playful.Picker,{current:stickerPicker.current,target:stickerPicker.target || "",targets:stickerPicker.replace?[]:day.blocks,onClose:()=>setStickerPicker(null),onPick:(value,target)=>{const rect=viewport.current.getBoundingClientRect(),point=stickerPicker.point || toWorld(rect.left+rect.width/2,rect.top+rect.height/2),id=stickerPicker.replace || C(),size=playful.isSticker(value)?128:76;commit(d=>playful.data.put(d,value,{id,replace:stickerPicker.replace,taskId:target,x:point.x-size/2,y:point.y-size/2}),t("A little personality added","کمی حال‌وهوا اضافه شد"));setSelected(new Set([target?"b:"+target:"sticky:"+id]));setWireId(null);setTool("select");onSelectBlock?.(target || null);}}),
       help &&
         _.createElement(
           "div",

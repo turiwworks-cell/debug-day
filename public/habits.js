@@ -300,6 +300,7 @@ export function DDHabitStats({ React: R, habit, days, date, levels, language, we
 // Plan: today's habits, each with tick, minutes and the last two weeks.
 export function DDHabitsPanel({
   React: R,
+  Emoji,
   setup,
   day,
   days,
@@ -375,7 +376,7 @@ export function DDHabitsPanel({
                   title: t("Show stats", "نمایش آمار"),
                   onClick: () => setOpen((v) => (v === habit.id ? null : habit.id)),
                 },
-                habit.emo ? habit.emo + " " : "",
+                habit.emo ? (Emoji ? R.createElement(Emoji, { emoji: habit.emo, size: 22 }) : habit.emo + " ") : "",
                 habit.name,
               ),
               R.createElement(DDHabitControls, {
@@ -419,6 +420,7 @@ export function DDHabitsPanel({
 // Board: the panel for a selected habit.
 export function DDHabitDetails({
   React: R,
+  Emoji,
   habit,
   day,
   days,
@@ -451,7 +453,7 @@ export function DDHabitDetails({
       "header",
       null,
       R.createElement("span", { className: "dd-card-swatch" }),
-      R.createElement("strong", { dir: "auto" }, (habit.emo ? habit.emo + " " : "") + habit.name),
+      R.createElement("strong", { dir: "auto" }, habit.emo && (Emoji ? R.createElement(Emoji, { emoji: habit.emo, size: 24 }) : habit.emo + " "), habit.name),
       R.createElement(
         "button",
         { type: "button", "aria-label": t("Hide details", "بستن جزئیات"), onClick: onClose },
