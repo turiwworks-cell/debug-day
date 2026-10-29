@@ -1,3 +1,10 @@
+## 5.10.0 — 2026-10-29
+Branch: claude/project-thread-7xg0gy
+- New Life section on every day's board (Mind map and Lanes): the planning board's sections and sticky notes, copied as they are. It is kept in settings, so a change on one day shows on all days.
+- Sections work like FigJam: add one with the new Section tool (Shift+S) or the + on the Life section, nest sections inside sections, drag stickies in and out, rename, resize, recolor. Deleting a section keeps what was inside; deleting asks for a second press.
+- Added a Life button in the board toolbar to jump to the section; Fit all no longer shrinks the day to make room for it.
+- Added tests for the shared section, nesting, dragging between sections and showing it on another day.
+
 ## 5.9.0 — 2026-10-24
 Branch: feat/connected-planner-priorities
 - Keep Plan, Board, Lanes, settings and MCP on the same task/section relationships; discard stale positions after membership changes.

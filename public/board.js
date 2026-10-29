@@ -1,6 +1,16 @@
 import { DDcompletion, DDTaskMetadata, DDTaskTags, DDpriorityLabel, DDprogressLabel } from "./planner.js";
 import { DDreconcileDay, DDrelation, DDconnectRelation, DDdisconnectRelation, DDrewireRelation } from "./relations.js";
 import { DDconnectionGeometry } from "./connections.js";
+import {
+  DDcreateLifeBoard,
+  DDlifeAbs,
+  DDlifeAdd,
+  DDlifeBounds,
+  DDlifeHead,
+  DDlifeItems,
+  DDlifeParentAt,
+} from "./life-board.js";
+const life = { DDcreateLifeBoard, DDlifeAbs, DDlifeAdd, DDlifeBounds, DDlifeHead, DDlifeItems, DDlifeParentAt };
 // Board interaction engine. Legacy planner adapters are injected once by the app.
 export function DDcreateBoard(deps) {
   const {
@@ -25,6 +35,7 @@ export function DDcreateBoard(deps) {
   const { core, controls, playful } = deps;
   const measure = deps.measure;
   let sharedClipboard = null;
+  const LifeBoard = life.DDcreateLifeBoard(_);
   let stepTextContext;
   return function BoardWorkspace({
     day: day,
@@ -345,6 +356,30 @@ export function DDcreateBoard(deps) {
       const topic = (deps.feelingTopics || []).find(([id]) => id === bug.category);
       return topic ? t(topic[1], topic[2]) : DDUI("Feeling");
     };
+    // The Life section is the same on every day: it is kept in setup, not in the day.
+    function lifeChange(change) {
+      onUpdateSetup?.((s) => ({ ...s, life: { v: 1, items: change(life.DDlifeItems(s)) } }));
+    }
+    function lifeFrame(Y, ct, top, left) {
+      if (ddNodeMatches) return top;
+      const b = life.DDlifeBounds(life.DDlifeItems(setup)),
+        saved = ct["section:life"],
+        node = {
+          id: "section:life",
+          kind: "frame",
+          section: "life",
+          title: "🌿 " + t("Life", "زندگی"),
+          subtitle: t("Same on every day", "روی همهٔ روزها یکسان است"),
+          color: "#4A4843",
+          textColor: "#fff",
+          x: finite(saved?.x, left),
+          y: finite(saved?.y, top),
+          w: b.w,
+          h: life.DDlifeHead + b.h,
+        };
+      Y.push(node);
+      return node.y + node.h + 48;
+    }
     // Feelings and Habits have their own sections on the board, in both modes.
     // Whatever changes here is the same data Plan and Lanes show.
     function sideSections(Y, ct, attachedBugs, top, left) {
@@ -700,7 +735,7 @@ export function DDcreateBoard(deps) {
         (note) => noteVisible(note) && !attachedNotes.has(note.id),
       );
       if (freeNotes.length)
-        placeFrame(
+        top = placeFrame(
           {
             id: "section:notes",
             kind: "frame",
@@ -740,7 +775,8 @@ export function DDcreateBoard(deps) {
             Y.push(node);
             return { ...node, custom: !!saved };
           },
-        );
+        ) + 48;
+      lifeFrame(Y, ct, top, 48);
     }
     const layout = useMemo(() => {
         const Y = [],
@@ -922,11 +958,16 @@ export function DDcreateBoard(deps) {
           ct["day:root"] || (Y[0].y = Math.max(60, Jt / 2 - 35));
         } else lanesLayout(Y, ct, ot, St, Pt);
         if (mode === "mindmap")
-          sideSections(
+          lifeFrame(
             Y,
             ct,
-            ot,
-            Math.max(60, ...Y.map((n) => n.y + n.h)) + 56,
+            sideSections(
+              Y,
+              ct,
+              ot,
+              Math.max(60, ...Y.map((n) => n.y + n.h)) + 56,
+              24,
+            ),
             24,
           );
         for (const Jt of (day.notes || []).filter(
@@ -1145,7 +1186,7 @@ export function DDcreateBoard(deps) {
       const nodes =
         selection && selected.size
           ? layout.nodes.filter((n) => selected.has(n.id))
-          : layout.nodes;
+          : layout.nodes.filter((n) => n.section !== "life" || layout.nodes.length === 1);
       cam.current = core.fit(nodes, el.clientWidth, el.clientHeight, {
         left: 36,
         right: 36,
@@ -1180,6 +1221,8 @@ export function DDcreateBoard(deps) {
       Y.stopPropagation();
       finishEdit();
       setMenu(null);
+      if (tool === "section")
+        return (addLifeSection(toWorld(Y.clientX, Y.clientY)), setTool("select"));
       if (space.current || (tool === "hand" && !ddMove) || Y.button === 1)
         return startPan(Y);
       const ddConnect = tool === "connector" && !ddMove && !Y.shiftKey;
@@ -1920,6 +1963,7 @@ export function DDcreateBoard(deps) {
       (Y.preventDefault(), finishEdit(), setMenu(null));
       const G = toWorld(Y.clientX, Y.clientY);
       if (tool === "sticky") return addSticky(G);
+      if (tool === "section") return (addLifeSection(G), setTool("select"));
       if (tool === "feeling") return ddAddFeeling(G);
       if (tool === "block") return addBlock(null, G);
       if (tool === "connector") {
@@ -2253,6 +2297,31 @@ export function DDcreateBoard(deps) {
         ),
       ),
         setChild(null));
+    }
+    // A new Life section at a spot on the canvas (inside the section under it, if any).
+    function addLifeSection(point) {
+      const frame = layout.map.get("section:life"),
+        id = "lf-" + C();
+      lifeChange((list) => {
+        const b = life.DDlifeBounds(list);
+        let rel = frame && point ? { x: point.x - frame.x, y: point.y - frame.y - life.DDlifeHead } : null,
+          parent = "";
+        if (rel) {
+          const p = life.DDlifeParentAt(list, rel.x, rel.y);
+          if (p) {
+            const a = life.DDlifeAbs(list, p.id);
+            parent = p.id;
+            rel = { x: rel.x - a.x, y: rel.y - a.y };
+          } else if (rel.x < 0 || rel.y < 0 || rel.x > b.w || rel.y > b.h) rel = null;
+        }
+        return life.DDlifeAdd(list, {
+          id,
+          type: "section",
+          parent,
+          ...(rel ? { x: Math.round(rel.x), y: Math.round(rel.y) } : {}),
+        });
+      });
+      onToast?.(t("Section added to Life on every day", "سکشن به بخش زندگی همهٔ روزها اضافه شد"));
     }
     function addSticky(Y) {
       const G = C(),
@@ -2872,6 +2941,7 @@ export function DDcreateBoard(deps) {
             else if (Tt === "h") setTool("hand");
             else if (Tt === "c") setTool("connector");
             else if (Tt === "b") setTool("block");
+            else if (Tt === "s" && ot.shiftKey) setTool("section");
             else if (Tt === "s") setTool("sticky");
             else if (Tt === "e") { finishEdit(); setStickerPicker({}); }
             else if (Tt === "f") (ot.preventDefault(), fit(ot.shiftKey));
@@ -3433,7 +3503,9 @@ export function DDcreateBoard(deps) {
                         ? t("Add here", "\u0627\u0641\u0632\u0648\u062f\u0646 \u0627\u06cc\u0646\u062c\u0627")
                         : DDUI("Add block here"),
                       onClick: () =>
-                        Y.section === "feelings"
+                        Y.section === "life"
+                          ? addLifeSection(null)
+                          : Y.section === "feelings"
                           ? ddAddFeeling({ x: Y.x + 170, y: Y.y + Y.h - 40 })
                           : Y.section === "habits"
                             ? ddAddHabit()
@@ -3540,6 +3612,14 @@ export function DDcreateBoard(deps) {
                 }));
               }
             },
+          }),
+        Y.section === "life" &&
+          _.createElement(LifeBoard, {
+            items: life.DDlifeItems(setup),
+            getZoom: () => cam.current.z,
+            language: DDlanguage,
+            onChange: lifeChange,
+            makeId: C,
           }),
         !ct &&
           ["left", "right", "top", "bottom"].map((Kt) =>
@@ -4784,6 +4864,27 @@ export function DDcreateBoard(deps) {
             DDUI(focus ? "Exit full screen" : "Full screen"),
           ),
           toolButton("Board help", "?", () => setHelp((Y) => !Y)),
+          toolButton(
+            t("Go to Life section", "رفتن به بخش زندگی"),
+            "fitAll",
+            () => {
+              const node = layout.map.get("section:life"),
+                el = viewport.current;
+              if (!node || !el) return;
+              setSelected(new Set([node.id]));
+              cam.current = core.fit([node], el.clientWidth, el.clientHeight, {
+                left: 36,
+                right: 36,
+                top: 48,
+                bottom: 100,
+                maxZoom: 1,
+              });
+              queueCamera();
+              scheduleCamera();
+            },
+            { "data-life-jump": true },
+            t("Life", "زندگی"),
+          ),
         ),
       ),
       (selected.size > 0 || selectedWire || selectedWires.size > 0) &&
@@ -5447,6 +5548,7 @@ export function DDcreateBoard(deps) {
             DDUI("\u06CC\u0627\u062F\u062F\u0627\u0634\u062A"),
             "sticky",
           ],
+          ["section", t("Section", "سکشن"), "square"],
           ["feeling", DDUI("Feeling"), "smile"],
         ].map(([Y, G, ct]) =>
           _.createElement(
@@ -5466,7 +5568,9 @@ export function DDcreateBoard(deps) {
                         ? "Time block tool"
                         : Y === "feeling"
                           ? "Feeling or mistake tool"
-                          : "Sticky note tool",
+                          : Y === "section"
+                            ? "Section tool"
+                            : "Sticky note tool",
               ),
               "aria-pressed": tool === Y,
               onClick: () => {
