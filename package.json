@@ -1,11 +1,11 @@
 {
   "name": "debug-day-cloudflare",
-  "version": "5.17.0",
+  "version": "5.18.0",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "test:browser": "node tests/browser/connected-planner.cjs && node tests/browser/playful.cjs && node tests/browser/board-ux.cjs && node tests/browser/board-controls.cjs && node tests/browser/artist-planner.cjs && node tests/browser/measure.cjs && node tests/browser/habits.cjs && node tests/browser/panels.cjs && node tests/browser/day-review.cjs && node tests/browser/offline.cjs && node tests/browser/life-board.cjs && node tests/browser/section-interactions.cjs && node tests/browser/cursor.cjs && node tests/browser/board-experience.cjs && node tests/browser/figjam-sections.cjs && node tests/browser/figjam-notes.cjs && node tests/browser/engine.cjs",
+    "test:browser": "node tests/browser/connected-planner.cjs && node tests/browser/playful.cjs && node tests/browser/board-ux.cjs && node tests/browser/board-controls.cjs && node tests/browser/artist-planner.cjs && node tests/browser/measure.cjs && node tests/browser/habits.cjs && node tests/browser/panels.cjs && node tests/browser/day-review.cjs && node tests/browser/offline.cjs && node tests/browser/life-board.cjs && node tests/browser/section-interactions.cjs && node tests/browser/cursor.cjs && node tests/browser/board-experience.cjs && node tests/browser/figjam-sections.cjs && node tests/browser/figjam-notes.cjs && node tests/browser/engine.cjs && node tests/browser/rooms.cjs",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "db:local": "wrangler d1 execute debug-day-data --local --file=schema.sql",

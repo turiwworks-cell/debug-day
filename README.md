@@ -92,6 +92,10 @@ The Engine is today's tasks, each in exactly one lane (`block.lane`). Press E an
 
 On the mindmap Board the Engine has its own section (5.17), a dashed area around today's tree that is separate from Life. Drop a note inside it to turn it into a task in the nearest lane (first line = name, other lines = steps). Every day starts with a fresh Engine; "Earlier Engine" in the overlay shows the latest earlier day with tasks, and copies one task or all open ones into today with new ids, not done and unscored.
 
+### Section boards (5.18)
+
+Every Life section opens as its own board (↗ on its name, in the selection toolbar, or in the Sections list). The Board then lays out only that section and its contents, placed beside today's Engine (under it on a phone); it is the same `setup.life` data, shifted on screen, so nothing is copied. The path bar (`.dd-room-bar`) leads back; Esc with nothing selected steps out one level. While inside, `DDlifeKeepIn` keeps anything made or moved there inside the section, and new day notes become notes in it. The open section id is kept in `sessionStorage` (`debug-day:board-room`), so a reload stays inside.
+
 ### Shared Life workspace (5.11)
 
 Life notes use the native board tools: select, multi-select, copy/paste, resize, connect and move notes between the current day and Life. Shared content and frame geometry live in setup; the outer Life area only pans or resizes. Undo/Redo survives switching days or returning from Plan.

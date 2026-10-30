@@ -11,7 +11,7 @@ import {
   DDlifeHead,
   DDlifeItems,
   DDlifeParentAt,
-  DDlifeState, DDlifeHistory, DDlifeVisible, DDlifeCompact, DDlifeColor, DDlifeMoveBy, DDlifeRemove, DDlifeDescendants, DDlifeAdopt,
+  DDlifeState, DDlifeHistory, DDlifeVisible, DDlifeCompact, DDlifeColor, DDlifeMoveBy, DDlifeRemove, DDlifeDescendants, DDlifeAdopt, DDlifePath, DDlifeKeepIn,
 } from "./life-board.js";
 const life = { DDinstallLifeStyles, DDlifeAbs, DDlifeAdd, DDlifeBounds, DDlifeHead, DDlifeItems, DDlifeParentAt };
 // Board interaction engine. Legacy planner adapters are injected once by the app.
@@ -141,6 +141,9 @@ export function DDcreateBoard(deps) {
       [lifeNav, setLifeNav] = useState(false),
       // The Engine brought over the board (E, the toolbar or Ctrl+Space).
       [engine, setEngine] = useState(() => DDengineBus.take()),
+      // The section whose own board is open (a Life section id), or null for the main board.
+      [room, setRoom] = useState(() => { try { return sessionStorage.getItem("debug-day:board-room") || null; } catch { return null; } }),
+      roomCams = useRef({}),
       [quickColor, setQuickColor] = useState(null),
       [stickerPicker, setStickerPicker] = useState(null),
       [details, setDetails] = useState(
@@ -250,12 +253,28 @@ export function DDcreateBoard(deps) {
       for (; G.past.length > 50 || (ct > 24e6 && G.past.length > 1); )
         ct -= G.past.shift().bytes;
     }
+    // On a section's own board, what is made there stays in that section: a new
+    // day note becomes a note in the section, and nothing drifts out of it.
+    function keepInRoom(d, before, shared, roomId) {
+      const frame = layoutRef.current.map.get("section:life"), known = new Set((before.notes || []).map((n) => n.id));
+      if (frame) for (const note of (d.notes || []).filter((n) => !known.has(n.id) && n.kind !== "emoji")) {
+        const ref = "sticky:" + note.id, { width, height, ...style } = d.canvas?.board4?.styles?.[ref] || {},
+          w = width || 240, h = height || 240, items = d.__life.items, inside = DDlifeDescendants(items, roomId),
+          target = DDlifeParentAt(items, note.x - frame.x + w / 2, note.y - frame.y - DDlifeHead + h / 2, new Set(items.filter((i) => !inside.has(i.id)).map((i) => i.id))) || items.find((i) => i.id === roomId),
+          base = DDlifeAbs(items, target.id), id = items.some((i) => i.id === note.id) ? "lf-" + C() : note.id;
+        d.__life.items = DDlifeAdd(items, { id, type: "sticky", parent: target.id, text: note.text, color: note.color, x: Math.round(note.x - frame.x - base.x), y: Math.round(note.y - frame.y - DDlifeHead - base.y), w, h, style });
+        d.notes = d.notes.filter((n) => n !== note);
+        transferRef(d, ref, "life:" + id);
+      }
+      d.__life.items = DDlifeKeepIn(d.__life.items, roomId, shared.items || []);
+    }
     function commit(Y, G, ct = {}) {
       const ot = dayRef.current, shared = DDlifeState(propsRef.current.setup);
       const draft = copy(ot);
       draft.__life = copy(shared);
       let result = Y(draft);
       if (!result) return;
+      if (layoutRef.current?.room && result.__life?.items) keepInRoom(result, ot, shared, layoutRef.current.room);
       const nextLife = result.__life || shared;
       delete result.__life;
       delete result.__lifeFrame;
@@ -1061,9 +1080,33 @@ export function DDcreateBoard(deps) {
             ),
             24,
           );
+        // A section's own board: only that section and what is inside it, placed
+        // beside today's Engine. Same data as the main board, nothing is copied.
+        const lf = Y.find((n) => n.section === "life"), items = DDlifeItems(setup),
+          roomItem = mode === "mindmap" && lf && room && !ddNodeMatches ? items.find((i) => i.id === room && i.type === "section") : null,
+          roomSet = roomItem ? DDlifeDescendants(items, roomItem.id) : null,
+          roomVisible = (it) => {
+            let p = it.id === roomItem.id ? "" : it.parent, hops = 0;
+            while (p && hops++ < 60) {
+              const s = items.find((i) => i.id === p);
+              if (!s || s.collapsed) return false;
+              if (p === roomItem.id) return true;
+              p = s.parent;
+            }
+            return true;
+          };
+        if (roomItem) {
+          // Beside the Engine on a wide screen, under it on a phone.
+          const engineArea = Y.find((n) => n.section === "engine"), a = DDlifeAbs(items, roomItem.id),
+            narrow = globalThis.matchMedia?.("(max-width: 700px)").matches;
+          lf.x = (engineArea ? (narrow ? engineArea.x : engineArea.x + engineArea.w + 160) : 60) - a.x;
+          lf.y = (engineArea ? (narrow ? engineArea.y + engineArea.h + 160 : engineArea.y) : 60) - DDlifeHead - a.y;
+          for (let i = Y.length - 1; i >= 0; i--)
+            if (Y[i] === lf || ["habits", "feelings", "notes"].includes(Y[i].section || Y[i].sectionId)) Y.splice(i, 1);
+        }
         for (const Jt of (day.notes || []).filter(
           (n) =>
-            mode !== "lanes" &&
+            mode !== "lanes" && !roomItem &&
             (!ddNodeMatches ||
               ddNodeMatches.has("note:" + day.date + ":" + n.id)),
         ))
@@ -1080,10 +1123,9 @@ export function DDcreateBoard(deps) {
             w: Jt.kind === "emoji" ? 64 : 220,
             h: Jt.kind === "emoji" ? 64 : 160,
           });
-        const lf = Y.find((n) => n.section === "life"), items = DDlifeItems(setup);
-        if (lf) for (const it of items.filter((i) => DDlifeVisible(items, i))) {
+        if (lf) for (const it of items.filter((i) => roomItem ? roomSet.has(i.id) && roomVisible(i) : DDlifeVisible(items, i))) {
           const a = DDlifeAbs(items, it.id), color = DDlifeColor(items, it);
-          Y.push({ id: "life:" + it.id, lifeId: it.id, lifeSection: it.type === "section", kind: it.type === "section" ? "life-section" : "sticky",
+          Y.push({ id: "life:" + it.id, lifeId: it.id, lifeSection: it.type === "section", kind: it.type === "section" ? "life-section" : "sticky", room: roomItem?.id === it.id || undefined,
             title: it.text || (it.type === "section" ? t("Section","سکشن") : ""), color, textColor: core.contrast(color), collapsed: it.collapsed, parentId: it.parent ? "life:" + it.parent : null,
             x: lf.x + a.x, y: lf.y + DDlifeHead + a.y, w: it.w, h: it.collapsed ? 38 : it.h,
             ...it.style, opacity: it.style?.opacity ?? 1, stack: it.type === "section" ? 2 + items.filter((i) => DDlifeDescendants(items,i.id).has(it.id)).length : 20 });
@@ -1129,7 +1171,10 @@ export function DDcreateBoard(deps) {
                 An.has(Jt.from) &&
                 An.has(Jt.to),
             );
-        return { nodes: Y, map: An, edges: Dn, automatic: G };
+        // The Life area itself is not drawn in a section's board, but its corner
+        // is still where Life coordinates start.
+        if (roomItem) An.set(lf.id, lf);
+        return { nodes: Y, map: An, edges: Dn, automatic: G, room: roomItem ? roomItem.id : null };
       }, [
         day.blocks,
         day.bugs,
@@ -1149,6 +1194,7 @@ export function DDcreateBoard(deps) {
         visibleKey,
         day.canvas,
         ddNodeMatches,
+        room,
       ]),
       layoutRef = useRef(layout);
     layoutRef.current = layout;
@@ -1337,11 +1383,11 @@ export function DDcreateBoard(deps) {
       const nodes =
         selection && selected.size
           ? layout.nodes.filter((n) => selected.has(n.id))
-          : layout.nodes.filter((n) => n.section !== "life" && (scope!=="day" || !n.lifeId));
+          : layout.nodes.filter((n) => n.section !== "life" && (scope === "room" ? n.lifeId : scope!=="day" || !n.lifeId));
       cam.current = core.fit(nodes, el.clientWidth, el.clientHeight, {
         left: 36,
         right: 36,
-        top: el.clientWidth < 700 ? 142 : 88,
+        top: (el.clientWidth < 700 ? 142 : 88) + (layout.room ? 52 : 0),
         bottom: el.clientWidth < 700 ? 132 : 100,
         maxZoom: selection ? 1.6 : 1.05,
       });
@@ -1378,6 +1424,8 @@ export function DDcreateBoard(deps) {
       // Select tool draws a marquee inside day frames. A Life section moves from
       // anywhere on its body, as in FigJam; on touch the body still pans.
       if ((G.kind === "frame" || (G.lifeSection && (Y.pointerType === "touch" || Y.shiftKey))) && Y.target === Y.currentTarget) return backgroundDown(Y, true);
+      // The open section is the floor of its own board: it does not move.
+      if (G.room) return backgroundDown(Y, true);
       const ddConnect = tool === "connector" && !ddMove && !Y.shiftKey;
       if (ddMove) {
         setConnecting(null);
@@ -2637,18 +2685,22 @@ export function DDcreateBoard(deps) {
       const count=items.filter((i)=>i.type==="section").length+1;
       return t("Section ","سکشن ")+count.toLocaleString(DDlanguage==="fa"?"fa-IR":"en-US");
     }
+    // Sections that are not in the open section's board, so nothing drops into them.
+    const outsideRoom = (items) => { const inside = DDlifeDescendants(items, layout.room); return new Set(items.filter((i) => !inside.has(i.id)).map((i) => i.id)); };
     // A new Life section at a spot on the canvas (inside the section under it, if any).
     function addLifeSection(point) {
-      const frame = layout.map.get("section:life"), id = "lf-"+C();
+      const frame = layout.map.get("section:life"), id = "lf-"+C(), roomNode = layout.room && layout.map.get("life:" + layout.room);
       commit(d=>{
+        // On a section's own board, a section drawn outside it goes inside it.
         let rel=frame&&point?{x:point.x-frame.x,y:point.y-frame.y-DDlifeHead}:null;
-        const parent=rel&&DDlifeParentAt(d.__life.items,rel.x,rel.y);
+        let parent=rel&&DDlifeParentAt(d.__life.items,rel.x,rel.y,roomNode?outsideRoom(d.__life.items):undefined);
+        if(roomNode&&!parent){rel=null;parent=d.__life.items.find((i)=>i.id===layout.room);}
         if(parent){const base=DDlifeAbs(d.__life.items,parent.id);rel={x:rel.x-base.x,y:rel.y-base.y};}
         const spec={id,type:"section",parent:parent?.id||"",text:sectionName(d.__life.items),
           ...(rel?{x:Math.round(rel.x),y:Math.round(rel.y)}:{}),
           ...(point?.w?{w:Math.max(80,Math.round(point.w)),h:Math.max(60,Math.round(point.h))}:{})};
         d.__life.items=DDlifeAdopt(DDlifeAdd(d.__life.items,spec),id);
-        if(frame && point && !parent) {
+        if(frame && point && !parent && !layout.room) {
           // Grow the shared canvas around a newly drawn section; existing objects
           // keep their absolute positions even when the origin moves north/west.
           const left=Math.min(frame.x,point.x-24), top=Math.min(frame.y,point.y-DDlifeHead-40);
@@ -2666,7 +2718,39 @@ export function DDcreateBoard(deps) {
       lifeChange((list)=>DDlifeAdd(list.map((i)=>i.id===parent?{...i,collapsed:false}:i),{id,type,parent,w:type==="sticky"?240:480,h:type==="sticky"?240:320,...(type==="sticky"?{color:appearanceRef.current.stickyColor,style:{textSize:16}}:{text:sectionName(list)})}));
       setSelected(new Set(["life:"+id])); setEditing({ref:"life:"+id,value:""});
     }
+    // Open a section as its own board (null goes back to the main board). Each
+    // board keeps its own camera while you move between them.
+    function enterRoom(id) {
+      finishEdit();
+      const items = DDlifeItems(setup), it = id && items.find((i) => i.id === id && i.type === "section");
+      if (id && !it) return;
+      roomCams.current[layout.room || ""] = { ...cam.current };
+      if (it?.collapsed) lifeChange((list) => list.map((i) => (i.id === id ? { ...i, collapsed: false } : i)));
+      if (id && mode !== "mindmap") setMode("mindmap");
+      setRoom(id || null);
+      try { id ? sessionStorage.setItem("debug-day:board-room", id) : sessionStorage.removeItem("debug-day:board-room"); } catch {}
+      setSelected(new Set()); setWireId(null); setConnecting(null); setLifeNav(false); setMenu(null);
+      setStatus(it ? t("Inside ", "داخل ") + (it.text || t("Section", "سکشن")) + t(" · Esc goes back", " · Esc برای برگشت") : t("Main board", "برد اصلی"));
+      const back = roomCams.current[id || ""];
+      setTimeout(() => {
+        if (back) { cam.current = back; api.current.paintCamera(); api.current.saveCamera(); }
+        // A phone shows the section itself first; the Engine is just above it.
+        else api.current.fit(false, id && (viewport.current?.clientWidth || 0) < 700 ? "room" : "all");
+      }, 0);
+    }
+    function dropRoom() {
+      setRoom(null);
+      try { sessionStorage.removeItem("debug-day:board-room"); } catch {}
+    }
+    function leaveRoom() {
+      const it = DDlifeItems(setup).find((i) => i.id === layout.room);
+      enterRoom(it?.parent || null);
+    }
     function jumpLife(id) {
+      if (layout.room && !DDlifeDescendants(DDlifeItems(setup), layout.room).has(id)) {
+        enterRoom(null);
+        return setTimeout(() => api.current.jumpLife?.(id), 30);
+      }
       const frame=layout.map.get("section:life"), items=DDlifeItems(setup), it=items.find((i)=>i.id===id), el=viewport.current;
       if (!frame || !it || !el) return;
       const a=DDlifeAbs(items,id), z=Math.max(el.clientWidth < 700 ? 1 : .55,Math.min(1.1,(el.clientWidth-80)/it.w));
@@ -2687,12 +2771,16 @@ export function DDcreateBoard(deps) {
       const view = viewport.current, rect = view.getBoundingClientRect();
       const at = point || toWorld(rect.left+view.clientWidth/2, rect.top+view.clientHeight/2);
       const id = C(), width=template.w || 240, height=template.h || 240, color=template.color || appearanceRef.current.stickyColor;
-      const frame=layout.map.get("section:life"), items=DDlifeItems(setup);
+      const frame=layout.map.get("section:life"), items=DDlifeItems(setup), roomNode=layout.room&&layout.map.get("life:"+layout.room);
       const rel=frame?{x:at.x-frame.x,y:at.y-frame.y-DDlifeHead}:null;
-      const parent=rel&&DDlifeParentAt(items,rel.x,rel.y);
+      const parent=rel&&DDlifeParentAt(items,rel.x,rel.y,roomNode?outsideRoom(items):undefined);
       const inLife=frame && (parent || (rel.x>=0 && rel.y>=0 && rel.x<=frame.w && rel.y<=frame.h-DDlifeHead));
       let ref;
-      if(inLife){
+      if(roomNode&&!parent){
+        // On a section's own board a note made outside the section lands inside it.
+        ref="life:"+id;
+        commit(d=>{d.__life.items=DDlifeAdd(d.__life.items,{id,type:"sticky",parent:layout.room,w:width,h:height,text:"",color,style:{textSize:template.textSize||16}});return d;});
+      }else if(inLife){
         const base=parent?DDlifeAbs(items,parent.id):{x:0,y:0};ref="life:"+id;
         commit(d=>{d.__life.items=DDlifeAdd(d.__life.items,{id,type:"sticky",parent:parent?.id || "",x:rel.x-base.x-width/2,y:rel.y-base.y-height/2,w:width,h:height,text:"",color,style:{textSize:template.textSize||16}});return d;});
       }else{
@@ -3061,6 +3149,7 @@ export function DDcreateBoard(deps) {
     }
     ((api.current = {
       fit: fit,
+      jumpLife: jumpLife,
       setZoom: setZoom,
       saveCamera: saveCamera,
       paintCamera: paintCamera,
@@ -3074,6 +3163,8 @@ export function DDcreateBoard(deps) {
     }),
       useEffect(() => {
         const n = ddSearchNode && layout.map.get(ddSearchNode.ref);
+        // A search result outside the open section takes you back to the main board.
+        if (ddSearchNode && !n && layout.room) return dropRoom();
         if (!n && ddSearchNode?.ref?.startsWith("life:")) {
           const items=DDlifeItems(setup), parents=new Set();let item=items.find((i)=>"life:"+i.id===ddSearchNode.ref);
           while(item?.parent){parents.add(item.parent);item=items.find((i)=>i.id===item.parent);}
@@ -3090,7 +3181,11 @@ export function DDcreateBoard(deps) {
         };
         queueCamera();
         scheduleCamera();
-      }, [ddSearchNode, setup.life]),
+      }, [ddSearchNode, setup.life, layout.room]),
+      // A section that is gone (deleted here or on another device) closes its board.
+      useEffect(() => {
+        if (room && !layout.room && !ddNodeMatches) dropRoom();
+      }, [room, layout.room, ddNodeMatches]),
       useLayoutEffect(() => {
         paintCamera();
       }, [layout, mode, wireId, showMap, tick, focus, appearance]),
@@ -3187,6 +3282,13 @@ export function DDcreateBoard(deps) {
               ot.preventDefault();
               ot.stopImmediatePropagation();
               setEngine(false);
+              return;
+            }
+            // Esc with nothing selected steps out of a section's own board, one level.
+            if (ot.key === "Escape" && layout.room && !gesture.current && !selected.size && !wireId && !connecting && !help && !child && search === null) {
+              ot.preventDefault();
+              ot.stopImmediatePropagation();
+              leaveRoom();
               return;
             }
             if (ot.key === "Escape") {
@@ -3840,6 +3942,16 @@ export function DDcreateBoard(deps) {
                               Y.emoji &&
                               _.createElement(B, { emoji: Y.emoji, size: 16 }),
                             Y.title,
+                            Y.lifeSection && !Y.room && _.createElement("button", {
+                              type: "button", className: "dd-room-enter", "data-enter-section": Y.lifeId,
+                              title: t("Open this section as its own board", "باز کردن این سکشن در برد خودش"),
+                              "aria-label": t("Enter section", "ورود به سکشن"),
+                              // Opens on press, so a tap on a phone works even where the board
+                              // treats the touch as a pan; Enter/Space still click it.
+                              onPointerDown: (e) => { e.stopPropagation(); if (e.button) return; e.preventDefault(); enterRoom(Y.lifeId); },
+                              onDoubleClick: (e) => e.stopPropagation(),
+                              onClick: (e) => { e.stopPropagation(); if (!e.detail) enterRoom(Y.lifeId); },
+                            }, "↗"),
                             Y.kind === "block" && Y.pri > 0 && _.createElement("small", { className: "dd-board-priority pri p" + Y.pri, title: DDpriorityLabel(Y.pri, DDlanguage) }, "P" + Y.pri),
                           ),
                           Y.kind === "block" && _.createElement(DDTaskTags, { React: _, task: Y, language: DDlanguage }),
@@ -3950,7 +4062,7 @@ export function DDcreateBoard(deps) {
         (Tt || (Y.lifeSection && !Y.collapsed)) &&
           !ct &&
           !ot &&
-          (Y.memberOf ? ["s"] : ["nw", "n", "ne", "e", "se", "s", "sw", "w"]).map(
+          (Y.memberOf ? ["s"] : Y.room ? ["e", "se", "s"] : ["nw", "n", "ne", "e", "se", "s", "sw", "w"]).map(
             (edge) =>
               _.createElement("button", {
                 type: "button",
@@ -4730,7 +4842,7 @@ export function DDcreateBoard(deps) {
         toWorld(rect.left + rect.width / 2, rect.top + rect.height / 2);
       const result = core.paste(boardDocument(), payload, at, mode, C);
       if (!result.refs.length) return;
-      const frame=layout.map.get("section:life"), target=frame&&DDlifeParentAt(result.day.__life.items,at.x-frame.x,at.y-frame.y-DDlifeHead);
+      const frame=layout.map.get("section:life"), target=frame&&(DDlifeParentAt(result.day.__life.items,at.x-frame.x,at.y-frame.y-DDlifeHead,layout.room?outsideRoom(result.day.__life.items):undefined)||(layout.room?result.day.__life.items.find((i)=>i.id===layout.room):null));
       if (target) {
         const base=DDlifeAbs(result.day.__life.items,target.id);
         for(const ref of result.refs.filter((r)=>r.startsWith("life:"))){
@@ -5334,13 +5446,23 @@ export function DDcreateBoard(deps) {
           toolButton(t("Go to Life section", "رفتن به بخش زندگی"),"fitAll",()=>{const first=DDlifeItems(setup).find((i)=>i.type==="section"&&!i.parent);if(first)jumpLife(first.id);else addLifeItem("section");},{"data-life-jump":true},t("Life","زندگی")),
           toolButton(t("Section navigator","فهرست سکشن‌ها"),"list",()=>setLifeNav((v)=>!v),{"aria-expanded":lifeNav},t("Sections","سکشن‌ها")),
         ),
+        // Where you are: the main board, then each section down to the open one.
+        layout.room && _.createElement("div",{className:"dd-room-break","aria-hidden":true}),
+        layout.room && _.createElement("nav",{className:"dd-room-bar",dir:"ltr","aria-label":t("Where you are","کجای برد هستی"),onPointerDown:(e)=>e.stopPropagation()},
+          _.createElement("button",{type:"button",className:"dd-room-back","data-room-back":true,title:t("Back one level (Esc)","یک سطح برگشت (Esc)"),"aria-label":t("Back","برگشت"),onClick:leaveRoom},"←"),
+          _.createElement("button",{type:"button",dir:"auto","data-room-crumb":"main",onClick:()=>enterRoom(null)},t("Main board","برد اصلی")),
+          DDlifePath(DDlifeItems(setup),layout.room).map((s,i,all)=>_.createElement(_.Fragment,{key:s.id},
+            _.createElement("span",{className:"dd-room-sep","aria-hidden":true},"›"),
+            _.createElement("button",{type:"button",dir:"auto","data-room-crumb":s.id,"aria-current":i===all.length-1?"page":undefined,onClick:()=>{if(i<all.length-1)enterRoom(s.id);}},s.text||t("Section","سکشن"))))),
       ),
       lifeNav && _.createElement("nav",{className:"dd-life-nav","aria-label":t("Life sections","سکشن‌های زندگی"),onPointerDown:(e)=>e.stopPropagation()},
         _.createElement("strong",null,t("Life sections","سکشن‌های زندگی")),
         _.createElement("button",{type:"button",onClick:()=>{const area=layout.map.get("section:life");if(area)resizeLifeArea({w:area.w*1.25,h:area.h*1.25});}},t("Enlarge Life area +25%","بزرگ‌تر کردن محدودهٔ زندگی +۲۵٪")),
         _.createElement("div",{className:"dd-life-dimensions"},["w","h"].map((key)=>_.createElement("label",{key},t(key==="w"?"Width":"Height",key==="w"?"عرض":"ارتفاع"),_.createElement("input",{key:layout.map.get("section:life")?.[key],type:"number",min:240,max:100000,step:100,defaultValue:Math.round(layout.map.get("section:life")?.[key]||240),"aria-label":t(key==="w"?"Life area width":"Life area height",key==="w"?"عرض محدودهٔ زندگی":"ارتفاع محدودهٔ زندگی"),onBlur:(e)=>{const value=Number(e.target.value);if(e.target.value&&Number.isFinite(value)&&value>=240&&value<=100000)resizeLifeArea({[key]:value});else e.target.value=Math.round(layout.map.get("section:life")?.[key]||240);},onKeyDown:(e)=>{e.stopPropagation();if(e.key==="Enter")e.currentTarget.blur();}})))),
         _.createElement("button",{type:"button",onClick:()=>commit((d)=>{d.__life.items=DDlifeCompact(d.__life.items);delete d.__life.frame.w;delete d.__life.frame.h;return d;})},t("Compact layout","جمع‌وجور کن")),
-        DDlifeItems(setup).filter((i)=>i.type==="section").map((i)=>_.createElement("button",{type:"button",key:i.id,onClick:()=>jumpLife(i.id),style:{paddingInlineStart:i.parent?24:8}},(i.collapsed?"▸ ":"▾ ")+(i.text||t("Section","سکشن"))))),
+        DDlifeItems(setup).filter((i)=>i.type==="section").map((i)=>_.createElement("div",{key:i.id,className:"dd-life-nav-row"},
+          _.createElement("button",{type:"button",onClick:()=>jumpLife(i.id),style:{paddingInlineStart:i.parent?24:8}},(i.collapsed?"▸ ":"▾ ")+(i.text||t("Section","سکشن"))),
+          _.createElement("button",{type:"button",className:"dd-room-enter","data-enter-section":i.id,title:t("Open this section as its own board","باز کردن این سکشن در برد خودش"),"aria-label":t("Enter section","ورود به سکشن"),onClick:()=>enterRoom(i.id)},"↗")))),
       (selected.size > 0 || selectedWire || selectedWires.size > 0) &&
         _.createElement(
           "div",
@@ -5447,6 +5569,7 @@ export function DDcreateBoard(deps) {
                 // Section actions live in the selection toolbar, as in FigJam; the
                 // section itself carries only its title.
                 selectedNode?.lifeSection && _.createElement(_.Fragment,null,
+                  toolButton(t("Open as its own board","ورود به برد سکشن"),null,()=>enterRoom(selectedNode.lifeId),{"data-enter-section":selectedNode.lifeId},"↗"),
                   toolButton(t(selectedNode.collapsed ? "Expand section" : "Collapse section",selectedNode.collapsed ? "باز کردن سکشن" : "بستن سکشن"),null,()=>lifeChange((list)=>list.map((i)=>i.id===selectedNode.lifeId?{...i,collapsed:!i.collapsed}:i)),{},selectedNode.collapsed?"▸":"▾"),
                   toolButton(t("Add sticky note","افزودن یادداشت"),"plus",()=>addLifeItem("sticky",selectedNode.lifeId)),
                   toolButton(t("Add section inside","افزودن سکشن داخل"),"square",()=>addLifeItem("section",selectedNode.lifeId)),

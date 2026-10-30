@@ -371,6 +371,39 @@ export function DDlifeMoveBy(items, id, dx, dy, moving = []) {
   return [...items.filter((i) => i.id !== id), moved];
 }
 
+// The sections from the top down to `id`, `id` included: the path shown above
+// a section's own board.
+export function DDlifePath(items, id) {
+  const out = [];
+  let cur = find(items, id),
+    hops = 0;
+  while (cur && hops++ < 60) {
+    out.unshift(cur);
+    cur = cur.parent ? find(items, cur.parent) : null;
+  }
+  return out;
+}
+
+// Inside a section's own board everything made or moved stays in that section.
+// Anything new, or anything that was inside and ended up outside, joins the
+// section again at the same place on the canvas (it may hang over the edge).
+export function DDlifeKeepIn(items, roomId, before = []) {
+  if (!find(items, roomId)) return items;
+  const inRoom = DDlifeDescendants(items, roomId),
+    was = DDlifeDescendants(before, roomId),
+    known = new Set(before.map((i) => i.id)),
+    above = new Set(DDlifePath(items, roomId).map((i) => i.id)),
+    stray = new Set(items.filter((i) => !inRoom.has(i.id) && !above.has(i.id) && (was.has(i.id) || !known.has(i.id))).map((i) => i.id));
+  if (!stray.size) return items;
+  const base = DDlifeAbs(items, roomId);
+  return items.map((i) => {
+    // Only the top of a stray branch moves; what is inside it comes along.
+    if (!stray.has(i.id) || stray.has(i.parent)) return i;
+    const a = DDlifeAbs(items, i.id);
+    return { ...i, parent: roomId, x: Math.round(a.x - base.x), y: Math.round(a.y - base.y) };
+  });
+}
+
 // Where a new top-level section goes when the click was at (x, y) in Life coordinates:
 // inside the section under the click if there is one.
 export function DDlifeParentAt(items, x, y, skip = new Set()) {
@@ -433,6 +466,22 @@ export const DDlifeCSS = `
 .dd-life-nav{position:absolute;top:70px;right:16px;z-index:100;display:flex;flex-direction:column;gap:4px;max-height:65%;width:240px;overflow:auto;background:var(--paper,#fff);color:var(--ink,#121211);padding:12px;border:1px solid var(--rule-2);border-radius:12px;box-shadow:0 8px 28px #0002}
 .dd-life-nav button{text-align:start;min-height:36px;padding:6px 8px;border-radius:6px}
 .dd-life-nav button:hover{background:var(--wash)}
+.dd-life-nav-row{display:flex;align-items:stretch;gap:2px}
+.dd-life-nav-row>button:first-child{flex:1;min-width:0}
+.dd-life-nav .dd-room-enter{flex:none;width:36px;padding:0;text-align:center;color:var(--ink-2,#555)}
+.b4-life-section .b4-node-title .dd-room-enter{flex:none;display:inline-flex;align-items:center;justify-content:center;margin-inline-start:.45em;padding:0 .4em;min-width:1.6em;height:1.4em;border-radius:.3em;border:0;background:color-mix(in srgb,var(--node-text,#121211) 12%,transparent);color:inherit;font:inherit;font-size:.85em;line-height:1;cursor:pointer;vertical-align:middle}
+.b4-life-section .b4-node-title .dd-room-enter:hover{background:color-mix(in srgb,var(--node-text,#121211) 22%,transparent)}
+.dd-room-break{flex-basis:100%;height:0;order:8}
+.dd-room-bar{flex:0 0 auto;order:9;pointer-events:auto;display:flex;align-items:center;flex-wrap:wrap;gap:2px;width:max-content;max-width:100%;padding:4px;border-radius:12px;background:var(--paper,#fff);color:var(--ink,#121211);border:1px solid color-mix(in srgb,var(--ink,#121211) 10%,transparent);box-shadow:0 4px 14px #0000001a;font:500 13px/1.2 var(--sans,system-ui);box-sizing:border-box}
+.dd-room-bar button{min-height:32px;padding:4px 10px;border-radius:8px;border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dd-room-bar button:hover{background:var(--wash,#0000000d)}
+.dd-room-bar .dd-room-back{background:var(--panel-engine,#F05A28);color:#fff;font-weight:600;min-width:32px}
+.dd-room-bar .dd-room-back:hover{background:color-mix(in srgb,var(--panel-engine,#F05A28) 85%,#000)}
+.dd-room-bar [aria-current=page]{font-weight:650;cursor:default}
+.dd-room-bar [aria-current=page]:hover{background:transparent}
+.dd-room-sep{opacity:.45;padding:0 1px}
+@media(pointer:coarse){.dd-room-bar button{min-height:40px}}
+@media(max-width:700px){.dd-room-bar{margin-top:56px}.dd-room-bar button{max-width:150px}}
 .dd-life-dimensions{display:flex;gap:8px;padding:8px 0}
 .dd-life-dimensions label{flex:1;min-width:0;font-size:12px;color:var(--ink)}
 .dd-life-dimensions input{display:block;width:100%;min-height:36px;padding:5px;border:1px solid var(--rule-2);border-radius:6px;background:var(--paper);color:var(--ink);font:inherit}
