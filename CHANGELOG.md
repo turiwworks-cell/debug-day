@@ -1,3 +1,12 @@
+## 5.19.0 — 2026-10-30
+Branch: claude/project-thread-xu3qj6
+- Every Engine task can say where it came from: a Life section or the main board. A task added inside a section's board, or made from a note that sat in a section, gets that section on its own. Change it from the "↖" picker on each Engine row.
+- Task cards on the Board (mindmap and Lanes) show a small "↖ section" tag in the corner.
+- Each section with tasks shows its last 14 days as dots beside its name (green = all done, half = some, red ring = none yet) and "done/total". Tap the dots to open the section's board. A big section also counts the tasks from sections inside it.
+- Inside a section's board, a "Done and not done here" card under the section lists each day's tasks from it, newest first, with ✓ or ○ (7 days, "Show all" for more). It is read from the days, so it updates by itself and is the same on every day. It is not in Stats.
+- Opening a section's board frames the card too, clear of the minimap.
+- Add unit tests for sources, the per-section record and the 14-day strip, and en/fa desktop/phone browser tests for the tag, the dots, the record and the picker.
+
 ## 5.18.0 — 2026-10-30
 Branch: claude/project-thread-xu3qj6
 - Every Life section opens as its own board: the ↗ button on its name, the ↗ in the selection toolbar, or ↗ in the Sections list. The board shows only that section and what is inside it, with today's Engine beside it (under it on a phone).

@@ -38,7 +38,8 @@ export function DDengineGroups(day, lanes = []) {
 }
 
 // A new task for the Engine, with the same defaults as the Board's "+ task".
-export function DDengineTask(name, lane, setup = {}, id = crypto.randomUUID()) {
+// `from` is the Life section it came from, if any (see DDengineSourceHistory).
+export function DDengineTask(name, lane, setup = {}, id = crypto.randomUUID(), from = "") {
   return {
     id,
     name: String(name || "").trim().slice(0, 300),
@@ -51,16 +52,17 @@ export function DDengineTask(name, lane, setup = {}, id = crypto.randomUUID()) {
     done: false,
     expanded: true,
     subtasks: [],
+    ...(from ? { from } : {}),
   };
 }
 
 // A note turned into a task: the first line is its name, the other lines its steps.
-export function DDengineTaskFromNote(text, lane, setup = {}, makeId = () => crypto.randomUUID()) {
+export function DDengineTaskFromNote(text, lane, setup = {}, makeId = () => crypto.randomUUID(), from = "") {
   const lines = String(text || "")
     .split("\n")
     .map((line) => line.replace(/^\s*(?:[-*•]|\d+[.)]|\[[ xX]?\])\s+/, "").trim())
     .filter(Boolean);
-  const task = DDengineTask(lines[0] || "", lane, setup, makeId());
+  const task = DDengineTask(lines[0] || "", lane, setup, makeId(), from);
   task.subtasks = lines.slice(1).map((line) => ({ id: makeId(), text: line, done: false, expanded: true, children: [] }));
   return task;
 }
@@ -93,6 +95,73 @@ export function DDengineCopy(block, makeId = () => crypto.randomUUID()) {
 const sameName = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
 export function DDengineHas(day, block) {
   return (day?.blocks || []).some((b) => sameName(b.name, block.name));
+}
+
+// The Life sections a task can come from, top down, for the "from" picker.
+export function DDengineSources(items = []) {
+  const sections = items.filter((i) => i.type === "section"),
+    seen = new Set(),
+    out = [],
+    walk = (parent, depth) =>
+      sections
+        .filter((s) => (s.parent || "") === parent && !seen.has(s.id))
+        .sort((a, b) => a.y - b.y || a.x - b.x)
+        .forEach((s) => {
+          seen.add(s.id);
+          out.push({ id: s.id, name: s.text || "", depth });
+          walk(s.id, depth + 1);
+        });
+  walk("", 0);
+  for (const s of sections) if (!seen.has(s.id)) (seen.add(s.id), out.push({ id: s.id, name: s.text || "", depth: 0 }));
+  return out;
+}
+
+// Each section's record: per day, the tasks that came from it or from a section
+// inside it (so a big section also counts its small ones). Newest day first,
+// only days that had such tasks. Nothing is stored: it is read from the days.
+export function DDengineSourceHistory(days = {}, items = [], endDate = "", limit = 90) {
+  const sections = new Set(items.filter((i) => i.type === "section").map((i) => i.id)),
+    parentOf = new Map(items.map((i) => [i.id, i.parent || ""])),
+    out = new Map(),
+    dates = Object.keys(days)
+      .filter((date) => !endDate || date <= endDate)
+      .sort()
+      .reverse()
+      .slice(0, limit);
+  for (const date of dates)
+    for (const block of days[date]?.blocks || []) {
+      if (!sections.has(block.from)) continue;
+      let id = block.from,
+        hops = 0;
+      while (id && hops++ < 60) {
+        if (sections.has(id)) {
+          if (!out.has(id)) out.set(id, []);
+          const list = out.get(id);
+          let entry = list.at(-1);
+          if (!entry || entry.date !== date) list.push((entry = { date, done: 0, total: 0, tasks: [] }));
+          entry.total++;
+          if (block.done) entry.done++;
+          entry.tasks.push({ id: block.id, name: block.name || "", done: !!block.done, from: block.from });
+        }
+        id = parentOf.get(id);
+      }
+    }
+  return out;
+}
+
+// The last `count` days ending on `endDate`, oldest first, each marked
+// none (no task from here), done (all done), some, or open (none done yet).
+export function DDengineStrip(entries = [], endDate, count = 14) {
+  const byDate = new Map(entries.map((e) => [e.date, e])),
+    out = [];
+  for (let n = count - 1; n >= 0; n--) {
+    const d = new Date(endDate + "T12:00:00Z");
+    d.setUTCDate(d.getUTCDate() - n);
+    const date = d.toISOString().slice(0, 10),
+      e = byDate.get(date);
+    out.push({ date, done: e?.done || 0, total: e?.total || 0, state: !e ? "none" : e.done === e.total ? "done" : e.done ? "some" : "open" });
+  }
+  return out;
 }
 
 // The earlier Engine, shown inside today's: copy one task, or every open one.
@@ -168,7 +237,7 @@ const KINDS = [
   ["wait", "⏳", "Waiting", "ویتینگ"],
 ];
 
-function EngineRow({ React: R, block, lanes, language, measure, setDone, change, onReveal }) {
+function EngineRow({ React: R, block, lanes, sources = [], language, measure, setDone, change, onReveal }) {
   const fa = language === "fa",
     t = (en, f) => (fa ? f : en),
     h = R.createElement,
@@ -266,6 +335,27 @@ function EngineRow({ React: R, block, lanes, language, measure, setDone, change,
           lanes.map((lane) => h("option", { key: lane.id, value: lane.id }, lane.name || lane.id)),
           h("option", { value: "" }, t("Parked", "پارک‌شده")),
         ),
+        // Where the task came from: a Life section, or the main board.
+        h(
+          "select",
+          {
+            className: "dd-engine-from",
+            "data-from": block.from || "",
+            value: sources.some((s) => s.id === block.from) ? block.from : "",
+            "aria-label": t("Came from", "از کجا آمده"),
+            title: t("Came from", "از کجا آمده"),
+            onChange: (event) => {
+              const from = event.target.value;
+              update((b) => {
+                const next = { ...b, from };
+                if (!from) delete next.from;
+                return next;
+              });
+            },
+          },
+          h("option", { value: "" }, "↖ " + t("Main board", "برد اصلی")),
+          sources.map((s) => h("option", { key: s.id, value: s.id }, "↖ " + "· ".repeat(s.depth) + (s.name || t("Section", "سکشن")))),
+        ),
         onReveal &&
           h(
             "button",
@@ -326,6 +416,7 @@ export function DDEngineOverlay({
   days,
   dateFormat,
   makeId,
+  sources = [],
 }) {
   const h = R.createElement,
     fa = language === "fa",
@@ -432,7 +523,7 @@ export function DDEngineOverlay({
               "ul",
               null,
               blocks.map((block) =>
-                h(EngineRow, { key: block.id, React: R, block, lanes, language, measure, setDone, change: onChange, onReveal }),
+                h(EngineRow, { key: block.id, React: R, block, lanes, sources, language, measure, setDone, change: onChange, onReveal }),
               ),
             ),
             h(AddTask, { React: R, lane, language, onAdd }),
@@ -508,6 +599,34 @@ export const DDengineCSS = `
 .dd-engine-earlier small{color:var(--ink-3,#666);font-size:11px}
 .dd-engine-copy{padding:3px 8px;border-radius:6px;background:var(--wash,#eee);color:var(--ink,#121211);font-size:12px;white-space:nowrap}
 .dd-engine-here{font-size:11px;color:var(--ink-3,#666);white-space:nowrap}
+.dd-history-strip{display:inline-flex;align-items:center;gap:3px}
+.dd-history-strip i{display:block;width:8px;height:8px;border-radius:50%;flex:none;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink,#121211) 22%,transparent)}
+.dd-history-strip i[data-state=done]{background:#2E8B3A;box-shadow:none}
+.dd-history-strip i[data-state=some]{background:linear-gradient(90deg,#2E8B3A 50%,color-mix(in srgb,#D9434A 30%,transparent) 50%);box-shadow:none}
+.dd-history-strip i[data-state=open]{box-shadow:inset 0 0 0 1.5px #D9434A}
+.b6 .b4-life-section>.dd-sec-history{--k:var(--dd-sec-k,1);position:absolute;top:calc(10px * var(--k));right:calc(10px * var(--k));z-index:3;display:flex;align-items:center;gap:calc(6px * var(--k));height:calc(28px * var(--k));max-width:calc(100% - 20px * var(--k));padding:0 calc(8px * var(--k));border-radius:calc(6px * var(--k));border:calc(1px * var(--k)) solid color-mix(in srgb,var(--node-color) 60%,#1e1e1e 20%);background:var(--paper,#fff);color:var(--ink,#121211);font:600 calc(11px * var(--k))/1 var(--mono,ui-monospace,monospace);overflow:hidden;cursor:pointer;min-width:0;min-height:0}
+.b6 .b4-life-section>.dd-sec-history .dd-history-strip{gap:calc(3px * var(--k))}
+.b6 .b4-life-section>.dd-sec-history i{width:calc(8px * var(--k));height:calc(8px * var(--k))}
+.dd-room-history{position:absolute;box-sizing:border-box;transform:scale(clamp(1,var(--b4-inverse,1),1.6));transform-origin:0 0;padding:16px 18px;border-radius:16px;background:var(--paper,#fff);color:var(--ink,#121211);border:1px solid var(--rule-2,#0002);box-shadow:0 6px 20px #0000001a;font:14px/1.4 var(--sans,system-ui);z-index:2}
+.dd-room-history header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}
+.dd-room-history header small{color:var(--ink-2,#555);font-size:12px}
+.dd-room-history>.dd-history-strip{margin-bottom:12px}
+.dd-room-history>.dd-history-strip i{width:12px;height:12px}
+.dd-room-history ol,.dd-room-history ul{list-style:none;margin:0;padding:0}
+.dd-room-history ol>li{padding:8px 0;border-top:1px solid var(--rule-2,#0001)}
+.dd-room-history-day{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--ink-2,#555);margin-bottom:4px}
+.dd-room-history-day b{color:var(--ink,#121211);font-weight:600}
+.dd-room-history ul li{display:flex;align-items:baseline;gap:8px;padding:2px 0}
+.dd-room-history ul li>span:first-child{width:14px;flex:none;color:#D9434A;font-weight:700}
+.dd-room-history ul li[data-done=true]>span:first-child{color:#2E8B3A}
+.dd-room-history ul li[data-done=true]>span:nth-child(2){color:var(--ink-2,#555)}
+.dd-room-history ul li small{margin-inline-start:auto;color:var(--ink-2,#555);font-size:11px;white-space:nowrap}
+.dd-room-history p{margin:0;color:var(--ink-2,#555);font-size:13px}
+.dd-room-history-more{margin-top:10px;border:1px solid var(--rule-2,#0002);border-radius:999px;background:transparent;color:inherit;font:12px/1 var(--sans,system-ui);padding:6px 12px;cursor:pointer}
+.dd-room-history-more:hover{background:#0000000d}
+.dd-task-from{position:absolute;top:-10px;right:10px;z-index:3;max-width:62%;box-sizing:border-box;padding:1px 7px;border-radius:999px;font-size:10.5px;line-height:1.5;border:1px solid color-mix(in srgb,var(--panel-engine,#F05A28) 35%,transparent);background:color-mix(in srgb,var(--panel-engine,#F05A28) 10%,var(--paper,#fff));color:color-mix(in srgb,var(--panel-engine,#F05A28) 80%,var(--ink,#121211));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dd-engine-from{max-width:170px;font:inherit;font-size:12px;padding:3px 6px;border-radius:999px;border:1px solid color-mix(in srgb,var(--panel-engine,#F05A28) 35%,transparent);background:color-mix(in srgb,var(--panel-engine,#F05A28) 8%,transparent);color:var(--ink,#121211);text-overflow:ellipsis}
+.dd-engine-from[data-from=""]{border-color:var(--rule-2,#0002);background:transparent;color:var(--ink-2,#555)}
 .dd-engine-area{position:absolute;border:2px dashed color-mix(in srgb,var(--panel-engine,#F05A28) 55%,transparent);background:color-mix(in srgb,var(--panel-engine,#F05A28) 5%,transparent);border-radius:28px;box-sizing:border-box}
 .dd-engine-area-title{position:absolute;left:18px;bottom:calc(100% - 16px);transform:scale(clamp(1,var(--b4-inverse,1),4));display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:var(--panel-engine,#F05A28);color:#fff;font:600 15px/1.2 var(--sans,system-ui);white-space:nowrap;transform-origin:0 100%;box-shadow:0 2px 8px #0002}
 .dd-engine-area-title small{font-weight:500;opacity:.85}

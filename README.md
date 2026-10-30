@@ -96,6 +96,10 @@ On the mindmap Board the Engine has its own section (5.17), a dashed area around
 
 Every Life section opens as its own board (↗ on its name, in the selection toolbar, or in the Sections list). The Board then lays out only that section and its contents, placed beside today's Engine (under it on a phone); it is the same `setup.life` data, shifted on screen, so nothing is copied. The path bar (`.dd-room-bar`) leads back; Esc with nothing selected steps out one level. While inside, `DDlifeKeepIn` keeps anything made or moved there inside the section, and new day notes become notes in it. The open section id is kept in `sessionStorage` (`debug-day:board-room`), so a reload stays inside.
 
+### Where tasks come from (5.19)
+
+An Engine task can carry `block.from`, the id of the Life section it came from (no `from` = the main board). It is set when a task is added inside a section's board or made from a note in a section, and changed with the "↖" picker on each Engine row. `DDengineSourceHistory` reads every day and returns, per section, each day's tasks from it or from sections inside it; nothing extra is stored. Sections show the last 14 days as dots beside their name (`DDengineStrip`), and a section's board lists the record under the section. The record is kept out of Stats on purpose.
+
 ### Shared Life workspace (5.11)
 
 Life notes use the native board tools: select, multi-select, copy/paste, resize, connect and move notes between the current day and Life. Shared content and frame geometry live in setup; the outer Life area only pans or resizes. Undo/Redo survives switching days or returning from Plan.

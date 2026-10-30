@@ -9,6 +9,9 @@ import {
   DDengineEarlierDay,
   DDengineCopy,
   DDengineHas,
+  DDengineSources,
+  DDengineSourceHistory,
+  DDengineStrip,
 } from "../public/engine.js";
 import {
   DDmeasures,
@@ -214,4 +217,95 @@ test("the Engine knows when a task is already in today", () => {
   assert.equal(DDengineHas(day, { name: "outreach" }), true);
   assert.equal(DDengineHas(day, { name: "Sketch" }), false);
   assert.equal(DDengineHas({}, { name: "x" }), false);
+});
+
+// Phase 4: every task remembers the section it came from.
+const life = [
+  { id: "art", type: "section", parent: "", x: 0, y: 0, text: "Creative life" },
+  { id: "sketch", type: "section", parent: "art", x: 400, y: 80, text: "Sketches" },
+  { id: "ink", type: "section", parent: "art", x: 40, y: 80, text: "Ink" },
+  { id: "home", type: "section", parent: "", x: 0, y: 900, text: "Home" },
+  { id: "note", type: "sticky", parent: "art", x: 0, y: 0, text: "idea" },
+];
+
+test("a task keeps the section it came from, and only when there is one", () => {
+  assert.equal(DDengineTask("Sketch", "work", {}, "a", "sketch").from, "sketch");
+  assert.equal("from" in DDengineTask("Sketch", "work", {}, "a"), false, "main board tasks carry no source");
+  let n = 0;
+  const task = DDengineTaskFromNote("Ink a page\nscan", "life", {}, () => "id" + ++n, "ink");
+  assert.equal(task.from, "ink");
+  assert.equal(DDengineCopy(task, () => "c").from, "ink", "a copied task still came from the same section");
+});
+
+test("the source picker lists sections top down, small ones under their big one", () => {
+  assert.deepEqual(
+    DDengineSources(life).map((s) => [s.id, s.depth]),
+    [["art", 0], ["ink", 1], ["sketch", 1], ["home", 0]],
+  );
+  assert.deepEqual(DDengineSources([{ id: "lost", type: "section", parent: "gone", x: 0, y: 0, text: "Lost" }]).map((s) => s.id), ["lost"], "a section whose parent is gone still shows");
+  assert.deepEqual(DDengineSources([]), []);
+});
+
+test("each section's record lists its own tasks and the ones from sections inside it", () => {
+  const days = {
+    "2026-10-28": { blocks: [{ id: "a", name: "Sketch hands", from: "sketch", done: true }, { id: "b", name: "Dishes", from: "home" }] },
+    "2026-10-29": { blocks: [{ id: "c", name: "No source" }] },
+    "2026-10-30": { blocks: [{ id: "d", name: "Ink cover", from: "ink" }, { id: "e", name: "Art plan", from: "art", done: true }, { id: "f", name: "Old", from: "deleted" }] },
+    "2026-11-02": { blocks: [{ id: "g", name: "Later", from: "art" }] },
+  };
+  const record = DDengineSourceHistory(days, life, "2026-10-30");
+  const art = record.get("art");
+  assert.deepEqual(art.map((e) => [e.date, e.done, e.total]), [["2026-10-30", 1, 2], ["2026-10-28", 1, 1]], "newest first, rolled up, future days left out");
+  assert.deepEqual(art[0].tasks.map((t) => [t.name, t.from]), [["Ink cover", "ink"], ["Art plan", "art"]]);
+  assert.deepEqual(record.get("sketch").map((e) => e.date), ["2026-10-28"]);
+  assert.equal(record.get("ink")[0].tasks[0].done, false);
+  assert.deepEqual(record.get("home").map((e) => [e.done, e.total]), [[0, 1]]);
+  assert.equal(record.has("deleted"), false, "a deleted section's tasks are not counted");
+  assert.equal(record.has("note"), false);
+});
+
+test("the 14-day strip marks each day as none, done, some or open", () => {
+  const strip = DDengineStrip(
+    [
+      { date: "2026-10-30", done: 1, total: 2 },
+      { date: "2026-10-29", done: 0, total: 1 },
+      { date: "2026-10-28", done: 3, total: 3 },
+      { date: "2026-10-01", done: 1, total: 1 },
+    ],
+    "2026-10-30",
+    14,
+  );
+  assert.equal(strip.length, 14);
+  assert.equal(strip[0].date, "2026-10-17");
+  assert.equal(strip.at(-1).date, "2026-10-30");
+  assert.deepEqual(strip.slice(-3).map((d) => d.state), ["done", "open", "some"]);
+  assert.equal(strip.filter((d) => d.state === "none").length, 11, "days outside the window are left out");
+  assert.deepEqual(DDengineStrip([], "2026-03-01", 3).map((d) => d.date), ["2026-02-27", "2026-02-28", "2026-03-01"], "counts back across months");
+});
+
+test("an Engine row shows where the task came from and can change it", () => {
+  const hooks = { useRef: () => ({ current: null }), useEffect() {}, useState: (v) => [v, () => {}] };
+  let changed;
+  const overlay = DDEngineOverlay({
+    React: { ...R, ...hooks },
+    day: { date: "2026-10-30", blocks: [{ id: "a", name: "Ink", lane: "work", from: "ink" }] },
+    setup: { lanes },
+    sources: DDengineSources(life),
+    language: "en",
+    measure: { DDmeasureOf, DDmeasureText, DDMeasureControl, DDsetMeasure },
+    setDone: (b, done) => ({ ...b, done }),
+    onChange: (fn) => (changed = fn),
+    onAdd() {},
+    onClose() {},
+  });
+  const rowNode = find(overlay, (n) => typeof n.type === "function" && n.props.block?.id === "a")[0];
+  const row = rowNode.type({ ...rowNode.props, React: { ...R, ...hooks } });
+  const picker = find(row, (n) => n.props.className === "dd-engine-from")[0];
+  assert.equal(picker.props.value, "ink");
+  assert.deepEqual(find(picker, (n) => n.type === "option").map((o) => o.children.join("")), ["↖ Main board", "↖ Creative life", "↖ · Ink", "↖ · Sketches", "↖ Home"]);
+  const day = { blocks: [{ id: "a", from: "ink" }, { id: "b", from: "ink" }] };
+  picker.props.onChange({ target: { value: "sketch" } });
+  assert.deepEqual(changed(day).blocks.map((b) => b.from), ["sketch", "ink"], "only this task changes");
+  picker.props.onChange({ target: { value: "" } });
+  assert.equal("from" in changed(day).blocks[0], false, "back to the main board drops the source");
 });

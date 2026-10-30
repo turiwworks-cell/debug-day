@@ -1,7 +1,7 @@
 import { DDcompletion, DDTaskMetadata, DDTaskTags, DDpriorityLabel, DDprogressLabel } from "./planner.js";
 import { DDreconcileDay, DDrelation, DDconnectRelation, DDdisconnectRelation, DDrewireRelation } from "./relations.js";
 import { DDconnectionGeometry } from "./connections.js";
-import { DDEngineOverlay, DDengineBus, DDengineTask, DDengineTaskFromNote, DDinstallEngineStyles } from "./engine.js";
+import { DDEngineOverlay, DDengineBus, DDengineTask, DDengineTaskFromNote, DDengineSources, DDengineSourceHistory, DDengineStrip, DDinstallEngineStyles } from "./engine.js";
 import { DDboardShortcuts, DDboardSearchRows, DDrootSelection, DDmarqueeSelection, DDselectionToolbar, DDBoardSearch, DDBoardTimer, DDBoardTimerButton, DDinstallBoardExperience } from "./board-experience.js";
 import {
   DDinstallLifeStyles,
@@ -141,6 +141,8 @@ export function DDcreateBoard(deps) {
       [lifeNav, setLifeNav] = useState(false),
       // The Engine brought over the board (E, the toolbar or Ctrl+Space).
       [engine, setEngine] = useState(() => DDengineBus.take()),
+      // A section's record shows its last 7 days unless this is on.
+      [historyAll, setHistoryAll] = useState(false),
       // The section whose own board is open (a Life section id), or null for the main board.
       [room, setRoom] = useState(() => { try { return sessionStorage.getItem("debug-day:board-room") || null; } catch { return null; } }),
       roomCams = useRef({}),
@@ -788,6 +790,7 @@ export function DDcreateBoard(deps) {
             laneId,
             pri: block.pri,
             tags: block.tags,
+            from: block.from,
             hasChildren: !!block.subtasks?.length,
             expanded: block.expanded !== false,
             members: members.map((m) => m.id).concat("sec:" + block.id),
@@ -1038,6 +1041,7 @@ export function DDcreateBoard(deps) {
                 parentId: Oa,
                 pri: Fn.pri,
                 tags: Fn.tags,
+                from: Fn.from,
                 hasChildren: !!Fn.subtasks?.length,
                 expanded: Fn.expanded !== !1,
                 x: 410,
@@ -1198,6 +1202,13 @@ export function DDcreateBoard(deps) {
       ]),
       layoutRef = useRef(layout);
     layoutRef.current = layout;
+    // Where each task came from (phase 4): every section's done / not done record,
+    // read from all days. Nothing is stored, so it is the same on every day.
+    const sourceHistory = useMemo(
+        () => DDengineSourceHistory({ ...(allDays || {}), [day.date]: day }, DDlifeItems(setup), day.date),
+        [allDays, day, setup.life],
+      ),
+      sectionNames = new Map(DDlifeItems(setup).filter((i) => i.type === "section").map((i) => [i.id, i.text || t("Section", "سکشن")]));
     const selectedWire = layout.edges.find((Y) => Y.id === wireId),
       selectedNode =
         selected.size === 1 ? layout.map.get([...selected][0]) : null;
@@ -1384,13 +1395,25 @@ export function DDcreateBoard(deps) {
         selection && selected.size
           ? layout.nodes.filter((n) => selected.has(n.id))
           : layout.nodes.filter((n) => n.section !== "life" && (scope === "room" ? n.lifeId : scope!=="day" || !n.lifeId));
-      cam.current = core.fit(nodes, el.clientWidth, el.clientHeight, {
+      const options = {
         left: 36,
         right: 36,
         top: (el.clientWidth < 700 ? 142 : 88) + (layout.room ? 52 : 0),
         bottom: el.clientWidth < 700 ? 132 : 100,
         maxZoom: selection ? 1.6 : 1.05,
-      });
+      };
+      let next = core.fit(nodes, el.clientWidth, el.clientHeight, options);
+      // A section's board also frames its record under it. The record grows a
+      // little when zoomed out, so measure it at the zoom the fit lands on.
+      const record = !selection && layout.room && el.querySelector("[data-room-history]");
+      // Keep the record clear of the minimap in the corner.
+      const map = record && el.parentElement?.querySelector(".b4-minimap");
+      if (map && map.offsetParent) options.bottom = Math.max(options.bottom, el.getBoundingClientRect().bottom - map.getBoundingClientRect().top + 12);
+      if (record) for (let i = 0; i < 2; i++) {
+        const k = Math.min(1.6, Math.max(1, 1 / next.z));
+        next = core.fit([...nodes, { x: parseFloat(record.style.left) || 0, y: parseFloat(record.style.top) || 0, w: record.offsetWidth * k, h: record.offsetHeight * k }], el.clientWidth, el.clientHeight, options);
+      }
+      cam.current = next;
       queueCamera();
       scheduleCamera();
     }
@@ -1918,7 +1941,9 @@ export function DDcreateBoard(deps) {
                 const center = { x: pos.x + node.w / 2, y: pos.y + node.h / 2 },
                   dist = (n) => Math.hypot(n.x + n.w / 2 - center.x, n.y + n.h / 2 - center.y),
                   lane = layout.nodes.filter((n) => n.kind === "lane").sort((a, b) => dist(a) - dist(b))[0],
-                  task = DDengineTaskFromNote(node.title, lane ? lane.laneId || "" : setup.lanes[0]?.id || "", { ...setup, preferences: { ...setup.preferences, defaultMinutes: prefs.defaultMinutes } }, C);
+                  // The task remembers the section the note sat in (or the open section).
+                  from = (node.lifeId && Tt.__life.items.find((i) => i.id === node.lifeId)?.parent) || layout.room || "",
+                  task = DDengineTaskFromNote(node.title, lane ? lane.laneId || "" : setup.lanes[0]?.id || "", { ...setup, preferences: { ...setup.preferences, defaultMinutes: prefs.defaultMinutes } }, C, from);
                 if (node.lifeId) {
                   Tt.__life.items = Tt.__life.items.filter((i) => i.id !== node.lifeId);
                   Tt.__life.links = (Tt.__life.links || []).filter((l) => l.from !== ref && l.to !== ref);
@@ -2969,7 +2994,9 @@ export function DDcreateBoard(deps) {
           )
           .map((ot) => ot.replace(/^[-*•\d.)\s]+/, "").trim())
           .filter(Boolean),
-        ct = C();
+        ct = C(),
+        // The task remembers the section the note sat in (or the open section).
+        from = (Y.lifeId && DDlifeItems(setup).find((i) => i.id === Y.lifeId)?.parent) || layout.room || "";
       (commit(
         (ot) => ({
           ...ot,
@@ -3001,6 +3028,7 @@ export function DDcreateBoard(deps) {
                 expanded: !0,
                 children: [],
               })),
+              ...(from ? { from } : {}),
             },
           ],
         }),
@@ -3702,6 +3730,54 @@ export function DDcreateBoard(deps) {
         }),
       );
     }
+    // A section's record, on its own board under the section: every day's tasks
+    // that came from it, done or not. Read from the days, so it is the same everywhere.
+    function roomHistory() {
+      const sec = layout.room && layout.map.get("life:" + layout.room);
+      if (!sec) return null;
+      const h = _.createElement, entries = sourceHistory.get(layout.room) || [], strip = DDengineStrip(entries, day.date, 14),
+        done = strip.reduce((a, d) => a + d.done, 0), total = strip.reduce((a, d) => a + d.total, 0);
+      const days = historyAll ? entries.slice(0, 60) : entries.slice(0, 7);
+      return h("section", {
+          className: "dd-room-history", "data-room-history": layout.room, dir: DDlanguage === "fa" ? "rtl" : "ltr",
+          "aria-label": t("Done and not done here", "انجام‌شده و نشده‌های این سکشن"),
+          style: { left: sec.x, top: sec.y + sec.h + 64, width: Math.max(360, Math.min(sec.w, 520)) },
+        },
+        h("header", null,
+          h("strong", null, "📅 " + t("Done and not done here", "انجام‌شده و نشده‌های این سکشن")),
+          h("small", null, t("Last 14 days: ", "۱۴ روز اخیر: ") + done + "/" + total)),
+        h("div", { className: "dd-history-strip", "aria-hidden": true }, strip.map((d) => h("i", { key: d.date, "data-state": d.state, title: ie.format(E(d.date)) + " · " + d.done + "/" + d.total }))),
+        entries.length
+          ? h("ol", null, days.map((e) => h("li", { key: e.date, "data-date": e.date },
+              h("div", { className: "dd-room-history-day" }, h("b", null, e.date === day.date ? t("Today", "امروز") : ie.format(E(e.date))), h("span", null, e.done + "/" + e.total)),
+              h("ul", null, e.tasks.map((task) => h("li", { key: task.id, "data-done": task.done },
+                h("span", { "aria-hidden": true }, task.done ? "✓" : "○"),
+                h("span", { dir: "auto" }, task.name || t("Untitled", "بی‌نام")),
+                task.from !== layout.room && sectionNames.has(task.from) && h("small", { dir: "auto" }, sectionNames.get(task.from))))))))
+          : h("p", null, t("No tasks from this section yet. Drag a note into the Engine, or press E here and add one.", "هنوز کاری از این سکشن نیامده. یک یادداشت را به انجین بکش، یا همین‌جا E بزن و کار اضافه کن.")),
+        entries.length > 7 && h("button", {
+            type: "button", className: "dd-room-history-more", "data-history-more": true,
+            onPointerDown: (e) => e.stopPropagation(),
+            onClick: (e) => { e.stopPropagation(); setHistoryAll((v) => !v); },
+          }, historyAll ? t("Show the last 7 days", "فقط ۷ روز آخر") : t(`Show all ${Math.min(entries.length, 60)} days`, `نمایش همهٔ ${Math.min(entries.length, 60)} روز`)),
+      );
+    }
+    // Beside a section's name: the last 14 days of its tasks, as dots. Opens its board.
+    function sectionStrip(Y) {
+      const entries = sourceHistory.get(Y.lifeId);
+      if (!entries || Y.collapsed) return null;
+      const strip = DDengineStrip(entries, day.date, 14), done = strip.reduce((a, d) => a + d.done, 0), total = strip.reduce((a, d) => a + d.total, 0);
+      if (!total) return null;
+      const label = t(`Last 14 days: ${done} of ${total} tasks from here done`, `۱۴ روز اخیر: ${done} از ${total} کار این سکشن انجام شد`);
+      return _.createElement("button", {
+          type: "button", className: "dd-sec-history", "data-section-history": Y.lifeId, title: label, "aria-label": label,
+          onPointerDown: (e) => { e.stopPropagation(); if (e.button) return; e.preventDefault(); if (!Y.room) enterRoom(Y.lifeId); },
+          onDoubleClick: (e) => e.stopPropagation(),
+          onClick: (e) => { e.stopPropagation(); if (!e.detail && !Y.room) enterRoom(Y.lifeId); },
+        },
+        _.createElement("span", { className: "dd-history-strip" }, strip.map((d) => _.createElement("i", { key: d.date, "data-state": d.state }))),
+        _.createElement("b", null, done + "/" + total));
+    }
     function renderNode(Y) {
       if (Y.section === "engine") return _.createElement("div", {
         key: Y.id, ref: (el) => el ? elementRefs.current.set(Y.id, el) : elementRefs.current.delete(Y.id),
@@ -3811,6 +3887,9 @@ export function DDcreateBoard(deps) {
           onContextMenu: (event) =>
             openContext(event, Y.section ? {} : { ref: Y.id }),
         },
+        Y.lifeSection && sectionStrip(Y),
+        // Where the task came from: the section's name, on the card's corner.
+        Y.kind === "block" && Y.from && sectionNames.has(Y.from) && _.createElement("span", { className: "dd-task-from", dir: "auto", title: t("Came from ", "آمده از ") + sectionNames.get(Y.from), "data-from": Y.from }, "↖ " + sectionNames.get(Y.from)),
         quickColor === Y.id && _.createElement("div",{className:"dd-native-colors",onPointerDown:(e)=>e.stopPropagation()},
           core.stickyColors.map((color)=>_.createElement("button",{type:"button",key:color,style:{background:color},"aria-label":t("Use color ","انتخاب رنگ ")+color,onClick:(e)=>{e.stopPropagation();commit((d)=>core.setStyle(d,[Y],{fill:color}));setQuickColor(null);}},""))),
         Pt
@@ -5836,6 +5915,7 @@ export function DDcreateBoard(deps) {
             "aria-hidden": true,
           }),
           layout.nodes.map(renderNode),
+          roomHistory(),
           _.createElement("div", { className: "dd-ghost-note", ref: ghostNote, "aria-hidden": true, style: { display: "none" } }),
           _.createElement("div", {
             className: "b4-marquee",
@@ -6253,11 +6333,13 @@ export function DDcreateBoard(deps) {
           days: allDays,
           dateFormat: (date) => ie.format(E(date)),
           makeId: C,
+          sources: DDengineSources(DDlifeItems(setup)),
           measure,
           setDone: DDsetTaskDone,
           onChange: (change) => commit((d) => change(d), t("Engine updated", "انجین به‌روز شد")),
           onAdd: (name, lane) => {
-            const task = DDengineTask(name, lane, { ...setup, preferences: { ...setup.preferences, defaultMinutes: prefs.defaultMinutes } }, C());
+            // Made inside a section's board, the task comes from that section.
+            const task = DDengineTask(name, lane, { ...setup, preferences: { ...setup.preferences, defaultMinutes: prefs.defaultMinutes } }, C(), layout.room || "");
             commit((d) => { d.blocks.push(task); return d; }, t("Added to the Engine", "به انجین اضافه شد"));
           },
           onReveal: (blockId) => {
