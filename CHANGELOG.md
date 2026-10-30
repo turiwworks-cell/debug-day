@@ -1,3 +1,11 @@
+## 5.18.0 — 2026-10-30
+Branch: claude/project-thread-xu3qj6
+- Every Life section opens as its own board: the ↗ button on its name, the ↗ in the selection toolbar, or ↗ in the Sections list. The board shows only that section and what is inside it, with today's Engine beside it (under it on a phone).
+- A path at the top shows where you are (Main board › section › inner section). Tap any step to go there; ← or Esc (with nothing selected) goes back one level. Each board keeps its own camera, and a reload keeps you where you were.
+- Same data, nothing copied: edits inside a section show on the main board and every day. A note or section made inside stays in that section, and a note dragged past its edge stays in it too. Drag a note into the Engine to make it today's task, or press E.
+- Inside a section's board, day notes and the Habits section stay on the main board. A section deleted elsewhere closes its board.
+- Add unit tests for the section path and keep-inside rule, and en/fa desktop/phone browser tests for section boards.
+
 ## 5.17.0 — 2026-10-30
 Branch: claude/project-thread-xu3qj6
 - The Engine has its own section on the mindmap Board: a dashed orange area around today's tree, apart from Life. It grows with today's tasks, and its name pill has an "Open · E" button that brings the Engine over the board.

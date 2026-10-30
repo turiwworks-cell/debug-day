@@ -12,6 +12,7 @@ export const DDboardShortcuts = [
   ["Shift+click", "Add / remove from selection", "افزودن / کاستن از انتخاب"],
   ["Ctrl/Cmd+A", "Select all unlocked objects", "انتخاب همهٔ اشیای باز"],
   ["Esc", "Cancel gesture / clear selection", "لغو حرکت / پاک‌کردن انتخاب"],
+  ["↗ / Esc", "Open a section as its own board / step back out", "ورود به برد سکشن / برگشت یک سطح"],
   ["Enter", "Edit selected object", "ویرایش شیء منتخب"], ["Ctrl/Cmd+Enter", "Create adjacent note", "ایجاد نوت مجاور"],
   ["Ctrl/Cmd+D", "Duplicate", "تکثیر"], ["Ctrl/Cmd+C / X / V", "Copy / cut / paste", "کپی / برش / چسباندن"],
   ["Ctrl/Cmd+Z", "Undo", "بازگشت"], ["Ctrl/Cmd+Shift+Z / Ctrl+Y", "Redo", "انجام مجدد"],

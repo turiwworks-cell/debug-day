@@ -11,6 +11,8 @@ import {
   DDlifeBounds,
   DDlifeColor,
   DDlifeContrast,
+  DDlifePath,
+  DDlifeKeepIn,
 } from "../public/life-board.js";
 
 test("every day starts with the same planning content", () => {
@@ -134,4 +136,41 @@ test("sections moved together never drop into each other", () => {
   // Alone, "a" moved over "b" joins it; moved together with "b" it stays top level.
   assert.equal(DDlifeMoveBy(items, "a", 350, 50).find((i) => i.id === "a").parent, "b");
   assert.equal(DDlifeMoveBy(items, "a", 350, 50, ["b"]).find((i) => i.id === "a").parent, "");
+});
+
+const room = [
+  { id: "top", type: "section", parent: "", x: 100, y: 100, w: 900, h: 700 },
+  { id: "inner", type: "section", parent: "top", x: 20, y: 40, w: 400, h: 300 },
+  { id: "note", type: "sticky", parent: "inner", x: 10, y: 50, w: 200, h: 150 },
+  { id: "away", type: "sticky", parent: "", x: 2000, y: 2000, w: 200, h: 150 },
+];
+
+test("a section's path runs from the top section down to it", () => {
+  assert.deepEqual(DDlifePath(room, "note").map((i) => i.id), ["top", "inner", "note"]);
+  assert.deepEqual(DDlifePath(room, "top").map((i) => i.id), ["top"]);
+  assert.deepEqual(DDlifePath(room, "missing"), []);
+});
+
+test("inside a section's board, things made or moved there stay in it", () => {
+  // The note was dragged out of "inner" onto empty canvas (it lost its parent).
+  const moved = room.map((i) => (i.id === "note" ? { ...i, parent: "", x: 1300, y: 900 } : i));
+  const made = { id: "new", type: "sticky", parent: "", x: 50, y: 60, w: 100, h: 100 };
+  const kept = DDlifeKeepIn([...moved, made], "inner", room);
+  const at = (id) => kept.find((i) => i.id === id);
+  assert.equal(at("note").parent, "inner");
+  assert.deepEqual(DDlifeAbs(kept, "note"), { x: 1300, y: 900 }, "it stays where it was dropped");
+  assert.equal(at("new").parent, "inner");
+  assert.deepEqual(DDlifeAbs(kept, "new"), { x: 50, y: 60 });
+  assert.equal(at("away").parent, "", "things that were never inside are left alone");
+  assert.equal(at("top").parent, "", "the sections around it are left alone");
+  assert.equal(DDlifeKeepIn(room, "inner", room), room, "nothing to do, same list");
+  assert.equal(DDlifeKeepIn(room, "gone", room), room);
+});
+
+test("a branch that drifts out comes back whole", () => {
+  const before = [...room, { id: "kid", type: "section", parent: "inner", x: 0, y: 0, w: 100, h: 100 }, { id: "deep", type: "sticky", parent: "kid", x: 5, y: 5, w: 50, h: 50 }];
+  const after = before.map((i) => (i.id === "kid" ? { ...i, parent: "", x: 3000, y: 10 } : i));
+  const kept = DDlifeKeepIn(after, "inner", before);
+  assert.equal(kept.find((i) => i.id === "kid").parent, "inner");
+  assert.equal(kept.find((i) => i.id === "deep").parent, "kid", "what is inside it comes along");
 });
