@@ -183,6 +183,7 @@ export function DDcreateBoard(deps) {
       setup: setup,
       onSelectBlock: onSelectBlock,
       onUpdateDay: onUpdateDay,
+      onUpdateSetup: onUpdateSetup,
       onToast: onToast,
     }),
       (editingRef.current = editing),
@@ -251,6 +252,14 @@ export function DDcreateBoard(deps) {
         ot = Y ? G.past : G.future,
         St = ct.pop();
       if (!St) return;
+      if (St.life) {
+        const current = copy(life.DDlifeItems(propsRef.current.setup));
+        ot.push({ life: current, bytes: JSON.stringify(current).length });
+        propsRef.current.setup = { ...propsRef.current.setup, life: { v: 1, items: copy(St.life) } };
+        propsRef.current.onUpdateSetup?.((s) => ({ ...s, life: { v: 1, items: copy(St.life) } }));
+        setTick((n) => n + 1);
+        return;
+      }
       const Tt = copy(dayRef.current);
       (ot.push({ day: Tt, bytes: JSON.stringify(Tt).length }),
         (dayRef.current = copy(St.day)),
@@ -358,7 +367,14 @@ export function DDcreateBoard(deps) {
     };
     // The Life section is the same on every day: it is kept in setup, not in the day.
     function lifeChange(change) {
-      onUpdateSetup?.((s) => ({ ...s, life: { v: 1, items: change(life.DDlifeItems(s)) } }));
+      const before = life.DDlifeItems(propsRef.current.setup), next = change(before);
+      if (JSON.stringify(before) === JSON.stringify(next)) return;
+      const stack = history.current;
+      stack.past.push({ life: copy(before), bytes: JSON.stringify(before).length });
+      stack.future = [];
+      while (stack.past.length > 50) stack.past.shift();
+      propsRef.current.setup = { ...propsRef.current.setup, life: { v: 1, items: next } };
+      propsRef.current.onUpdateSetup?.((s) => ({ ...s, life: { v: 1, items: next } }));
     }
     function lifeFrame(Y, ct, top, left) {
       if (ddNodeMatches) return top;
@@ -999,7 +1015,7 @@ export function DDcreateBoard(deps) {
             n.color = style.fill;
             n.textColor = core.contrast(style.fill);
           }
-          if (n.kind === "sticky") n.textColor = core.contrast(n.color);
+          if (n.kind === "sticky" || n.kind === "frame") n.textColor = core.contrast(n.color);
           if (style.textColor) n.textColor = style.textColor;
           if (n.noteId && !n.memberOf) {
             n.w = style.width ?? n.w;
@@ -1225,6 +1241,8 @@ export function DDcreateBoard(deps) {
         return (addLifeSection(toWorld(Y.clientX, Y.clientY)), setTool("select"));
       if (space.current || (tool === "hand" && !ddMove) || Y.button === 1)
         return startPan(Y);
+      // Empty section space is for navigating; only its title bar moves it.
+      if (G.kind === "frame" && Y.target === Y.currentTarget) return startPan(Y);
       const ddConnect = tool === "connector" && !ddMove && !Y.shiftKey;
       if (ddMove) {
         setConnecting(null);
@@ -1536,6 +1554,7 @@ export function DDcreateBoard(deps) {
         paintWires());
     }
     function cancelGesture() {
+      root.current?.querySelector(".dd-life")?.dispatchEvent(new Event("dd-life-cancel"));
       pendingContext.current = null;
       (moveRAF.current && cancelAnimationFrame(moveRAF.current),
         (moveRAF.current = 0),
@@ -3620,6 +3639,11 @@ export function DDcreateBoard(deps) {
             language: DDlanguage,
             onChange: lifeChange,
             makeId: C,
+            canDrag: () => !space.current && tool === "select",
+            onBoardPointerDown: (e) => {
+              if (tool === "section" || tool === "hand" || space.current) nodeDown(e, Y);
+              else e.stopPropagation();
+            },
           }),
         !ct &&
           ["left", "right", "top", "bottom"].map((Kt) =>
@@ -4161,6 +4185,7 @@ export function DDcreateBoard(deps) {
             : `color-mix(in srgb, var(--panel) ${opacity * 100}%, transparent)`;
         temporary(el, {
           ...(patch.fill ? { "--node-color": patch.fill } : {}),
+          ...(patch.fill && n.kind === "frame" ? { "--node-text": core.contrast(patch.fill) } : {}),
           "--object-opacity": String(opacity),
           background: bg,
         });
@@ -5070,6 +5095,8 @@ export function DDcreateBoard(deps) {
           "data-mode": mode,
           "data-grid": grid,
           onPointerDownCapture: downCapture,
+          onPointerUpCapture: (e) => touches.current.delete(e.pointerId),
+          onPointerCancelCapture: (e) => touches.current.delete(e.pointerId),
           onPointerDown: backgroundDown,
           onPointerMove: pointerMove,
           onPointerUp: pointerUp,

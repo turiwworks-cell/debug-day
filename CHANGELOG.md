@@ -1,3 +1,12 @@
+## 5.10.1 — 2026-10-30
+Branch: codex/section-life-fixes
+- Give Life sections soft family colors and separate, readable title tabs; choose colors directly from a palette.
+- Render saved section frame colors and preserve the Life frame's position, appearance and connections after reload and sync.
+- Move sections and their contents smoothly with one preview per animation frame; keep the final pointer position and cancel safely on Escape, pointer cancellation and lost focus.
+- Stop overlapping sections from nesting accidentally or growing neighbours; keep contents visible when resizing and let empty frame space pan the board.
+- Include shared Life changes in board Undo/Redo and keep repeated touch drags separate from pinch gestures.
+- Add regression checks for section movement, color persistence, cancellation, resizing and bilingual controls.
+
 ## 5.10.0 — 2026-10-29
 Branch: claude/project-thread-7xg0gy
 - New Life section on every day's board (Mind map and Lanes): the planning board's sections and sticky notes, copied as they are. It is kept in settings, so a change on one day shows on all days.
