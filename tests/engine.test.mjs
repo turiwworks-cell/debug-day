@@ -302,7 +302,8 @@ test("an Engine row shows where the task came from and can change it", () => {
   const row = rowNode.type({ ...rowNode.props, React: { ...R, ...hooks } });
   const picker = find(row, (n) => n.props.className === "dd-engine-from")[0];
   assert.equal(picker.props.value, "ink");
-  assert.deepEqual(find(picker, (n) => n.type === "option").map((o) => o.children.join("")), ["↖ Main board", "↖ Creative life", "↖ · Ink", "↖ · Sketches", "↖ Home"]);
+  assert.deepEqual(find(picker, (n) => n.type === "option").map((o) => o.children.join("")), ["↖ Main board", "↖ Creative life", "↖ Creative life › Ink", "↖ Creative life › Sketches", "↖ Home"], "every option shows the whole path");
+  assert.equal(picker.props.style.background, DDengineSources(life).find((s) => s.id === "ink").tint.fill, "the picker wears its root's tint");
   const day = { blocks: [{ id: "a", from: "ink" }, { id: "b", from: "ink" }] };
   picker.props.onChange({ target: { value: "sketch" } });
   assert.deepEqual(changed(day).blocks.map((b) => b.from), ["sketch", "ink"], "only this task changes");

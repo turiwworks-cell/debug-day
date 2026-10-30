@@ -1,4 +1,4 @@
-import { DDlifeItems, DDlifeRemoveTree, DDlifeHistory, DDlifeState } from "./life-board.js";
+import { DDlifeItems, DDlifeRemoveTree, DDlifeHistory, DDlifeState, DDSectionChip } from "./life-board.js";
 // Readable, additive search and command palette. React is supplied by the app.
 export function DDsearchDigits(value = "") {
   return String(value).replace(/[۰-۹٠-٩]/g, (c) =>
@@ -192,6 +192,7 @@ export function DDbuildSearchIndex(data, today) {
         itemId: block.id,
         kind: "block",
         title: block.name || "Untitled",
+        ...(block.from ? { from: block.from } : {}),
         done: !!block.done,
         note: block.note,
         extra: DDsubText(block.subtasks),
@@ -1132,6 +1133,7 @@ export function DDCommandPalette(props) {
           { className: "dd-result-body" },
           h("strong", { dir: "auto" }, row.title),
           row.detail && h("small", { dir: "auto" }, row.detail),
+          row.from && h(DDSectionChip, { React: R, items: DDlifeItems(data.setup), id: row.from, language, className: "dd-search-from" }),
         ),
         h(
           "span",

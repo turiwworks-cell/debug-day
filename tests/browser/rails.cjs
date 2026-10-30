@@ -63,7 +63,7 @@ const { start, fixture } = require("./harness.cjs");
       await page.locator(".dd-note-editor textarea").press("Control+Enter");
 
       // Nested board: main → Art → Sketches, and both day and shared connections.
-      await page.locator('[aria-label="Section navigator"],[aria-label="فهرست سکشن‌ها"]').click();
+      await page.locator('[data-drawer-button]').click();await page.locator('[data-drawer-list]').click();
       await page.locator('.dd-life-nav [data-enter-section="b"]').click();
       await page.locator(".dd-room-bar").waitFor(); await open("goal");
       assert.deepEqual(await panel("goal").locator("[data-rail-group]").evaluateAll((els) => els.map((e) => e.dataset.railGroup)), ["sticky:note", "life:root", "life:big", "life:small"]);

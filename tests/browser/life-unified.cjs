@@ -64,7 +64,7 @@ const {start,fixture}=require("./harness.cjs");
    assert.equal(await n.count(),0,"collapsed contents are hidden");
    await bar.getByRole("button",{name:t("Expand section","باز کردن سکشن"),exact:true}).click();
    assert.equal(await n.count(),1);
-   await page.getByRole("button",{name:t("Section navigator","فهرست سکشن‌ها"),exact:true}).click();
+   await page.locator("[data-drawer-button]").click();await page.locator("[data-drawer-list]").click();
    await page.locator(".dd-life-nav").getByRole("button",{name:/Work & play/}).click();
    assert.equal(await page.locator('[data-life-id="b"]').getAttribute("aria-selected"),"true");
    await page.getByRole("button",{name:t("Exit full screen","بستن تمام‌صفحه"),exact:true}).click();
