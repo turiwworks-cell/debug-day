@@ -1,3 +1,4 @@
+import { DDlifeItems, DDlifeRemove, DDlifeHistory, DDlifeState } from "./life-board.js";
 // Readable, additive search and command palette. React is supplied by the app.
 export function DDsearchDigits(value = "") {
   return String(value).replace(/[۰-۹٠-٩]/g, (c) =>
@@ -311,6 +312,7 @@ export function DDbuildSearchIndex(data, today) {
       extra: DDsubText(block.subtasks),
       group: "notes",
     });
+  for (const it of DDlifeItems(setup)) add({ id:"life:"+it.id,kind:"life",itemId:it.id,title:it.text || "Section",detail:"Life · زندگی",category:"life",group:"life",extra:it.type });
   return index;
 }
 export function DDmatchSearch(row, query) {
@@ -449,6 +451,12 @@ export function DDcleanBoard(day, refs) {
 }
 // Always resolve a result against the latest snapshot before applying an action.
 export function DDeditSearchResult(snapshot, row, action, value, ensureDay) {
+  if (row.kind === "life") {
+    const data=structuredClone(snapshot), before=DDlifeItems(data.setup);
+    const items=action==="delete" ? DDlifeRemove(before,row.itemId) : action==="rename" || action==="text" ? before.map((i)=>i.id===row.itemId?{...i,text:String(value).slice(0,4000)}:i) : before;
+    if (items===before) return snapshot;
+    data.setup.life={...data.setup.life,v:2,items}; return data;
+  }
   if (
     action === "move" &&
     (value === row.date || DDsearchDate(value, row.date) !== value)
@@ -733,10 +741,11 @@ export function DDCommandPalette(props) {
     other: t("Other days", "روزهای دیگر"),
     feelings: t("Feelings & issues", "احساسات و مسائل"),
     notes: t("Notes & ideas", "یادداشت‌ها و ایده‌ها"),
+    life: t("Life · shared across days", "زندگی · مشترک بین روزها"),
   };
   const order =
     raw.trim() && !query.commandsOnly
-      ? ["panels", "today", "other", "feelings", "notes", "actions", "goto"]
+      ? ["panels", "today", "other", "feelings", "notes", "life", "actions", "goto"]
       : Object.keys(labels).filter((id) => raw.trim() || id !== "panels");
   // On the first page, a row shown in Panels, Recent or Pinned is not listed again.
   const shown = new Set(
@@ -809,7 +818,11 @@ export function DDCommandPalette(props) {
   }
   function change(row, action, value) {
     setData((previous) =>
-      DDeditSearchResult(previous, row, action, value, ensureDay),
+      {
+        const next=DDeditSearchResult(previous,row,action,value,ensureDay);
+        if(row.kind==="life"&&next!==previous){const state=DDlifeState(previous.setup);DDlifeHistory.past.push({day:null,life:state,bytes:JSON.stringify(state).length});DDlifeHistory.past=DDlifeHistory.past.slice(-50);DDlifeHistory.future=[];}
+        return next;
+      },
     );
     setMenu(null);
     setEdit(null);
@@ -856,7 +869,7 @@ export function DDCommandPalette(props) {
           : t("Mark done", "انجام شد"),
         run: () => change(row, "done"),
       });
-    if (["block", "subtask", "note", "later"].includes(row.kind))
+    if (["block", "subtask", "note", "later", "life"].includes(row.kind))
       list.push({
         key: "move",
         label: t("Move to tomorrow", "انتقال به فردا"),

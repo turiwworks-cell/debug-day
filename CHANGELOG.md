@@ -1,3 +1,14 @@
+## 5.11.0 — 2026-10-30
+Branch: codex/unified-life-workspace
+- Use the native Board engine for Life sections and notes: clear blue selection, keyboard selection/delete/nudge, multi-selection, clipboard, duplication, resizing and connectors.
+- Keep Life Undo/Redo history across day and view changes. Transfer notes between a day and Life atomically, preserving text, size and connections.
+- Store Life area geometry once in shared setup. Its outer frame cannot be selected or dragged; it has a resize handle.
+- Add collapsible sections, a section navigator with direct jumps, and a stable compact-layout action that preserves content and hierarchy.
+- Show editable Life sections and notes in Plan and index them once in global search, opening their native board objects.
+- Add the quick color circle to every board note, larger mobile note controls, single-tap editing and the requested pink gradient cursor.
+- Add get_life, add_life_item, update_life_item and delete_life_item MCP tools with read/write access checks, validated input and revision protection.
+- Add unit and browser regressions for shared geometry, compaction, clipboard, cross-day undo, note transfer, connections, search, mobile gestures and MCP writes.
+
 ## 5.10.1 — 2026-10-30
 Branch: codex/section-life-fixes
 - Give Life sections soft family colors and separate, readable title tabs; choose colors directly from a palette.
