@@ -1,3 +1,15 @@
+## 5.15.0 — 2026-10-30
+Branch: claude/figjam-section-titles
+- Section names sit in a pill inside the section's top-left corner, as in FigJam. Zoomed out the pill keeps one readable on-screen size; zoomed in it grows with the board.
+- Drag anywhere on a section's empty area to move it with everything inside, not only by its name. Shift-drag still draws a selection box inside a section, and on touch the body still pans.
+- The selection toolbar no longer reserves room above a section for its name.
+- Select several items (for example several sections with Shift-click) and drag any of them to move all together; sections moved together no longer drop into each other.
+- A selected note's "+" is also its connector start: click adds the next note, drag draws a connector. The circles behind the note's edges are gone while "+" shows. A selected note draws above its neighbours so its "+" is never covered.
+- Board uses the normal system cursor instead of the custom arrow.
+- Double-clicking empty board no longer creates a note; use the sticky tool (S) or "+".
+- Ctrl+Space search opens on top of the full-screen Board.
+- Extend the en/fa browser regressions with body dragging, the name size at different zooms, "+" connectors, group moves, no double-click notes and full-screen search.
+
 ## 5.14.0 — 2026-10-30
 Branch: claude/figjam-notes-connectors
 - Sections: no connection circles around them (they hid the resize handles); a click on a section's empty area selects it; titles stay readable at every zoom.

@@ -77,7 +77,7 @@ Ctrl/Cmd+F searches the board's tasks, nested steps and Life notes, even inside 
 
 Fit all (Shift+1) includes Life. Shift+3 or the canvas menu fits only the current day's objects; opening a new layout uses that closer day view.
 
-Press `?` for the bilingual keyboard guide. New bindings include V/H/S/Shift+S for select/hand/note/section, X or Shift+L for bent connectors, L for straight connectors, Ctrl/Cmd+Enter for an adjacent note, Ctrl/Cmd+Shift+L for lock, Alt+A/D/W/S and Alt+H/V for alignment, Ctrl/Cmd+Alt+L/T/R for text alignment, and Ctrl/Cmd+Shift+F for full-screen Board. Object shortcuts yield to text fields. With Select, drag empty section space to select objects; with Hand or Space, drag to pan. New notes are 240×240; saved notes keep their dimensions.
+Press `?` for the bilingual keyboard guide. New bindings include V/H/S/Shift+S for select/hand/note/section, X or Shift+L for bent connectors, L for straight connectors, Ctrl/Cmd+Enter for an adjacent note, Ctrl/Cmd+Shift+L for lock, Alt+A/D/W/S and Alt+H/V for alignment, Ctrl/Cmd+Alt+L/T/R for text alignment, and Ctrl/Cmd+Shift+F for full-screen Board. Object shortcuts yield to text fields. With Select, drag a Life section's empty space to move it, or Shift-drag there to select objects; with Hand or Space, drag to pan. New notes are 240×240; saved notes keep their dimensions.
 
 ## Validation
 
@@ -91,7 +91,7 @@ Life notes use the native board tools: select, multi-select, copy/paste, resize,
 
 Use **Sections** to jump to a section or **Compact layout** to remove empty space without discarding content. Select a section and use its toolbar arrow to collapse its contents. Life is editable in Plan and searchable across the app.
 
-Sections behave like FigJam (5.13): drawing or growing a section around notes or other sections takes them in, and moving it carries everything nested. Delete removes a section with its contents (one Undo restores it); Ctrl/Cmd+Shift+G removes only the frame and keeps what was inside. Duplicate places the copy one gap to the right.
+Sections behave like FigJam (5.13): drawing or growing a section around notes or other sections takes them in, and moving it carries everything nested. Delete removes a section with its contents (one Undo restores it); Ctrl/Cmd+Shift+G removes only the frame and keeps what was inside. Duplicate places the copy one gap to the right. Since 5.15 the name sits in a pill inside the top-left corner that keeps a readable size when zoomed out and grows when zoomed in, and dragging a section's empty area moves it. Several selected items drag together; a selected note's "+" adds a note on click and draws a connector on drag. Double-click no longer adds notes, and Ctrl+Space search works in full-screen Board.
 
 Sticky notes and connectors follow FigJam (5.14): the sticky tool previews the note and offers colors above the dock, you type straight onto the note, the "+" beside a selected note adds the next one, side edges change only width while corners scale the note with its text, and dragging a connector into empty space creates a connected note. A selected line has its own toolbar for color, weight, text, dashes, line type and arrows. The dock no longer has connector or feeling tools; press X or L for connectors.
 

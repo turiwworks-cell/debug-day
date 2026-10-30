@@ -54,7 +54,7 @@ const {join}=require('node:path');
     assert.deepEqual((await read()).setup.life,before.setup.life,'Escape cancels a drag');
     // A real port gesture connects Life notes using native wires, stored in shared setup.
     await note.focus();
-    const from=await note.locator('.b4-port.right').boundingBox();const to=await page.locator('[data-life-id="m"] .b4-port.left').boundingBox();
+    const from=await note.locator('[data-add-near="right"]').boundingBox();const to=await page.locator('[data-life-id="m"] .b4-port.left').boundingBox();
     await page.mouse.move(from.x+from.width/2,from.y+from.height/2);await page.mouse.down();await page.mouse.move(to.x+to.width/2,to.y+to.height/2,{steps:12});await page.mouse.up();
     state=await read();assert.equal(state.setup.life.links.length,1,'Life-to-Life connections are shared');
     // Dragging out moves the same text, size and its wire into the day.

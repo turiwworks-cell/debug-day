@@ -10,16 +10,10 @@ const { start, fixture } = require("./harness.cjs");
     await page.waitForSelector("#qa", { state: "attached" });
     await page.locator(".views button").nth(1).click();
     const viewport = page.locator(".b2-viewport");
-    const cursor = await viewport.evaluate((el) => getComputedStyle(el).cursor);
-    assert.match(cursor, /url\("?data:image\/svg\+xml/, "select mode uses the supplied cursor on the actual viewport");
+    // The board uses the normal system arrow, not a custom picture.
+    assert.equal(await viewport.evaluate((el) => getComputedStyle(el).cursor), "default", "select mode uses the system cursor");
     for (const selector of ['[data-board-id="sticky:note"]', '[data-board-id="sticky:note"] .dd-note-preview', '[data-life-type="sticky"]'])
-      assert.match(await page.locator(selector).first().evaluate((el) => getComputedStyle(el).cursor), /url\("?data:image\/svg\+xml/, selector);
-    const size = await viewport.evaluate(async (el) => {
-      const src = /url\(["']?([^"')]+)["']?\)/.exec(getComputedStyle(el).cursor)[1];
-      const img = new Image(); img.src = src; await img.decode();
-      return [img.naturalWidth, img.naturalHeight];
-    });
-    assert.deepEqual(size, [32, 32], "the cursor image actually loads");
+      assert.doesNotMatch(await page.locator(selector).first().evaluate((el) => getComputedStyle(el).cursor), /data:image/, selector);
     await page.getByRole("button", { name: "Hand tool", exact: true }).click();
     assert.doesNotMatch(await viewport.evaluate((el) => getComputedStyle(el).cursor), /data:image/);
     await page.getByRole("button", { name: "Section navigator", exact: true }).click();
@@ -48,6 +42,6 @@ const { start, fixture } = require("./harness.cjs");
       assert.ok(contrast.every((ratio) => ratio >= 4.5), `${theme}: navigator title and every section label must be readable`);
     }
     assert.deepEqual(errors, []);
-    console.log("Cursor and navigator: cursor decoding, hand mode, light/dark text contrast passed");
+    console.log("Cursor and navigator: system cursor, hand mode, light/dark text contrast passed");
   } finally { await h.stop(); }
 })().catch((error) => { console.error(error); process.exit(1); });

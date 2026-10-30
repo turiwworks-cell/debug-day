@@ -122,17 +122,20 @@ const { start, fixture } = require("./harness.cjs");
         );
         await seed();
         await note().locator(".dd-note-preview").click();
-        await note().locator(".b4-port.right").click();
-        assert.equal(
-          await page.locator(".b2-viewport").getAttribute("data-tool"),
-          "select",
-        );
-        assert.equal(await page.locator(".b4-connect-hint").count(), 0);
-        const targetSize = await note().locator(".b4-port.right").boundingBox();
-        assert.ok(
-          targetSize.width >= 43.9 && targetSize.height >= 43.9,
-          JSON.stringify(targetSize),
-        );
+        // On desktop a selected note offers "+" (FigJam); phones keep the large circles.
+        if (mobile) {
+          await note().locator(".b4-port.right").click();
+          assert.equal(
+            await page.locator(".b2-viewport").getAttribute("data-tool"),
+            "select",
+          );
+          assert.equal(await page.locator(".b4-connect-hint").count(), 0);
+          const targetSize = await note().locator(".b4-port.right").boundingBox();
+          assert.ok(
+            targetSize.width >= 43.9 && targetSize.height >= 43.9,
+            JSON.stringify(targetSize),
+          );
+        } else assert.equal(await note().locator('[data-add-near="right"]').count(), 1);
         // The connector tool has no dock button any more (FigJam); use its shortcut.
         await page.locator(".b2-viewport").focus(); await page.keyboard.press("x");
         await note().locator(".dd-note-preview").click();
@@ -144,8 +147,9 @@ const { start, fixture } = require("./harness.cjs");
           .getByRole("button", { name: label("Undo"), exact: true })
           .click();
         await note().locator(".dd-note-preview").click();
+        // Desktop drags the "+" of the selected note; phones keep the circle.
         await drag(
-          note().locator(".b4-port.right"),
+          note().locator('.b4-port.right:visible, [data-add-near="right"]:visible').first(),
           page.locator('[data-board-id="sticky:note2"] .dd-note-preview'),
         );
         assert.equal((await read()).canvas.board4.links.length, 1);

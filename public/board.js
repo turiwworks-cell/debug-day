@@ -192,7 +192,6 @@ export function DDcreateBoard(deps) {
       api = useRef(null),
       editingRef = useRef(null),
       lastTap = useRef(null),
-      lastNodeTap = useRef(0),
       mounted = useRef(!0),
       lastNudge = useRef(0),
       noteSession = useRef(null);
@@ -1207,11 +1206,7 @@ export function DDcreateBoard(deps) {
       // The top row and its actions (Undo, Search…) can wrap on phones; stay below both.
       const vr = view.getBoundingClientRect(), tops = [...host.querySelectorAll(".b2-top,.b2-top-actions")].map((e) => e.getBoundingClientRect()).filter((r) => r.height && r.top < vr.top + vr.height / 2);
       const br = tops.length ? { bottom: Math.max(...tops.map((r) => r.bottom)) } : null;
-      // A section's title tab sits above it; keep the toolbar clear of the title.
-      const tab = elementRefs.current.get(nodes.find((n) => n.lifeSection)?.id)?.querySelector(":scope>.b4-node-body");
-      const head = ((tab?.getBoundingClientRect().height || 26) + 10) / cam.current.z;
-      const framed = nodes.map((n) => (n.lifeSection ? { ...n, y: n.y - head, h: n.h + head } : n));
-      const position = DDselectionToolbar(core.bounds(framed), cam.current, {w:view.clientWidth,h:view.clientHeight}, {w:bar.offsetWidth,h:bar.offsetHeight}, Math.max(64,(br?.bottom || vr.top+64)-vr.top+10),view.clientWidth<700?134:84);
+      const position = DDselectionToolbar(core.bounds(nodes), cam.current, {w:view.clientWidth,h:view.clientHeight}, {w:bar.offsetWidth,h:bar.offsetHeight}, Math.max(64,(br?.bottom || vr.top+64)-vr.top+10),view.clientWidth<700?134:84);
       const panel=host.querySelector(".b6-properties,.dd-card-details"), pr=panel?.getBoundingClientRect();
       if(pr && position.x+bar.offsetWidth>pr.left-vr.left && position.x<pr.right-vr.left && position.y+bar.offsetHeight>pr.top-vr.top && position.y<pr.bottom-vr.top) {
         if(pr.left-vr.left-bar.offsetWidth-12>=8)position.x=pr.left-vr.left-bar.offsetWidth-12;
@@ -1343,7 +1338,6 @@ export function DDcreateBoard(deps) {
         (Y.target.closest("button") && !ddMove)
       )
         return;
-      lastNodeTap.current = Date.now();
       Y.preventDefault();
       Y.stopPropagation();
       finishEdit();
@@ -1351,8 +1345,9 @@ export function DDcreateBoard(deps) {
       if (tool === "section") return backgroundDown(Y, true);
       if (space.current || (tool === "hand" && !ddMove) || Y.button === 1)
         return startPan(Y);
-      // Select tool draws a marquee inside containers. Titles still move them.
-      if ((G.kind === "frame" || G.lifeSection) && Y.target === Y.currentTarget) return backgroundDown(Y, true);
+      // Select tool draws a marquee inside day frames. A Life section moves from
+      // anywhere on its body, as in FigJam; on touch the body still pans.
+      if ((G.kind === "frame" || (G.lifeSection && (Y.pointerType === "touch" || Y.shiftKey))) && Y.target === Y.currentTarget) return backgroundDown(Y, true);
       const ddConnect = tool === "connector" && !ddMove && !Y.shiftKey;
       if (ddMove) {
         setConnecting(null);
@@ -1460,7 +1455,7 @@ export function DDcreateBoard(deps) {
         viewport.current.setPointerCapture(Y.pointerId),
         viewport.current.focus({ preventScroll: !0 }));
     }
-    function portDown(Y, G, ct) {
+    function portDown(Y, G, ct, plus = false) {
       if (Y.button !== 0) return;
       (Y.preventDefault(),
         Y.stopPropagation(),
@@ -1475,6 +1470,7 @@ export function DDcreateBoard(deps) {
           start: portPoint(G, ct),
           pointerId: Y.pointerId,
           moved: !1,
+          plus,
         }),
         viewport.current.setPointerCapture(Y.pointerId));
     }
@@ -1833,6 +1829,8 @@ export function DDcreateBoard(deps) {
             habitRefs = new Set(toHabits.map((n) => n.id));
           commit((Tt) => {
             const frame = layout.map.get("section:life");
+            // Items moved together keep their places relative to each other.
+            const movingLife = ct.refs.map((r) => layout.map.get(r)?.lifeId).filter(Boolean);
             for (const ref of ct.refs) {
               const node = layout.map.get(ref), pos = ot[ref];
               if (!node || !pos) continue;
@@ -1848,7 +1846,7 @@ export function DDcreateBoard(deps) {
                   Tt.canvas.board4.styles ||= {}; Tt.canvas.board4.styles["sticky:" + id] = { width: old.w, height: old.h, ...old.style };
                   Tt.__life.items = Tt.__life.items.filter((i) => i.id !== old.id);
                   transferRef(Tt,ref,"sticky:"+id);
-                } else Tt.__life.items = DDlifeMoveBy(Tt.__life.items,node.lifeId,pos.x-node.x,pos.y-node.y);
+                } else Tt.__life.items = DDlifeMoveBy(Tt.__life.items,node.lifeId,pos.x-node.x,pos.y-node.y,movingLife);
                 delete ot[ref];
               } else if (frame && node.noteId && node.kind === "sticky" && !ct.frame) {
                 const target = DDlifeParentAt(Tt.__life.items, pos.x - frame.x + node.w/2, pos.y - frame.y - DDlifeHead + node.h/2);
@@ -2032,7 +2030,9 @@ export function DDcreateBoard(deps) {
             target = nodeAt(point, ct.from),
             from = layout.map.get(ct.from);
           hideGhost();
-          if (target && ct.moved)
+          // FigJam's "+": a click adds the next note, a drag draws a connector.
+          if (ct.plus && !ct.moved) { if (from) addNear(from, ct.port); }
+          else if (target && ct.moved)
             addLink(ct.from, target.id, {
               fromPort: ct.port,
               toPort: nearestPort(target, point),
@@ -3629,7 +3629,8 @@ export function DDcreateBoard(deps) {
                   : core.rgba(Y.color, Y.opacity)
                 : `color-mix(in srgb, var(--panel) ${Y.opacity * 100}%, transparent)`,
             color: yn || Tt || Pt ? Y.textColor : "var(--pi)",
-            zIndex: Y.lifeId ? Y.stack : St ? 1 : Y.stack,
+            // A selected note sits above its neighbours so its "+" stays reachable.
+            zIndex: Tt && G && !Y.lifeSection ? 900 : Y.lifeId ? Y.stack : St ? 1 : Y.stack,
           },
           onPointerDown: (Kt) => nodeDown(Kt, Y),
           onDoubleClick: (Kt) => {
@@ -3984,10 +3985,11 @@ export function DDcreateBoard(deps) {
               "data-add-near": side,
               "aria-label": t("Add note ", "افزودن یادداشت ") + { left: t("left", "چپ"), right: t("right", "راست"), top: t("above", "بالا"), bottom: t("below", "پایین") }[side],
               title: t("Add a note here", "افزودن یادداشت اینجا"),
-              onPointerDown: (e) => e.stopPropagation(),
+              onPointerDown: (e) => portDown(e, Y, side, true),
               onPointerEnter: () => showGhost(nearRect(Y, side), Y.color),
               onPointerLeave: hideGhost,
-              onClick: (e) => { e.stopPropagation(); addNear(Y, side); },
+              // Pointer clicks are handled when the gesture ends; this keeps the keyboard.
+              onClick: (e) => { e.stopPropagation(); if (!e.detail) addNear(Y, side); },
             }, "+"),
           ),
         // Sections show resize handles only; their connection points hid them.
@@ -5445,12 +5447,6 @@ export function DDcreateBoard(deps) {
           onLostPointerCapture: (Y) => {
             gesture.current?.pointerId === Y.pointerId &&
               api.current.cancelGesture();
-          },
-          onDoubleClick: (Y) => {
-            Date.now() - lastNodeTap.current > 600 &&
-              !Y.target.closest("[data-board-id],[data-wire-id]") &&
-              tool === "select" &&
-              addSticky(toWorld(Y.clientX, Y.clientY));
           },
         },
         _.createElement(
