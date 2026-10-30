@@ -9,6 +9,7 @@ const { start, fixture } = require("./harness.cjs");
         t = (en, fa) => language === "fa" ? fa : en;
       page.setDefaultTimeout(7000);
       f.data.setup.preferences = { ...f.data.setup.preferences, language, boardRailGoal: false, boardRailNote: false, boardRailHabits: false };
+      if (mobile) Object.assign(f.data.setup.preferences, { boardRailGoal: true, boardRailNote: true, boardRailHabits: true });
       f.data.setup.habits = [{ id: "draw", name: "Drawing", color: "#E2683C" }];
       f.data.days[f.date].notes[0].role = "goal";
       f.data.days[f.date].notes.push({ id: "scratch", kind: "sticky", text: "Remember to wander", color: "#9DD6FF", x: 430, y: 80 });
@@ -31,6 +32,12 @@ const { start, fixture } = require("./harness.cjs");
         close = async (name) => { if (await toggle(name).getAttribute("aria-expanded") === "true") await toggle(name).click(); };
       await page.locator(".views button").nth(1).click();
       await key("Control+Shift+F"); await page.locator(".b2.focus-mode").waitFor();
+      if (mobile) {
+        // Preferences synced from a desktop may have several open rails. A
+        // phone still shows one; closing it must not open another behind it.
+        await toggle("goal").click();
+        for (const name of ["goal", "note", "habits"]) assert.equal(await toggle(name).getAttribute("aria-expanded"), "false");
+      }
       await key("g"); await panel("goal").waitFor();
       assert.deepEqual(await panel("goal").locator("[data-rail-group]").evaluateAll((els) => els.map((e) => e.dataset.railGroup)), ["sticky:note", "life:root"]);
       await panel("goal").locator('[data-rail-ref="b:writing"]').click();

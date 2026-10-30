@@ -1377,7 +1377,7 @@ export function DDcreateBoard(deps) {
     function toggleRail(key, mobile = matchMedia("(max-width:700px)").matches) {
       onUpdateSetup?.((s) => {
         const open = DDrailPreferences(s.preferences, mobile), next = !open[key], patch = {};
-        for (const k of ["goal", "note", "habits"]) if (k === key || (mobile && next)) patch["boardRail" + k[0].toUpperCase() + k.slice(1)] = k === key ? next : false;
+        for (const k of ["goal", "note", "habits"]) if (k === key || mobile) patch["boardRail" + k[0].toUpperCase() + k.slice(1)] = k === key ? next : false;
         return { ...s, preferences: { ...s.preferences, ...patch } };
       });
     }
