@@ -4,7 +4,7 @@ Branch: claude/figjam-section-titles
 - Drag anywhere on a section's empty area to move it with everything inside, not only by its name. Shift-drag still draws a selection box inside a section, and on touch the body still pans.
 - The selection toolbar no longer reserves room above a section for its name.
 - Select several items (for example several sections with Shift-click) and drag any of them to move all together; sections moved together no longer drop into each other.
-- A selected note's "+" is also its connector start: click adds the next note, drag draws a connector. The circles behind the note's edges are gone while "+" shows.
+- A selected note's "+" is also its connector start: click adds the next note, drag draws a connector. The circles behind the note's edges are gone while "+" shows. A selected note draws above its neighbours so its "+" is never covered.
 - Board uses the normal system cursor instead of the custom arrow.
 - Double-clicking empty board no longer creates a note; use the sticky tool (S) or "+".
 - Ctrl+Space search opens on top of the full-screen Board.

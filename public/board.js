@@ -3629,7 +3629,8 @@ export function DDcreateBoard(deps) {
                   : core.rgba(Y.color, Y.opacity)
                 : `color-mix(in srgb, var(--panel) ${Y.opacity * 100}%, transparent)`,
             color: yn || Tt || Pt ? Y.textColor : "var(--pi)",
-            zIndex: Y.lifeId ? Y.stack : St ? 1 : Y.stack,
+            // A selected note sits above its neighbours so its "+" stays reachable.
+            zIndex: Tt && G && !Y.lifeSection ? 900 : Y.lifeId ? Y.stack : St ? 1 : Y.stack,
           },
           onPointerDown: (Kt) => nodeDown(Kt, Y),
           onDoubleClick: (Kt) => {
