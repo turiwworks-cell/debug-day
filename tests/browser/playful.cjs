@@ -122,7 +122,7 @@ async function scenario(h,mobile,language){
     await page.locator(".b2-viewport").scrollIntoViewIfNeeded();
 
     // The modal keeps Board shortcuts away from the canvas and restores focus.
-    await page.locator(".b2-viewport").focus();await page.keyboard.press("e");await dialog().waitFor();
+    await page.locator(".b2-viewport").focus();await page.keyboard.press("Shift+E");await dialog().waitFor();
     const beforeEscape=JSON.stringify(await read(page,f.date));await page.keyboard.press("Escape");
     assert.equal(JSON.stringify(await read(page,f.date)),beforeEscape);
     await page.getByRole("button",{name:t("Stickers & emoji","استیکر و ایموجی"),exact:true}).click();

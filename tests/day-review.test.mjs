@@ -295,7 +295,7 @@ test("corrupt or partial local drafts recover as usable fields without losing va
   );
 });
 
-test("Calendar holds Day, Feelings and Stats as sections of one panel", () => {
+test("Calendar holds Day and Stats as sections of one panel; Feelings is gone", () => {
   const R = { createElement: (type, props, ...children) => ({ type, props: props || {}, children: children.flat() }) },
     find = (node, match, out = []) => {
       if (node && typeof node === "object") {
@@ -310,8 +310,8 @@ test("Calendar holds Day, Feelings and Stats as sections of one panel", () => {
     tabs = (root) => find(root, (node) => node.props.role === "tab");
 
   const day = render({});
-  assert.deepEqual(tabs(day).map((tab) => tab.children.at(-1)), ["Day", "Feelings", "Stats"]);
-  assert.deepEqual(tabs(day).map((tab) => tab.props["aria-selected"]), [true, false, false]);
+  assert.deepEqual(tabs(day).map((tab) => tab.children.at(-1)), ["Day", "Stats"]);
+  assert.deepEqual(tabs(day).map((tab) => tab.props["aria-selected"]), [true, false]);
   assert.equal(day.props["data-panel"], "calendar");
 
   const stats = render({ section: "stats", stats: "CHARTS" });
@@ -319,13 +319,13 @@ test("Calendar holds Day, Feelings and Stats as sections of one panel", () => {
   assert.equal(stats.props["data-section"], "stats");
   assert.equal(stats.props.className, "dd-review-root", "the root never takes a section's own class");
   assert.deepEqual(find(stats, (node) => node.props.className === "dd-review-stats")[0].children, ["CHARTS"]);
-  tabs(stats)[1].props.onClick();
-  assert.deepEqual(picked, ["feelings"]);
+  tabs(stats)[0].props.onClick();
+  assert.deepEqual(picked, ["day"]);
 
   // a section hidden in Settings has no tab; one section left needs no tabs at all
   assert.deepEqual(tabs(render({ sections: ["day", "stats"] })).map((tab) => tab.props["data-panel"]), ["calendar", "stats"]);
   assert.equal(tabs(render({ sections: ["day"] })).length, 0);
-  const fa = DDCalendarView({ React: R, language: "fa", onSection() {}, section: "feelings" });
+  const fa = DDCalendarView({ React: R, language: "fa", onSection() {}, section: "stats" });
   assert.equal(fa.props.dir, "rtl");
-  assert.deepEqual(tabs(fa).map((tab) => tab.children.at(-1)), ["روز", "احساسات", "آمار"]);
+  assert.deepEqual(tabs(fa).map((tab) => tab.children.at(-1)), ["روز", "آمار"]);
 });

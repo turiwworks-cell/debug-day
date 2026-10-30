@@ -741,13 +741,12 @@ export function DDCommandPalette(props) {
     goto: t("Go to / Isolate", "رفتن به / ایزوله"),
     today: t("Today's tasks", "کارهای امروز"),
     other: t("Other days", "روزهای دیگر"),
-    feelings: t("Feelings & issues", "احساسات و مسائل"),
     notes: t("Notes & ideas", "یادداشت‌ها و ایده‌ها"),
     life: t("Life · shared across days", "زندگی · مشترک بین روزها"),
   };
   const order =
     raw.trim() && !query.commandsOnly
-      ? ["panels", "today", "other", "feelings", "notes", "life", "actions", "goto"]
+      ? ["panels", "today", "other", "notes", "life", "actions", "goto"]
       : Object.keys(labels).filter((id) => raw.trim() || id !== "panels");
   // On the first page, a row shown in Panels, Recent or Pinned is not listed again.
   const shown = new Set(

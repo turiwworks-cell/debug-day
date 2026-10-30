@@ -1,6 +1,7 @@
 import { DDcompletion, DDTaskMetadata, DDTaskTags, DDpriorityLabel, DDprogressLabel } from "./planner.js";
 import { DDreconcileDay, DDrelation, DDconnectRelation, DDdisconnectRelation, DDrewireRelation } from "./relations.js";
 import { DDconnectionGeometry } from "./connections.js";
+import { DDEngineOverlay, DDengineBus, DDengineTask, DDinstallEngineStyles } from "./engine.js";
 import { DDboardShortcuts, DDboardSearchRows, DDrootSelection, DDmarqueeSelection, DDselectionToolbar, DDBoardSearch, DDBoardTimer, DDBoardTimerButton, DDinstallBoardExperience } from "./board-experience.js";
 import {
   DDinstallLifeStyles,
@@ -39,6 +40,7 @@ export function DDcreateBoard(deps) {
   let sharedClipboard = null;
   life.DDinstallLifeStyles();
   DDinstallBoardExperience();
+  DDinstallEngineStyles();
   let stepTextContext;
   return function BoardWorkspace({
     day: day,
@@ -137,6 +139,8 @@ export function DDcreateBoard(deps) {
       [viewPanel, setViewPanel] = useState(false),
       [properties, setProperties] = useState(false),
       [lifeNav, setLifeNav] = useState(false),
+      // The Engine brought over the board (E, the toolbar or Ctrl+Space).
+      [engine, setEngine] = useState(() => DDengineBus.take()),
       [quickColor, setQuickColor] = useState(null),
       [stickerPicker, setStickerPicker] = useState(null),
       [details, setDetails] = useState(
@@ -448,7 +452,8 @@ export function DDcreateBoard(deps) {
         bugVisible = (n) =>
           !ddNodeMatches || ddNodeMatches.has("bug:" + day.date + ":" + n.id),
         linked = new Set(model.links.flatMap((l) => [l.from, l.to])),
-        freeBugs = (day.bugs || []).filter(
+        // Feelings were removed from the app (5.16); old entries stay in the data.
+        freeBugs = [].filter(
           (bug) =>
             bugVisible(bug) &&
             !attachedBugs.has(bug.id) &&
@@ -460,7 +465,7 @@ export function DDcreateBoard(deps) {
             ? saved
             : null;
       freeBugs.forEach((bug) => attachedBugs.add(bug.id));
-      if (freeBugs.length || !ddNodeMatches)
+      if (freeBugs.length)
         top =
           framePlace(
             Y,
@@ -595,7 +600,7 @@ export function DDcreateBoard(deps) {
           notesFor.set(owner, [...(notesFor.get(owner) || []), note]);
         }
       const feelingsFor = (block) =>
-        (day.bugs || []).filter(
+        [].filter(
           (bug) =>
             !bug.fixed &&
             bugVisible(bug) &&
@@ -866,7 +871,7 @@ export function DDcreateBoard(deps) {
           Pt({
             id: "day:root",
             kind: "day",
-            title: ie.format(E(day.date)),
+            title: t("Engine", "انجین") + " · " + ie.format(E(day.date)),
             subtitle:
               day.focus ||
               DDUI(
@@ -931,7 +936,7 @@ export function DDcreateBoard(deps) {
               Fn.expanded !== !1 && Fn.subtasks?.length
                 ? On(Fn.subtasks, Xa, Fn, 1, Dl.color)
                 : (Jt += 82);
-              for (const ba of (day.bugs || []).filter(
+              for (const ba of [].filter(
                 (n) =>
                   !ddNodeMatches ||
                   ddNodeMatches.has("bug:" + day.date + ":" + n.id),
@@ -3095,7 +3100,7 @@ export function DDcreateBoard(deps) {
             if(ot.target.closest("button") && ["Enter"," "].includes(ot.key) && !ot.ctrlKey && !ot.metaKey)return;
             if (
               ot.target.closest(
-                "input,textarea,select,[contenteditable=true],.b6-context,.b6-properties,.b6-camera,.b6-view-panel,.dd-sticker-dialog,.dd-board-timer,.dd-board-search,.b4-help-backdrop",
+                "input,textarea,select,[contenteditable=true],.b6-context,.b6-properties,.b6-camera,.b6-view-panel,.dd-sticker-dialog,.dd-board-timer,.dd-board-search,.b4-help-backdrop,.dd-engine-backdrop",
               ) ||
               (ot.target.closest("[role=dialog]") &&
                 !root.current?.contains(ot.target))
@@ -3129,6 +3134,12 @@ export function DDcreateBoard(deps) {
             }
             if (St && K === "y") {
               (ot.preventDefault(), ot.stopImmediatePropagation(), undo(!0));
+              return;
+            }
+            if (ot.key === "Escape" && engine) {
+              ot.preventDefault();
+              ot.stopImmediatePropagation();
+              setEngine(false);
               return;
             }
             if (ot.key === "Escape") {
@@ -3296,7 +3307,8 @@ export function DDcreateBoard(deps) {
             else if (Tt === "b") setTool("block");
             else if (Tt === "s" && ot.shiftKey) setTool("section");
             else if (Tt === "s") setTool("sticky");
-            else if (Tt === "e") { finishEdit(); setStickerPicker({}); }
+            else if (Tt === "e" && ot.shiftKey) { finishEdit(); setStickerPicker({}); }
+            else if (Tt === "e") { finishEdit(); cancelGesture(); setMenu(null); setEngine((v) => !v); }
             else if (Tt === "f") (ot.preventDefault(), fit(ot.shiftKey));
             else if (Tt === "0") (ot.preventDefault(), setZoom(1));
             else if (Tt === "+" || Tt === "=")
@@ -3336,7 +3348,7 @@ export function DDcreateBoard(deps) {
         mode,
         selectedNode,
         wireSelection,
-        menu, focus, search, help,
+        menu, focus, search, help, engine,
       ]),
       useEffect(() => {
         if (!DDreadBoardView(day.date, day.canvas?.board4).camera) {
@@ -4199,7 +4211,7 @@ export function DDcreateBoard(deps) {
         ]
           .map((id) => (day.notes || []).find((n) => n.id === id))
           .filter(Boolean),
-        feelings = (day.bugs || []).filter(
+        feelings = [].filter(
           (bug) =>
             bug.blockId === block.id ||
             (!bug.blockId &&
@@ -5030,13 +5042,6 @@ export function DDcreateBoard(deps) {
         item("add-task", "Add task here", "افزودن کار اینجا", "task", () =>
           addBlock(null, menu.point),
         ),
-        item(
-          "add-feeling",
-          "Add feeling here",
-          "افزودن احساس اینجا",
-          "feeling",
-          () => ddAddFeeling(menu.point),
-        ),
         sep("paste-sep"),
         item(
           "paste",
@@ -5124,6 +5129,8 @@ export function DDcreateBoard(deps) {
       ];
     }
 
+    // Ctrl+Space can ask for the Engine while this board is already open.
+    useEffect(() => DDengineBus.on(() => DDengineBus.take() && setEngine(true)), []);
     const selectedNodes = [...selected]
         .map((Y) => layout.map.get(Y))
         .filter(Boolean),
@@ -5267,6 +5274,7 @@ export function DDcreateBoard(deps) {
             DDUI(focus ? "Exit full screen" : "Full screen"),
           ),
           toolButton("Board help", "?", () => setHelp((Y) => !Y)),
+          toolButton(t("Go to the Engine (E brings it over the board)", "رفتن به انجین (E آن را روی برد می‌آورد)"),"settings",()=>{finishEdit();setEngine(false);fit(false,"day");},{"data-engine-jump":true},t("Engine","انجین")),
           toolButton(t("Go to Life section", "رفتن به بخش زندگی"),"fitAll",()=>{const first=DDlifeItems(setup).find((i)=>i.type==="section"&&!i.parent);if(first)jumpLife(first.id);else addLifeItem("section");},{"data-life-jump":true},t("Life","زندگی")),
           toolButton(t("Section navigator","فهرست سکشن‌ها"),"list",()=>setLifeNav((v)=>!v),{"aria-expanded":lifeNav},t("Sections","سکشن‌ها")),
         ),
@@ -6056,7 +6064,29 @@ export function DDcreateBoard(deps) {
             ),
           ),
         ),
+      engine &&
+        _.createElement(DDEngineOverlay, {
+          React: _,
+          day,
+          setup,
+          language: DDlanguage,
+          dateLabel: ie.format(E(day.date)),
+          measure,
+          setDone: DDsetTaskDone,
+          onChange: (change) => commit((d) => change(d), t("Engine updated", "انجین به‌روز شد")),
+          onAdd: (name, lane) => {
+            const task = DDengineTask(name, lane, { ...setup, preferences: { ...setup.preferences, defaultMinutes: prefs.defaultMinutes } }, C());
+            commit((d) => { d.blocks.push(task); return d; }, t("Added to the Engine", "به انجین اضافه شد"));
+          },
+          onReveal: (blockId) => {
+            setEngine(false);
+            revealBoardResult({ id: "b:" + blockId, blockId, kind: "block" });
+          },
+          onClose: () => {
+            setEngine(false);
+            viewport.current?.focus({ preventScroll: true });
+          },
+        }),
     );
   };
 }
-

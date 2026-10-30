@@ -12,7 +12,8 @@ A personal daily planner with a time-scaled board, mind maps, Persian/English UI
 - `public/measure.js` — how a card is measured: by time, by times (a tally) or as waiting.
 - `public/habits.js` — habits: a daily tick plus minutes, four color levels, stats, and their Plan, Board and Settings panels.
 - `public/life-board.js` — the shared Life section: sections and sticky notes kept in `setup.life`, shown on every day's board.
-- `public/panels.js` — the list of panels (Plan, Board, Habits, Feelings, Calendar, App changes), each with one color and icon, used by the tabs, headings, app map and Ctrl+Space.
+- `public/panels.js` — the list of panels (Engine, Plan, Board, Habits, Calendar, App changes), each with one color and icon, used by the tabs, headings, app map and Ctrl+Space.
+- `public/engine.js` — the Engine: today's tasks by lane, brought over the Board with E or from Ctrl+Space. It edits `day.blocks` directly.
 - Download HTML embeds these modules and the planner snapshot into one offline file.
 - `src/worker.js` — Cloudflare Worker for private sync and MCP.
 - `src/oauth.js` — OAuth code + PKCE, consent, rotating refresh tokens, and scoped access.
@@ -84,6 +85,10 @@ Press `?` for the bilingual keyboard guide. New bindings include V/H/S/Shift+S f
 Run all regression tests with Node.js 24: `node --test tests/*.test.mjs`.
 Run the browser regressions with `npx playwright install chromium` followed by `npm run test:browser`. They use a disposable local SQLite planner and cover note movement versus connections, autosave before reload, keyboard deletion scope and undo, consistent completion, fixed-size touch targets, camera stability, and resuming a closed day. The same command also covers Persian and Gregorian date selection, per-day feeling drafts and edits, empty-day logging, recurring reminder occurrences, task moves, and a fresh offline HTML export. Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` only when using an existing Chromium binary.
 Before a frontend merge, check Chromium at 1440×900 and 390×844 with touch, in both UI languages. Confirm no document overflow or console errors, camera/mode persistence without sync writes, the ten-call MCP planning workflow, search actions, new-day reload, capture/worry/Later persistence, pause decisions, and downloaded HTML in a fresh offline context. A physical iPhone/Safari check is still separate from emulation.
+
+### Engine (5.16)
+
+The Engine is today's tasks, each in exactly one lane (`block.lane`). Press E anywhere on the Board, use the toolbar's Engine button, or pick Engine (the first row) in Ctrl+Space. The board stays behind it, dimmed. Tick, score or mark a task waiting, rename it, move it to another lane, add tasks per lane, or jump to a task on the board; E or Esc closes it. Tasks have three kinds: tick (default, optional minutes), score out of 10 (`measure: "score"`, `score`), and waiting. Older counted cards still work. Stickers moved to Shift+E. Feelings were removed from the interface; saved feelings stay in the data.
 
 ### Shared Life workspace (5.11)
 

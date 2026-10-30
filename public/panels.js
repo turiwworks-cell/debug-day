@@ -2,6 +2,15 @@
 // Headings, the app map, the view tabs and Ctrl+Space all read from this list.
 export const DDpanelList = [
   {
+    id: "engine",
+    icon: "⚙️",
+    color: "#F05A28",
+    name: ["Engine", "انجین"],
+    about: ["Bring today's Engine over the board: tick, score and add tasks", "انجین امروز را روی برد بیاور: تیک، نمره و افزودن کار"],
+    words: "engine today tasks tick score quick انجین موتور امروز تیک نمره",
+    isolate: false,
+  },
+  {
     id: "plan",
     icon: "📋",
     color: "#3F8CFF",
@@ -29,21 +38,11 @@ export const DDpanelList = [
     isolate: true,
   },
   {
-    id: "feelings",
-    icon: "💭",
-    color: "#D9434A",
-    name: ["Feelings", "احساسات"],
-    about: ["Mood, feelings and earlier days", "حال، احساسات و روزهای قبل"],
-    words: "feeling mood bugs issues worry احساس حال مسئله نگرانی",
-    isolate: false,
-    partOf: "calendar",
-  },
-  {
     id: "calendar",
     icon: "📅",
     color: "#1E9BB3",
     name: ["Calendar", "تقویم"],
-    about: ["Days, feelings and stats in one place", "روزها، احساسات و آمار در یک جا"],
+    about: ["Days, reminders and stats in one place", "روزها، یادآورها و آمار در یک جا"],
     words: "calendar days month reminders تقویم روز ماه یادآور",
     isolate: false,
   },
@@ -90,12 +89,10 @@ export function DDpanelCounts(day = {}, setup = {}, language) {
     blocks = day.blocks || [],
     habits = setup.habits || [],
     ticked = habits.filter((habit) => day.habits?.[habit.id]?.done).length,
-    open = (day.bugs || []).filter((bug) => !bug.fixed).length,
     notes = (setup.feedbacks || []).filter((item) => !item.done).length;
   return {
     plan: fa ? num(blocks.length) + " کارت" : blocks.length + (blocks.length === 1 ? " card" : " cards"),
     habits: habits.length ? (fa ? num(ticked) + " از " + num(habits.length) + " امروز" : ticked + " of " + habits.length + " today") : null,
-    feelings: open ? (fa ? num(open) + " باز" : open + " open") : null,
     lab: notes ? (fa ? num(notes) + " باز" : notes + " open") : null,
   };
 }
@@ -121,8 +118,8 @@ export function DDPanelIcon({ React: R, id }) {
   return panel ? R.createElement("span", { className: "dd-panel-icon", "data-panel": id, "aria-hidden": true }, panel.icon) : null;
 }
 
-// The app map: one card per panel, open or isolate it. Feelings and Stats
-// live inside the Calendar panel, so they share its card.
+// The app map: one card per panel, open or isolate it. Stats lives inside
+// the Calendar panel, so it shares its card.
 export function DDPanelMap({ React: R, language, counts = {}, onPick }) {
   const fa = language === "fa",
     t = (en, f) => (fa ? f : en);
@@ -138,8 +135,7 @@ export function DDPanelMap({ React: R, language, counts = {}, onPick }) {
           { className: "dd-panel-map-head" },
           R.createElement("span", { className: "dd-panel-icon", "aria-hidden": true }, panel.icon),
           R.createElement("b", null, panel.name[fa ? 1 : 0]),
-          (counts[panel.id] || (panel.id === "calendar" && counts.feelings)) &&
-            R.createElement("small", null, counts[panel.id] || "💭 " + counts.feelings),
+          counts[panel.id] && R.createElement("small", null, counts[panel.id]),
         ),
         R.createElement("span", { className: "dd-panel-map-about" }, panel.about[fa ? 1 : 0]),
         R.createElement(

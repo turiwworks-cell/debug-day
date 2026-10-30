@@ -17,7 +17,8 @@ test('a panel named like the query comes before one that only mentions it',()=>{
   const rows=DDpanelCommands('en',()=>{}).map(row=>({...row,kind:'command',searchText:DDsearchText(row.words)}));
   const pick=raw=>{const query=DDparseSearch(raw,today);return DDrankPanels(rows.filter(row=>DDmatchSearch(row,query)),query).map(row=>row.panel.id);};
   assert.deepEqual(pick('>stats'),['stats','calendar']);
-  assert.deepEqual(pick('feelings'),['feelings','calendar']);
+  assert.deepEqual(pick('feelings'),['calendar']);
+  assert.equal(pick('انجین')[0],'engine');
   assert.equal(pick('آمار')[0],'stats');
   assert.deepEqual(pick('>'),rows.map(row=>row.panel.id),'with nothing typed the order stays');
 });
