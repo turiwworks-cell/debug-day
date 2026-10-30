@@ -1,6 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DDengineBus, DDengineGroups, DDengineTask, DDEngineOverlay } from "../public/engine.js";
+import {
+  DDengineBus,
+  DDengineGroups,
+  DDengineTask,
+  DDEngineOverlay,
+  DDengineTaskFromNote,
+  DDengineEarlierDay,
+  DDengineCopy,
+  DDengineHas,
+} from "../public/engine.js";
 import {
   DDmeasures,
   DDmeasureOf,
@@ -139,4 +148,70 @@ test("the overlay is a labelled dialog that closes on E or Escape but not while 
   key("Escape");
   key("e", { closest: () => ({}) });
   assert.equal(closed, 2);
+});
+
+test("a note dropped in the Engine becomes one task: first line is the name, the rest are steps", () => {
+  let n = 0;
+  const makeId = () => "id" + ++n;
+  const task = DDengineTaskFromNote("Find reference films\n- Collect three\n2) Pick one\n\n3 colour tests", "work", {}, makeId);
+  assert.equal(task.name, "Find reference films");
+  assert.equal(task.lane, "work");
+  assert.equal(task.id, "id1");
+  assert.deepEqual(task.subtasks.map((s) => s.text), ["Collect three", "Pick one", "3 colour tests"], "list marks go, numbers in words stay");
+  assert.ok(task.subtasks.every((s) => s.done === false && s.id));
+});
+
+test("the earlier Engine is the latest earlier day with tasks, and can step further back", () => {
+  const days = {
+    "2026-10-20": { blocks: [{ id: "a" }] },
+    "2026-10-25": { blocks: [] },
+    "2026-10-27": { blocks: [{ id: "b" }] },
+    "2026-10-30": { blocks: [{ id: "today" }] },
+    "2026-10-31": { blocks: [{ id: "later" }] },
+  };
+  assert.equal(DDengineEarlierDay(days, "2026-10-30").date, "2026-10-27", "empty days are skipped");
+  assert.equal(DDengineEarlierDay(days, "2026-10-30").more, true);
+  const back = DDengineEarlierDay(days, "2026-10-30", 1);
+  assert.equal(back.date, "2026-10-20");
+  assert.equal(back.more, false);
+  assert.equal(DDengineEarlierDay(days, "2026-10-30", 9).date, "2026-10-20", "stepping stops at the oldest");
+  assert.equal(DDengineEarlierDay(days, "2026-10-20"), null);
+});
+
+test("copying an earlier task gives new ids and a fresh start", () => {
+  let n = 0;
+  const makeId = () => "new" + ++n;
+  const old = {
+    id: "old",
+    name: "Outreach",
+    lane: "work",
+    done: true,
+    measure: "score",
+    score: 8,
+    bx: 10,
+    by: 20,
+    at: "09:00",
+    subtasks: [{ id: "s", text: "Email", done: true, children: [{ id: "c", text: "Draft", done: true, children: [] }] }],
+  };
+  const copy = DDengineCopy(old, makeId);
+  assert.equal(copy.id, "new1");
+  assert.equal(copy.done, false);
+  assert.equal(copy.lane, "work");
+  assert.equal(copy.measure, "score");
+  assert.equal("score" in copy, false);
+  assert.equal("bx" in copy || "by" in copy || "at" in copy, false);
+  assert.equal(copy.subtasks[0].done, false);
+  assert.equal(copy.subtasks[0].children[0].done, false);
+  assert.notEqual(copy.subtasks[0].id, "s");
+  assert.notEqual(copy.subtasks[0].children[0].id, "c");
+  assert.equal(old.done, true, "the earlier day is not touched");
+  assert.equal(old.subtasks[0].id, "s");
+  assert.equal(DDengineCopy({ id: "x", measure: "count", times: 3, count: 2 }, makeId).count, 0);
+});
+
+test("the Engine knows when a task is already in today", () => {
+  const day = { blocks: [{ name: "  Outreach " }] };
+  assert.equal(DDengineHas(day, { name: "outreach" }), true);
+  assert.equal(DDengineHas(day, { name: "Sketch" }), false);
+  assert.equal(DDengineHas({}, { name: "x" }), false);
 });

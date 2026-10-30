@@ -1,7 +1,7 @@
 import { DDcompletion, DDTaskMetadata, DDTaskTags, DDpriorityLabel, DDprogressLabel } from "./planner.js";
 import { DDreconcileDay, DDrelation, DDconnectRelation, DDdisconnectRelation, DDrewireRelation } from "./relations.js";
 import { DDconnectionGeometry } from "./connections.js";
-import { DDEngineOverlay, DDengineBus, DDengineTask, DDinstallEngineStyles } from "./engine.js";
+import { DDEngineOverlay, DDengineBus, DDengineTask, DDengineTaskFromNote, DDinstallEngineStyles } from "./engine.js";
 import { DDboardShortcuts, DDboardSearchRows, DDrootSelection, DDmarqueeSelection, DDselectionToolbar, DDBoardSearch, DDBoardTimer, DDBoardTimerButton, DDinstallBoardExperience } from "./board-experience.js";
 import {
   DDinstallLifeStyles,
@@ -420,6 +420,30 @@ export function DDcreateBoard(deps) {
       const topic = (deps.feelingTopics || []).find(([id]) => id === bug.category);
       return topic ? t(topic[1], topic[2]) : DDUI("Feeling");
     };
+    // The Engine has its own section around today's tree, apart from Life. It
+    // grows and shrinks with what is in it, and a note dropped inside becomes a task.
+    function engineFrame(Y) {
+      const tree = Y.filter((n) => ["day", "lane", "block", "subtask", "bug"].includes(n.kind) && !n.lifeId);
+      if (!tree.length || ddNodeMatches) return;
+      const PAD = 48, HEAD = 24,
+        x = Math.min(...tree.map((n) => n.x)) - PAD,
+        y = Math.min(...tree.map((n) => n.y)) - PAD - HEAD,
+        right = Math.max(...tree.map((n) => n.x + n.w)) + PAD,
+        bottom = Math.max(...tree.map((n) => n.y + n.h)) + PAD;
+      Y.unshift({
+        id: "section:engine",
+        kind: "frame",
+        section: "engine",
+        title: t("Engine", "انجین"),
+        subtitle: ie.format(E(day.date)),
+        color: "#F05A28",
+        textColor: "#fff",
+        x,
+        y,
+        w: Math.max(480, right - x),
+        h: Math.max(240, bottom - y),
+      });
+    }
     // The Life section is the same on every day: it is kept in setup, not in the day.
     function lifeChange(change) {
       commit((d) => { d.__life.items = change(d.__life.items); return d; });
@@ -1022,6 +1046,7 @@ export function DDcreateBoard(deps) {
             (Xn.push(kl), yn("day:root", Oa, "#85827A"), (Jt += 30));
           }
           ct["day:root"] || (Y[0].y = Math.max(60, Jt / 2 - 35));
+          engineFrame(Y);
         } else lanesLayout(Y, ct, ot, St, Pt);
         if (mode === "mindmap")
           lifeFrame(
@@ -1483,10 +1508,11 @@ export function DDcreateBoard(deps) {
       const rect=viewport.current.getBoundingClientRect(), c=cam.current;
       const hit=document.elementFromPoint(rect.left+c.x+Y.x*c.z,rect.top+c.y+Y.y*c.z)?.closest("[data-board-id]");
       const direct=hit&&layout.map.get(hit.dataset.boardId);
-      if(direct&&direct.id!==G&&direct.section!=="life")return direct;
+      if(direct&&direct.id!==G&&direct.section!=="life"&&direct.section!=="engine")return direct;
       const ct = layout.nodes.filter(
         (ot) =>
           ot.section !== "life" &&
+          ot.section !== "engine" &&
           ot.id !== G &&
           Y.x >= ot.x - 10 / cam.current.z &&
           Y.x <= ot.x + ot.w + 10 / cam.current.z &&
@@ -1831,8 +1857,28 @@ export function DDcreateBoard(deps) {
                       !locked.has(n.id) &&
                       within(ot[n.id], n, habitsArea),
                   ),
-            habitRefs = new Set(toHabits.map((n) => n.id));
+            habitRefs = new Set(toHabits.map((n) => n.id)),
+            madeTasks = [];
           commit((Tt) => {
+            // A note dragged into the Engine's section from outside becomes a task
+            // there, in the lane it lands nearest to. The note itself is used up.
+            const engineArea = mode === "mindmap" && !ct.frame && layout.map.get("section:engine");
+            if (engineArea)
+              for (const ref of ct.refs) {
+                const node = layout.map.get(ref), pos = ot[ref];
+                if (!node || !pos || node.kind !== "sticky" || node.memberOf || locked.has(ref) || ct.refs.includes(node.parentId) || within(node, node, engineArea) || !within(pos, node, engineArea)) continue;
+                const center = { x: pos.x + node.w / 2, y: pos.y + node.h / 2 },
+                  dist = (n) => Math.hypot(n.x + n.w / 2 - center.x, n.y + n.h / 2 - center.y),
+                  lane = layout.nodes.filter((n) => n.kind === "lane").sort((a, b) => dist(a) - dist(b))[0],
+                  task = DDengineTaskFromNote(node.title, lane ? lane.laneId || "" : setup.lanes[0]?.id || "", { ...setup, preferences: { ...setup.preferences, defaultMinutes: prefs.defaultMinutes } }, C);
+                if (node.lifeId) {
+                  Tt.__life.items = Tt.__life.items.filter((i) => i.id !== node.lifeId);
+                  Tt.__life.links = (Tt.__life.links || []).filter((l) => l.from !== ref && l.to !== ref);
+                } else Tt.notes = Tt.notes.filter((n) => n.id !== node.noteId);
+                Tt.blocks.push(task);
+                madeTasks.push(task.id);
+                delete ot[ref];
+              }
             const frame = layout.map.get("section:life");
             // Items moved together keep their places relative to each other.
             const movingLife = ct.refs.map((r) => layout.map.get(r)?.lifeId).filter(Boolean);
@@ -1986,7 +2032,8 @@ export function DDcreateBoard(deps) {
               (Tt.canvas = { ...(Tt.canvas || {}), board4: Pt }),
               Tt
             );
-          }, DDUI("\u062C\u0627\u06CC \u0646\u0648\u062F\u0647\u0627 \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F"));
+          }, madeTasks.length ? t("The note is now a task in the Engine", "یادداشت حالا یک کار در انجین است") : DDUI("\u062C\u0627\u06CC \u0646\u0648\u062F\u0647\u0627 \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F"));
+          if (madeTasks.length) (setSelected(new Set(madeTasks.map((id) => "b:" + id))), onSelectBlock?.(madeTasks[0]));
           makeHabits(toHabits);
         } else if (ct.kind === "resize" && ct.moved && ct.min !== ct.startMin)
           commit(
@@ -3554,6 +3601,15 @@ export function DDcreateBoard(deps) {
       );
     }
     function renderNode(Y) {
+      if (Y.section === "engine") return _.createElement("div", {
+        key: Y.id, ref: (el) => el ? elementRefs.current.set(Y.id, el) : elementRefs.current.delete(Y.id),
+        className: "dd-engine-area", "data-board-id": Y.id, "data-node-kind": "engine-area", "data-section": "engine",
+        style: { position: "absolute", left: Y.x, top: Y.y, width: Y.w, height: Y.h },
+        onPointerDown: (e) => { if (!e.target.closest("button")) { e.stopPropagation(); backgroundDown(e, true); } },
+        onContextMenu: (e) => openContext(e, {}),
+      }, _.createElement("div", { className: "dd-engine-area-title" },
+        "⚙ ", Y.title, _.createElement("small", null, Y.subtitle),
+        _.createElement("button", { type: "button", "data-engine-open": true, title: t("Bring the Engine over the board (E)", "آوردن انجین روی برد (E)"), onPointerDown: (e) => { if (e.button) return; e.stopPropagation(); e.preventDefault(); finishEdit(); setEngine(true); }, onClick: () => { finishEdit(); setEngine(true); } }, t("Open · E", "باز کن · E"))));
       if (Y.section === "life") return _.createElement("div", {
         key:Y.id, ref:(el) => el ? elementRefs.current.set(Y.id,el) : elementRefs.current.delete(Y.id),
         className:"dd-life-frame", "data-board-id":Y.id, "data-node-kind":"life-area", "data-section":"life",
@@ -6071,6 +6127,9 @@ export function DDcreateBoard(deps) {
           setup,
           language: DDlanguage,
           dateLabel: ie.format(E(day.date)),
+          days: allDays,
+          dateFormat: (date) => ie.format(E(date)),
+          makeId: C,
           measure,
           setDone: DDsetTaskDone,
           onChange: (change) => commit((d) => change(d), t("Engine updated", "انجین به‌روز شد")),
