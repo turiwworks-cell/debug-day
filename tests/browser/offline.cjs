@@ -10,6 +10,11 @@ const { start, fixture } = require("./harness.cjs");
   try {
     const { page, context, errors } = await h.context(false),
       f = await fixture(page, h.origin);
+    f.data.days[f.date].notes[0].role = "goal";
+    f.data.days[f.date].canvas = { board4: { links: [{ id: "offline-goal", from: "sticky:note", to: "b:writing" }] } };
+    f.data.setup.preferences.boardRailGoal = true;
+    f.data.setup.preferences.boardRailNote = false;
+    f.data.setup.preferences.boardRailHabits = false;
     await page.evaluate(
       (f) => localStorage.setItem("debug-day:v2", JSON.stringify(f.data)),
       f,
@@ -55,6 +60,10 @@ const { start, fixture } = require("./harness.cjs");
     );
     // The Engine works in the standalone file and its tasks survive a reload.
     await p.locator(".views button").nth(1).click();
+    await p.locator(".b2-viewport").focus(); await p.keyboard.press("Control+Shift+F");
+    await p.locator('#dd-rail-goal [data-rail-ref="b:writing"]').waitFor();
+    await p.locator('[data-rail-toggle="goal"]').click();
+    assert.equal(await p.locator("#dd-rail-goal").count(), 0, "rails are bundled and toggle offline");
     await p.locator(".b2-viewport").focus();
     await p.keyboard.press("e");
     const engine = p.getByRole("dialog", { name: "Engine", exact: true });

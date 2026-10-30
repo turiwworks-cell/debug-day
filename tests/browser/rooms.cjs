@@ -37,6 +37,15 @@ const {start,fixture}=require('./harness.cjs');
    assert.equal(await page.locator('[data-board-id="section:habits"]').count(),0);
    // Today's Engine is there too, beside the section.
    const area=page.locator('[data-board-id="section:engine"]');await area.waitFor();
+   // Entering a section schedules its camera fit. Wait for that fit before
+   // saving screen coordinates; the old main-board camera can put them outside
+   // the viewport (and make the later note-creation click hit nothing).
+   await page.waitForFunction((mobile)=>{
+    const el=document.querySelector(mobile?'[data-board-id="life:a"]':'[data-board-id="section:engine"]');
+    if(!el)return false;
+    const r=el.getBoundingClientRect();
+    return r.top>=0&&r.top<innerHeight&&r.right>0&&r.left<innerWidth;
+   },mobile);
    assert.equal(await area.locator('..').locator('[data-board-id="day:root"]').count(),1);
    const ab=await area.boundingBox(),sb=await page.locator('[data-board-id="life:a"]').boundingBox();
    if(mobile)assert.ok(sb.y>ab.y+ab.height-2,'on a phone the section sits under the Engine');

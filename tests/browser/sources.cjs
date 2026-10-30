@@ -60,6 +60,14 @@ const {start,fixture}=require('./harness.cjs');
    assert.equal(await today.locator('li[data-done=false]').count(),1);
    assert.equal(await record.locator(`li[data-date="${f.last}"] li[data-done=true]`).count(),1,'last week\'s done task is there');
    if(!mobile){
+    // The section's camera fit runs after its content is rendered. Keep the
+    // bounds assertion, but let that scheduled fit finish before measuring it.
+    await page.waitForFunction(()=>{
+     const record=document.querySelector('[data-room-history="a"]'),viewport=document.querySelector('.b2-viewport');
+     if(!record||!viewport)return false;
+     const r=record.getBoundingClientRect(),v=viewport.getBoundingClientRect();
+     return r.left>=v.left-1&&r.right<=v.right+1&&r.bottom<=v.bottom+1;
+    });
     const rb=await record.boundingBox(),vb=await page.locator('.b2-viewport').boundingBox();
     assert.ok(rb.x>=vb.x-1&&rb.x+rb.width<=vb.x+vb.width+1&&rb.y+rb.height<=vb.y+vb.height+1,'the record fits on screen');
    }

@@ -7,6 +7,7 @@ A personal daily planner with a time-scaled board, mind maps, Persian/English UI
 - `public/search.js`, `public/capture.js`, `public/life.js` — readable source for universal search, capture/Today, and optional scheduling/pause tools.
 - `public/planner.js`, `public/relations.js`, `public/connections.js` — shared tags and priority progress, canonical task membership, and live nearest-edge routing.
 - `public/board.js`, `public/board-core.js`, `public/board-controls.js` — board gestures, pure object operations, and focused UI controls.
+- `public/rails.js` — optional goal/note views of board connections and today’s shared habit controls.
 - `public/board-experience.js` — board search, keyboard guide, selection helpers, shared wall-clock timer and board presentation.
 - `public/sync.js` — content comparison that ignores JSON object key order.
 - `public/measure.js` — how a card is measured: by time, by times (a tally) or as waiting.
@@ -112,3 +113,13 @@ Sticky notes and connectors follow FigJam (5.14): the sticky tool previews the n
 
 MCP clients can read `get_life` and, with a write key, call `add_life_item`, `update_life_item` or `delete_life_item`. Every write needs the latest `expected_revision`; invalid parents, cycles, dimensions and colors are rejected. Deleting a section preserves its children.
 
+
+## Board side rails (5.20)
+
+Right-click a day or Life sticky note (or select it and use More actions) and choose **Make it the goal** / **هدف کن** or **Make it a note** / **نوت کن**. Choose the same role again to remove it. The left rails show those notes and their directly connected objects; either direction of a connection counts. Click a row to reveal the original object on its board. Goals and notes follow the main board, then each section down to the section you are inside. A note belongs to its nearest section, so nested goals appear once.
+
+The right rail shows **today’s habits**, including while you explore an older day or a section. Its ticks, minutes and levels use the same records and controls as Habits and Plan. Click a habit’s name for its history in that corner.
+
+Use the edge buttons or **G** (goals), **Shift+G** (notes), **Shift+H** (habits). **H** still selects the hand tool; **E** and **Shift+E** keep their Engine and sticker shortcuts. Each toggle syncs through setup preferences and survives reloads and standalone HTML export. Phones start with closed rails and open one overlay at a time below the header and section path, above the bottom tools. Press Escape inside a rail to close it. Rails tuck away while drawing and in the locked Board preview.
+
+Rail regression coverage: `node --test tests/rails.test.mjs` and `node tests/browser/rails.cjs` (both languages at 1440×900 and 390×844).

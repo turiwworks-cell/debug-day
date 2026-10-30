@@ -112,6 +112,7 @@ export function DDnormalizeLife(life) {
       h: limit(r.h, 40, 2e4, section ? 320 : 240),
       text: typeof r.text === "string" ? r.text.slice(0, 4000) : "",
       collapsed: section && !!r.collapsed,
+      ...(!section && ["goal", "note"].includes(r.role) ? { role: r.role } : {}),
       ...(r.style && typeof r.style === "object" ? { style: Object.fromEntries(Object.entries(r.style).filter(([k,v]) => (["textSize","opacity"].includes(k) && Number.isFinite(v)) || (k==="textAlign"&&["start","center","end"].includes(v)) || (k==="textColor"&&typeof v==="string"&&/^#[0-9a-f]{6}$/i.test(v)))) } : {}),
       ...(typeof r.color === "string" && /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(r.color) ? { color: r.color } : {}),
     });
@@ -284,6 +285,7 @@ export function DDlifeAdd(items, spec) {
       w,
       h,
       text: spec.text || "",
+      ...(!section && ["goal", "note"].includes(spec.role) ? { role: spec.role } : {}),
       ...(spec.style ? { style: { ...spec.style } } : {}),
       color: spec.color || (section ? "#A8DAFF" : "#FFE299"),
     };
