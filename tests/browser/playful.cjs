@@ -182,7 +182,6 @@ async function scenario(h,mobile,language){
     assert.equal(await page.evaluate(()=>window.__bursts),1);
     await page.emulateMedia({reducedMotion:"no-preference"});
     await page.locator('[data-review-task="writing"] .dd-review-check').click();
-    await page.locator('.dd-review-sections button[data-panel="feelings"]').click();
     await page.locator('.dd-review-day [data-day-sticker="'+id+'"] [data-symbol="sticker:cloud"]').waitFor();
     await nav(0);
     await page.getByRole("button",{name:t("Search","جستجو"),exact:true}).click();

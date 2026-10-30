@@ -2,11 +2,11 @@
 Branch: claude/project-thread-xu3qj6
 - The Engine: today's tasks, each in one lane, are now called the Engine. Press E anywhere on the Board to bring it over the dimmed board; tick, score, mark waiting, rename, move a task to another lane or add one, then press E or Esc to go back. Same data as Plan and Lanes.
 - An "Engine" button in the Board toolbar jumps to the day's Engine; the day's root node is named Engine.
-- Ctrl+Space lists the Engine first; picking it opens the Board with the Engine on top, from any view.
+- Ctrl+Space lists the Engine first; picking it opens the Board with the Engine on top, from any view. The app map shows an Engine card first, so its number keys move by one (1 Engine, 2 Plan, 3 Board, …).
 - Three task kinds: tick (default, minutes stay optional), score out of 10 (done once scored; tap the same dot to clear) and waiting. Old counted cards keep working but are no longer offered.
 - Stickers move from E to Shift+E.
-- Feelings removed: no Feelings panel, Calendar section, Plan box, Board section or search group. Saved feelings stay in the data.
-- Add unit and en/fa desktop/phone browser tests for the Engine, score kind and Feelings removal.
+- Feelings removed: no Feelings panel, Calendar section, Plan box, Board section, quick-capture option or search group. Saved feelings stay in the data. The day note is still written in Plan.
+- Add unit and en/fa desktop/phone browser tests for the Engine, score kind and Feelings removal; older browser tests no longer expect Feelings.
 
 ## 5.15.0 — 2026-10-30
 Branch: claude/figjam-section-titles
