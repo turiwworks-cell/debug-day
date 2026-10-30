@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const { start, fixture } = require("./harness.cjs");
-// Habits and feelings live in their own Board sections and stay in sync with Plan.
+// Habits live in their own Board section and stay in sync with Plan.
 (async () => {
   const h = await start();
   try {
@@ -48,7 +48,7 @@ const { start, fixture } = require("./harness.cjs");
     const stretch = (await read()).setup.habits.find((x) => x.name === "Stretch");
     assert.ok(stretch);
 
-    // Board: Feelings and Habits sections, no old feelings box underneath.
+    // Board: a Habits section, no feelings box.
     await page.locator(".views button").nth(1).click();
     await page.locator('[data-board-id="section:habits"]').waitFor();
     assert.equal(await page.locator('[data-section-id="bugs"]').count(), 0);
@@ -57,12 +57,8 @@ const { start, fixture } = require("./harness.cjs");
     await page.locator(".dd-habit-details .dd-habit-tick").click();
     assert.deepEqual((await today()).habits[stretch.id], { done: true });
 
-    // Feelings: the panel uses the Plan words; drop on a card links it.
-    const feeling = page.locator('[data-board-id="bug:f2"]');
-    await feeling.locator(".b4-node-body").click();
-    await page.locator(".dd-feeling-details").waitFor();
-    await page.locator(".dd-feeling-topics button", { hasText: "Plans & time" }).click();
-    assert.equal((await today()).bugs.find((b) => b.id === "f2").category, "plan");
+    // Feelings were removed (5.16): no feeling cards on the Board.
+    assert.equal(await page.locator('[data-board-id="bug:f2"]').count(), 0);
     async function drag(from, to) {
       const a = await from.boundingBox(), b = await to.boundingBox();
       await page.mouse.move(a.x + a.width / 2, a.y + 12);
@@ -70,8 +66,6 @@ const { start, fixture } = require("./harness.cjs");
       await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 12 });
       await page.mouse.up();
     }
-    await drag(feeling.locator(".b4-node-body"), page.locator('[data-board-id="b:long"]'));
-    await page.waitForFunction((date) => JSON.parse(localStorage.getItem("debug-day:v2")).days[date].bugs.find((b) => b.id === "f2").blockId === "long", f.date);
 
     // Lanes: drop a card into Habits and it becomes a habit.
     await page.locator(".b4-modes button").nth(1).click();
@@ -106,7 +100,7 @@ const { start, fixture } = require("./harness.cjs");
     assert.equal(after.setup.preferences.habitLevels.good, 10);
 
     assert.deepEqual(errors, []);
-    console.log("Habits and feelings sections passed");
+    console.log("Habits section passed");
     await page.context().close();
   } finally {
     await h.stop();

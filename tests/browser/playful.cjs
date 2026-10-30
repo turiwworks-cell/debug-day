@@ -122,7 +122,7 @@ async function scenario(h,mobile,language){
     await page.locator(".b2-viewport").scrollIntoViewIfNeeded();
 
     // The modal keeps Board shortcuts away from the canvas and restores focus.
-    await page.locator(".b2-viewport").focus();await page.keyboard.press("e");await dialog().waitFor();
+    await page.locator(".b2-viewport").focus();await page.keyboard.press("Shift+E");await dialog().waitFor();
     const beforeEscape=JSON.stringify(await read(page,f.date));await page.keyboard.press("Escape");
     assert.equal(JSON.stringify(await read(page,f.date)),beforeEscape);
     await page.getByRole("button",{name:t("Stickers & emoji","استیکر و ایموجی"),exact:true}).click();
@@ -182,7 +182,6 @@ async function scenario(h,mobile,language){
     assert.equal(await page.evaluate(()=>window.__bursts),1);
     await page.emulateMedia({reducedMotion:"no-preference"});
     await page.locator('[data-review-task="writing"] .dd-review-check').click();
-    await page.locator('.dd-review-sections button[data-panel="feelings"]').click();
     await page.locator('.dd-review-day [data-day-sticker="'+id+'"] [data-symbol="sticker:cloud"]').waitFor();
     await nav(0);
     await page.getByRole("button",{name:t("Search","جستجو"),exact:true}).click();

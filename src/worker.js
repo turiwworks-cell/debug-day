@@ -4,7 +4,7 @@ import { DDlifeState, DDlifeAdd, DDlifeUpdate, DDlifeRemove, DDnormalizeLife } f
 import { oauth, oauthRoute, oauthAccess } from "./oauth.js";
 const MAX_BYTES = 1500000;
 const VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"];
-const INFO = { name: "debug-day", title: "Debug Day", version: "5.15.0" };
+const INFO = { name: "debug-day", title: "Debug Day", version: "5.16.0" };
 class HttpError extends Error {
   constructor(status, message) {
     super(message);
@@ -406,9 +406,9 @@ const WRITE_TOOLS = [
     true,
   ),
 ];
-// Counted and waiting cards ("3 times", "waiting for a reply") take no minutes.
+// Only tick cards take minutes; scored, counted and waiting cards take none.
 const timedMinutes = (block) =>
-  block.measure === "count" || block.measure === "wait" ? 0 : block.min || 0;
+  ["count", "wait", "score"].includes(block.measure) ? 0 : block.min || 0;
 function validateArgs(args, schema) {
   if (!args || typeof args !== "object" || Array.isArray(args))
     throw Error("Arguments must be an object");
@@ -464,6 +464,7 @@ function createDay(setup, date, templateId) {
     delete copy.bx;
     delete copy.by;
     if (copy.measure === "count") copy.count = 0;
+    delete copy.score;
     delete copy.waitSince;
     return copy;
   });

@@ -1,14 +1,29 @@
-// How a card is measured. Not everything is hours: some things are counted
-// ("3 times") and some are just waited for ("reply from the client").
-export const DDmeasures = ["time", "count", "wait"];
+// How a task is measured. Three kinds (5.16): ticked ("time", the default,
+// with optional minutes), scored out of 10, or waited for ("reply from the
+// client"). Older counted cards ("3 times") still work but are no longer offered.
+export const DDmeasures = ["time", "score", "wait"];
+export const DDscoreMax = 10;
 
 export function DDmeasureOf(block) {
-  return block?.measure === "count" || block?.measure === "wait"
+  return ["count", "wait", "score"].includes(block?.measure)
     ? block.measure
     : "time";
 }
 
-// Minutes a card takes from the day. Counted and waiting cards take none.
+// The score a task got, 0 when it has none yet.
+export function DDscoreOf(block) {
+  return Math.max(0, Math.min(DDscoreMax, Math.round(+block?.score || 0)));
+}
+
+// A scored task is done once it has a score; 0 clears it.
+export function DDsetScore(block, score) {
+  const value = Math.max(0, Math.min(DDscoreMax, Math.round(+score || 0)));
+  const next = { ...block, score: value, done: value > 0 };
+  if (!value) delete next.score;
+  return next;
+}
+
+// Minutes a card takes from the day. Scored, counted and waiting cards take none.
 export function DDplanMinutes(block) {
   return DDmeasureOf(block) === "time" ? Number(block?.min) || 0 : 0;
 }
@@ -57,6 +72,11 @@ function DDsince(iso, language) {
 // Short text for a card's size: "45m", "2/3 times" or "Waiting · 2 days".
 export function DDmeasureText(block, language, formatMinutes) {
   const measure = DDmeasureOf(block);
+  if (measure === "score") {
+    const score = DDscoreOf(block);
+    if (!score) return language === "fa" ? "بدون نمره" : "No score yet";
+    return (language === "fa" ? "نمره " : "Score ") + score + "/" + DDscoreMax;
+  }
   if (measure === "count") {
     const { count, times } = DDcountOf(block);
     return count + "/" + times + (language === "fa" ? " بار" : " times");
@@ -75,11 +95,12 @@ export function DDmeasureText(block, language, formatMinutes) {
 }
 
 const DDmeasureLabels = {
-  time: ["Time", "زمان"],
+  time: ["Tick", "تیکی"],
+  score: ["Score", "نمره‌ای"],
   count: ["Times", "دفعه"],
-  wait: ["Waiting", "انتظار"],
+  wait: ["Waiting", "ویتینگ"],
 };
-const DDmeasureIcons = { time: "⏱", count: "×", wait: "⏳" };
+const DDmeasureIcons = { time: "✓", score: "★", count: "×", wait: "⏳" };
 
 // Pick how a card is measured; for counted cards also set how many times.
 export function DDMeasurePicker({ React: R, block, language, onChange }) {
@@ -91,7 +112,7 @@ export function DDMeasurePicker({ React: R, block, language, onChange }) {
     R.createElement(
       "div",
       { className: "dd-measure-seg" },
-      DDmeasures.map((value) =>
+      (measure === "count" ? [...DDmeasures, "count"] : DDmeasures).map((value) =>
         R.createElement(
           "button",
           {
@@ -124,10 +145,31 @@ export function DDMeasurePicker({ React: R, block, language, onChange }) {
   );
 }
 
-// The row control: tally for counted cards, "arrived" for waiting ones.
+// The row control: score dots for scored cards, tally for counted cards,
+// "arrived" for waiting ones.
 export function DDMeasureControl({ React: R, block, language, onChange }) {
   const measure = DDmeasureOf(block),
     fa = language === "fa";
+  if (measure === "score") {
+    const score = DDscoreOf(block);
+    return R.createElement(
+      "div",
+      { className: "step dd-score", role: "group", "aria-label": (fa ? "نمره: " : "Score: ") + block.name },
+      Array.from({ length: DDscoreMax }, (_, i) =>
+        R.createElement("button", {
+          key: i,
+          type: "button",
+          "data-on": i < score,
+          "aria-pressed": i + 1 === score,
+          "aria-label": (fa ? "نمره " : "Score ") + (i + 1),
+          title: String(i + 1),
+          // Tapping the current score again clears it.
+          onClick: () => onChange((b) => DDsetScore(b, DDscoreOf(b) === i + 1 ? 0 : i + 1)),
+        }),
+      ),
+      R.createElement("b", { "aria-live": "polite" }, score ? score + "/" + DDscoreMax : "–"),
+    );
+  }
   if (measure === "count") {
     const { count, times } = DDcountOf(block);
     return R.createElement(

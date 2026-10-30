@@ -627,7 +627,6 @@ export function DDCaptureTools({
                   [
                     ["task", t("Task", "کار")],
                     ["worry", t("Worry", "نگرانی")],
-                    ["feeling", t("Feeling", "احساس")],
                   ].map(([id, label]) =>
                     h(
                       "button",

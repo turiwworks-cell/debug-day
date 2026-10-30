@@ -3,7 +3,7 @@ export const DDboardShortcuts = [
   ["V", "Select", "انتخاب"], ["H / Space+drag", "Pan", "حرکت بوم"],
   ["S", "Sticky note", "یادداشت"], ["Shift+S", "Section", "سکشن"],
   ["X / Shift+L", "Bent connector", "اتصال شکسته"], ["L", "Straight connector", "اتصال مستقیم"],
-  ["C", "Connector (legacy)", "اتصال (میان‌بر قبلی)"], ["B", "Task", "کار"], ["E", "Stickers", "استیکر"],
+  ["C", "Connector (legacy)", "اتصال (میان‌بر قبلی)"], ["B", "Task", "کار"], ["E", "Engine over the board", "انجین روی برد"], ["Shift+E", "Stickers", "استیکر"],
   ["Ctrl/Cmd+F", "Search this board", "جست‌وجوی همین برد"],
   ["Shift+1 / F", "Fit the whole board", "نمای کل برد"], ["Shift+2 / Shift+F", "Zoom to selection", "نمای انتخاب"],
   ["Shift+3", "Fit current day", "نمای روز جاری"],

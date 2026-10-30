@@ -1784,13 +1784,7 @@ function DDReviewDay({
           effectsFor,
           PanelIcon,
         })
-      : h(DDFeelingsBrief, {
-          React: R,
-          day,
-          language,
-          PanelIcon,
-          onOpen: onOpenFeelings,
-        }),
+      : null, // Feelings were removed from the app (5.16); old entries stay in the data.
     feelingsOnly &&
       worries.length > 0 &&
       h(
@@ -1903,7 +1897,6 @@ function DDReviewDay({
 // three sections inside it. The month grid sits beside the day on wide screens.
 export const DDcalendarSections = [
   ["day", "calendar", "Day", "روز"],
-  ["feelings", "feelings", "Feelings", "احساسات"],
   ["stats", "stats", "Stats", "آمار"],
 ];
 export function DDCalendarView(props) {

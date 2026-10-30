@@ -70,7 +70,7 @@ async function scenario(h, mobile, language) {
   const baseline = await read(page);
   const activate = (locator) => (mobile ? locator.tap() : locator.click());
   const nav = (index) => activate(page.locator(".views button").nth(index));
-  // Day, Feelings and Stats are sections of the one Calendar tab.
+  // Day and Stats are sections of the one Calendar tab.
   async function section(id) {
     await nav(2);
     const tab = page.locator(
@@ -126,7 +126,7 @@ async function scenario(h, mobile, language) {
     await page.locator(".dd-review-day").innerText(),
     /Last week outreach/,
   );
-  // Calendar reads the note and feelings; writing them happens in Feelings.
+  // Calendar reads the day note; feelings are no longer shown.
   assert.equal(
     await page.locator("#dd-calendar-day .dd-review-note-text").innerText(),
     "Last week journal",
@@ -137,11 +137,7 @@ async function scenario(h, mobile, language) {
       .count(),
     0,
   );
-  assert.equal(
-    await page.locator('[data-feeling-id="past-feeling"]').count(),
-    1,
-  );
-  assert.equal(await page.locator('[data-feeling-id="feeling"]').count(), 0);
+  assert.equal(await page.locator('[data-feeling-id]').count(), 0);
   await select(empty);
   assert.equal(await page.locator("[data-review-task]").count(), 0);
   assert.deepEqual(
@@ -149,60 +145,19 @@ async function scenario(h, mobile, language) {
     baseline,
     "Browsing dates must be read-only",
   );
+  // Feelings were removed (5.16): no Feelings tab, form or "Write in Feelings" button.
+  assert.equal(await page.locator('.dd-review-sections button[data-panel="feelings"]').count(), 0);
   assert.equal(
     await page
       .getByRole("textbox", { name: t("Feeling text", "متن احساس"), exact: true })
       .count(),
     0,
   );
-  await activate(
-    page.getByRole("button", {
-      name: t("Write in Feelings", "نوشتن در احساسات"),
-      exact: true,
-    }),
-  );
-  await page.waitForSelector("#dd-feelings-day");
   assert.equal(
-    await page.locator(".dd-review-day time").getAttribute("dateTime"),
-    empty,
-    "Feelings opens on the day chosen in Calendar",
+    await page.getByRole("button", { name: t("Write in Feelings", "نوشتن در احساسات"), exact: true }).count(),
+    0,
   );
-  const input = page.getByRole("textbox", {
-    name: t("Feeling text", "متن احساس"),
-    exact: true,
-  });
-  await input.fill("Draft belonging to the empty day");
-  await select(f.date);
-  assert.equal(await input.inputValue(), "");
-  await input.fill("Today draft");
-  await select(empty);
-  assert.equal(await input.inputValue(), "Draft belonging to the empty day");
-  await activate(
-    page.getByRole("button", {
-      name: t("Save feeling", "ثبت احساس"),
-      exact: true,
-    }),
-  );
-  await page.waitForFunction(
-    (date) =>
-      JSON.parse(localStorage.getItem("debug-day:v2")).days[date]?.bugs
-        .length === 1,
-    empty,
-  );
-  let data = await read(page),
-    id = data.days[empty].bugs[0].id;
-  assert.deepEqual(
-    data.days[empty].blocks,
-    [],
-    "Logging a feeling must not insert template tasks",
-  );
-  assert.equal(data.days[f.date].bugs.length, 1);
-  await activate(
-    page.getByRole("button", { name: t("Very good", "خیلی خوب"), exact: true }),
-  );
-  await page
-    .getByRole("textbox", { name: t("Day note", "یادداشت روز"), exact: true })
-    .fill("A note for the selected day");
+  assert.equal(await page.locator('[data-feeling-id]').count(), 0, "saved feelings are not listed");
   // The focus is written in the Plan header, for the same day.
   await nav(0);
   await page.locator("#fFocus").fill("One calm step");
@@ -212,157 +167,8 @@ async function scenario(h, mobile, language) {
       "One calm step",
     empty,
   );
-  await section("feelings");
-  await select(empty);
-  let row = page.locator(`[data-feeling-id="${id}"]`);
-  await activate(
-    row.getByRole("button", {
-      name: t("Close entry", "بستن این مورد"),
-      exact: true,
-    }),
-  );
-  await activate(
-    row.getByRole("button", {
-      name: t("Reopen", "باز کردن دوباره"),
-      exact: true,
-    }),
-  );
-  await activate(
-    row.getByRole("button", { name: t("Edit", "ویرایش"), exact: true }),
-  );
-  await row
-    .getByRole("textbox", { name: t("Feeling text", "متن احساس"), exact: true })
-    .fill("Edited feeling");
-  await select(f.date);
-  await select(empty);
-  await activate(
-    row.getByRole("button", { name: t("Edit", "ویرایش"), exact: true }),
-  );
-  assert.equal(
-    await row
-      .getByRole("textbox", {
-        name: t("Feeling text", "متن احساس"),
-        exact: true,
-      })
-      .inputValue(),
-    "Edited feeling",
-    "Unfinished edits survive switching dates",
-  );
-  await activate(
-    row.getByRole("button", {
-      name: t("Save changes", "ذخیرهٔ تغییرات"),
-      exact: true,
-    }),
-  );
-  await activate(
-    row.getByRole("button", { name: t("Delete", "حذف"), exact: true }),
-  );
-  await activate(
-    row.getByRole("button", { name: t("Cancel", "لغو"), exact: true }),
-  );
-  assert.equal(await row.count(), 1, "Cancel deletion keeps the feeling");
-  await section("feelings");
-  assert.equal(await page.locator(".dd-review-tasks").count(), 0);
-  assert.equal(
-    await page.locator(".statview").count(),
-    0,
-    "Charts live in the Stats section, not under Feelings",
-  );
-  assert.equal(await input.inputValue(), "");
-  await select(f.date);
-  assert.equal(await input.inputValue(), "Today draft");
-  const original = page.locator('[data-feeling-id="feeling"]');
-  assert.match(
-    await original.innerText(),
-    /made starting harder/,
-    "Existing board connections remain readable",
-  );
-  await activate(
-    original.getByRole("button", { name: t("Edit", "ویرایش"), exact: true }),
-  );
-  await original
-    .getByRole("textbox", { name: t("Feeling text", "متن احساس"), exact: true })
-    .fill("Creative uncertainty, updated");
-  await activate(
-    original.getByRole("button", {
-      name: t("Save changes", "ذخیرهٔ تغییرات"),
-      exact: true,
-    }),
-  );
-  data = await read(page);
-  assert.equal(
-    data.days[f.date].bugs[0].on,
-    "Portfolio",
-    "Editing preserves older task associations",
-  );
-  assert.deepEqual(
-    data.days[f.date].canvas,
-    baseline.days[f.date].canvas,
-    "Reading or editing feelings preserves board content",
-  );
-  // Optional related task also survives the app's real normalizer and reload.
-  await activate(
-    page.locator(".dd-review-feeling-form").first().locator("summary"),
-  );
-  await page
-    .getByRole("combobox", {
-      name: t("Related task", "کار مرتبط"),
-      exact: true,
-    })
-    .first()
-    .selectOption("writing");
-  await activate(
-    page.getByRole("button", {
-      name: t("Save feeling", "ثبت احساس"),
-      exact: true,
-    }),
-  );
-  await page.waitForFunction(
-    (date) =>
-      JSON.parse(localStorage.getItem("debug-day:v2")).days[date].bugs
-        .length === 2,
-    f.date,
-  );
-  await page.reload();
-  await page.waitForSelector(".views", { state: "attached" });
-  await section("feelings");
-  await select(f.date);
-  data = await read(page);
-  const linked = data.days[f.date].bugs.find(
-    (item) => item.text === "Today draft",
-  );
-  assert.equal(linked.blockId, "writing");
-  assert.equal(linked.on, "Portfolio writing");
-  await select(empty);
-  assert.equal(
-    await page
-      .getByRole("textbox", { name: t("Day note", "یادداشت روز"), exact: true })
-      .inputValue(),
-    "A note for the selected day",
-  );
-  assert.equal(
-    await page
-      .getByRole("button", { name: t("Very good", "خیلی خوب"), exact: true })
-      .getAttribute("aria-pressed"),
-    "true",
-  );
-  row = page.locator(`[data-feeling-id="${id}"]`);
-  assert.match(await row.innerText(), /Edited feeling/);
-  await activate(
-    row.getByRole("button", { name: t("Delete", "حذف"), exact: true }),
-  );
-  await activate(
-    row.getByRole("button", {
-      name: t("Confirm delete", "تأیید حذف"),
-      exact: true,
-    }),
-  );
-  assert.equal(await row.count(), 0);
-  assert.match(
-    await page.locator(`[data-review-date="${empty}"]`).innerText(),
-    new RegExp(t("Note", "یادداشت")),
-    "A day containing only a journal still has a visible calendar marker",
-  );
+  let data = await read(page);
+  await section("day");
   await page
     .locator(".dd-review-system select")
     .selectOption(fa ? "gregory" : "persian");
@@ -530,7 +336,7 @@ async function scenario(h, mobile, language) {
     ),
     true,
   );
-  await section("feelings");
+  await section("day");
   await select(empty);
   await section("stats");
   assert.match(
@@ -556,7 +362,7 @@ async function scenario(h, mobile, language) {
     "One calm step",
     "Open Day in Plan opens the same day shown by the charts",
   );
-  await section("feelings");
+  await section("day");
   await page.keyboard.press("Control+Space");
   const search = page.getByRole("combobox", {
     name: t("Search everything", "جست‌وجوی همه‌چیز"),
@@ -573,45 +379,8 @@ async function scenario(h, mobile, language) {
   await page.waitForSelector(".dd-command-modal", { state: "hidden" });
   await page.waitForSelector('.dd-review-sections button[data-panel="stats"][aria-selected="true"]');
   await section("day");
-  const captured = shift(f.date, -3);
-  await select(captured);
-  await activate(
-    page.getByRole("button", {
-      name: t("Quick capture", "ثبت سریع"),
-      exact: true,
-    }),
-  );
-  const dialog = page.getByRole("dialog", {
-    name: t("Quick capture", "ثبت سریع"),
-    exact: true,
-  });
-  await activate(
-    dialog.getByRole("button", { name: t("Feeling", "احساس"), exact: true }),
-  );
-  await dialog
-    .getByRole("textbox", { name: t("Capture text", "متن ثبت"), exact: true })
-    .fill("Captured on the chosen day");
-  await activate(
-    dialog.getByRole("button", { name: t("Capture", "ثبت"), exact: true }),
-  );
-  data = await read(page);
-  assert.equal(data.days[captured].bugs[0].text, "Captured on the chosen day");
-  assert.deepEqual(
-    data.days[captured].blocks,
-    [],
-    "Quick capture also keeps empty review days free of template tasks",
-  );
-  await section("feelings");
   await select(f.date);
   if (screenshots) {
-    await page.screenshot({
-      path: path.join(
-        screenshots,
-        `feelings-${language}-${mobile ? "phone" : "desktop"}.png`,
-      ),
-      fullPage: true,
-    });
-    await section("day");
     await page.screenshot({
       path: path.join(
         screenshots,

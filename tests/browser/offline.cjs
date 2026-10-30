@@ -34,12 +34,6 @@ const { start, fixture } = require("./harness.cjs");
       offlineErrors = [];
     await offline.route("http**/*", (route) => route.abort());
     p.on("pageerror", (error) => offlineErrors.push(error.message));
-    // Feelings is a section of the Calendar tab.
-    const feelings = async () => {
-      await p.locator(".views button").nth(2).click();
-      await p.locator('.dd-review-sections button[data-panel="feelings"]').click();
-      await p.locator("#dd-feelings-day").waitFor();
-    };
     await p.goto(pathToFileURL(file).href);
     await p.waitForSelector(".views");
     await p.getByRole("button", { name: "Search", exact: true }).click();
@@ -59,17 +53,22 @@ const { start, fixture } = require("./harness.cjs");
       await p.locator(".dd-review-day time").getAttribute("dateTime"),
       f.date,
     );
-    await feelings();
-    await p
-      .getByRole("textbox", { name: "Feeling text", exact: true })
-      .fill("An offline feeling");
-    await p.getByRole("button", { name: "Save feeling", exact: true }).click();
+    // The Engine works in the standalone file and its tasks survive a reload.
+    await p.locator(".views button").nth(1).click();
+    await p.locator(".b2-viewport").focus();
+    await p.keyboard.press("e");
+    const engine = p.getByRole("dialog", { name: "Engine", exact: true });
+    await engine.locator('[data-lane="work"] .dd-engine-add input').fill("An offline task");
+    await engine.locator('[data-lane="work"] .dd-engine-add input').press("Enter");
+    await engine.locator(".dd-engine-name", { hasText: "An offline task" }).waitFor();
+    await p.keyboard.press("Escape");
     await p.reload();
-    await feelings();
-    assert.match(
-      await p.locator(".dd-review-feelings").innerText(),
-      /An offline feeling/,
-    );
+    await p.locator(".views button").nth(1).click();
+    await p.locator(".b2-viewport").focus();
+    await p.keyboard.press("e");
+    await engine.locator(".dd-engine-name", { hasText: "An offline task" }).waitFor();
+    await p.keyboard.press("Escape");
+    await p.locator(".views button").nth(2).click();
     assert.equal(
       await p.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth + 1,
@@ -94,7 +93,7 @@ const { start, fixture } = require("./harness.cjs");
     assert.deepEqual(offlineErrors, []);
     await offline.close();
     console.log(
-      "Standalone HTML works without network: search, calendar, feelings, animated stickers, save and reload",
+      "Standalone HTML works without network: search, calendar, Engine, animated stickers, save and reload",
     );
   } finally {
     await h.stop();

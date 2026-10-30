@@ -96,7 +96,7 @@ const { start, fixture } = require("./harness.cjs");
       const box = await plus.boundingBox();
       assert.ok(box.width >= 16 && box.height >= 16, JSON.stringify(box));
 
-      // Lanes: no lines, cards hold their steps/feelings/notes, drop to attach.
+      // Lanes: no lines, cards hold their steps and notes, drop to attach.
       await page.evaluate((f) => {
         const data = JSON.parse(localStorage.getItem("debug-day:v2"));
         const day = data.days[f.date];
@@ -130,9 +130,7 @@ const { start, fixture } = require("./harness.cjs");
         await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 12 });
         await page.mouse.up();
       }
-      await drag(page.locator('[data-board-id="bug:f2"]'), page.locator('[data-board-id="sec:writing"]'));
-      await page.waitForFunction((date) => JSON.parse(localStorage.getItem("debug-day:v2")).days[date].bugs.find((b) => b.id === "f2").blockId === "writing", f.date);
-      assert.ok(await inside("bug:f2", "sec:writing"), "dropped feeling joins the card");
+      assert.equal(await page.locator('[data-board-id="bug:f2"]').count(), 0, "feelings no longer show on the Board");
       await drag(page.locator('[data-board-id="sticky:n2"] .dd-note-preview'), page.locator('[data-board-id="lane:life"]'));
       await page.waitForFunction((date) => JSON.parse(localStorage.getItem("debug-day:v2")).days[date].canvas.board4.links.length === 0, f.date);
       assert.ok(!(await inside("sticky:n2", "sec:writing")), "dragged-out note leaves the card");

@@ -37,7 +37,8 @@ test("Ctrl+Space rows isolate a panel, or open the pages that have no isolate", 
   rows.find((row) => row.panel.id === "habits").showWithRest();
   assert.deepEqual(calls, [["habits", false]]);
   assert.equal(rows.find((row) => row.panel.id === "calendar").showWithRest, null);
-  assert.equal(DDpanelCommands("fa", () => {})[0].title, "پلن");
+  assert.equal(DDpanelCommands("fa", () => {})[0].title, "انجین", "the Engine comes first in Ctrl+Space");
+  assert.equal(DDpanelCommands("fa", () => {})[1].title, "پلن");
 });
 
 test("map counts read the day without changing it", () => {
@@ -51,15 +52,14 @@ test("map counts read the day without changing it", () => {
   assert.deepEqual(DDpanelCounts(day, setup, "en"), {
     plan: "2 cards",
     habits: "1 of 2 today",
-    feelings: "1 open",
     lab: "1 open",
   });
   assert.equal(DDpanelCounts(day, setup, "fa").plan, "۲ کارت");
-  assert.deepEqual(DDpanelCounts({}, {}, "en"), { plan: "0 cards", habits: null, feelings: null, lab: null });
+  assert.deepEqual(DDpanelCounts({}, {}, "en"), { plan: "0 cards", habits: null, lab: null });
   assert.equal(JSON.stringify({ day, setup }), before);
 });
 
-test("Feelings and Stats live inside Calendar, so the app map shows one Calendar card", () => {
+test("Stats lives inside Calendar and Feelings is gone, so the app map shows one Calendar card", () => {
   const R = { createElement: (type, props, ...children) => ({ type, props: props || {}, children: children.flat() }) },
     map = DDPanelMap({ React: R, language: "en", counts: { feelings: "2 open" }, onPick() {} }),
     cards = map.children.map((card) => card.props["data-panel"]);
@@ -67,8 +67,9 @@ test("Feelings and Stats live inside Calendar, so the app map shows one Calendar
     assert.ok(DDpanelOf(panel.partOf), panel.id);
     assert.ok(!cards.includes(panel.id), panel.id);
   }
-  assert.deepEqual(cards, ["plan", "board", "habits", "calendar", "lab"]);
+  assert.deepEqual(cards, ["engine", "plan", "board", "habits", "calendar", "lab"]);
+  assert.equal(DDpanelOf("feelings"), null, "the Feelings panel was removed");
   const calendar = map.children[cards.indexOf("calendar")],
     count = calendar.children[0].children.find((child) => child && child.type === "small");
-  assert.deepEqual(count.children, ["💭 2 open"]);
+  assert.ok(!count, "no feelings count on the Calendar card");
 });
