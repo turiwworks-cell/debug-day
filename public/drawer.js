@@ -37,7 +37,10 @@ export function DDroman(n) {
 // Two letters for a divider: the first letter of the first two words, or the
 // first two letters of a single word. "Creative life" → "CL", "Job" → "JO".
 export function DDinitials(text) {
-  const words = String(text || "").split(/[\s/_\-–—&+.,·]+/).map((w) => [...w].filter((c) => /[\p{L}\p{N}]/u.test(c))).filter((w) => w.length);
+  let words = String(text || "").split(/[\s/_\-–—&+.,·]+/).map((w) => [...w].filter((c) => /[\p{L}\p{N}]/u.test(c))).filter((w) => w.length);
+  // Little joining words ("and", "و") do not make an initial.
+  const joined = words.filter((w) => !["و", "and", "of", "the", "از", "به"].includes(w.join("").toLowerCase()));
+  if (joined.length) words = joined;
   if (!words.length) return "··";
   const letters = words.length > 1 ? [words[0][0], words[1][0]] : words[0].slice(0, 2);
   return letters.join("").toLocaleUpperCase();
@@ -402,8 +405,8 @@ export function DDSectionDrawer({ React: R, items = [], day = { blocks: [] }, hi
           query && n === 1 && sections.length > 0 && h("p", { className: "dd-drawer-empty" }, t("No section matches.", "سکشنی پیدا نشد.")))),
       h("div", { className: "dd-drawer-front" },
         h("svg", { className: "dd-drawer-front-art", viewBox: "0 0 100 100", preserveAspectRatio: "none", "aria-hidden": true },
-          h("path", { d: "M0,0 H100 V16 H0 Z" }),
-          h("path", { d: phone ? "M0,16 H100 V100 H0 Z" : "M1,16 L99,16 L95,100 L5,100 Z" })),
+          // A phone shows the front flat, without the lip or the tilt.
+          phone ? h("path", { d: "M0,0 H100 V100 H0 Z" }) : h(R.Fragment, null, h("path", { d: "M0,0 H100 V16 H0 Z" }), h("path", { d: "M1,16 L99,16 L95,100 L5,100 Z" }))),
         h("div", { className: "dd-drawer-front-row" },
           h("nav", { className: "dd-drawer-path", "aria-label": t("Folder path", "مسیر پوشه") },
             h("button", { type: "button", "data-drawer-crumb": "top", "aria-current": !live && !query ? "location" : undefined, onClick: () => openFolder("") }, t("Main board", "برد اصلی")),

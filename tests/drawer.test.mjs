@@ -115,6 +115,8 @@ test("roman numerals and initials", () => {
   assert.equal(DDinitials("LIFE/CREATIVITY"), "LC");
   assert.equal(DDinitials("🎨 art"), "AR");
   assert.equal(DDinitials("یادگیری"), "یا");
+  assert.equal(DDinitials("کار و بازی"), "کب", "joining words are skipped");
+  assert.equal(DDinitials("Work and play"), "WP");
   assert.equal(DDinitials(""), "··");
 });
 
