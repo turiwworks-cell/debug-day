@@ -125,7 +125,7 @@ const { start, fixture } = require("./harness.cjs");
       assert.ok(await inside("sticky:n2", "sec:writing"), "linked note inside its card");
       async function drag(from, to) {
         const a = await from.boundingBox(), b = await to.boundingBox();
-        await page.mouse.move(a.x + a.width / 2, a.y + 12);
+        await page.mouse.move(a.x + a.width / 2, a.y + Math.min(12,a.height/2));
         await page.mouse.down();
         await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 12 });
         await page.mouse.up();
@@ -153,3 +153,4 @@ const { start, fixture } = require("./harness.cjs");
   console.error(error);
   process.exit(1);
 });
+

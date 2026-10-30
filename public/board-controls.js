@@ -54,6 +54,11 @@ export function DDcreateBoardControls(core) {
     reset: "M4 5v5h5M4 10a6 6 0 116 6",
     pin: "M6 3h8M7 3v6l-3 3h12l-3-3V3M10 12v6",
     align: "M4 3v14M7 6h10M7 10h7M7 14h10",
+    timer: "M7 2h6M10 5a6 6 0 110 12 6 6 0 010-12zM10 8v4l2 1M14 4l2 2",
+    play: "M6 3l11 7-11 7z",
+    pause: "M6 4v12M14 4v12",
+    moon: "M16 12A7 7 0 018 3a7 7 0 108 9z",
+    sun: "M10 6a4 4 0 110 8 4 4 0 010-8zM10 1v2M10 17v2M1 10h2M17 10h2M4 4l1 1M15 15l1 1M4 16l1-1M15 5l1-1",
   };
   function ui(R, language) {
     return {
@@ -369,8 +374,8 @@ export function DDcreateBoardControls(core) {
                 setHex(e.target.value);
                 setError("");
               },
-              onBlur: () => {
-                const parsed = core.color(hex);
+              onBlur: (e) => {
+                const parsed = core.color(e.currentTarget.value);
                 if (!parsed) {
                   setError(
                     t("Enter a valid hex color.", "کد رنگ معتبر وارد کن."),
@@ -1234,6 +1239,8 @@ export function DDcreateBoardControls(core) {
     onGrid,
     onSnap,
     onMap,
+    startFullscreen,
+    onStartFullscreen,
     onClose,
   }) {
     const { h, t } = ui(R, language);
@@ -1268,6 +1275,7 @@ export function DDcreateBoardControls(core) {
         ),
       ),
       [
+        [startFullscreen, onStartFullscreen, "Open board in full screen", "بازشدن مستقیم برد در تمام‌صفحه"],
         [grid, onGrid, "Dot grid", "شبکهٔ نقطه‌ای"],
         [snap, onSnap, "Snap to grid", "چسبیدن به شبکه"],
         [map, onMap, "Minimap", "نقشهٔ کوچک"],
@@ -1337,3 +1345,4 @@ export function DDcreateBoardControls(core) {
     ViewPanel,
   };
 }
+

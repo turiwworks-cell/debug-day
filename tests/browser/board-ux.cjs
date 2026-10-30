@@ -224,13 +224,13 @@ const { start, fixture } = require("./harness.cjs");
           .getByRole("button", { name: label("Zoom in"), exact: true })
           .click();
         // Exact zoom steps can move this task off-screen. Find it through the board search.
-        await page.locator(".b2-top-actions button").nth(2).click();
+        await page.locator(".b2-viewport").focus();await page.keyboard.press("Control+f");
         await page.locator(".b4-search input").fill("Portfolio writing");
         await page
           .locator(".b4-search button")
           .filter({ hasText: "Portfolio writing" })
           .click();
-        await page.locator(".b4-search button").first().click();
+        assert.equal(await page.locator(".b4-search").count(),0);
         await page.locator('[data-board-id="b:writing"] .b4-node-icon').click();
         let task = (await read()).blocks[0];
         assert.equal(task.done, true);
@@ -300,3 +300,4 @@ const { start, fixture } = require("./harness.cjs");
   console.error(error);
   process.exitCode = 1;
 });
+

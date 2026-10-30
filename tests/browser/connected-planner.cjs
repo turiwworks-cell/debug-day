@@ -74,6 +74,7 @@ const { start, fixture } = require("./harness.cjs");
         );
         const touch = mobile ? await context.newCDPSession(page) : null;
         async function drag(locator, dx, dy, during) {
+          await locator.scrollIntoViewIfNeeded();
           const box = await locator.boundingBox(),
             x = box.x + box.width / 2,
             y = box.y + box.height / 2;
@@ -110,7 +111,7 @@ const { start, fixture } = require("./harness.cjs");
           );
         const nav = async (i) => {
           if (i !== 1 && (await page.locator(".b4.focus-mode").count()))
-            await page.locator(".b2-top-actions button").nth(5).click();
+            await page.getByRole("button",{name:t("Exit full screen","بستن تمام‌صفحه"),exact:true}).click();
           await page.locator(".views button").nth(i).click();
           if (i === 1) {
             await page.locator(".b4").waitFor();
@@ -120,7 +121,7 @@ const { start, fixture } = require("./harness.cjs");
                 "focus-mode",
               )
             )
-              await page.locator(".b2-top-actions button").nth(5).click();
+              await page.getByRole("button",{name:t("Full screen","تمام‌صفحه"),exact:true}).click();
           }
         };
         assert.equal(
@@ -440,3 +441,4 @@ const { start, fixture } = require("./harness.cjs");
   console.error(error);
   process.exit(1);
 });
+
