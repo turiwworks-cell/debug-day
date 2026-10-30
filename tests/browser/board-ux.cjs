@@ -147,8 +147,9 @@ const { start, fixture } = require("./harness.cjs");
           .getByRole("button", { name: label("Undo"), exact: true })
           .click();
         await note().locator(".dd-note-preview").click();
+        // Desktop drags the "+" of the selected note; phones keep the circle.
         await drag(
-          note().locator(".b4-port.right"),
+          note().locator('.b4-port.right:visible, [data-add-near="right"]:visible').first(),
           page.locator('[data-board-id="sticky:note2"] .dd-note-preview'),
         );
         assert.equal((await read()).canvas.board4.links.length, 1);
