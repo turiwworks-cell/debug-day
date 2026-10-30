@@ -2,15 +2,16 @@ import { DDcompletion, DDTaskMetadata, DDTaskTags, DDpriorityLabel, DDprogressLa
 import { DDreconcileDay, DDrelation, DDconnectRelation, DDdisconnectRelation, DDrewireRelation } from "./relations.js";
 import { DDconnectionGeometry } from "./connections.js";
 import {
-  DDcreateLifeBoard,
+  DDinstallLifeStyles,
   DDlifeAbs,
   DDlifeAdd,
   DDlifeBounds,
   DDlifeHead,
   DDlifeItems,
   DDlifeParentAt,
+  DDlifeState, DDlifeHistory, DDlifeVisible, DDlifeCompact, DDlifeColor, DDlifeMoveBy, DDlifeRemove, DDlifeDescendants,
 } from "./life-board.js";
-const life = { DDcreateLifeBoard, DDlifeAbs, DDlifeAdd, DDlifeBounds, DDlifeHead, DDlifeItems, DDlifeParentAt };
+const life = { DDinstallLifeStyles, DDlifeAbs, DDlifeAdd, DDlifeBounds, DDlifeHead, DDlifeItems, DDlifeParentAt };
 // Board interaction engine. Legacy planner adapters are injected once by the app.
 export function DDcreateBoard(deps) {
   const {
@@ -35,7 +36,7 @@ export function DDcreateBoard(deps) {
   const { core, controls, playful } = deps;
   const measure = deps.measure;
   let sharedClipboard = null;
-  const LifeBoard = life.DDcreateLifeBoard(_);
+  life.DDinstallLifeStyles();
   let stepTextContext;
   return function BoardWorkspace({
     day: day,
@@ -45,6 +46,7 @@ export function DDcreateBoard(deps) {
     onSelectBlock: onSelectBlock,
     onUpdateDay: onUpdateDay,
     onUpdateSetup: onUpdateSetup,
+    onUpdateDayOnDate,
     onToast: onToast,
     matchesFilter: matchesFilter,
     nodeMatches: ddNodeMatches,
@@ -123,6 +125,8 @@ export function DDcreateBoard(deps) {
       [appearance, setAppearance] = useState(() => core.appearance()),
       [viewPanel, setViewPanel] = useState(false),
       [properties, setProperties] = useState(false),
+      [lifeNav, setLifeNav] = useState(false),
+      [quickColor, setQuickColor] = useState(null),
       [stickerPicker, setStickerPicker] = useState(null),
       [details, setDetails] = useState(
         () => !globalThis.matchMedia?.("(max-width: 700px)").matches,
@@ -161,7 +165,7 @@ export function DDcreateBoard(deps) {
       space = useRef(!1),
       preview = useRef(new Map()),
       pointerWire = useRef(null),
-      history = useRef({ past: [], future: [] }),
+      history = useRef(DDlifeHistory),
       dayRef = useRef(day),
       ownUpdate = useRef(null),
       propsRef = useRef({
@@ -184,6 +188,7 @@ export function DDcreateBoard(deps) {
       onSelectBlock: onSelectBlock,
       onUpdateDay: onUpdateDay,
       onUpdateSetup: onUpdateSetup,
+      onUpdateDayOnDate, allDays,
       onToast: onToast,
     }),
       (editingRef.current = editing),
@@ -212,34 +217,58 @@ export function DDcreateBoard(deps) {
         .filter((Y) => !matchesFilter || matchesFilter(Y))
         .map((Y) => Y.id)
         .join("|");
-    function remember(Y) {
+    function remember(Y, shared = DDlifeState(propsRef.current.setup)) {
       const G = history.current;
-      (G.past.push({ day: copy(Y), bytes: JSON.stringify(Y).length }),
+      (G.past.push({ day: copy(Y), life: copy(shared), bytes: JSON.stringify([Y,shared]).length }),
         (G.future = []));
       let ct = G.past.reduce((ot, St) => ot + St.bytes, 0);
       for (; G.past.length > 50 || (ct > 24e6 && G.past.length > 1); )
         ct -= G.past.shift().bytes;
     }
     function commit(Y, G, ct = {}) {
-      const ot = dayRef.current,
-        St = DDreconcileDay(Y(copy(ot)), ot, propsRef.current.setup);
+      const ot = dayRef.current, shared = DDlifeState(propsRef.current.setup);
+      const draft = copy(ot);
+      draft.__life = copy(shared);
+      let result = Y(draft);
+      if (!result) return;
+      const nextLife = result.__life || shared;
+      delete result.__life;
+      delete result.__lifeFrame;
+      // Keep Life-to-Life wires shared, while links to a day's task stay with that day.
+      const board = result.canvas?.board4;
+      if (board?.links) {
+        const sharedLinks = board.links.filter((l) => l.from.startsWith("life:") && l.to.startsWith("life:"));
+        if (result.__sharedLinksEdited) nextLife.links = sharedLinks;
+        else if (sharedLinks.length) nextLife.links = [...new Map([...(nextLife.links || []), ...sharedLinks].map((l) => [l.id,l])).values()];
+        board.links = board.links.filter((l) => !sharedLinks.includes(l));
+      }
+      delete result.__sharedLinksEdited;
+      const lifeChanged = JSON.stringify(shared) !== JSON.stringify(nextLife);
+      const St = DDreconcileDay(result, ot, { ...propsRef.current.setup, life: nextLife });
       !St ||
-        JSON.stringify(St) === JSON.stringify(ot) ||
-        (ct.history !== !1 && remember(ot),
+        (!lifeChanged && JSON.stringify(St) === JSON.stringify(ot)) ||
+        (ct.history !== !1 && remember(ot, shared),
+        lifeChanged && (propsRef.current.setup = { ...propsRef.current.setup, life: nextLife }, propsRef.current.onUpdateSetup?.((s) => ({ ...s, life: nextLife }))),
         (dayRef.current = St),
         (ownUpdate.current = St),
         propsRef.current.onUpdateDay(() => St),
         setTick((Tt) => Tt + 1),
         G && setStatus(G));
     }
+    function boardDocument() {
+      const d = copy(dayRef.current), frame = layoutRef.current?.map.get("section:life");
+      d.__life = DDlifeState(propsRef.current.setup);
+      d.__lifeFrame = frame ? { x:frame.x, y:frame.y + DDlifeHead } : {x:0,y:0};
+      return d;
+    }
     function boardChange(Y, G, ct) {
       commit(
         (ot) => (
           (ot.canvas = {
             ...(ot.canvas || {}),
-            board4: Y(clean(ot.canvas?.board4)),
+            board4: Y({ ...clean(ot.canvas?.board4), links:[...clean(ot.canvas?.board4).links,...ot.__life.links] }),
           }),
-          ot
+          (ot.__sharedLinksEdited = true, ot)
         ),
         G,
         ct,
@@ -252,17 +281,16 @@ export function DDcreateBoard(deps) {
         ot = Y ? G.past : G.future,
         St = ct.pop();
       if (!St) return;
+      const Tt = copy((St.day?.date && propsRef.current.allDays?.[St.day.date]) || dayRef.current), shared = DDlifeState(propsRef.current.setup);
+      ot.push({ day: St.day ? Tt : null, life: copy(shared), bytes: JSON.stringify([Tt,shared]).length });
       if (St.life) {
-        const current = copy(life.DDlifeItems(propsRef.current.setup));
-        ot.push({ life: current, bytes: JSON.stringify(current).length });
-        propsRef.current.setup = { ...propsRef.current.setup, life: { v: 1, items: copy(St.life) } };
-        propsRef.current.onUpdateSetup?.((s) => ({ ...s, life: { v: 1, items: copy(St.life) } }));
-        setTick((n) => n + 1);
-        return;
+        const restored = Array.isArray(St.life) ? { ...shared, items: St.life } : St.life;
+        propsRef.current.setup = { ...propsRef.current.setup, life: copy(restored) };
+        propsRef.current.onUpdateSetup?.((s) => ({ ...s, life: copy(restored) }));
       }
-      const Tt = copy(dayRef.current);
-      (ot.push({ day: Tt, bytes: JSON.stringify(Tt).length }),
-        (dayRef.current = copy(St.day)),
+      if (St.day && St.day.date !== dayRef.current.date) propsRef.current.onUpdateDayOnDate?.(St.day.date, () => copy(St.day));
+      else if (St.day) {
+      ((dayRef.current = copy(St.day)),
         (ownUpdate.current = dayRef.current),
         propsRef.current.onUpdateDay(() => dayRef.current),
         setSelected(new Set()),
@@ -274,6 +302,8 @@ export function DDcreateBoard(deps) {
             ? "\u0627\u0646\u062C\u0627\u0645 \u0645\u062C\u062F\u062F"
             : "\u0628\u0627\u0632\u06AF\u0634\u062A \u062A\u063A\u06CC\u06CC\u0631",
         ));
+      }
+      setTick((n) => n + 1);
     }
     useLayoutEffect(() => {
       (day !== dayRef.current &&
@@ -367,19 +397,13 @@ export function DDcreateBoard(deps) {
     };
     // The Life section is the same on every day: it is kept in setup, not in the day.
     function lifeChange(change) {
-      const before = life.DDlifeItems(propsRef.current.setup), next = change(before);
-      if (JSON.stringify(before) === JSON.stringify(next)) return;
-      const stack = history.current;
-      stack.past.push({ life: copy(before), bytes: JSON.stringify(before).length });
-      stack.future = [];
-      while (stack.past.length > 50) stack.past.shift();
-      propsRef.current.setup = { ...propsRef.current.setup, life: { v: 1, items: next } };
-      propsRef.current.onUpdateSetup?.((s) => ({ ...s, life: { v: 1, items: next } }));
+      commit((d) => { d.__life.items = change(d.__life.items); return d; });
     }
     function lifeFrame(Y, ct, top, left) {
       if (ddNodeMatches) return top;
       const b = life.DDlifeBounds(life.DDlifeItems(setup)),
-        saved = ct["section:life"],
+        legacy = Object.entries(allDays || {}).sort(([a],[b])=>a.localeCompare(b)).map(([,d])=>d.canvas?.board4?.layouts?.mindmap?.["section:life"] || d.canvas?.board4?.layouts?.lanes?.["section:life"]).find((p)=>Number.isFinite(p?.x)&&Number.isFinite(p?.y)),
+        saved = { x: legacy?.x ?? 2400, y: legacy?.y ?? 80, ...setup.life?.frame },
         node = {
           id: "section:life",
           kind: "frame",
@@ -388,10 +412,10 @@ export function DDcreateBoard(deps) {
           subtitle: t("Same on every day", "روی همهٔ روزها یکسان است"),
           color: "#4A4843",
           textColor: "#fff",
-          x: finite(saved?.x, left),
-          y: finite(saved?.y, top),
-          w: b.w,
-          h: life.DDlifeHead + b.h,
+          x: finite(saved?.x, 24),
+          y: finite(saved?.y, 1200),
+          w: Math.max(b.w, saved?.w || 0),
+          h: Math.max(life.DDlifeHead + b.h, saved?.h || 0),
         };
       Y.push(node);
       return node.y + node.h + 48;
@@ -1005,7 +1029,16 @@ export function DDcreateBoard(deps) {
             w: Jt.kind === "emoji" ? 64 : 220,
             h: Jt.kind === "emoji" ? 64 : 160,
           });
+        const lf = Y.find((n) => n.section === "life"), items = DDlifeItems(setup);
+        if (lf) for (const it of items.filter((i) => DDlifeVisible(items, i))) {
+          const a = DDlifeAbs(items, it.id), color = DDlifeColor(items, it);
+          Y.push({ id: "life:" + it.id, lifeId: it.id, lifeSection: it.type === "section", kind: it.type === "section" ? "life-section" : "sticky",
+            title: it.text, color, textColor: core.contrast(color), collapsed: it.collapsed, parentId: it.parent ? "life:" + it.parent : null,
+            x: lf.x + a.x, y: lf.y + DDlifeHead + a.y, w: it.w, h: it.collapsed ? 38 : it.h,
+            ...it.style, opacity: it.style?.opacity ?? 1, stack: it.type === "section" ? 2 + items.filter((i) => DDlifeDescendants(items,i.id).has(it.id)).length : 20 });
+        }
         for (const n of Y) {
+          if (n.lifeId) continue;
           const style = model.styles[n.id] || {};
           Object.assign(n, style, {
             opacity: style.opacity ?? 1,
@@ -1025,13 +1058,17 @@ export function DDcreateBoard(deps) {
         }
         const An = new Map(Y.map((Jt) => [Jt.id, Jt])),
           Kt = new Set(model.hidden),
-          Dn = (mode === "lanes" ? [] : [
+          Dn = [
+            ...(setup.life?.links || []),
+            ...(mode === "lanes" ? [] : [
             ...G,
             ...model.links.map((Jt) => ({
               ...Jt,
               color: Jt.color || "var(--now)",
               automatic: !1,
             })),
+          ]),
+            ...(mode === "lanes" ? model.links.filter((l) => l.from.startsWith("life:") || l.to.startsWith("life:")) : []),
           ]
             .map((Jt) => ({ ...Jt, ...(model.overrides[Jt.id] || {}), from: Jt.from, to: Jt.to }))
             .filter(
@@ -1040,7 +1077,7 @@ export function DDcreateBoard(deps) {
                 Jt.from !== Jt.to &&
                 An.has(Jt.from) &&
                 An.has(Jt.to),
-            ));
+            );
         return { nodes: Y, map: An, edges: Dn, automatic: G };
       }, [
         day.blocks,
@@ -1048,6 +1085,7 @@ export function DDcreateBoard(deps) {
         day.notes,
         day.habits,
         setup.habits,
+        setup.life,
         setup.preferences?.habitLevels,
         day.focus,
         day.mood,
@@ -1202,7 +1240,7 @@ export function DDcreateBoard(deps) {
       const nodes =
         selection && selected.size
           ? layout.nodes.filter((n) => selected.has(n.id))
-          : layout.nodes.filter((n) => n.section !== "life" || layout.nodes.length === 1);
+          : layout.nodes.filter((n) => (!n.lifeId && n.section !== "life") || layout.nodes.length === 1);
       cam.current = core.fit(nodes, el.clientWidth, el.clientHeight, {
         left: 36,
         right: 36,
@@ -1214,6 +1252,7 @@ export function DDcreateBoard(deps) {
       scheduleCamera();
     }
     function selectOne(Y) {
+      if (Y === "section:life") return;
       (setSelected(new Set([Y])), setWireId(null));
       const G = layout.map.get(Y);
       G?.blockId && onSelectBlock?.(G.blockId);
@@ -1259,6 +1298,10 @@ export function DDcreateBoard(deps) {
       G.blockId && onSelectBlock?.(G.blockId);
       if (!ct.has(G.id) || locked.has(G.id)) return;
       const moving = new Set(ct);
+      for (const ref of [...moving]) {
+        const n = layout.map.get(ref);
+        if (n?.lifeSection) for (const id of DDlifeDescendants(DDlifeItems(setup), n.lifeId)) moving.add("life:" + id);
+      }
       if (G.kind === "frame")
         for (const node of layout.nodes)
           if (
@@ -1284,7 +1327,7 @@ export function DDcreateBoard(deps) {
           for (const member of owner.members || []) moving.add(member);
         }
       const refs = [...moving].filter(
-        (ref) => layout.map.has(ref) && !locked.has(ref),
+        (ref) => ref !== "section:life" && layout.map.has(ref) && !locked.has(ref),
       );
       gesture.current = {
         kind: "move",
@@ -1363,8 +1406,13 @@ export function DDcreateBoard(deps) {
         viewport.current.setPointerCapture(Y.pointerId));
     }
     function nodeAt(Y, G) {
+      const rect=viewport.current.getBoundingClientRect(), c=cam.current;
+      const hit=document.elementFromPoint(rect.left+c.x+Y.x*c.z,rect.top+c.y+Y.y*c.z)?.closest("[data-board-id]");
+      const direct=hit&&layout.map.get(hit.dataset.boardId);
+      if(direct&&direct.id!==G&&direct.section!=="life")return direct;
       const ct = layout.nodes.filter(
         (ot) =>
+          ot.section !== "life" &&
           ot.id !== G &&
           Y.x >= ot.x - 10 / cam.current.z &&
           Y.x <= ot.x + ot.w + 10 / cam.current.z &&
@@ -1396,6 +1444,12 @@ export function DDcreateBoard(deps) {
           y: G.camera.y + ot,
         }),
           queueCamera());
+        return;
+      }
+      if (G.kind === "life-resize") {
+        G.size = { w:Math.max(240,G.w + ct/cam.current.z), h:Math.max(240,G.h + ot/cam.current.z) };
+        const el = elementRefs.current.get("section:life");
+        if (el) { el.style.width = G.size.w + "px"; el.style.height = G.size.h + "px"; }
         return;
       }
       if (G.kind === "move") {
@@ -1453,8 +1507,14 @@ export function DDcreateBoard(deps) {
           width = G.width * scale;
           height = G.height * scale;
         }
-        width = Math.round(Math.max(144, Math.min(1200, width)));
-        height = Math.round(Math.max(96, Math.min(1800, height)));
+        const resized = layout.map.get(G.ref);
+        width = Math.round(Math.max(resized?.lifeSection ? 320 : 144, Math.min(resized?.lifeSection ? 20000 : 1200, width)));
+        height = Math.round(Math.max(96, Math.min(resized?.lifeSection ? 20000 : 1800, height)));
+        if (resized?.lifeSection) {
+          const kids = DDlifeItems(setup).filter((i)=>i.parent===resized.lifeId);
+          width=Math.max(width,...kids.map((i)=>i.x+i.w+24));
+          height=Math.max(height,...kids.map((i)=>i.y+(i.collapsed?38:i.h)+24));
+        }
         const x = G.x + (edge.includes("w") ? G.width - width : 0),
           y = G.y + (edge.includes("n") ? G.height - height : 0);
         G.size = { width, height };
@@ -1573,6 +1633,13 @@ export function DDcreateBoard(deps) {
         touches.current.clear(),
         setStatus(""));
     }
+    function transferRef(d,from,to) {
+      d.canvas ||= {}; d.canvas.board4 ||= {};
+      const board=d.canvas.board4, moved=(d.__life.links||[]).filter((l)=>l.from===from||l.to===from);
+      board.links=[...(board.links||[]),...moved].map((l)=>({...l,from:l.from===from?to:l.from,to:l.to===from?to:l.to}));
+      d.__life.links=(d.__life.links||[]).filter((l)=>!moved.includes(l));
+      core.cleanRefs(d,[from]);
+    }
     function endGesture(Y, G = !1) {
       const ct = gesture.current;
       if (!(!ct || ct.pointerId !== Y.pointerId)) {
@@ -1616,7 +1683,9 @@ export function DDcreateBoard(deps) {
           const el = elementRefs.current.get(ct.ref);
           if (el) delete el.dataset.size;
         }
-        if (ct.kind === "note-resize" && ct.moved) {
+        if (ct.kind === "life-resize" && ct.moved) {
+          commit((d) => { d.__life.frame = { ...d.__life.frame, ...ct.size }; return d; });
+        } else if (ct.kind === "note-resize" && ct.moved) {
           const n = layout.map.get(ct.ref);
           if (n && ct.size)
             commit(
@@ -1661,6 +1730,34 @@ export function DDcreateBoard(deps) {
                   ),
             habitRefs = new Set(toHabits.map((n) => n.id));
           commit((Tt) => {
+            const frame = layout.map.get("section:life");
+            for (const ref of ct.refs) {
+              const node = layout.map.get(ref), pos = ot[ref];
+              if (!node || !pos) continue;
+              if (node.lifeId) {
+                // A parent section carries descendants; do not move them twice.
+                if (ct.refs.includes(node.parentId)) continue;
+                const target = DDlifeParentAt(Tt.__life.items, pos.x - frame.x + node.w/2, pos.y - frame.y - DDlifeHead + node.h/2, DDlifeDescendants(Tt.__life.items,node.lifeId));
+                const inside = pos.x + node.w/2 >= frame.x && pos.x + node.w/2 <= frame.x + frame.w && pos.y + node.h/2 >= frame.y + DDlifeHead && pos.y + node.h/2 <= frame.y + frame.h;
+                if (!inside && !node.lifeSection) {
+                  const old = Tt.__life.items.find((i) => i.id === node.lifeId), id=Tt.notes.some((i)=>i.id===old.id)?C():old.id;
+                  Tt.notes.push({ id, kind: "sticky", text: old.text, color: old.color || node.color, x: pos.x, y: pos.y });
+                  Tt.canvas ||= {}; Tt.canvas.board4 ||= {};
+                  Tt.canvas.board4.styles ||= {}; Tt.canvas.board4.styles["sticky:" + id] = { width: old.w, height: old.h, ...old.style };
+                  Tt.__life.items = Tt.__life.items.filter((i) => i.id !== old.id);
+                  transferRef(Tt,ref,"sticky:"+id);
+                } else Tt.__life.items = DDlifeMoveBy(Tt.__life.items,node.lifeId,pos.x-node.x,pos.y-node.y);
+                delete ot[ref];
+              } else if (frame && node.noteId && node.kind === "sticky" && !ct.frame) {
+                const target = DDlifeParentAt(Tt.__life.items, pos.x - frame.x + node.w/2, pos.y - frame.y - DDlifeHead + node.h/2);
+                if (target) {
+                  const old = Tt.notes.find((i) => i.id === node.noteId), base = DDlifeAbs(Tt.__life.items,target.id),id=Tt.__life.items.some((i)=>i.id===old.id)?"lf-"+C():old.id;
+                  Tt.__life.items = DDlifeAdd(Tt.__life.items,{id,type:"sticky",parent:target.id,text:old.text,color:old.color,x:pos.x-frame.x-base.x,y:pos.y-frame.y-DDlifeHead-base.y,w:node.w,h:node.h,style:model.styles[node.id]});
+                  Tt.notes = Tt.notes.filter((i) => i.id !== old.id);
+                  transferRef(Tt,node.id,"life:"+id); delete ot[ref];
+                }
+              }
+            }
             const Pt = clean(Tt.canvas?.board4),
               yn = { ...(Pt.layouts[mode] || {}) };
             for (const [An, Kt] of Object.entries(ot)) {
@@ -2151,6 +2248,7 @@ export function DDcreateBoard(deps) {
       const nodes = layout.nodes.filter((n) => selected.has(n.id));
       if (!nodes.length && !selectedWires.size) return;
       commit((day) => {
+        day.__life.links=day.__life.links.filter((e)=>!selectedWires.has(e.id));
         for (const edge of layout.edges.filter((e) => selectedWires.has(e.id) && e.automatic))
           day = DDdisconnectRelation(day, edge.from, edge.to, setup);
         const board = day.canvas?.board4;
@@ -2164,7 +2262,7 @@ export function DDcreateBoard(deps) {
     }
     function duplicate() {
       const payload = core.copy(
-        dayRef.current,
+        boardDocument(),
         layout.nodes,
         layout.edges,
         selected,
@@ -2219,6 +2317,7 @@ export function DDcreateBoard(deps) {
       const ct = layout.map.get(G.ref),
         ot = (Y ?? G.value).trim();
       if (ct?.kind === "sticky") return;
+      if (ct?.lifeId) { lifeChange((list) => list.map((i) => i.id === ct.lifeId ? { ...i,text:ot } : i)); return; }
       if (ct?.kind === "habit") {
         if (!ot && !ct.title)
           onUpdateSetup?.((s) => ({
@@ -2341,6 +2440,21 @@ export function DDcreateBoard(deps) {
         });
       });
       onToast?.(t("Section added to Life on every day", "سکشن به بخش زندگی همهٔ روزها اضافه شد"));
+    }
+    function addLifeItem(type,parent="") {
+      const id="lf-"+C();
+      lifeChange((list)=>DDlifeAdd(list.map((i)=>i.id===parent?{...i,collapsed:false}:i),{id,type,parent,w:type==="sticky"?220:480,h:type==="sticky"?160:320}));
+      setSelected(new Set(["life:"+id])); setEditing({ref:"life:"+id,value:""});
+    }
+    function jumpLife(id) {
+      const frame=layout.map.get("section:life"), items=DDlifeItems(setup), it=items.find((i)=>i.id===id), el=viewport.current;
+      if (!frame || !it || !el) return;
+      const a=DDlifeAbs(items,id), z=Math.max(el.clientWidth < 700 ? 1 : .55,Math.min(1.1,(el.clientWidth-80)/it.w));
+      const parents=new Set(); let p=it.parent;
+      while(p){parents.add(p);p=items.find((i)=>i.id===p)?.parent;}
+      if (parents.size) lifeChange((list)=>list.map((i)=>parents.has(i.id)?{...i,collapsed:false}:i));
+      cam.current={x:32-(frame.x+a.x)*z,y:180-(frame.y+DDlifeHead+a.y)*z,z};
+      setSelected(new Set(["life:"+id])); setLifeNav(false); queueCamera(); scheduleCamera();
     }
     function addSticky(Y) {
       const G = C(),
@@ -2535,6 +2649,7 @@ export function DDcreateBoard(deps) {
         (ot) => ({
           ...ot,
           notes: ot.notes.filter((St) => St.id !== Y.noteId),
+          ...(Y.lifeId ? { __life: { ...ot.__life, items:ot.__life.items.filter((i)=>i.id!==Y.lifeId), links:ot.__life.links.filter((l)=>l.from!==Y.id&&l.to!==Y.id) } } : {}),
           blocks: [
             ...ot.blocks,
             {
@@ -2711,6 +2826,12 @@ export function DDcreateBoard(deps) {
     }),
       useEffect(() => {
         const n = ddSearchNode && layout.map.get(ddSearchNode.ref);
+        if (!n && ddSearchNode?.ref?.startsWith("life:")) {
+          const items=DDlifeItems(setup), parents=new Set();let item=items.find((i)=>"life:"+i.id===ddSearchNode.ref);
+          while(item?.parent){parents.add(item.parent);item=items.find((i)=>i.id===item.parent);}
+          if(items.some((i)=>parents.has(i.id)&&i.collapsed))lifeChange((list)=>list.map((i)=>parents.has(i.id)?{...i,collapsed:false}:i));
+          return;
+        }
         if (!n || !viewport.current) return;
         setSelected(new Set([n.id]));
         const z = Math.min(1.2, (viewport.current.clientWidth - 80) / n.w);
@@ -2721,7 +2842,7 @@ export function DDcreateBoard(deps) {
         };
         queueCamera();
         scheduleCamera();
-      }, [ddSearchNode]),
+      }, [ddSearchNode, setup.life]),
       useLayoutEffect(() => {
         paintCamera();
       }, [layout, mode, wireId, showMap, tick, focus, appearance]),
@@ -2935,7 +3056,10 @@ export function DDcreateBoard(deps) {
                     for (const ra of selected) {
                       const ma = layout.map.get(ra);
                       if (!(!ma || locked.has(ra) || ma.memberOf))
-                        if (ma.noteId && mode !== "lanes") {
+                        if (ma.lifeId) {
+                          const i = Jt.__life.items.find((i) => i.id === ma.lifeId);
+                          if (i && !selected.has(ma.parentId)) {i.x += yn; i.y += An;}
+                        } else if (ma.noteId && mode !== "lanes") {
                           const Oa = Jt.notes.find((fa) => fa.id === ma.noteId);
                           ((Oa.x += yn), (Oa.y += An));
                         } else On[ra] = { x: ma.x + yn, y: ma.y + An };
@@ -3148,6 +3272,13 @@ export function DDcreateBoard(deps) {
       );
     }
     function saveNote(noteId, text) {
+      const node = layout.map.get(editingRef.current?.ref || editing?.ref);
+      if (node?.lifeId) {
+        const first = noteSession.current !== node.lifeId;
+        commit((d) => { d.__life.items = d.__life.items.map((i) => i.id === node.lifeId ? {...i,text} : i); return d; },null,{history:first});
+        noteSession.current = node.lifeId;
+        return;
+      }
       const first = noteSession.current !== noteId;
       commit(
         (day) => ({
@@ -3220,6 +3351,17 @@ export function DDcreateBoard(deps) {
       );
     }
     function renderNode(Y) {
+      if (Y.section === "life") return _.createElement("div", {
+        key:Y.id, ref:(el) => el ? elementRefs.current.set(Y.id,el) : elementRefs.current.delete(Y.id),
+        className:"dd-life-frame", "data-board-id":Y.id, "data-node-kind":"life-area", "data-section":"life",
+        style:{position:"absolute",left:Y.x,top:Y.y,width:Y.w,height:Y.h},
+        onPointerDown:(e) => { if (!e.target.closest("button")) { e.preventDefault(); e.stopPropagation(); if(tool==="section"){addLifeSection(toWorld(e.clientX,e.clientY));setTool("select");}else startPan(e); } },
+        onContextMenu:(e) => openContext(e,{}),
+      }, _.createElement("div",{className:"dd-life-area-title"},Y.title, " · ",t("Shared across every day","مشترک بین همهٔ روزها")),
+      _.createElement("button",{type:"button",className:"b6-note-resize", "data-resize":true,"data-edge":"se","aria-label":t("Resize Life area","تغییر اندازهٔ محدودهٔ زندگی"),onPointerDown:(e) => {
+        if (e.button !== 0) return; e.preventDefault(); e.stopPropagation();
+        gesture.current={kind:"life-resize",pointerId:e.pointerId,sx:e.clientX,sy:e.clientY,w:Y.w,h:Y.h,moved:false}; viewport.current.setPointerCapture(e.pointerId);
+      }}));
       if (Y.kind === "section")
         return _.createElement("div", {
           key: Y.id,
@@ -3245,7 +3387,7 @@ export function DDcreateBoard(deps) {
       const G = selected.has(Y.id),
         ct = locked.has(Y.id),
         ot = editing?.ref === Y.id,
-        St = Y.kind === "frame",
+        St = Y.kind === "frame" || Y.lifeSection,
         Tt = Y.kind === "sticky",
         Pt = Y.kind === "emoji",
         yn = Y.kind === "lane" || Y.kind === "day",
@@ -3261,16 +3403,20 @@ export function DDcreateBoard(deps) {
           },
           "data-board-id": Y.id,
           "data-node-kind": Y.kind,
+          "data-life-id": Y.lifeId,
+          "data-life-type": Y.lifeId ? (Y.lifeSection ? "section" : "sticky") : undefined,
+          "data-collapsed": Y.collapsed,
+          "aria-selected": G,
           "data-section": Y.section || Y.sectionId,
           "data-member": Y.memberOf ? true : undefined,
           "data-node-done": !!Y.done,
           "data-level": Y.kind === "habit" ? Y.level : undefined,
           role: "group",
           "aria-label": Y.title + (Y.min ? ", " + w(Y.min) : ""),
-          tabIndex: St ? -1 : 0,
+          tabIndex: Y.lifeId ? 0 : St ? -1 : 0,
           className:
             "b4-node b4-" +
-            Y.kind +
+            Y.kind + (Y.lifeSection ? " b4-frame" : "") +
             (G ? " selected" : "") +
             (ct ? " locked" : "") +
             (connecting === Y.id ? " connecting" : ""),
@@ -3292,17 +3438,19 @@ export function DDcreateBoard(deps) {
                   : core.rgba(Y.color, Y.opacity)
                 : `color-mix(in srgb, var(--panel) ${Y.opacity * 100}%, transparent)`,
             color: yn || Tt || Pt ? Y.textColor : "var(--pi)",
-            zIndex: St ? 1 : Y.stack,
+            zIndex: Y.lifeId ? Y.stack : St ? 1 : Y.stack,
           },
           onPointerDown: (Kt) => nodeDown(Kt, Y),
           onDoubleClick: (Kt) => {
             (Kt.stopPropagation(), openEdit(Y.id));
           },
-          onFocus: () => {},
+          onFocus: (e) => { if (Y.lifeId && e.target === e.currentTarget) selectOne(Y.id); },
           // A section is a place on the canvas: right-click gives the canvas menu.
           onContextMenu: (event) =>
             openContext(event, Y.section ? {} : { ref: Y.id }),
         },
+        quickColor === Y.id && _.createElement("div",{className:"dd-native-colors",onPointerDown:(e)=>e.stopPropagation()},
+          ["#FFE08A","#9DD6FF","#D3B8FF","#FFA799","#FFA6D9","#E6E6E6","#A8E6B8"].map((color)=>_.createElement("button",{type:"button",key:color,style:{background:color},"aria-label":t("Use color ","انتخاب رنگ ")+color,onClick:(e)=>{e.stopPropagation();commit((d)=>core.setStyle(d,[Y],{fill:color}));setQuickColor(null);}},""))),
         Pt
           ? _.createElement(B, { emoji: Y.symbol || Y.title, size: Math.max(24, Math.min(Y.w,Y.h)-10) })
           : _.createElement(
@@ -3389,6 +3537,7 @@ export function DDcreateBoard(deps) {
                               "⠿",
                             ),
                             _.createElement("span", null, DDUI("یادداشت")),
+                            _.createElement("button",{type:"button","aria-label":t("Change color","تغییر رنگ"),onClick:()=>setQuickColor(quickColor===Y.id?null:Y.id)},"●"),
                             _.createElement(
                               "button",
                               {
@@ -3460,6 +3609,12 @@ export function DDcreateBoard(deps) {
               _.createElement(
                 "div",
                 { className: "b4-node-actions" },
+                Y.lifeSection && _.createElement(_.Fragment,null,
+                  toolButton(t(Y.collapsed ? "Expand section" : "Collapse section",Y.collapsed ? "باز کردن سکشن" : "بستن سکشن"),null,()=>{setSelected(new Set([Y.id]));lifeChange((list)=>list.map((i)=>i.id===Y.lifeId?{...i,collapsed:!i.collapsed}:i));},{},Y.collapsed?"▸":"▾"),
+                  toolButton(t("Rename section","تغییر نام سکشن"),"edit",()=>openEdit(Y.id)),
+                  toolButton(t("Change color","تغییر رنگ"),null,()=>setQuickColor(quickColor===Y.id?null:Y.id),{},"●"),
+                  toolButton(t("Add sticky note","افزودن یادداشت"),"plus",()=>addLifeItem("sticky",Y.lifeId)),
+                  toolButton(t("Add section inside","افزودن سکشن داخل"),"square",()=>addLifeItem("section",Y.lifeId))),
                 (Y.kind === "block" || Y.kind === "subtask") &&
                   _.createElement(
                     _.Fragment,
@@ -3538,10 +3693,10 @@ export function DDcreateBoard(deps) {
                   _.createElement("span", { title: DDUI("Locked") }, "\u25A3"),
               ),
             ),
-        Tt &&
+        (Tt || (Y.lifeSection && !Y.collapsed)) &&
           !ct &&
           !ot &&
-          (Y.memberOf ? ["s"] : ["sw", "se"]).map(
+          (Y.lifeSection ? ["se"] : Y.memberOf ? ["s"] : ["sw", "se"]).map(
             (edge) =>
               _.createElement("button", {
                 type: "button",
@@ -3630,19 +3785,6 @@ export function DDcreateBoard(deps) {
                   ),
                 }));
               }
-            },
-          }),
-        Y.section === "life" &&
-          _.createElement(LifeBoard, {
-            items: life.DDlifeItems(setup),
-            getZoom: () => cam.current.z,
-            language: DDlanguage,
-            onChange: lifeChange,
-            makeId: C,
-            canDrag: () => !space.current && tool === "select",
-            onBoardPointerDown: (e) => {
-              if (tool === "section" || tool === "hand" || space.current) nodeDown(e, Y);
-              else e.stopPropagation();
             },
           }),
         !ct &&
@@ -4271,7 +4413,7 @@ export function DDcreateBoard(deps) {
         ? layout.nodes.filter((n) => !locked.has(n.id))
         : layout.nodes;
       const payload = core.copy(
-        dayRef.current,
+        boardDocument(),
         nodes,
         layout.edges,
         selected,
@@ -4289,11 +4431,13 @@ export function DDcreateBoard(deps) {
         event.clipboardData.setData("text/plain", payload.text);
       } else navigator.clipboard?.writeText(payload.text).catch(() => {});
       if (cut) {
+        const cutNodes=nodes.filter((n)=>selected.has(n.id));
+        for(const n of [...cutNodes])if(n.lifeSection)for(const id of DDlifeDescendants(DDlifeItems(setup),n.lifeId))if(!cutNodes.some((i)=>i.lifeId===id))cutNodes.push({id:"life:"+id,lifeId:id});
         commit(
           (d) =>
             core.remove(
               d,
-              nodes.filter((n) => selected.has(n.id)),
+              cutNodes,
             ),
           t("Selection cut", "انتخاب بریده شد"),
         );
@@ -4309,8 +4453,23 @@ export function DDcreateBoard(deps) {
       const at =
         point ||
         toWorld(rect.left + rect.width / 2, rect.top + rect.height / 2);
-      const result = core.paste(dayRef.current, payload, at, mode, C);
+      const result = core.paste(boardDocument(), payload, at, mode, C);
       if (!result.refs.length) return;
+      const frame=layout.map.get("section:life"), target=frame&&DDlifeParentAt(result.day.__life.items,at.x-frame.x,at.y-frame.y-DDlifeHead);
+      if (target) {
+        const base=DDlifeAbs(result.day.__life.items,target.id);
+        for(const ref of result.refs.filter((r)=>r.startsWith("life:"))){
+          const it=result.day.__life.items.find((i)=>"life:"+i.id===ref);
+          if(it&&it.type==="sticky"&&!it.parent){it.parent=target.id;it.x-=base.x;it.y-=base.y;}
+        }
+        for (const ref of [...result.refs]) if(ref.startsWith("sticky:")) {
+          const old=result.day.notes.find((i)=>"sticky:"+i.id===ref), style=result.day.canvas?.board4?.styles?.[ref]||{};
+          if(!old)continue;
+          result.day.__life.items=DDlifeAdd(result.day.__life.items,{id:old.id,type:"sticky",parent:target.id,text:old.text,color:old.color,x:old.x-frame.x-base.x,y:old.y-frame.y-DDlifeHead-base.y,w:style.width||220,h:style.height||160});
+          result.day.notes=result.day.notes.filter((i)=>i!==old);
+          core.cleanRefs(result.day,[ref]);result.refs[result.refs.indexOf(ref)]="life:"+old.id;
+        }
+      }
       commit(() => result.day, t("Pasted", "چسبانده شد"));
       setSelected(new Set(result.refs));
       setWireId(null);
@@ -4415,7 +4574,7 @@ export function DDcreateBoard(deps) {
       const sep = (id) => ({ id, separator: true });
       const editable = selectedNodes.some((n) => !locked.has(n.id)),
         copyable = selectedNodes.some((n) =>
-          ["block", "subtask", "sticky", "emoji", "bug"].includes(n.kind),
+          ["block", "subtask", "sticky", "emoji", "bug", "life-section"].includes(n.kind),
         );
       const showProperties = () => {
         setProperties(true);
@@ -4889,29 +5048,14 @@ export function DDcreateBoard(deps) {
             DDUI(focus ? "Exit full screen" : "Full screen"),
           ),
           toolButton("Board help", "?", () => setHelp((Y) => !Y)),
-          toolButton(
-            t("Go to Life section", "رفتن به بخش زندگی"),
-            "fitAll",
-            () => {
-              const node = layout.map.get("section:life"),
-                el = viewport.current;
-              if (!node || !el) return;
-              setSelected(new Set([node.id]));
-              cam.current = core.fit([node], el.clientWidth, el.clientHeight, {
-                left: 36,
-                right: 36,
-                top: 48,
-                bottom: 100,
-                maxZoom: 1,
-              });
-              queueCamera();
-              scheduleCamera();
-            },
-            { "data-life-jump": true },
-            t("Life", "زندگی"),
-          ),
+          toolButton(t("Go to Life section", "رفتن به بخش زندگی"),"fitAll",()=>{const first=DDlifeItems(setup).find((i)=>i.type==="section"&&!i.parent);if(first)jumpLife(first.id);else addLifeItem("section");},{"data-life-jump":true},t("Life","زندگی")),
+          toolButton(t("Section navigator","فهرست سکشن‌ها"),"list",()=>setLifeNav((v)=>!v),{"aria-expanded":lifeNav},t("Sections","سکشن‌ها")),
         ),
       ),
+      lifeNav && _.createElement("nav",{className:"dd-life-nav","aria-label":t("Life sections","سکشن‌های زندگی"),onPointerDown:(e)=>e.stopPropagation()},
+        _.createElement("strong",null,t("Life sections","سکشن‌های زندگی")),
+        _.createElement("button",{type:"button",onClick:()=>commit((d)=>{d.__life.items=DDlifeCompact(d.__life.items);delete d.__life.frame.w;delete d.__life.frame.h;return d;})},t("Compact layout","جمع‌وجور کن")),
+        DDlifeItems(setup).filter((i)=>i.type==="section").map((i)=>_.createElement("button",{type:"button",key:i.id,onClick:()=>jumpLife(i.id),style:{paddingInlineStart:i.parent?24:8}},(i.collapsed?"▸ ":"▾ ")+(i.text||t("Section","سکشن"))))),
       (selected.size > 0 || selectedWire || selectedWires.size > 0) &&
         _.createElement(
           "div",

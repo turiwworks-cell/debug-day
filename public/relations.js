@@ -1,3 +1,4 @@
+import { DDlifeItems } from "./life-board.js";
 // Membership is stored in blocks/subtasks, never in a second Board-only tree.
 const copy = (value) => structuredClone(value);
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -112,6 +113,7 @@ export function DDreconcileDay(
     "section:habits",
     "section:notes",
     "section:life",
+    ...DDlifeItems(setup).map((i) => "life:" + i.id),
     ...lanes.map((id) => "lane:" + id),
   ]);
   for (const b of blocks.values())

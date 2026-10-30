@@ -77,3 +77,11 @@ Type a zoom percentage (Persian digits work), use exact zoom steps from 5% to 80
 Run all regression tests with Node.js 24: `node --test tests/*.test.mjs`.
 Run the browser regressions with `npx playwright install chromium` followed by `npm run test:browser`. They use a disposable local SQLite planner and cover note movement versus connections, autosave before reload, keyboard deletion scope and undo, consistent completion, fixed-size touch targets, camera stability, and resuming a closed day. The same command also covers Persian and Gregorian date selection, per-day feeling drafts and edits, empty-day logging, recurring reminder occurrences, task moves, and a fresh offline HTML export. Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` only when using an existing Chromium binary.
 Before a frontend merge, check Chromium at 1440×900 and 390×844 with touch, in both UI languages. Confirm no document overflow or console errors, camera/mode persistence without sync writes, the ten-call MCP planning workflow, search actions, new-day reload, capture/worry/Later persistence, pause decisions, and downloaded HTML in a fresh offline context. A physical iPhone/Safari check is still separate from emulation.
+
+### Shared Life workspace (5.11)
+
+Life notes use the native board tools: select, multi-select, copy/paste, resize, connect and move notes between the current day and Life. Shared content and frame geometry live in setup; the outer Life area only pans or resizes. Undo/Redo survives switching days or returning from Plan.
+
+Use **Sections** to jump to a section or **Compact layout** to remove empty space without discarding content. A section's arrow collapses its contents. Life is editable in Plan and searchable across the app.
+
+MCP clients can read `get_life` and, with a write key, call `add_life_item`, `update_life_item` or `delete_life_item`. Every write needs the latest `expected_revision`; invalid parents, cycles, dimensions and colors are rejected. Deleting a section preserves its children.

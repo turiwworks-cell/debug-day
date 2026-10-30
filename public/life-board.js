@@ -109,6 +109,8 @@ export function DDnormalizeLife(life) {
       w: limit(r.w, 60, 2e4, section ? 480 : 240),
       h: limit(r.h, 40, 2e4, section ? 320 : 240),
       text: typeof r.text === "string" ? r.text.slice(0, 4000) : "",
+      collapsed: section && !!r.collapsed,
+      ...(r.style && typeof r.style === "object" ? { style: Object.fromEntries(Object.entries(r.style).filter(([k,v]) => (["textSize","opacity"].includes(k) && Number.isFinite(v)) || (k==="textAlign"&&["start","center","end"].includes(v)) || (k==="textColor"&&typeof v==="string"&&/^#[0-9a-f]{6}$/i.test(v)))) } : {}),
       ...(typeof r.color === "string" && /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(r.color) ? { color: r.color } : {}),
     });
   }
@@ -120,7 +122,73 @@ export function DDnormalizeLife(life) {
     while (p && sections.has(p) && sections.get(p) !== it && hops++ < 50) p = sections.get(p).parent;
     if (!sections.has(it.parent) || it.parent === it.id || p) it.parent = "";
   }
-  return { v: 1, items };
+  const refs = new Set(items.map((i) => "life:" + i.id));
+  const links = (Array.isArray(life?.links) ? life.links : []).filter((l) => l && typeof l.id === "string" && refs.has(l.from) && refs.has(l.to) && l.from !== l.to).slice(0, 2000);
+  const frame = {};
+  for (const k of ["x", "y", "w", "h"]) if (Number.isFinite(life?.frame?.[k])) frame[k] = limit(life.frame[k], k === "w" || k === "h" ? 240 : -1e5, 1e5, 0);
+  return { v: 2, items, links, frame };
+}
+
+// Session history is shared by Plan and all day boards. It never enters backups.
+export const DDlifeHistory = { past: [], future: [] };
+export function DDLifePanel({ React:R, setup, days, onUpdateDayOnDate, onUpdateSetup, onOpen, language }) {
+  const h=R.createElement, fa=language==="fa", t=(en,fa2)=>fa?fa2:en;
+  const [,redraw]=R.useState(0), state=DDlifeState(setup);
+  function change(fn) {
+    const next=fn(structuredClone(state));
+    if (JSON.stringify(next)===JSON.stringify(state)) return;
+    DDlifeHistory.past.push({day:null,life:structuredClone(state),bytes:JSON.stringify(state).length});
+    DDlifeHistory.past=DDlifeHistory.past.slice(-50); DDlifeHistory.future=[];
+    onUpdateSetup((s)=>({...s,life:next})); redraw((n)=>n+1);
+  }
+  function undo(redo=false) {
+    const source=redo?DDlifeHistory.future:DDlifeHistory.past, dest=redo?DDlifeHistory.past:DDlifeHistory.future;
+    const entry=source.pop(); if (!entry) return;
+    const currentDay=entry.day?days?.[entry.day.date]:null;
+    dest.push({day:currentDay||null,life:state,bytes:JSON.stringify([currentDay,state]).length});
+    if(entry.day)onUpdateDayOnDate?.(entry.day.date,()=>structuredClone(entry.day));
+    onUpdateSetup((s)=>({...s,life:entry.life})); redraw((n)=>n+1);
+  }
+  function render(it) {
+    const update=(text)=>change((s)=>({...s,items:s.items.map((i)=>i.id===it.id?{...i,text}:i)}));
+    if (it.type==="sticky") return h("article",{key:it.id,className:"dd-plan-life-note",style:{background:it.color||DDlifeColors[0],color:DDlifeContrast(it.color||DDlifeColors[0])}},
+      h("textarea",{key:it.text,defaultValue:it.text,dir:"auto","aria-label":t("Life note","یادداشت زندگی"),onBlur:(e)=>update(e.target.value)}),
+      h("button",{type:"button",onClick:()=>onOpen(it.id)},t("Show on board","نمایش روی برد")));
+    return h("div",{key:it.id,className:"dd-plan-life-section"},h("div",{className:"dd-plan-life-heading"},
+      h("button",{type:"button","aria-expanded":!it.collapsed,onClick:()=>change((s)=>({...s,items:s.items.map((i)=>i.id===it.id?{...i,collapsed:!i.collapsed}:i)}))},it.collapsed?"▸":"▾"),
+      h("input",{key:it.text,dir:"auto",defaultValue:it.text,"aria-label":t("Life section name","نام سکشن زندگی"),onBlur:(e)=>update(e.target.value)}),
+      h("button",{type:"button",onClick:()=>onOpen(it.id)},t("Board","برد"))),
+      !it.collapsed&&h("div",{className:"dd-plan-life-children"},state.items.filter((i)=>i.parent===it.id).map(render)));
+  }
+  return h("section",{className:"dd-plan-life","data-section-id":"life",onKeyDown:(e)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"&&!e.target.matches("input,textarea")){e.preventDefault();undo();}}},
+    h("header",null,h("h2",null,t("Life · shared across days","زندگی · مشترک بین روزها")),h("button",{type:"button",onClick:()=>undo()},t("Undo Life edit","واگرد تغییر زندگی")),h("button",{type:"button",onClick:()=>undo(true)},t("Redo Life edit","انجام دوبارهٔ تغییر زندگی"))),
+    state.items.filter((i)=>!i.parent).map(render));
+}
+export const DDlifeState = (setup) => DDnormalizeLife({ ...setup?.life, items: DDlifeItems(setup) });
+export function DDlifeVisible(items, it) {
+  let parent = it.parent, hops = 0;
+  while (parent && hops++ < 60) {
+    const p = items.find((i) => i.id === parent);
+    if (!p || p.collapsed) return false;
+    parent = p.parent;
+  }
+  return true;
+}
+export function DDlifeCompact(items) {
+  let next = items.map((i) => ({ ...i }));
+  function arrange(parent, width) {
+    const kids = next.filter((i) => i.parent === parent).sort((a,b) => a.y - b.y || a.x - b.x);
+    for (const k of kids) if (k.type === "section" && !k.collapsed) arrange(k.id, Math.min(1000, Math.max(520, k.w)));
+    let x = 24, y = 64, row = 0, right = 240;
+    for (const k of kids) {
+      const hh = k.collapsed ? 44 : k.h;
+      if (x > 24 && x + k.w > width) { x = 24; y += row + 64; row = 0; }
+      k.x = x; k.y = y; x += k.w + 32; row = Math.max(row, hh); right = Math.max(right, x);
+    }
+    if (parent) { const p = next.find((i) => i.id === parent); p.w = right; p.h = Math.max(180, y + row + 24); }
+  }
+  arrange("", 1800);
+  return next;
 }
 
 // What every day shows: the saved list, or the starting content until someone edits it.
@@ -167,7 +235,7 @@ export function DDlifeDescendants(items, id) {
 export function DDlifeBounds(items) {
   let w = 0,
     h = 0;
-  for (const it of items) if (!it.parent) ((w = Math.max(w, it.x + it.w)), (h = Math.max(h, it.y + it.h)));
+  for (const it of items) if (!it.parent) ((w = Math.max(w, it.x + it.w)), (h = Math.max(h, it.y + (it.collapsed ? 38 : it.h))));
   return { w: Math.max(720, w + 48), h: Math.max(320, h + 48) };
 }
 
@@ -213,6 +281,7 @@ export function DDlifeAdd(items, spec) {
       w,
       h,
       text: spec.text || "",
+      ...(spec.style ? { style: { ...spec.style } } : {}),
       ...(spec.color ? { color: spec.color } : section ? {} : { color: DDlifeColors[0] }),
     };
   return DDlifeFit([...items, item], item.parent);
@@ -317,305 +386,35 @@ export const DDlifeCSS = `
 .b4-frame>.b4-node-body .b4-node-title,.b4-frame>.b4-node-body .b4-node-subtitle{color:inherit}
 .b4-frame[data-section]{background:color-mix(in srgb,var(--node-color) 14%,var(--wash))!important}
 .b4-frame[data-section=life]{background:transparent!important;border-style:dashed;box-shadow:none}
+.dd-life-frame{border:1px dashed var(--rule-2,#aaa);border-radius:14px;pointer-events:auto;z-index:0;touch-action:none;background:transparent}
+.dd-life-area-title{padding:12px 16px;color:var(--ink-2);font-size:14px;pointer-events:none}
+.b4-life-section{background:color-mix(in srgb,var(--node-color) 24%,var(--panel))!important;border:2px solid color-mix(in srgb,var(--node-color) 65%,#292526);box-shadow:none}
+.b4-life-section>.b4-node-body{position:absolute;top:-40px;left:0;height:34px;width:auto;max-width:calc(100% - 180px);border-radius:7px;background:var(--node-color);color:var(--node-text);padding:0 12px}
+.b4-life-section>.b4-node-actions{position:absolute;top:-40px;right:0;height:34px;border-radius:7px;background:var(--node-color);color:var(--node-text)}
+.b4-life-section[data-collapsed=true]>.b4-node-body,.b4-life-section[data-collapsed=true]>.b4-node-actions{top:0}
+.b4-node[aria-selected=true]{outline:3px solid #3478F6!important;outline-offset:4px;box-shadow:0 0 0 7px #3478f625!important}
+.dd-native-colors{position:absolute;top:35px;left:0;display:flex;gap:6px;padding:8px;background:var(--panel);border:1px solid var(--rule-2);border-radius:10px;box-shadow:0 4px 16px #0003;z-index:100}
+.dd-native-colors button{width:28px;height:28px;border:1px solid #2225;border-radius:50%;padding:0;cursor:pointer}
+.dd-life-nav{position:absolute;top:70px;right:16px;z-index:100;display:flex;flex-direction:column;gap:4px;max-height:65%;width:240px;overflow:auto;background:var(--panel);color:var(--ink);padding:12px;border:1px solid var(--rule-2);border-radius:12px;box-shadow:0 8px 28px #0002}
+.dd-life-nav button{text-align:start;min-height:36px;padding:6px 8px;border-radius:6px}
+.dd-life-nav button:hover{background:var(--wash)}
+.dd-plan-life{margin:18px 0;padding:16px;border:1px solid var(--rule-2);border-radius:12px}
+.dd-plan-life header,.dd-plan-life-heading{display:flex;gap:8px;align-items:center}
+.dd-plan-life header h2{flex:1;font-size:16px}
+.dd-plan-life-section{border:1px solid var(--rule);border-radius:8px;margin:12px 0;padding:8px}
+.dd-plan-life-heading input{flex:1;min-width:0;border:0;background:transparent;color:inherit;font-weight:600}
+.dd-plan-life-children{padding-inline-start:12px;display:flex;flex-wrap:wrap;gap:12px}
+.dd-plan-life-children>.dd-plan-life-section{flex:1 1 320px}
+.dd-plan-life-note{width:220px;padding:8px;border-radius:3px 3px 10px 3px;box-shadow:0 10px 24px -14px #0008;margin:8px 0}
+.dd-plan-life-note textarea{display:block;min-height:120px;width:100%;border:0;resize:vertical;background:transparent;color:inherit;font:inherit}
+.dd-plan-life button{min-height:36px;padding:4px 8px}
+@media(pointer:coarse){.b4-sticky-head{height:44px!important;gap:2px;padding:0 4px!important}.b4-sticky-head button,.b4-life-section>.b4-node-actions button{min-width:44px!important;min-height:44px!important}.b4-life-section>.b4-node-body,.b4-life-section>.b4-node-actions{height:44px;top:-50px}.dd-native-colors button{width:36px;height:36px}.dd-plan-life button{min-height:44px}.dd-life-nav button{min-height:44px}}
+.b4-viewport[data-tool=select],.b4-viewport[data-tool=select] .b4-node{cursor:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2232%22%20height%3D%2232%22%20viewBox%3D%220%200%20512%20512%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%2245%22%20y1%3D%2245%22%20x2%3D%22410%22%20y2%3D%22440%22%20gradientUnits%3D%22userSpaceOnUse%22%3E%3Cstop%20stop-color%3D%22%23ed009c%22%2F%3E%3Cstop%20offset%3D%22.45%22%20stop-color%3D%22%23762752%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%2344333f%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Cpath%20d%3D%22M99%2045L445%20166Q470%20176%20470%20199Q470%20219%20446%20229L300%20278Q284%20284%20276%20305L230%20447Q220%20470%20198%20470Q174%20470%20165%20446L45%20100Q35%2072%2053%2054Q72%2035%2099%2045Z%22%20fill%3D%22url%28%23g%29%22%2F%3E%3C%2Fsvg%3E") 3 3,auto}
 @media (prefers-reduced-motion:reduce){.dd-life-tools{transition:none}}
 `;
 
-// The Life area as a React component. It renders inside the Life frame on the board.
-export function DDcreateLifeBoard(R) {
-  const h = R.createElement,
-    { useState, useRef, useEffect } = R;
+// Native Board and Plan share these styles; Life has no separate gesture engine.
+export function DDinstallLifeStyles() {
   if (typeof document !== "undefined" && !document.getElementById("dd-life-css"))
     document.head.append(Object.assign(document.createElement("style"), { id: "dd-life-css", textContent: DDlifeCSS }));
-  return function LifeBoard({ items, getZoom, language, onChange, makeId, canDrag = () => true, onBoardPointerDown }) {
-    const fa = language === "fa",
-      t = (en, fa2) => (fa ? fa2 : en),
-      [edit, setEdit] = useState(null),
-      [palette, setPalette] = useState(null),
-      [armed, setArmed] = useState(null),
-      drag = useRef(null),
-      lastDrag = useRef(0),
-      nodes = useRef(new Map()),
-      area = useRef(null),
-      raf = useRef(0),
-      armTimer = useRef(0),
-      bounds = DDlifeBounds(items);
-    useEffect(() => () => { clearTimeout(armTimer.current); cancelAnimationFrame(raf.current); }, []);
-    const clearDrag = () => {
-      cancelAnimationFrame(raf.current);
-      raf.current = 0;
-      const d = drag.current;
-      if (!d) return;
-      drag.current = null;
-      const el = nodes.current.get(d.id || d.resize);
-      if (el) {
-        el.style.transform = "";
-        el.style.width = d.w + "px";
-        el.style.height = d.hh + "px";
-        el.classList.remove("dd-life-dragging");
-      }
-      for (const node of nodes.current.values()) node.classList.remove("dd-life-drop");
-      try { d.capture.releasePointerCapture(d.pointerId); } catch {}
-      if (area.current) delete area.current.dataset.gesture;
-    };
-    useEffect(() => {
-      const cancel = () => { clearDrag(); setPalette(null); setArmed(null); };
-      window.addEventListener("blur", cancel);
-      const el = area.current;
-      el?.addEventListener("dd-life-cancel", cancel);
-      return () => { window.removeEventListener("blur", cancel); el?.removeEventListener("dd-life-cancel", cancel); };
-    }, []);
-    const paint = () => {
-      raf.current = 0;
-      const d = drag.current, el = nodes.current.get(d?.id || d?.resize);
-      if (!d || !el) return;
-      if (d.resize) {
-        el.style.width = d.nw + "px";
-        el.style.height = d.nh + "px";
-      } else if (d.moved) {
-        el.style.transform = `translate3d(${d.dx}px,${d.dy}px,0)`;
-        el.classList.add("dd-life-dragging");
-        const target = DDlifeDropTarget(items, d.id, d.dx, d.dy);
-        for (const [id, node] of nodes.current) node.classList.toggle("dd-life-drop", id === target?.id);
-      }
-    };
-    const queue = () => { if (!raf.current) raf.current = requestAnimationFrame(paint); };
-    const interactive = (el) => !!el.closest?.("button,input,textarea,[data-life-tools]");
-    const down = (event, it) => {
-      if (event.button !== 0 || edit?.id === it.id || interactive(event.target)) return;
-      if (!canDrag()) return;
-      event.preventDefault();
-      event.stopPropagation();
-      clearDrag();
-      setPalette(null);
-      nodes.current.get(it.id)?.focus({ preventScroll: true });
-      event.currentTarget.setPointerCapture?.(event.pointerId);
-      drag.current = { id: it.id, sx: event.clientX, sy: event.clientY, dx: 0, dy: 0, moved: false, w: it.w, hh: it.h, pointerId: event.pointerId, capture: event.currentTarget, zoom: getZoom() || 1 };
-      area.current.dataset.gesture = "move";
-    };
-    const move = (event) => {
-      const d = drag.current;
-      if (!d || d.pointerId !== event.pointerId) return;
-      event.stopPropagation();
-      const z = d.zoom;
-      d.dx = (event.clientX - d.sx) / z;
-      d.dy = (event.clientY - d.sy) / z;
-      if (!d.moved && Math.hypot(event.clientX - d.sx, event.clientY - d.sy) > 4) d.moved = true;
-      if (d.moved) queue();
-    };
-    const up = (event) => {
-      const d = drag.current;
-      if (!d || d.pointerId !== event.pointerId) return;
-      event.stopPropagation();
-      move(event);
-      clearDrag();
-      if (d.moved) {
-        lastDrag.current = Date.now();
-        onChange((list) => DDlifeMoveBy(list, d.id, d.dx, d.dy));
-      }
-    };
-    const resizeDown = (event, it) => {
-      if (event.button !== 0) return;
-      event.stopPropagation();
-      event.preventDefault();
-      clearDrag();
-      event.currentTarget.setPointerCapture?.(event.pointerId);
-      const kids = items.filter((i) => i.parent === it.id);
-      drag.current = { resize: it.id, sx: event.clientX, sy: event.clientY, w: it.w, hh: it.h, minW: Math.max(160, ...kids.map((k) => k.x + k.w + 24)), minH: Math.max(110, ...kids.map((k) => k.y + k.h + 24)), pointerId: event.pointerId, capture: event.currentTarget, zoom: getZoom() || 1 };
-      area.current.dataset.gesture = "resize";
-    };
-    const resizeMove = (event) => {
-      const d = drag.current;
-      if (!d?.resize || d.pointerId !== event.pointerId) return;
-      event.stopPropagation();
-      const z = d.zoom;
-      if (Math.hypot(event.clientX - d.sx, event.clientY - d.sy) < 4 && !d.nw) return;
-      d.nw = Math.max(d.minW, Math.round(d.w + (event.clientX - d.sx) / z));
-      d.nh = Math.max(d.minH, Math.round(d.hh + (event.clientY - d.sy) / z));
-      queue();
-    };
-    const resizeUp = (event) => {
-      const d = drag.current;
-      if (!d?.resize || d.pointerId !== event.pointerId) return;
-      event.stopPropagation();
-      resizeMove(event);
-      clearDrag();
-      if (d.nw)
-        onChange((list) => {
-          const it = list.find((i) => i.id === d.resize);
-          return it ? DDlifeUpdate(list, d.resize, { w: d.nw, h: d.nh }) : list;
-        });
-    };
-    const add = (type, parent) => {
-      const id = "lf-" + makeId();
-      onChange((list) => DDlifeAdd(list, { id, type, parent }));
-      setEdit({ id, value: "" });
-    };
-    // Deleting takes two presses so a stray tap cannot remove shared content from every day.
-    const remove = (it) => {
-      if (armed !== it.id) {
-        setArmed(it.id);
-        clearTimeout(armTimer.current);
-        armTimer.current = setTimeout(() => setArmed(null), 3000);
-        return;
-      }
-      setArmed(null);
-      onChange((list) => (it.type === "section" ? DDlifeRemove(list, it.id) : list.filter((i) => i.id !== it.id)));
-    };
-    const finish = (it, save = true) => {
-      if (save && edit && edit.id === it.id && edit.value !== it.text)
-        onChange((list) => DDlifeUpdate(list, it.id, { text: edit.value }));
-      setEdit(null);
-    };
-    const tool = (label, title, onClick, extra = {}) =>
-      h("button", { type: "button", "aria-label": title, title, onClick: (e) => (e.stopPropagation(), onClick()), ...extra }, label);
-    const colors = (it) => palette === it.id && h("div", {
-      className: "dd-life-palette", "data-life-tools": true, role: "group", "aria-label": t("Colors", "رنگ‌ها"),
-      onPointerDown: (e) => e.stopPropagation(),
-    }, DDlifeColors.map((color) => tool("", t("Use color ", "انتخاب رنگ ") + color,
-      () => { onChange((list) => DDlifeUpdate(list, it.id, { color })); setPalette(null); },
-      { key: color, style: { background: color }, "aria-pressed": DDlifeColor(items, it) === color })));
-    const render = (it) => {
-      const color = DDlifeColor(items, it),
-        style = {
-          left: it.x,
-          top: it.y,
-          width: it.w,
-          height: it.h,
-          "--section-color": color,
-          "--section-text": DDlifeContrast(color),
-        },
-        editing = edit?.id === it.id,
-        delTool = tool(
-          armed === it.id ? t("Sure?", "مطمئنی؟") : "×",
-          armed === it.id ? t("Press again to delete", "برای حذف دوباره بزن") : t("Delete", "حذف"),
-          () => remove(it),
-          armed === it.id ? { "data-armed": true } : {},
-        );
-      if (it.type === "sticky")
-        return h(
-          "div",
-          {
-            key: it.id,
-            className: "dd-life-note",
-            ref: (el) => el ? nodes.current.set(it.id, el) : nodes.current.delete(it.id),
-            tabIndex: 0,
-            "data-life-id": it.id,
-            "data-life-type": "sticky",
-            style: { ...style, "--note": it.color || DDlifeColors[0], color: DDlifeContrast(it.color || DDlifeColors[0]), overflow: palette === it.id ? "visible" : "" },
-            onPointerDown: (e) => down(e, it),
-            onPointerMove: move,
-            onPointerUp: up,
-            onPointerCancel: clearDrag,
-            onLostPointerCapture: clearDrag,
-            onDoubleClick: (e) => { e.stopPropagation(); if (interactive(e.target) || Date.now() - lastDrag.current < 350) return; setEdit({ id: it.id, value: it.text }); },
-          },
-          h(
-            "div",
-            { className: "dd-life-tools", "data-life-tools": true },
-            tool("✎", t("Edit text", "ویرایش"), () => setEdit({ id: it.id, value: it.text })),
-            tool("●", t("Change color", "تغییر رنگ"), () => setPalette(palette === it.id ? null : it.id), { "aria-expanded": palette === it.id }),
-            delTool,
-          ),
-          colors(it),
-          editing
-            ? h("textarea", {
-                autoFocus: true,
-                dir: "auto",
-                value: edit.value,
-                maxLength: 4000,
-                "aria-label": t("Sticky text", "متن یادداشت"),
-                onChange: (e) => setEdit({ ...edit, value: e.target.value }),
-                onBlur: () => finish(it),
-                onPointerDown: (e) => e.stopPropagation(),
-                onKeyDown: (e) => {
-                  e.stopPropagation();
-                  if (e.key === "Escape") finish(it, false);
-                  else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) finish(it);
-                },
-              })
-            : h("span", { dir: "auto" }, it.text),
-        );
-      const kids = items.filter((i) => i.parent === it.id).map(render),
-        nested = !!it.parent;
-      return h(
-        "div",
-        {
-          key: it.id,
-          className: "dd-life-sec" + (nested ? " is-nested" : ""),
-          ref: (el) => el ? nodes.current.set(it.id, el) : nodes.current.delete(it.id),
-          tabIndex: 0,
-          "data-life-id": it.id,
-          "data-life-type": "section",
-          style,
-        },
-        h(
-          "div",
-          {
-            className: "dd-life-sec-head",
-            onPointerDown: (e) => down(e, it),
-            onPointerMove: move,
-            onPointerUp: up,
-            onPointerCancel: clearDrag,
-            onLostPointerCapture: clearDrag,
-            onDoubleClick: (e) => { e.stopPropagation(); if (interactive(e.target) || Date.now() - lastDrag.current < 350) return; setEdit({ id: it.id, value: it.text }); },
-          },
-          editing
-            ? h("input", {
-                autoFocus: true,
-                dir: "auto",
-                value: edit.value,
-                maxLength: 120,
-                "aria-label": t("Section name", "نام سکشن"),
-                onChange: (e) => setEdit({ ...edit, value: e.target.value }),
-                onBlur: () => finish(it),
-                onPointerDown: (e) => e.stopPropagation(),
-                onKeyDown: (e) => {
-                  e.stopPropagation();
-                  if (e.key === "Enter") finish(it);
-                  else if (e.key === "Escape") finish(it, false);
-                },
-              })
-            : h("strong", { dir: "auto" }, it.text || t("Section", "سکشن")),
-          h(
-            "span",
-            { className: "dd-life-tools", "data-life-tools": true },
-            tool("✎", t("Rename", "تغییر نام"), () => setEdit({ id: it.id, value: it.text })),
-            tool("●", t("Change color", "تغییر رنگ"), () => setPalette(palette === it.id ? null : it.id), { "aria-expanded": palette === it.id }),
-            tool("▤", t("Add sticky note", "افزودن یادداشت"), () => add("sticky", it.id)),
-            tool("▢", t("Add section inside", "افزودن سکشن داخل"), () => add("section", it.id)),
-            delTool,
-          ),
-          colors(it),
-        ),
-        kids,
-        h("button", {
-          type: "button",
-          className: "dd-life-grip",
-          "aria-label": t("Resize section", "تغییر اندازهٔ سکشن"),
-          onPointerDown: (e) => resizeDown(e, it),
-          onPointerMove: resizeMove,
-          onPointerUp: resizeUp,
-          onPointerCancel: clearDrag,
-          onLostPointerCapture: clearDrag,
-        }),
-      );
-    };
-    return h(
-      "div",
-      {
-        className: "dd-life",
-        ref: area,
-        tabIndex: -1,
-        "data-life": true,
-        style: { top: DDlifeHead, width: bounds.w, height: bounds.h },
-        // Keep board gestures (pan, marquee) from starting on the content.
-        onDoubleClick: (e) => e.stopPropagation(),
-        onPointerDownCapture: (e) => { if (!canDrag() && !interactive(e.target)) onBoardPointerDown?.(e); },
-        onKeyDown: (e) => {
-          if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); clearDrag(); setPalette(null); setArmed(null); }
-        },
-      },
-      items.filter((i) => !i.parent).map(render),
-    );
-  };
 }

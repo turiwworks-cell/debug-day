@@ -253,6 +253,17 @@ export const DDboardCore = {
       styles = { ...board.styles };
     for (const node of nodes) {
       if (locked.has(node.id)) continue;
+      if (node.lifeId && next.__life) {
+        const it = next.__life.items.find((i) => i.id === node.lifeId);
+        if (!it) continue;
+        if (Object.hasOwn(patch,"fill")) it.color = patch.fill || "#FFE299";
+        if (Number.isFinite(patch.width)) it.w = clamp(patch.width,64,20000);
+        if (Number.isFinite(patch.height)) it.h = clamp(patch.height,64,20000);
+        it.style = { ...it.style, ...this.style(patch) };
+        delete it.style.fill; delete it.style.width; delete it.style.height;
+        changed = true;
+        continue;
+      }
       const current = { ...styles[node.id] },
         value = { ...current };
       for (const [key, item] of Object.entries(patch)) {
@@ -304,6 +315,12 @@ export const DDboardCore = {
         continue;
       const x = clamp(finite(p.x, node.x), -100000, 100000),
         y = clamp(finite(p.y, node.y), -100000, 100000);
+      if (node.lifeId && next.__life) {
+        if (nodes.some((n) => n.id === node.parentId)) continue;
+        const it = next.__life.items.find((i) => i.id === node.lifeId);
+        if (it) { it.x += x - node.x; it.y += y - node.y; changed = true; }
+        continue;
+      }
       if (node.noteId && mode !== "lanes") {
         const note = next.notes.find((n) => n.id === node.noteId);
         if (note) {
@@ -513,6 +530,13 @@ export const DDboardCore = {
         })
         .map((sub) => ({ ...sub, children: trim(sub.children, block) }));
     const next = clone(day);
+    if (next.__life) for (const node of items.filter((n) => n.lifeId)) {
+      const it = next.__life.items.find((i) => i.id === node.lifeId);
+      if (!it) continue;
+      next.__life.items = next.__life.items.filter((i) => i !== it).map((i) => i.parent === it.id ? { ...i, parent:it.parent, x:i.x+it.x, y:i.y+it.y } : i);
+      next.__life.links = (next.__life.links || []).filter((l) => l.from !== node.id && l.to !== node.id);
+      refs.add(node.id);
+    }
     next.blocks = next.blocks
       .filter((b) => !blocks.has(b.id))
       .map((b) => ({ ...b, subtasks: trim(b.subtasks, b.id) }));
@@ -524,6 +548,14 @@ export const DDboardCore = {
     return next;
   },
   copy(day, nodes, edges, selected, mode = "mindmap") {
+    if (day.__life) {
+      const missing = day.__life.items.filter((i) => !nodes.some((n) => n.lifeId === i.id));
+      nodes = [...nodes, ...missing.map((i) => {
+        let x=i.x,y=i.y,p=i.parent,hops=0;
+        while(p&&hops++<60){const parent=day.__life.items.find((k)=>k.id===p);if(!parent)break;x+=parent.x;y+=parent.y;p=parent.parent;}
+        return {id:"life:"+i.id,lifeId:i.id,kind:i.type==="section"?"life-section":"sticky",parentId:i.parent?"life:"+i.parent:null,x:x+(day.__lifeFrame?.x||0),y:y+(day.__lifeFrame?.y||0)};
+      })];
+    }
     const chosen = new Set(selected),
       items = [],
       seen = new Set(),
@@ -534,6 +566,9 @@ export const DDboardCore = {
           skipChildren(sub.children, block);
         }
       };
+    // Expand section selections once, preserving relative hierarchy in the payload.
+    let grew = true;
+    while (grew) { grew = false; for (const n of nodes) if (n.lifeId && chosen.has(n.parentId) && !chosen.has(n.id)) { chosen.add(n.id); grew = true; } }
     for (const n of nodes.filter(
       (n) => chosen.has(n.id) && n.kind === "block",
     )) {
@@ -562,7 +597,8 @@ export const DDboardCore = {
       }
       if (ancestor && chosen.has(ancestor)) continue;
       let data;
-      if (n.noteId) data = day.notes.find((v) => v.id === n.noteId);
+      if (n.lifeId) data = day.__life?.items.find((i) => i.id === n.lifeId);
+      else if (n.noteId) data = day.notes.find((v) => v.id === n.noteId);
       else if (n.bugId) data = day.bugs.find((v) => v.id === n.bugId);
       else if (n.kind === "subtask") {
         const b = day.blocks.find((v) => v.id === n.blockId),
@@ -586,7 +622,7 @@ export const DDboardCore = {
       }
       if (data)
         items.push({
-          kind: n.kind === "subtask" ? "block" : n.kind,
+          kind: n.lifeId ? "life" : n.kind === "subtask" ? "block" : n.kind,
           ref: n.id,
           data: clone(data),
           x: n.x,
@@ -667,12 +703,13 @@ export const DDboardCore = {
       return null;
     for (const item of value.items)
       if (
-        !["block", "sticky", "emoji", "bug"].includes(item.kind) ||
+        !["block", "sticky", "emoji", "bug", "life"].includes(item.kind) ||
         !item.data ||
         typeof item.data !== "object" ||
         typeof item.ref !== "string" ||
-        !/^(b:|sub:|sticky:|bug:)[\w:-]+$/.test(item.ref) ||
+        !/^(b:|sub:|sticky:|bug:|life:)[\w:-]+$/.test(item.ref) ||
         typeof item.data.id !== "string" ||
+        (item.kind === "life" && (!["section","sticky"].includes(item.data.type) || !Number.isFinite(item.data.w) || !Number.isFinite(item.data.h) || item.data.w < 60 || item.data.h < 40 || item.data.w > 20000 || item.data.h > 20000)) ||
         (item.kind === "block"
           ? typeof item.data.name !== "string" ||
             !validSteps(item.data.subtasks || [])
@@ -709,7 +746,13 @@ export const DDboardCore = {
       const data = clone(item.data),
         newKey = newId();
       let ref;
-      if (item.kind === "block") {
+      if (item.kind === "life" && next.__life) {
+        data.id = newKey;
+        data.x = point.x + item.x - (day.__lifeFrame?.x || 0);
+        data.y = point.y + item.y - (day.__lifeFrame?.y || 0);
+        next.__life.items.push(data);
+        ref = "life:" + newKey;
+      } else if (item.kind === "block") {
         const old = data.id;
         data.id = newKey;
         data.subtasks = steps(data.subtasks, old, newKey);
@@ -734,6 +777,13 @@ export const DDboardCore = {
       mapping[item.ref] = ref;
       styles[ref] = this.style(item.style);
       refs.push(ref);
+    }
+    if (next.__life) for (const item of payload.items.filter((i) => i.kind === "life")) {
+      const made = next.__life.items.find((i) => "life:" + i.id === mapping[item.ref]);
+      if (!made) continue;
+      const parent = mapping["life:" + item.data.parent];
+      if (parent) { made.parent = parent.slice(5); made.x = item.data.x; made.y = item.data.y; }
+      else made.parent = "";
     }
     for (const [oldRef, newRef] of Object.entries(mapping))
       if (payload.styles?.[oldRef])
