@@ -111,6 +111,7 @@ export function DDreconcileDay(
     "section:feelings",
     "section:habits",
     "section:notes",
+    "section:life",
     ...lanes.map((id) => "lane:" + id),
   ]);
   for (const b of blocks.values())

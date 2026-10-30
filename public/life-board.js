@@ -5,7 +5,7 @@
 // Data: a flat list. Each item is { id, type: "section" | "sticky", parent, x, y, w, h,
 // text, color }. x and y are relative to the parent section (or to the Life area).
 
-export const DDlifeHead = 54;
+export const DDlifeHead = 90;
 export const DDlifeColors = ["#FFE08A", "#9DD6FF", "#D3B8FF", "#FFA799", "#FFA6D9", "#E6E6E6", "#A8E6B8"];
 const BLUE = "#9DD6FF", VIOLET = "#D3B8FF", RED = "#FFA799", YELLOW = "#FFE08A", GRAY = "#E6E6E6", PINK = "#FFA6D9";
 const limit = (v, lo, hi, d) => (Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d);
@@ -109,7 +109,7 @@ export function DDnormalizeLife(life) {
       w: limit(r.w, 60, 2e4, section ? 480 : 240),
       h: limit(r.h, 40, 2e4, section ? 320 : 240),
       text: typeof r.text === "string" ? r.text.slice(0, 4000) : "",
-      ...(typeof r.color === "string" && /^#[0-9a-f]{3,8}$/i.test(r.color) ? { color: r.color } : {}),
+      ...(typeof r.color === "string" && /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(r.color) ? { color: r.color } : {}),
     });
   }
   const sections = new Map(items.filter((i) => i.type === "section").map((i) => [i.id, i]));
@@ -128,6 +128,21 @@ export const DDlifeItems = (setup) =>
   setup?.life && Array.isArray(setup.life.items) ? setup.life.items : DDlifeDefault();
 
 const find = (items, id) => items.find((i) => i.id === id);
+export function DDlifeColor(items, it) {
+  if (it.color) return it.color;
+  // Older boards have no section colors. Give each family a stable, soft tint.
+  let root = it, hops = 0;
+  while (root.parent && hops++ < 60) root = find(items, root.parent) || { ...root, parent: "" };
+  const hash = [...root.id].reduce((n, c) => (n * 31 + c.charCodeAt(0)) >>> 0, 0);
+  return DDlifeColors[hash % DDlifeColors.length];
+}
+export function DDlifeContrast(hex) {
+  let value = hex.slice(1);
+  if (value.length <= 4) value = [...value].map((c) => c + c).join("");
+  const rgb = [0, 2, 4].map((i) => parseInt(value.slice(i, i + 2), 16) / 255)
+    .map((v) => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4);
+  return .2126 * rgb[0] + .7152 * rgb[1] + .0722 * rgb[2] > .179 ? "#121211" : "#FFFFFF";
+}
 export function DDlifeAbs(items, id) {
   let x = 0,
     y = 0,
@@ -218,9 +233,9 @@ export function DDlifeRemove(items, id) {
 
 // Move by a screen offset (already divided by zoom). Dropping on a section joins it;
 // dropping on empty space leaves the section it was in.
-export function DDlifeMoveBy(items, id, dx, dy) {
+export function DDlifeDropTarget(items, id, dx, dy) {
   const it = find(items, id);
-  if (!it) return items;
+  if (!it) return null;
   const abs = DDlifeAbs(items, id),
     ax = abs.x + dx,
     ay = abs.y + dy,
@@ -232,12 +247,24 @@ export function DDlifeMoveBy(items, id, dx, dy) {
   for (const s of items) {
     if (s.type !== "section" || skip.has(s.id)) continue;
     const a = DDlifeAbs(items, s.id);
-    if (cx >= a.x && cx <= a.x + s.w && cy >= a.y && cy <= a.y + s.h && s.w * s.h < area) ((target = s), (area = s.w * s.h));
+    // Sections join only when fully inside. Merely overlapping a neighbour must
+    // not silently reparent it or grow that neighbour into a huge white box.
+    const inside = it.type === "section"
+      ? ax >= a.x && ay >= a.y && ax + it.w <= a.x + s.w && ay + it.h <= a.y + s.h
+      : cx >= a.x && cx <= a.x + s.w && cy >= a.y && cy <= a.y + s.h;
+    if (inside && s.w * s.h < area) ((target = s), (area = s.w * s.h));
   }
+  return target;
+}
+export function DDlifeMoveBy(items, id, dx, dy) {
+  const it = find(items, id);
+  if (!it || (!dx && !dy)) return items;
+  const abs = DDlifeAbs(items, id), ax = abs.x + dx, ay = abs.y + dy,
+    target = DDlifeDropTarget(items, id, dx, dy);
   const base = target ? DDlifeAbs(items, target.id) : { x: 0, y: 0 },
     moved = { ...it, parent: target ? target.id : "", x: Math.round(ax - base.x), y: Math.round(ay - base.y) };
   // Dropped last so it sits on top of its new neighbours.
-  return DDlifeFit([...items.filter((i) => i.id !== id), moved], moved.parent);
+  return [...items.filter((i) => i.id !== id), moved];
 }
 
 // Where a new top-level section goes when the click was at (x, y) in Life coordinates:
@@ -257,15 +284,15 @@ export const DDlifeCSS = `
 .dd-life{position:absolute;left:0;pointer-events:none;color:var(--ink,#121211)}
 .dd-life *{box-sizing:border-box}
 .dd-life-sec,.dd-life-note{position:absolute;pointer-events:auto;border-radius:10px}
-.dd-life-sec{background:var(--panel,#fff);box-shadow:inset 0 0 0 1px #12121126}
-.dd-life-sec.is-nested{background:color-mix(in srgb,#5BC8E0 11%,var(--panel,#fff))}
-.dd-life-sec-head{position:absolute;left:0;right:0;top:0;height:34px;display:flex;align-items:center;gap:6px;padding:0 8px 0 12px;cursor:grab;touch-action:none;border-radius:10px 10px 0 0}
+.dd-life-sec{background:color-mix(in srgb,var(--section-color) 24%,var(--panel,#fff));box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--section-color) 70%,#121211);isolation:isolate}
+.dd-life-sec.is-nested{background:color-mix(in srgb,var(--section-color) 38%,var(--panel,#fff))}
+.dd-life-sec-head{position:absolute;left:0;top:-38px;max-width:100%;height:32px;display:flex;align-items:center;gap:8px;padding:0 8px 0 12px;cursor:grab;touch-action:none;border-radius:7px;background:var(--section-color);color:var(--section-text);box-shadow:0 1px 3px #0002;z-index:2}
 .dd-life-sec-head strong{flex:1;min-width:0;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dd-life-sec-head input{flex:1;min-width:0;font:inherit;font-size:14px;font-weight:700;border:1px solid var(--now,#7A5FF5);border-radius:6px;padding:2px 6px;background:var(--panel,#fff);color:inherit}
+.dd-life-sec-head input{flex:1;min-width:80px;font:inherit;font-size:14px;font-weight:700;border:1px solid currentColor;border-radius:6px;padding:2px 6px;background:transparent;color:inherit}
 .dd-life-note{padding:30px 14px 14px;font-size:17px;line-height:1.45;color:#121211;background:var(--note,#FFE08A);box-shadow:0 2px 6px #0002,inset 0 0 0 1px #12121122;cursor:grab;touch-action:none;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere}
 .dd-life-note textarea{position:absolute;inset:28px 6px 6px;width:calc(100% - 12px);height:calc(100% - 34px);font:inherit;font-size:17px;line-height:1.45;border:0;outline:2px solid #12121155;border-radius:6px;padding:6px 8px;background:#fff9;color:#121211;resize:none}
 .dd-life-tools{position:absolute;top:3px;display:flex;gap:2px;inset-inline-end:4px;opacity:.35;transition:opacity .15s}
-.dd-life-sec-head .dd-life-tools{position:static;opacity:.4}
+.dd-life-sec-head .dd-life-tools{position:static;opacity:.8;flex:none}
 .dd-life-sec:hover>.dd-life-sec-head .dd-life-tools,.dd-life-note:hover>.dd-life-tools,.dd-life-tools:focus-within{opacity:1}
 @media (hover:none){.dd-life-tools,.dd-life-sec-head .dd-life-tools{opacity:.9}}
 .dd-life-tools button{min-width:24px;height:24px;padding:0 5px;border:0;border-radius:6px;background:#ffffffb8;color:#121211;font-size:13px;line-height:1;cursor:pointer}
@@ -275,8 +302,21 @@ export const DDlifeCSS = `
 .dd-life-grip{position:absolute;inset-inline-end:0;bottom:0;width:22px;height:22px;border:0;padding:0;background:none;cursor:nwse-resize;touch-action:none;opacity:.4}
 .dd-life-grip::after{content:"";position:absolute;right:5px;bottom:5px;width:9px;height:9px;border-right:2px solid currentColor;border-bottom:2px solid currentColor}
 .dd-life-sec:hover>.dd-life-grip{opacity:1}
-.dd-life-dragging{z-index:50;box-shadow:0 10px 26px #0003!important;opacity:.95}
-.b4-frame[data-section=life]{background:color-mix(in srgb,#5BC8E0 7%,var(--wash))!important}
+.dd-life-dragging{z-index:50;box-shadow:0 10px 26px #0003!important;will-change:transform;cursor:grabbing}
+.dd-life-drop{outline:3px solid var(--now,#7A5FF5);outline-offset:4px}
+.dd-life-palette{position:absolute;top:100%;inset-inline-end:0;display:flex;gap:5px;padding:8px;margin-top:6px;background:var(--panel,#fff);border:1px solid var(--rule,#aaa);border-radius:10px;box-shadow:0 5px 20px #0003;z-index:60}
+.dd-life-palette button{width:28px;height:28px;border:1px solid #12121166;border-radius:50%;cursor:pointer}
+.dd-life-palette button[aria-pressed=true]{outline:2px solid var(--now,#7A5FF5);outline-offset:2px}
+.dd-life:focus,.dd-life-sec:focus,.dd-life-note:focus{outline:none}
+.dd-life-sec:focus-visible,.dd-life-note:focus-visible{outline:2px solid var(--now,#7A5FF5);outline-offset:4px}
+/* Frame fills used to be overridden by !important, so saved colors never showed. */
+.b4-frame{background:color-mix(in srgb,var(--node-color) 14%,var(--wash))!important;border-color:color-mix(in srgb,var(--node-color) 60%,var(--rule-2))}
+.b4-frame>.b4-node-body,.b4-frame>.b4-node-actions{background:var(--node-color);color:var(--node-text);border-bottom:0}
+.b4-frame>.b4-node-body{border-radius:8px 0 0 0}
+.b4-frame>.b4-node-actions{border-radius:0 8px 0 0}
+.b4-frame>.b4-node-body .b4-node-title,.b4-frame>.b4-node-body .b4-node-subtitle{color:inherit}
+.b4-frame[data-section]{background:color-mix(in srgb,var(--node-color) 14%,var(--wash))!important}
+.b4-frame[data-section=life]{background:transparent!important;border-style:dashed;box-shadow:none}
 @media (prefers-reduced-motion:reduce){.dd-life-tools{transition:none}}
 `;
 
@@ -286,78 +326,129 @@ export function DDcreateLifeBoard(R) {
     { useState, useRef, useEffect } = R;
   if (typeof document !== "undefined" && !document.getElementById("dd-life-css"))
     document.head.append(Object.assign(document.createElement("style"), { id: "dd-life-css", textContent: DDlifeCSS }));
-  return function LifeBoard({ items, getZoom, language, onChange, makeId }) {
+  return function LifeBoard({ items, getZoom, language, onChange, makeId, canDrag = () => true, onBoardPointerDown }) {
     const fa = language === "fa",
       t = (en, fa2) => (fa ? fa2 : en),
-      [ghost, setGhost] = useState(null),
       [edit, setEdit] = useState(null),
+      [palette, setPalette] = useState(null),
       [armed, setArmed] = useState(null),
       drag = useRef(null),
+      lastDrag = useRef(0),
+      nodes = useRef(new Map()),
+      area = useRef(null),
+      raf = useRef(0),
       armTimer = useRef(0),
       bounds = DDlifeBounds(items);
-    useEffect(() => () => clearTimeout(armTimer.current), []);
+    useEffect(() => () => { clearTimeout(armTimer.current); cancelAnimationFrame(raf.current); }, []);
+    const clearDrag = () => {
+      cancelAnimationFrame(raf.current);
+      raf.current = 0;
+      const d = drag.current;
+      if (!d) return;
+      drag.current = null;
+      const el = nodes.current.get(d.id || d.resize);
+      if (el) {
+        el.style.transform = "";
+        el.style.width = d.w + "px";
+        el.style.height = d.hh + "px";
+        el.classList.remove("dd-life-dragging");
+      }
+      for (const node of nodes.current.values()) node.classList.remove("dd-life-drop");
+      try { d.capture.releasePointerCapture(d.pointerId); } catch {}
+      if (area.current) delete area.current.dataset.gesture;
+    };
+    useEffect(() => {
+      const cancel = () => { clearDrag(); setPalette(null); setArmed(null); };
+      window.addEventListener("blur", cancel);
+      const el = area.current;
+      el?.addEventListener("dd-life-cancel", cancel);
+      return () => { window.removeEventListener("blur", cancel); el?.removeEventListener("dd-life-cancel", cancel); };
+    }, []);
+    const paint = () => {
+      raf.current = 0;
+      const d = drag.current, el = nodes.current.get(d?.id || d?.resize);
+      if (!d || !el) return;
+      if (d.resize) {
+        el.style.width = d.nw + "px";
+        el.style.height = d.nh + "px";
+      } else if (d.moved) {
+        el.style.transform = `translate3d(${d.dx}px,${d.dy}px,0)`;
+        el.classList.add("dd-life-dragging");
+        const target = DDlifeDropTarget(items, d.id, d.dx, d.dy);
+        for (const [id, node] of nodes.current) node.classList.toggle("dd-life-drop", id === target?.id);
+      }
+    };
+    const queue = () => { if (!raf.current) raf.current = requestAnimationFrame(paint); };
     const interactive = (el) => !!el.closest?.("button,input,textarea,[data-life-tools]");
     const down = (event, it) => {
       if (event.button !== 0 || edit?.id === it.id || interactive(event.target)) return;
+      if (!canDrag()) return;
+      event.preventDefault();
       event.stopPropagation();
+      clearDrag();
+      setPalette(null);
+      nodes.current.get(it.id)?.focus({ preventScroll: true });
       event.currentTarget.setPointerCapture?.(event.pointerId);
-      drag.current = { id: it.id, sx: event.clientX, sy: event.clientY, dx: 0, dy: 0, moved: false };
+      drag.current = { id: it.id, sx: event.clientX, sy: event.clientY, dx: 0, dy: 0, moved: false, w: it.w, hh: it.h, pointerId: event.pointerId, capture: event.currentTarget, zoom: getZoom() || 1 };
+      area.current.dataset.gesture = "move";
     };
     const move = (event) => {
       const d = drag.current;
-      if (!d) return;
+      if (!d || d.pointerId !== event.pointerId) return;
       event.stopPropagation();
-      const z = getZoom() || 1;
+      const z = d.zoom;
       d.dx = (event.clientX - d.sx) / z;
       d.dy = (event.clientY - d.sy) / z;
       if (!d.moved && Math.hypot(event.clientX - d.sx, event.clientY - d.sy) > 4) d.moved = true;
-      if (d.moved) setGhost({ id: d.id, dx: d.dx, dy: d.dy });
+      if (d.moved) queue();
     };
     const up = (event) => {
       const d = drag.current;
-      if (!d) return;
+      if (!d || d.pointerId !== event.pointerId) return;
       event.stopPropagation();
-      drag.current = null;
-      setGhost(null);
-      if (d.moved) onChange((list) => DDlifeMoveBy(list, d.id, d.dx, d.dy));
+      move(event);
+      clearDrag();
+      if (d.moved) {
+        lastDrag.current = Date.now();
+        onChange((list) => DDlifeMoveBy(list, d.id, d.dx, d.dy));
+      }
     };
     const resizeDown = (event, it) => {
       if (event.button !== 0) return;
       event.stopPropagation();
       event.preventDefault();
+      clearDrag();
       event.currentTarget.setPointerCapture?.(event.pointerId);
-      drag.current = { resize: it.id, sx: event.clientX, sy: event.clientY, w: it.w, hh: it.h };
+      const kids = items.filter((i) => i.parent === it.id);
+      drag.current = { resize: it.id, sx: event.clientX, sy: event.clientY, w: it.w, hh: it.h, minW: Math.max(160, ...kids.map((k) => k.x + k.w + 24)), minH: Math.max(110, ...kids.map((k) => k.y + k.h + 24)), pointerId: event.pointerId, capture: event.currentTarget, zoom: getZoom() || 1 };
+      area.current.dataset.gesture = "resize";
     };
     const resizeMove = (event) => {
       const d = drag.current;
-      if (!d?.resize) return;
+      if (!d?.resize || d.pointerId !== event.pointerId) return;
       event.stopPropagation();
-      const z = getZoom() || 1;
-      d.nw = Math.max(160, Math.round(d.w + (event.clientX - d.sx) / z));
-      d.nh = Math.max(110, Math.round(d.hh + (event.clientY - d.sy) / z));
-      setGhost({ id: d.resize, w: d.nw, h: d.nh });
+      const z = d.zoom;
+      if (Math.hypot(event.clientX - d.sx, event.clientY - d.sy) < 4 && !d.nw) return;
+      d.nw = Math.max(d.minW, Math.round(d.w + (event.clientX - d.sx) / z));
+      d.nh = Math.max(d.minH, Math.round(d.hh + (event.clientY - d.sy) / z));
+      queue();
     };
     const resizeUp = (event) => {
       const d = drag.current;
-      if (!d?.resize) return;
+      if (!d?.resize || d.pointerId !== event.pointerId) return;
       event.stopPropagation();
-      drag.current = null;
-      setGhost(null);
+      resizeMove(event);
+      clearDrag();
       if (d.nw)
         onChange((list) => {
           const it = list.find((i) => i.id === d.resize);
-          return it ? DDlifeFit(DDlifeUpdate(list, d.resize, { w: d.nw, h: d.nh }), it.parent) : list;
+          return it ? DDlifeUpdate(list, d.resize, { w: d.nw, h: d.nh }) : list;
         });
     };
     const add = (type, parent) => {
       const id = "lf-" + makeId();
       onChange((list) => DDlifeAdd(list, { id, type, parent }));
-      if (type === "sticky") setEdit({ id, value: "" });
-      else setEdit({ id, value: "" });
-    };
-    const colorNext = (it) => {
-      const i = DDlifeColors.indexOf(it.color);
-      onChange((list) => DDlifeUpdate(list, it.id, { color: DDlifeColors[(i + 1) % DDlifeColors.length] }));
+      setEdit({ id, value: "" });
     };
     // Deleting takes two presses so a stray tap cannot remove shared content from every day.
     const remove = (it) => {
@@ -377,14 +468,21 @@ export function DDcreateLifeBoard(R) {
     };
     const tool = (label, title, onClick, extra = {}) =>
       h("button", { type: "button", "aria-label": title, title, onClick: (e) => (e.stopPropagation(), onClick()), ...extra }, label);
+    const colors = (it) => palette === it.id && h("div", {
+      className: "dd-life-palette", "data-life-tools": true, role: "group", "aria-label": t("Colors", "رنگ‌ها"),
+      onPointerDown: (e) => e.stopPropagation(),
+    }, DDlifeColors.map((color) => tool("", t("Use color ", "انتخاب رنگ ") + color,
+      () => { onChange((list) => DDlifeUpdate(list, it.id, { color })); setPalette(null); },
+      { key: color, style: { background: color }, "aria-pressed": DDlifeColor(items, it) === color })));
     const render = (it) => {
-      const g = ghost?.id === it.id ? ghost : null,
+      const color = DDlifeColor(items, it),
         style = {
           left: it.x,
           top: it.y,
-          width: g?.w ?? it.w,
-          height: g?.h ?? it.h,
-          ...(g?.dx !== undefined ? { transform: `translate(${g.dx}px,${g.dy}px)` } : {}),
+          width: it.w,
+          height: it.h,
+          "--section-color": color,
+          "--section-text": DDlifeContrast(color),
         },
         editing = edit?.id === it.id,
         delTool = tool(
@@ -398,23 +496,27 @@ export function DDcreateLifeBoard(R) {
           "div",
           {
             key: it.id,
-            className: "dd-life-note" + (g?.dx !== undefined ? " dd-life-dragging" : ""),
+            className: "dd-life-note",
+            ref: (el) => el ? nodes.current.set(it.id, el) : nodes.current.delete(it.id),
+            tabIndex: 0,
             "data-life-id": it.id,
             "data-life-type": "sticky",
-            style: { ...style, "--note": it.color || DDlifeColors[0] },
+            style: { ...style, "--note": it.color || DDlifeColors[0], color: DDlifeContrast(it.color || DDlifeColors[0]), overflow: palette === it.id ? "visible" : "" },
             onPointerDown: (e) => down(e, it),
             onPointerMove: move,
             onPointerUp: up,
-            onPointerCancel: up,
-            onDoubleClick: (e) => (e.stopPropagation(), setEdit({ id: it.id, value: it.text })),
+            onPointerCancel: clearDrag,
+            onLostPointerCapture: clearDrag,
+            onDoubleClick: (e) => { e.stopPropagation(); if (interactive(e.target) || Date.now() - lastDrag.current < 350) return; setEdit({ id: it.id, value: it.text }); },
           },
           h(
             "div",
             { className: "dd-life-tools", "data-life-tools": true },
             tool("✎", t("Edit text", "ویرایش"), () => setEdit({ id: it.id, value: it.text })),
-            tool("●", t("Change color", "تغییر رنگ"), () => colorNext(it)),
+            tool("●", t("Change color", "تغییر رنگ"), () => setPalette(palette === it.id ? null : it.id), { "aria-expanded": palette === it.id }),
             delTool,
           ),
+          colors(it),
           editing
             ? h("textarea", {
                 autoFocus: true,
@@ -439,7 +541,9 @@ export function DDcreateLifeBoard(R) {
         "div",
         {
           key: it.id,
-          className: "dd-life-sec" + (nested ? " is-nested" : "") + (g?.dx !== undefined ? " dd-life-dragging" : ""),
+          className: "dd-life-sec" + (nested ? " is-nested" : ""),
+          ref: (el) => el ? nodes.current.set(it.id, el) : nodes.current.delete(it.id),
+          tabIndex: 0,
           "data-life-id": it.id,
           "data-life-type": "section",
           style,
@@ -451,8 +555,9 @@ export function DDcreateLifeBoard(R) {
             onPointerDown: (e) => down(e, it),
             onPointerMove: move,
             onPointerUp: up,
-            onPointerCancel: up,
-            onDoubleClick: (e) => (e.stopPropagation(), setEdit({ id: it.id, value: it.text })),
+            onPointerCancel: clearDrag,
+            onLostPointerCapture: clearDrag,
+            onDoubleClick: (e) => { e.stopPropagation(); if (interactive(e.target) || Date.now() - lastDrag.current < 350) return; setEdit({ id: it.id, value: it.text }); },
           },
           editing
             ? h("input", {
@@ -475,10 +580,12 @@ export function DDcreateLifeBoard(R) {
             "span",
             { className: "dd-life-tools", "data-life-tools": true },
             tool("✎", t("Rename", "تغییر نام"), () => setEdit({ id: it.id, value: it.text })),
+            tool("●", t("Change color", "تغییر رنگ"), () => setPalette(palette === it.id ? null : it.id), { "aria-expanded": palette === it.id }),
             tool("▤", t("Add sticky note", "افزودن یادداشت"), () => add("sticky", it.id)),
             tool("▢", t("Add section inside", "افزودن سکشن داخل"), () => add("section", it.id)),
             delTool,
           ),
+          colors(it),
         ),
         kids,
         h("button", {
@@ -488,7 +595,8 @@ export function DDcreateLifeBoard(R) {
           onPointerDown: (e) => resizeDown(e, it),
           onPointerMove: resizeMove,
           onPointerUp: resizeUp,
-          onPointerCancel: resizeUp,
+          onPointerCancel: clearDrag,
+          onLostPointerCapture: clearDrag,
         }),
       );
     };
@@ -496,10 +604,16 @@ export function DDcreateLifeBoard(R) {
       "div",
       {
         className: "dd-life",
+        ref: area,
+        tabIndex: -1,
         "data-life": true,
         style: { top: DDlifeHead, width: bounds.w, height: bounds.h },
         // Keep board gestures (pan, marquee) from starting on the content.
         onDoubleClick: (e) => e.stopPropagation(),
+        onPointerDownCapture: (e) => { if (!canDrag() && !interactive(e.target)) onBoardPointerDown?.(e); },
+        onKeyDown: (e) => {
+          if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); clearDrag(); setPalette(null); setArmed(null); }
+        },
       },
       items.filter((i) => !i.parent).map(render),
     );

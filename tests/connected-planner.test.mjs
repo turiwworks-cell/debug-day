@@ -70,6 +70,20 @@ const fixture = () => ({
     },
   },
 });
+
+test("Life frame metadata survives reconciliation and snapshot sync", () => {
+  const day = fixture(), board = day.canvas.board4;
+  board.layouts.mindmap["section:life"] = { x: 900, y: 1200 };
+  board.layouts.lanes["section:life"] = { x: 150, y: 800 };
+  board.styles["section:life"] = { fill: "#9DD6FF" };
+  board.locked.push("section:life");
+  board.links.push({ id: "life-link", from: "section:life", to: "b:a" });
+  const next = DDreconcileDay(day, structuredClone(day), setup);
+  assert.deepEqual(next.canvas.board4, board);
+  const snapshot = { setup, days: { [day.date]: day } };
+  const synced = DDreconcileSnapshot(structuredClone(snapshot), snapshot);
+  assert.deepEqual(synced.days[day.date].canvas.board4, board);
+});
 test("priority-weighted daily completion is independent of duration and consistent for all task measures", () => {
   const day = {
     blocks: [
