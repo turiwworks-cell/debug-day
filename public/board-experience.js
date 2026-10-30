@@ -203,8 +203,8 @@ export const DDboardExperienceCSS = `
 .b6 .dd-note-editor{border-radius:2px;overflow:hidden;background:var(--node-color)}
 .b6 .dd-note-editor textarea{padding:18px 20px;font-size:var(--object-size,14px);line-height:1.5}
 .b6 .b4-life-section{background:color-mix(in srgb,var(--node-color) 12%,var(--paper))!important;border:1px solid color-mix(in srgb,var(--node-color) 45%,transparent);border-radius:12px}
-.b6 .b4-life-section{--dd-sec-k:clamp(.5,var(--b4-inverse,1),8)}
-.b6 .b4-life-section>.b4-node-body{top:auto;bottom:100%;margin-bottom:calc(6px * var(--dd-sec-k));height:calc(26px * var(--dd-sec-k));width:auto;max-width:100%;border-radius:calc(5px * var(--dd-sec-k));padding:0 calc(8px * var(--dd-sec-k));overflow:hidden}
+.b6 .b4-life-section{--dd-sec-k:clamp(.05,var(--b4-inverse,1),60)}
+.b6 .b4-life-section>.b4-node-body{top:auto;bottom:100%;margin-bottom:calc(6px * var(--dd-sec-k));height:calc(26px * var(--dd-sec-k));width:auto;max-width:max(100%,calc(160px * var(--dd-sec-k)));border-radius:calc(5px * var(--dd-sec-k));padding:0 calc(8px * var(--dd-sec-k));overflow:hidden}
 .b6 .b4-life-section>.b4-node-body .b4-node-title{font-size:calc(13px * var(--dd-sec-k));font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .b6 .b4-life-section>.b4-node-body .b4-node-title::before{content:"";display:inline-block;flex:none;width:.95em;height:.8em;margin-inline-end:.5em;border:.12em solid currentColor;border-radius:.15em;box-shadow:inset 0 .22em 0 -.05em currentColor;vertical-align:-.08em;opacity:.85}
 .b6 .b4-life-section>.b4-node-actions{display:none}
@@ -235,6 +235,34 @@ export const DDboardExperienceCSS = `
 .b6 .b4-help{max-width:660px;width:calc(100% - 24px)}
 @media(max-width:1100px){.b6 .b2-top-actions .dd-btn-label{position:absolute;width:1px;height:1px;clip-path:inset(50%);overflow:hidden}.b6 .b2-top-actions{max-width:calc(100% - 310px)}.b6 .b2-dock{max-width:calc(100% - 240px)}}
 @media(max-width:700px){.b6 .b2-top-actions{max-width:100%;width:100%;justify-content:flex-start;overflow-x:auto}.b6 .b2-dock{left:8px;right:8px;transform:none;bottom:8px;max-width:none;width:auto;height:54px;justify-content:flex-start;gap:2px}.b6 .b2-dock>.b2-icon{flex:1;min-width:36px;height:42px;min-height:42px}.b6 .b2-camera{bottom:72px;right:10px}.b6 .b2-map{bottom:130px}.b6 .b4-selectionbar{max-width:calc(100% - 16px)}.b6 .dd-board-search,.b6 .dd-board-timer{top:122px;right:8px;max-width:calc(100% - 16px);max-height:calc(100% - 194px)}.b6 .b4-sticky-head{opacity:1;height:36px!important}.b6 .b4-sticky .dd-note-preview{padding-top:44px}.b6 .b4-life-section>.b4-node-actions{opacity:1}.b6 .b2-bottom-left{bottom:76px}.b6 .dd-shortcut-list{grid-template-columns:minmax(140px,.9fr) minmax(140px,1.1fr)}}
+/* FigJam sticky notes: preview under the tool, type on the note, "+" beside it. */
+.b6 .dd-ghost-note{position:absolute;pointer-events:none;z-index:60;opacity:.5;border-radius:2px;box-shadow:0 4px 10px #0002}
+.b6 .dd-sticky-colors{position:absolute;left:50%;bottom:78px;transform:translateX(-50%);z-index:104;display:flex;gap:6px;padding:6px 8px;background:var(--paper);border:1px solid var(--rule-2);border-radius:999px;box-shadow:0 4px 16px #0002}
+.b6 .dd-sticky-colors button{width:22px;height:22px;padding:0;border-radius:50%;border:1px solid #12121133;cursor:pointer}
+.b6 .dd-sticky-colors button[aria-checked=true]{outline:2px solid var(--board-selection);outline-offset:2px}
+.b6 .dd-note-placeholder{opacity:.45}
+.b6 .dd-note-editor{background:transparent}
+.b6 .dd-note-editor textarea{background:transparent;border:0;outline:none;box-shadow:none;padding:20px 20px 44px;color:inherit;resize:none}
+.b6 .dd-note-editor textarea::placeholder{color:currentColor;opacity:.45}
+.b6 .dd-add-near{position:absolute;width:22px;height:22px;padding:0;border-radius:50%;display:grid;place-items:center;font:600 15px/1 var(--sans);color:var(--board-selection);background:var(--paper);border:1.5px solid var(--board-selection);transform:translate(-50%,-50%) scale(var(--b4-inverse,1));opacity:.85;z-index:6;cursor:pointer}
+.b6 .dd-add-near:hover,.b6 .dd-add-near:focus-visible{background:var(--board-selection);color:#fff;opacity:1}
+@media(hover:none),(pointer:coarse){.b6 .dd-add-near{display:none}}
+.b6 .dd-add-near.left{left:calc(-46px * var(--b4-inverse,1));top:50%}
+.b6 .dd-add-near.right{left:calc(100% + 46px * var(--b4-inverse,1));top:50%}
+.b6 .dd-add-near.top{left:50%;top:calc(-46px * var(--b4-inverse,1))}
+.b6 .dd-add-near.bottom{left:50%;top:calc(100% + 46px * var(--b4-inverse,1))}
+@media(hover:hover) and (pointer:fine){.b6 .b4-sticky .b4-sticky-head{opacity:0!important;pointer-events:none}.b6 .b4-sticky .b4-sticky-head:focus-within{opacity:1!important;pointer-events:auto}}
+/* FigJam connectors: grey, weighted with the canvas, with a toolbar of their own. */
+/* Resize handles win over connection points; zoomed out, the points no longer grow over them. */
+.b6 .b4-node>.b4-node-actions:empty{display:none}
+.b6 .b4-node>.b6-note-resize[data-edge]{z-index:9}.b6 .b4-node>.b4-port{z-index:7;transform:scale(clamp(.6,var(--b4-inverse,1),1.6))}
+.b6{--dd-wire:#757575}:root[data-theme=dark] .b6{--dd-wire:#A3A3A3}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .b6{--dd-wire:#A3A3A3}}
+.b6 .dd-wire-pop{display:inline-flex;align-items:center;gap:3px;margin-inline:2px;padding:2px 4px;background:#ffffff14;border-radius:8px;flex:none}
+.b6 .dd-wire-pop button{min-width:26px;height:26px;border-radius:6px;padding:0 6px;color:#fff;background:transparent;font-size:11px}
+.b6 .dd-wire-pop button[aria-pressed=true],.b6 .dd-wire-pop button:hover{background:#ffffff22}
+.b6 .dd-wire-pop .dd-swatch{width:22px;min-width:22px;height:22px;padding:0;border-radius:50%;border:1px solid #ffffff55}
+.b6 .dd-wire-color{display:inline-block;width:14px;height:14px;border-radius:50%;border:1.5px solid #fff8}
 @media(prefers-reduced-motion:reduce){.b6 *{transition:none!important}}
 @media(max-width:700px){.b6 .b6-properties{top:182px}.b6 .b4-sticky .dd-note-preview{padding:20px 20px 60px}}
 `;

@@ -111,9 +111,8 @@ const { start, fixture } = require("./harness.cjs");
           }
         }
         await seed();
-        await page
-          .getByRole("button", { name: label("Connect nodes"), exact: true })
-          .click();
+        // The connector tool has no dock button any more (FigJam); use its shortcut.
+        await page.locator(".b2-viewport").focus(); await page.keyboard.press("x");
         await drag(note().locator(".dd-note-preview"));
         assert.notEqual((await read()).notes[0].x, 80);
         assert.equal((await read()).canvas.board4.links.length, 0);
@@ -122,9 +121,7 @@ const { start, fixture } = require("./harness.cjs");
           "select",
         );
         await seed();
-        await note()
-          .getByRole("button", { name: label("Move note"), exact: true })
-          .click();
+        await note().locator(".dd-note-preview").click();
         await note().locator(".b4-port.right").click();
         assert.equal(
           await page.locator(".b2-viewport").getAttribute("data-tool"),
@@ -136,9 +133,8 @@ const { start, fixture } = require("./harness.cjs");
           targetSize.width >= 43.9 && targetSize.height >= 43.9,
           JSON.stringify(targetSize),
         );
-        await page
-          .getByRole("button", { name: label("Connect nodes"), exact: true })
-          .click();
+        // The connector tool has no dock button any more (FigJam); use its shortcut.
+        await page.locator(".b2-viewport").focus(); await page.keyboard.press("x");
         await note().locator(".dd-note-preview").click();
         await page
           .locator('[data-board-id="sticky:note2"] .dd-note-preview')
@@ -147,9 +143,7 @@ const { start, fixture } = require("./harness.cjs");
         await page
           .getByRole("button", { name: label("Undo"), exact: true })
           .click();
-        await note()
-          .getByRole("button", { name: label("Move note"), exact: true })
-          .click();
+        await note().locator(".dd-note-preview").click();
         await drag(
           note().locator(".b4-port.right"),
           page.locator('[data-board-id="sticky:note2"] .dd-note-preview'),
@@ -178,9 +172,8 @@ const { start, fixture } = require("./harness.cjs");
         const camera = await page
           .locator(".b2-world")
           .evaluate((el) => el.style.transform);
-        await note()
-          .getByRole("button", { name: label("Edit note"), exact: true })
-          .click();
+        // Select, then Enter edits (the note bar is hidden on desktop, as in FigJam).
+        await note().locator(".dd-note-preview").click(); await page.keyboard.press("Enter");
         const input = note().getByRole("textbox", {
           name: label("Sticky note text"),
           exact: true,
@@ -201,9 +194,7 @@ const { start, fixture } = require("./harness.cjs");
         await board();
         assert.equal((await read()).notes[0].text, "نوت تازه\nخط دوم saved");
         await seed();
-        await note()
-          .getByRole("button", { name: label("Move note"), exact: true })
-          .click();
+        await note().locator(".dd-note-preview").click();
         await page
           .getByRole("button", { name: label("Search"), exact: true })
           .focus();
