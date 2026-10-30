@@ -2456,6 +2456,13 @@ export function DDcreateBoard(deps) {
       cam.current={x:32-(frame.x+a.x)*z,y:180-(frame.y+DDlifeHead+a.y)*z,z};
       setSelected(new Set(["life:"+id])); setLifeNav(false); queueCamera(); scheduleCamera();
     }
+    function resizeLifeArea(patch) {
+      commit((d)=>{
+        const bounds=DDlifeBounds(d.__life.items);
+        for(const key of ["w","h"])if(Number.isFinite(patch[key]))d.__life.frame[key]=Math.min(100000,Math.max(key==="w"?bounds.w:bounds.h+DDlifeHead,Math.round(patch[key])));
+        return d;
+      },t("Life area resized on every day","اندازهٔ محدودهٔ زندگی در همهٔ روزها تغییر کرد"));
+    }
     function addSticky(Y) {
       const G = C(),
         ct =
@@ -5054,6 +5061,8 @@ export function DDcreateBoard(deps) {
       ),
       lifeNav && _.createElement("nav",{className:"dd-life-nav","aria-label":t("Life sections","سکشن‌های زندگی"),onPointerDown:(e)=>e.stopPropagation()},
         _.createElement("strong",null,t("Life sections","سکشن‌های زندگی")),
+        _.createElement("button",{type:"button",onClick:()=>{const area=layout.map.get("section:life");if(area)resizeLifeArea({w:area.w*1.25,h:area.h*1.25});}},t("Enlarge Life area +25%","بزرگ‌تر کردن محدودهٔ زندگی +۲۵٪")),
+        _.createElement("div",{className:"dd-life-dimensions"},["w","h"].map((key)=>_.createElement("label",{key},t(key==="w"?"Width":"Height",key==="w"?"عرض":"ارتفاع"),_.createElement("input",{key:layout.map.get("section:life")?.[key],type:"number",min:240,max:100000,step:100,defaultValue:Math.round(layout.map.get("section:life")?.[key]||240),"aria-label":t(key==="w"?"Life area width":"Life area height",key==="w"?"عرض محدودهٔ زندگی":"ارتفاع محدودهٔ زندگی"),onBlur:(e)=>{const value=Number(e.target.value);if(e.target.value&&Number.isFinite(value)&&value>=240&&value<=100000)resizeLifeArea({[key]:value});else e.target.value=Math.round(layout.map.get("section:life")?.[key]||240);},onKeyDown:(e)=>{e.stopPropagation();if(e.key==="Enter")e.currentTarget.blur();}})))),
         _.createElement("button",{type:"button",onClick:()=>commit((d)=>{d.__life.items=DDlifeCompact(d.__life.items);delete d.__life.frame.w;delete d.__life.frame.h;return d;})},t("Compact layout","جمع‌وجور کن")),
         DDlifeItems(setup).filter((i)=>i.type==="section").map((i)=>_.createElement("button",{type:"button",key:i.id,onClick:()=>jumpLife(i.id),style:{paddingInlineStart:i.parent?24:8}},(i.collapsed?"▸ ":"▾ ")+(i.text||t("Section","سکشن"))))),
       (selected.size > 0 || selectedWire || selectedWires.size > 0) &&

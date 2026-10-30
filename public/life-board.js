@@ -395,9 +395,12 @@ export const DDlifeCSS = `
 .b4-node[aria-selected=true]{outline:3px solid #3478F6!important;outline-offset:4px;box-shadow:0 0 0 7px #3478f625!important}
 .dd-native-colors{position:absolute;top:35px;left:0;display:flex;gap:6px;padding:8px;background:var(--panel);border:1px solid var(--rule-2);border-radius:10px;box-shadow:0 4px 16px #0003;z-index:100}
 .dd-native-colors button{width:28px;height:28px;border:1px solid #2225;border-radius:50%;padding:0;cursor:pointer}
-.dd-life-nav{position:absolute;top:70px;right:16px;z-index:100;display:flex;flex-direction:column;gap:4px;max-height:65%;width:240px;overflow:auto;background:var(--panel);color:var(--ink);padding:12px;border:1px solid var(--rule-2);border-radius:12px;box-shadow:0 8px 28px #0002}
+.dd-life-nav{position:absolute;top:70px;right:16px;z-index:100;display:flex;flex-direction:column;gap:4px;max-height:65%;width:240px;overflow:auto;background:var(--paper,#fff);color:var(--ink,#121211);padding:12px;border:1px solid var(--rule-2);border-radius:12px;box-shadow:0 8px 28px #0002}
 .dd-life-nav button{text-align:start;min-height:36px;padding:6px 8px;border-radius:6px}
 .dd-life-nav button:hover{background:var(--wash)}
+.dd-life-dimensions{display:flex;gap:8px;padding:8px 0}
+.dd-life-dimensions label{flex:1;min-width:0;font-size:12px;color:var(--ink)}
+.dd-life-dimensions input{display:block;width:100%;min-height:36px;padding:5px;border:1px solid var(--rule-2);border-radius:6px;background:var(--paper);color:var(--ink);font:inherit}
 .b4 .b2-top-actions{max-width:calc(100vw - 32px);overflow-x:auto;scrollbar-width:none}
 .dd-plan-life{margin:18px 0;padding:16px;border:1px solid var(--rule-2);border-radius:12px}
 .dd-plan-life header,.dd-plan-life-heading{display:flex;gap:8px;align-items:center}
@@ -410,7 +413,7 @@ export const DDlifeCSS = `
 .dd-plan-life-note textarea{display:block;min-height:120px;width:100%;border:0;resize:vertical;background:transparent;color:inherit;font:inherit}
 .dd-plan-life button{min-height:36px;padding:4px 8px}
 @media(pointer:coarse){.b4-sticky-head{height:44px!important;gap:2px;padding:0 4px!important}.b4-sticky-head button,.b4-life-section>.b4-node-actions button{min-width:44px!important;min-height:44px!important}.b4-life-section>.b4-node-body,.b4-life-section>.b4-node-actions{height:44px;top:-50px}.dd-native-colors button{width:36px;height:36px}.dd-plan-life button{min-height:44px}.dd-life-nav button{min-height:44px}}
-.b4-viewport[data-tool=select],.b4-viewport[data-tool=select] .b4-node{cursor:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2232%22%20height%3D%2232%22%20viewBox%3D%220%200%20512%20512%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%2245%22%20y1%3D%2245%22%20x2%3D%22410%22%20y2%3D%22440%22%20gradientUnits%3D%22userSpaceOnUse%22%3E%3Cstop%20stop-color%3D%22%23ed009c%22%2F%3E%3Cstop%20offset%3D%22.45%22%20stop-color%3D%22%23762752%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%2344333f%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Cpath%20d%3D%22M99%2045L445%20166Q470%20176%20470%20199Q470%20219%20446%20229L300%20278Q284%20284%20276%20305L230%20447Q220%20470%20198%20470Q174%20470%20165%20446L45%20100Q35%2072%2053%2054Q72%2035%2099%2045Z%22%20fill%3D%22url%28%23g%29%22%2F%3E%3C%2Fsvg%3E") 3 3,auto}
+.b2-viewport[data-tool=select]:not(.b4-panning),.b2-viewport[data-tool=select]:not(.b4-panning) .b4-node,.b2-viewport[data-tool=select]:not(.b4-panning) .dd-note-preview{cursor:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2232%22%20height%3D%2232%22%20viewBox%3D%220%200%20512%20512%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%2245%22%20y1%3D%2245%22%20x2%3D%22410%22%20y2%3D%22440%22%20gradientUnits%3D%22userSpaceOnUse%22%3E%3Cstop%20stop-color%3D%22%23ed009c%22%2F%3E%3Cstop%20offset%3D%22.45%22%20stop-color%3D%22%23762752%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%2344333f%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Cpath%20d%3D%22M99%2045L445%20166Q470%20176%20470%20199Q470%20219%20446%20229L300%20278Q284%20284%20276%20305L230%20447Q220%20470%20198%20470Q174%20470%20165%20446L45%20100Q35%2072%2053%2054Q72%2035%2099%2045Z%22%20fill%3D%22url%28%23g%29%22%2F%3E%3C%2Fsvg%3E") 3 3,auto}
 @media (prefers-reduced-motion:reduce){.dd-life-tools{transition:none}}
 `;
 

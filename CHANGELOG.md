@@ -1,3 +1,10 @@
+## 5.11.1 — 2026-10-30
+Branch: codex/fix-cursor-selector
+- Apply the requested pink cursor to the actual Board viewport and native notes; keep hand/pan cursors intact.
+- Add visible Life area enlargement (+25%) and editable shared width/height controls in the section navigator.
+- Keep section navigator text readable in light and dark themes by pairing its background and foreground theme tokens.
+- Add browser regressions for cursor rendering, SVG decoding and navigator text contrast in both themes.
+
 ## 5.11.0 — 2026-10-30
 Branch: codex/unified-life-workspace
 - Use the native Board engine for Life sections and notes: clear blue selection, keyboard selection/delete/nudge, multi-selection, clipboard, duplication, resizing and connectors.
