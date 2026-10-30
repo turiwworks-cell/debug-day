@@ -129,6 +129,10 @@ async function scenario(h,mobile,language){
     await dialog().waitFor();await within(dialog());await page.keyboard.press("Escape");
 
     // Replacing from the board keeps the same object and its persisted size.
+    // Fit all now includes the shared Life area; reveal this specific sticker first.
+    await page.locator(".b2-viewport").focus();await page.keyboard.press("Control+f");
+    await page.locator(".dd-board-search input").fill(t("Little spark","جرقهٔ کوچولو"));
+    await page.locator(".dd-board-search input").press("Enter");
     if(mobile){
       if(await page.locator(".b2-viewport.dd-board-locked").count())await page.locator(".b2-viewport").tap({position:{x:30,y:140}});
       await node().tap();
@@ -211,3 +215,4 @@ async function scenario(h,mobile,language){
   }finally{await context.close();}
 }
 (async()=>{const h=await start();try{for(const language of ["en","fa"])for(const mobile of [false,true])await scenario(h,mobile,language);}finally{await h.stop();}})().catch(error=>{console.error(error);process.exitCode=1;});
+

@@ -1,3 +1,15 @@
+## 5.12.0 — 2026-10-30
+Branch: codex/figjam-board-experience
+- Add a Board timer shared with Plan, with editable duration, start/pause, reset and an extra minute; use wall time so background tabs do not slow the countdown.
+- Add light/dark switching inside Board, direct full-screen entry, and a device preference to open Board full screen.
+- Search all day tasks, nested steps and Life notes, including collapsed sections; normalize Persian/Arabic letters and digits and reveal the selected result.
+- Center the compact tool dock, anchor the floating selection toolbar, refine note colors and selection states, and create new square notes without resizing existing ones.
+- Add a bilingual keyboard guide and shortcuts for search, zoom, connectors, lock, alignment, text alignment, layer order and adjacent notes.
+- Draw sections with a drag, select inside section backgrounds, resize from eight handles, keep section contents stationary during north/west resizing, and preserve native scrolling while editing text.
+- Reuse connection paths while panning and zooming; keep shared Life data, history, offline exports and existing planner relationships intact.
+- Separate Fit all (including Life) from Fit current day (Shift+3); keep the day readable when switching layouts.
+- Add unit and desktop/mobile browser regressions for the new controls, saved data, search, timer, resizing and keyboard behavior.
+
 ## 5.11.1 — 2026-10-30
 Branch: codex/fix-cursor-selector
 - Apply the requested pink cursor to the actual Board viewport and native notes; keep hand/pan cursors intact.
@@ -128,4 +140,5 @@ Branch: claude/project-thread-xnja7m
 Branch: claude/project-thread-xnja7m
 - Baseline: starting the changelog from the current version (5.0.0).
 - Added `CLAUDE.md` with rules for all agents: work on a separate branch and merge, and log version + changes here after every change.
+
 

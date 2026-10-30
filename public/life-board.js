@@ -5,8 +5,10 @@
 // Data: a flat list. Each item is { id, type: "section" | "sticky", parent, x, y, w, h,
 // text, color }. x and y are relative to the parent section (or to the Life area).
 
+import { DDstickyColors } from "./board-core.js";
 export const DDlifeHead = 90;
-export const DDlifeColors = ["#FFE08A", "#9DD6FF", "#D3B8FF", "#FFA799", "#FFA6D9", "#E6E6E6", "#A8E6B8"];
+export const DDlifeColors = DDstickyColors;
+const legacyFamilyColors = ["#FFE08A", "#9DD6FF", "#D3B8FF", "#FFA799", "#FFA6D9", "#E6E6E6", "#A8E6B8"];
 const BLUE = "#9DD6FF", VIOLET = "#D3B8FF", RED = "#FFA799", YELLOW = "#FFE08A", GRAY = "#E6E6E6", PINK = "#FFA6D9";
 const limit = (v, lo, hi, d) => (Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d);
 
@@ -202,7 +204,7 @@ export function DDlifeColor(items, it) {
   let root = it, hops = 0;
   while (root.parent && hops++ < 60) root = find(items, root.parent) || { ...root, parent: "" };
   const hash = [...root.id].reduce((n, c) => (n * 31 + c.charCodeAt(0)) >>> 0, 0);
-  return DDlifeColors[hash % DDlifeColors.length];
+  return legacyFamilyColors[hash % legacyFamilyColors.length];
 }
 export function DDlifeContrast(hex) {
   let value = hex.slice(1);
@@ -282,7 +284,7 @@ export function DDlifeAdd(items, spec) {
       h,
       text: spec.text || "",
       ...(spec.style ? { style: { ...spec.style } } : {}),
-      ...(spec.color ? { color: spec.color } : section ? {} : { color: DDlifeColors[0] }),
+      color: spec.color || (section ? "#A8DAFF" : "#FFE299"),
     };
   return DDlifeFit([...items, item], item.parent);
 }
@@ -422,3 +424,4 @@ export function DDinstallLifeStyles() {
   if (typeof document !== "undefined" && !document.getElementById("dd-life-css"))
     document.head.append(Object.assign(document.createElement("style"), { id: "dd-life-css", textContent: DDlifeCSS }));
 }
+

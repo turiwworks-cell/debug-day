@@ -195,6 +195,7 @@ const { start, fixture } = require("./harness.cjs");
         });
         await hex.fill("#12345680");
         await hex.press("Enter");
+        await page.waitForFunction(date=>JSON.parse(localStorage.getItem("debug-day:v2")).days[date].notes[0].color==="#123456",f.date);
         let d = await read();
         assert.equal(d.notes[0].color, "#123456");
         assert.ok(
@@ -241,7 +242,7 @@ const { start, fixture } = require("./harness.cjs");
         });
         if (!mobile && language === "en") {
           const pending = page.waitForEvent("download");
-          await page.locator(".b2-top-actions button").nth(4).click();
+          await page.getByRole("button",{name:"Export board SVG",exact:true}).click();
           const download = await pending,
             svg = require("node:fs").readFileSync(
               await download.path(),
@@ -508,3 +509,4 @@ const { start, fixture } = require("./harness.cjs");
   console.error(error);
   process.exitCode = 1;
 });
+

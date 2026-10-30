@@ -4,9 +4,7 @@ const finite = (value, fallback = 0) =>
   Number.isFinite(Number(value)) ? Number(value) : fallback;
 const clone = (value) => structuredClone(value);
 const id = () => crypto.randomUUID();
-export const DDboardCore = {
-  zoomSteps: [0.05, 0.1, 0.125, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 6, 8],
-  stickyColors: [
+export const DDstickyColors = [
     "#FFFFFF",
     "#E6E6E6",
     "#B3EFBD",
@@ -14,10 +12,13 @@ export const DDboardCore = {
     "#A8DAFF",
     "#D3BDFF",
     "#FFA8DB",
-    "#FFB8A8",
+    "#FFAFA3",
     "#FFD3A8",
     "#FFE299",
-  ],
+  ];
+export const DDboardCore = {
+  zoomSteps: [0.05, 0.1, 0.125, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 6, 8],
+  stickyColors: DDstickyColors,
   colors: [
     "#1E1E1E",
     "#757575",
@@ -849,3 +850,4 @@ export const DDboardCore = {
     return { day: next, refs };
   },
 };
+

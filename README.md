@@ -7,6 +7,7 @@ A personal daily planner with a time-scaled board, mind maps, Persian/English UI
 - `public/search.js`, `public/capture.js`, `public/life.js` — readable source for universal search, capture/Today, and optional scheduling/pause tools.
 - `public/planner.js`, `public/relations.js`, `public/connections.js` — shared tags and priority progress, canonical task membership, and live nearest-edge routing.
 - `public/board.js`, `public/board-core.js`, `public/board-controls.js` — board gestures, pure object operations, and focused UI controls.
+- `public/board-experience.js` — board search, keyboard guide, selection helpers, shared wall-clock timer and board presentation.
 - `public/sync.js` — content comparison that ignores JSON object key order.
 - `public/measure.js` — how a card is measured: by time, by times (a tally) or as waiting.
 - `public/habits.js` — habits: a daily tick plus minutes, four color levels, stats, and their Plan, Board and Settings panels.
@@ -72,6 +73,12 @@ Color & properties includes a live color picker, HEX/RGB, recent colors, screen 
 
 Type a zoom percentage (Persian digits work), use exact zoom steps from 5% to 800%, Shift+1 to fit everything and Shift+2 to fit the selection. Space or the Hand tool pans; Ctrl/Cmd+wheel zooms at the pointer. Canvas settings controls dots, dot opacity/spacing, snapping, smart guides, minimap, wheel zoom and optional right-button panning. Camera and view preferences stay on this device and never consume planner revisions; object edits sync normally and support Undo.
 
+Ctrl/Cmd+F searches the board's tasks, nested steps and Life notes, even inside collapsed sections. Enter reveals and selects a result. Use the timer button for the same countdown as Plan, the moon button to switch themes, or the full-screen button beside the view tabs to enter Board directly. Canvas settings can make full-screen entry the default on this device. The timer stays in memory while changing views; a page reload resets it.
+
+Fit all (Shift+1) includes Life. Shift+3 or the canvas menu fits only the current day's objects; opening a new layout uses that closer day view.
+
+Press `?` for the bilingual keyboard guide. New bindings include V/H/S/Shift+S for select/hand/note/section, X or Shift+L for bent connectors, L for straight connectors, Ctrl/Cmd+Enter for an adjacent note, Ctrl/Cmd+Shift+L for lock, Alt+A/D/W/S and Alt+H/V for alignment, Ctrl/Cmd+Alt+L/T/R for text alignment, and Ctrl/Cmd+Shift+F for full-screen Board. Object shortcuts yield to text fields. With Select, drag empty section space to select objects; with Hand or Space, drag to pan. New notes are 240×240; saved notes keep their dimensions.
+
 ## Validation
 
 Run all regression tests with Node.js 24: `node --test tests/*.test.mjs`.
@@ -85,3 +92,4 @@ Life notes use the native board tools: select, multi-select, copy/paste, resize,
 Use **Sections** to jump to a section or **Compact layout** to remove empty space without discarding content. A section's arrow collapses its contents. Life is editable in Plan and searchable across the app.
 
 MCP clients can read `get_life` and, with a write key, call `add_life_item`, `update_life_item` or `delete_life_item`. Every write needs the latest `expected_revision`; invalid parents, cycles, dimensions and colors are rejected. Deleting a section preserves its children.
+

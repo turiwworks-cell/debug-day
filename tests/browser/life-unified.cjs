@@ -25,10 +25,10 @@ const {start,fixture}=require("./harness.cjs");
    assert.equal(await page.locator('[data-board-id="section:life"]').getAttribute("tabindex"),null,"outer Life area cannot be selected");
    await n.locator(".dd-note-preview").click();
    assert.equal(await n.getAttribute("aria-selected"),"true");
-   assert.match(await n.evaluate((e)=>getComputedStyle(e).outlineColor),/52, 120, 246/);
+   assert.match(await n.evaluate((e)=>getComputedStyle(e).outlineColor),/23, 156, 242/);
    await n.getByRole("button",{name:t("Change color","تغییر رنگ"),exact:true}).click();
-   await n.getByRole("button",{name:t("Use color ","انتخاب رنگ ")+"#D3B8FF",exact:true}).click();
-   assert.equal((await read()).setup.life.items.find((i)=>i.id==="n").color,"#D3B8FF");
+   await n.getByRole("button",{name:t("Use color ","انتخاب رنگ ")+"#D3BDFF",exact:true}).click();
+   assert.equal((await read()).setup.life.items.find((i)=>i.id==="n").color,"#D3BDFF");
    await page.keyboard.press("Control+z");
    assert.equal((await read()).setup.life.items.find((i)=>i.id==="n").color,"#FFE08A");
    await n.focus(); await page.keyboard.press("Delete");
@@ -83,3 +83,4 @@ const {start,fixture}=require("./harness.cjs");
   console.log("Unified Life: native selection, colors, transfer undo, collapse, navigation and Plan passed (en/fa)");
  }finally{await h.stop();}
 })().catch((e)=>{console.error(e);process.exit(1)});
+
