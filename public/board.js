@@ -1033,7 +1033,7 @@ export function DDcreateBoard(deps) {
         if (lf) for (const it of items.filter((i) => DDlifeVisible(items, i))) {
           const a = DDlifeAbs(items, it.id), color = DDlifeColor(items, it);
           Y.push({ id: "life:" + it.id, lifeId: it.id, lifeSection: it.type === "section", kind: it.type === "section" ? "life-section" : "sticky",
-            title: it.text, color, textColor: core.contrast(color), collapsed: it.collapsed, parentId: it.parent ? "life:" + it.parent : null,
+            title: it.text || (it.type === "section" ? t("Section","سکشن") : ""), color, textColor: core.contrast(color), collapsed: it.collapsed, parentId: it.parent ? "life:" + it.parent : null,
             x: lf.x + a.x, y: lf.y + DDlifeHead + a.y, w: it.w, h: it.collapsed ? 38 : it.h,
             ...it.style, opacity: it.style?.opacity ?? 1, stack: it.type === "section" ? 2 + items.filter((i) => DDlifeDescendants(items,i.id).has(it.id)).length : 20 });
         }

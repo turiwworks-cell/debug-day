@@ -398,6 +398,7 @@ export const DDlifeCSS = `
 .dd-life-nav{position:absolute;top:70px;right:16px;z-index:100;display:flex;flex-direction:column;gap:4px;max-height:65%;width:240px;overflow:auto;background:var(--panel);color:var(--ink);padding:12px;border:1px solid var(--rule-2);border-radius:12px;box-shadow:0 8px 28px #0002}
 .dd-life-nav button{text-align:start;min-height:36px;padding:6px 8px;border-radius:6px}
 .dd-life-nav button:hover{background:var(--wash)}
+.b4 .b2-top-actions{max-width:calc(100vw - 32px);overflow-x:auto;scrollbar-width:none}
 .dd-plan-life{margin:18px 0;padding:16px;border:1px solid var(--rule-2);border-radius:12px}
 .dd-plan-life header,.dd-plan-life-heading{display:flex;gap:8px;align-items:center}
 .dd-plan-life header h2{flex:1;font-size:16px}
