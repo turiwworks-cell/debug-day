@@ -43,7 +43,7 @@ const {join}=require('node:path');
      previous=(await read()).setup.life.items.find(i=>i.id==='n').x;
     }
     assert.equal(await note.locator('textarea').count(),0,'short touch drags do not enter edit mode');
-    await page.getByRole('button',{name:'Section navigator',exact:true}).click();
+    await page.locator('[data-drawer-button]').click();await page.locator('[data-drawer-list]').click();
     await page.locator('.dd-life-nav').getByRole('button',{name:/Work & play/}).click();
     assert.equal(await page.locator('[data-life-id="b"]').getAttribute('aria-selected'),'true','section navigator is reachable on phones');
    }else{

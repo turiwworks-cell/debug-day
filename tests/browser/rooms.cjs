@@ -88,7 +88,7 @@ const {start,fixture}=require('./harness.cjs');
    // On a phone from the button on its name; on desktop (the task's details are
    // open beside it now) from the section list.
    if(mobile)await tap(page.locator('[data-board-id="life:c"] [data-enter-section="c"]'));
-   else{await page.locator('[aria-label="Section navigator"],[aria-label="فهرست سکشن‌ها"]').first().click();await page.locator('.dd-life-nav [data-enter-section="c"]').click();}
+   else{await page.locator('[data-drawer-button]').click();await page.locator('[data-drawer-list]').click();await page.locator('.dd-life-nav [data-enter-section="c"]').click();}
    await page.waitForFunction(()=>/Sketches/.test(document.querySelector('.dd-room-bar')?.innerText||''));
    assert.equal(await page.locator('[data-board-id="life:a"]').count(),0,'the outer section is not drawn inside the inner one');
    assert.equal(await page.locator('[data-board-id="life:k"]').count(),1);
@@ -106,7 +106,7 @@ const {start,fixture}=require('./harness.cjs');
    assert.equal(await page.locator('[data-board-id="life:b"]').count(),1,'the main board again');
    assert.equal(await page.locator('[data-board-id="sticky:note"]').count(),1);
    // The selection toolbar can open a section too.
-   await page.locator('[aria-label="Section navigator"],[aria-label="فهرست سکشن‌ها"]').first().click();
+   await page.locator('[data-drawer-button]').click();await page.locator('[data-drawer-list]').click();
    await page.locator('.dd-life-nav').getByRole('button',{name:/Work & play/}).click();await page.waitForTimeout(300);
    await tap(page.locator('[data-board-id="life:b"] .b4-node-title'));
    await tap(page.locator('.b4-selectionbar [data-enter-section="b"]'));

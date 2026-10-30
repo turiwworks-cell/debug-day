@@ -2,6 +2,7 @@
 // It is not a copy: it reads and writes day.blocks, the same data Plan, Lanes
 // and the Board show, so a change here is the same change everywhere.
 import { DDcompletion } from "./planner.js";
+import { DDsectionTint, DDshortPath, DDlifePath } from "./life-board.js";
 
 // Ask the Board to bring the Engine up. The request waits until a Board is
 // on screen (Ctrl+Space can ask from Plan or Calendar before the Board opens).
@@ -98,6 +99,7 @@ export function DDengineHas(day, block) {
 }
 
 // The Life sections a task can come from, top down, for the "from" picker.
+// Each one carries its whole path and its root's tint, read live from Life.
 export function DDengineSources(items = []) {
   const sections = items.filter((i) => i.type === "section"),
     seen = new Set(),
@@ -108,12 +110,15 @@ export function DDengineSources(items = []) {
         .sort((a, b) => a.y - b.y || a.x - b.x)
         .forEach((s) => {
           seen.add(s.id);
-          out.push({ id: s.id, name: s.text || "", depth });
+          out.push({ id: s.id, name: s.text || "", depth, ...sourceLook(items, s.id) });
           walk(s.id, depth + 1);
         });
   walk("", 0);
-  for (const s of sections) if (!seen.has(s.id)) (seen.add(s.id), out.push({ id: s.id, name: s.text || "", depth: 0 }));
+  for (const s of sections) if (!seen.has(s.id)) (seen.add(s.id), out.push({ id: s.id, name: s.text || "", depth: 0, ...sourceLook(items, s.id) }));
   return out;
+}
+function sourceLook(items, id) {
+  return { parts: DDlifePath(items, id).filter((i) => i.type === "section").map((i) => i.text || ""), tint: DDsectionTint(items, id) };
 }
 
 // Each section's record: per day, the tasks that came from it or from a section
@@ -243,6 +248,8 @@ function EngineRow({ React: R, block, lanes, sources = [], language, measure, se
     h = R.createElement,
     [editing, setEditing] = R.useState(false),
     kind = measure.DDmeasureOf(block),
+    from = sources.find((s) => s.id === block.from),
+    sourcePath = (s) => DDshortPath((s.parts || [s.name]).map((p) => p.trim() || t("Section", "سکشن")), 34),
     update = (fn) => change((day) => ({ ...day, blocks: day.blocks.map((b) => (b.id === block.id ? fn(b) : b)) }));
   return h(
     "li",
@@ -341,9 +348,10 @@ function EngineRow({ React: R, block, lanes, sources = [], language, measure, se
           {
             className: "dd-engine-from",
             "data-from": block.from || "",
-            value: sources.some((s) => s.id === block.from) ? block.from : "",
-            "aria-label": t("Came from", "از کجا آمده"),
-            title: t("Came from", "از کجا آمده"),
+            value: from ? block.from : "",
+            "aria-label": t("Came from", "از کجا آمده") + (from ? ": " + sourcePath(from).full : ""),
+            title: t("Came from", "از کجا آمده") + (from ? ": " + sourcePath(from).full : ""),
+            style: from?.tint ? { background: from.tint.fill, color: from.tint.ink, borderColor: from.tint.line } : undefined,
             onChange: (event) => {
               const from = event.target.value;
               update((b) => {
@@ -354,7 +362,7 @@ function EngineRow({ React: R, block, lanes, sources = [], language, measure, se
             },
           },
           h("option", { value: "" }, "↖ " + t("Main board", "برد اصلی")),
-          sources.map((s) => h("option", { key: s.id, value: s.id }, "↖ " + "· ".repeat(s.depth) + (s.name || t("Section", "سکشن")))),
+          sources.map((s) => h("option", { key: s.id, value: s.id, style: s.tint ? { background: s.tint.fill, color: s.tint.ink } : undefined }, "↖ " + sourcePath(s).short)),
         ),
         onReveal &&
           h(

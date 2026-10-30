@@ -681,7 +681,10 @@ export function DDcreateBoardControls(core) {
               "روی همهٔ اشیای بازِ انتخاب‌شده اعمال می‌شود.",
             ),
           ),
-        h(ColorPicker, {
+        // A section inside another takes its top section's color.
+        node?.lifeSection && node.parentId
+          ? h("small", { className: "dd-color-inherited" }, t("Takes the color of its top section. Color the top section to change it.", "رنگ سکشن بالایی‌اش را می‌گیرد. برای تغییر، سکشن بالایی را رنگ کن."))
+          : h(ColorPicker, {
           React: R,
           language,
           value: base,
