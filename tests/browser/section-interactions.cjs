@@ -20,7 +20,7 @@ const {join}=require('node:path');
    await page.locator('[data-life-jump]').click();
    const read=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2')));
    const note=page.locator('[data-life-id="n"]');
-   await note.getByRole('button',{name:'Edit note',exact:true}).click();
+   await note.locator('.dd-note-preview').click();if(!await note.locator('textarea').count())await page.keyboard.press('Enter');
    await note.locator('textarea').fill('Edited with one tap');
    await note.locator('textarea').press('Control+Enter');
    assert.equal((await read()).setup.life.items.find(i=>i.id==='n').text,'Edited with one tap');
@@ -50,7 +50,7 @@ const {join}=require('node:path');
     await note.focus();
     await drag(note.locator('[data-edge="se"]'),55,45);
     let state=(await read()).setup.life.items.find(i=>i.id==='n');assert.ok(state.w>220&&state.h>160,'native note resize persists');
-    const before=await read();await drag(note.locator('.dd-note-drag'),50,20,'escape');
+    const before=await read();await drag(note.locator('.dd-note-preview'),50,20,'escape');
     assert.deepEqual((await read()).setup.life,before.setup.life,'Escape cancels a drag');
     // A real port gesture connects Life notes using native wires, stored in shared setup.
     await note.focus();
@@ -59,7 +59,7 @@ const {join}=require('node:path');
     state=await read();assert.equal(state.setup.life.links.length,1,'Life-to-Life connections are shared');
     // Dragging out moves the same text, size and its wire into the day.
     const frame=await page.locator('[data-board-id="section:life"]').boundingBox(),box=await note.boundingBox();
-    await drag(note.locator('.dd-note-drag'),frame.x+frame.width+80-box.x,0);
+    await drag(note.locator('.dd-note-preview'),frame.x+frame.width+80-box.x,0);
     state=await read();assert.equal(state.setup.life.items.some(i=>i.id==='n'),false);
     assert.equal(state.days[f.date].notes.find(i=>i.id==='n').text,'Edited with one tap');
     assert.ok(state.days[f.date].canvas.board4.links.some(l=>l.from==='sticky:n'||l.to==='sticky:n'),'transfer preserves the connection');

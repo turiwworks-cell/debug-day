@@ -131,7 +131,7 @@ const {join}=require("node:path");
     await (await search("Orbit idea")).press("Enter");
     const note=page.locator('[data-board-id="sticky:note"]');
     assert.equal(await note.locator('[data-edge]').count(),8);
-    await note.getByRole("button",{name:"Edit note",exact:true}).click();
+    await note.locator(".dd-note-preview").dblclick();
     const text=note.locator("textarea");await text.fill("Long paragraph\n".repeat(80));
     const before=await world();await text.hover();await page.mouse.wheel(0,220);await page.waitForTimeout(50);
     assert.equal(await world(),before,"scrolling the editor does not pan the board");

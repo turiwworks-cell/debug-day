@@ -133,7 +133,7 @@ const { start, fixture } = require("./harness.cjs");
       await drag(page.locator('[data-board-id="bug:f2"]'), page.locator('[data-board-id="sec:writing"]'));
       await page.waitForFunction((date) => JSON.parse(localStorage.getItem("debug-day:v2")).days[date].bugs.find((b) => b.id === "f2").blockId === "writing", f.date);
       assert.ok(await inside("bug:f2", "sec:writing"), "dropped feeling joins the card");
-      await drag(page.locator('[data-board-id="sticky:n2"] .dd-note-drag'), page.locator('[data-board-id="lane:life"]'));
+      await drag(page.locator('[data-board-id="sticky:n2"] .dd-note-preview'), page.locator('[data-board-id="lane:life"]'));
       await page.waitForFunction((date) => JSON.parse(localStorage.getItem("debug-day:v2")).days[date].canvas.board4.links.length === 0, f.date);
       assert.ok(!(await inside("sticky:n2", "sec:writing")), "dragged-out note leaves the card");
       const before = await page.locator('[data-board-id="sub:writing:sub"]').boundingBox();

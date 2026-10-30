@@ -287,12 +287,9 @@ const { start, fixture } = require("./harness.cjs");
         await menuItem("Bring to front", "آوردن به جلو").click();
         assert.equal((await read()).canvas.board4.stack.at(-1), "sticky:note");
         // Select two notes with Shift, then right-click one without collapsing selection.
-        await note()
-          .getByRole("button", {
-            name: t("Move note", "جابه‌جایی نوت"),
-            exact: true,
-          })
-          .click();
+        // (Clicking an already selected note starts typing, as in FigJam, so clear first.)
+        await page.keyboard.press("Escape");
+        await note().locator(".dd-note-preview").click();
         await page.keyboard.down("Shift");
         await note2().locator(".dd-note-preview").click();
         await page.keyboard.up("Shift");
@@ -385,12 +382,7 @@ const { start, fixture } = require("./harness.cjs");
           .click();
         assert.equal((await read()).canvas.board4.links.length, 1);
         await seed();
-        await note()
-          .getByRole("button", {
-            name: t("Move note", "جابه‌جایی نوت"),
-            exact: true,
-          })
-          .click();
+        await note().locator(".dd-note-preview").click();
         const handle = note().getByRole("button", {
           name: t("Resize note", "تغییر اندازهٔ نوت"),
           exact: true,

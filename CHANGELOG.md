@@ -1,3 +1,16 @@
+## 5.14.0 — 2026-10-30
+Branch: claude/figjam-notes-connectors
+- Sections: no connection circles around them (they hid the resize handles); a click on a section's empty area selects it; titles stay readable at every zoom.
+- Dock: remove the connector and feeling tools; connectors start from a note's side points or X / L.
+- Sticky tool: a faint note follows the pointer and the note colors appear above the dock.
+- Type straight onto the note with a "Type anything…" hint; the separate "Saves as you type / Done" bar is gone and empty notes show the same hint.
+- Left/right edges change only a note's width; corners and top/bottom scale the whole note and its text together.
+- A "+" on each side of a selected note previews and adds the next note one even gap away.
+- Drag a connector from a note into empty space to create a connected note there, previewed while dragging.
+- Connectors look like FigJam (grey, weighted with the canvas, arrowheads) and have FigJam's toolbar: color, weight, text, dashed, straight/elbow/curve, start and end arrows. The details panel opens only on request.
+- On desktop the note's bottom bar is hidden; color and → Plan live in the selection toolbar. Resize handles now win over connection points when zoomed out.
+- Add an en/fa browser regression for all of the above and update older tests to the new controls.
+
 ## 5.13.0 — 2026-10-30
 Branch: claude/figjam-sections
 - Draw a section around notes or other sections and it takes them in, like FigJam; growing a section over neighbours does the same, and moving it carries everything nested.

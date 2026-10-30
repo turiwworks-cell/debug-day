@@ -112,6 +112,7 @@ export function DDcreateBoard(deps) {
       prefs = DDprefs(setup.preferences),
       [mode, setMode] = useState(model.mode),
       [tool, setTool] = useState("select"),
+      [wirePop, setWirePop] = useState(null),
       [selected, setSelected] = useState(new Set()),
       [wireId, setWireId] = useState(null),
       [wireSelection, setWireSelection] = useState(null),
@@ -164,6 +165,7 @@ export function DDcreateBoard(deps) {
       mapSvg = useRef(null),
       marquee = useRef(null),
       draftPath = useRef(null),
+      ghostNote = useRef(null),
       elementRefs = useRef(new Map()),
       wireRefs = useRef(new Map()),
       cam = useRef(model.camera),
@@ -196,6 +198,7 @@ export function DDcreateBoard(deps) {
       noteSession = useRef(null);
     const selectionbar = useRef(null), selectionState = useRef(null), pendingReveal = useRef(null), connectionStyle = useRef("elbow"), wireCache = useRef(new Map());
     selectionState.current = { selected, wireId, selectedWires: wireSelection?.ids || [] };
+    useEffect(() => { if (tool !== "sticky") hideGhost(); }, [tool]);
     useEffect(() => {
       const enter = () => { try { sessionStorage.removeItem("debug-day:board-open-fullscreen"); } catch {} setFocus(true); };
       window.addEventListener("debug-day-board-fullscreen", enter);
@@ -1201,7 +1204,9 @@ export function DDcreateBoard(deps) {
         if (g) nodes.push({ x:Math.min(g.p.x,g.q.x), y:Math.min(g.p.y,g.q.y), w:Math.abs(g.p.x-g.q.x), h:Math.abs(g.p.y-g.q.y) });
       }
       if (!nodes.length) return;
-      const topbar = host.querySelector(".b2-top"), br = topbar?.getBoundingClientRect(), vr = view.getBoundingClientRect();
+      // The top row and its actions (Undo, Search…) can wrap on phones; stay below both.
+      const vr = view.getBoundingClientRect(), tops = [...host.querySelectorAll(".b2-top,.b2-top-actions")].map((e) => e.getBoundingClientRect()).filter((r) => r.height && r.top < vr.top + vr.height / 2);
+      const br = tops.length ? { bottom: Math.max(...tops.map((r) => r.bottom)) } : null;
       // A section's title tab sits above it; keep the toolbar clear of the title.
       const tab = elementRefs.current.get(nodes.find((n) => n.lifeSection)?.id)?.querySelector(":scope>.b4-node-body");
       const head = ((tab?.getBoundingClientRect().height || 26) + 10) / cam.current.z;
@@ -1436,7 +1441,9 @@ export function DDcreateBoard(deps) {
         finishEdit(),
         setSelected(new Set()),
         setWireId(G.id),
-        setInspector(!0),
+        // FigJam shows just the line's toolbar; the details panel opens on request.
+        setInspector(!1),
+        setWirePop(null),
         setMenu(null));
       const ot = wireGeometry(G);
       ((gesture.current = {
@@ -1568,15 +1575,25 @@ export function DDcreateBoard(deps) {
             G.width + (edge.includes("e") ? dx : edge.includes("w") ? -dx : 0),
           height =
             G.height + (edge.includes("s") ? dy : edge.includes("n") ? -dy : 0);
-        if (Y.shiftKey && edge.length === 2) {
+        const resized = layout.map.get(G.ref), sticky = resized?.kind === "sticky";
+        // FigJam stickies: the left/right edges change only the width (text reflows);
+        // corners and the top/bottom edges scale the whole note, text included.
+        if (sticky && (edge.length === 2 || edge === "n" || edge === "s")) {
+          const scale = Math.max(40 / G.width, 40 / G.height, Math.min(4000 / G.width, edge.length === 2 ? Math.max(width / G.width, height / G.height) : height / G.height));
+          width = G.width * scale;
+          height = G.height * scale;
+          G.scale = scale;
+        } else if (sticky) {
+          height = G.height;
+          G.scale = 1;
+        } else if (Y.shiftKey && edge.length === 2) {
           const scale = Math.max(width / G.width, height / G.height);
           width = G.width * scale;
           height = G.height * scale;
         }
-        const resized = layout.map.get(G.ref);
         // Like FigJam, a section may shrink past its contents; they stay put and hang over.
-        width = Math.round(Math.max(resized?.lifeSection ? 80 : 144, Math.min(resized?.lifeSection ? 20000 : 1200, width)));
-        height = Math.round(Math.max(resized?.lifeSection ? 60 : 96, Math.min(resized?.lifeSection ? 20000 : 1800, height)));
+        width = Math.round(Math.max(resized?.lifeSection ? 80 : sticky ? 40 : 144, Math.min(resized?.lifeSection ? 20000 : sticky ? 4000 : 1200, width)));
+        height = Math.round(Math.max(resized?.lifeSection ? 60 : sticky ? 40 : 96, Math.min(resized?.lifeSection ? 20000 : sticky ? 4000 : 1800, height)));
         const x = G.x + (Y.altKey ? (G.width-width)/2 : edge.includes("w") ? G.width - width : 0),
           y = G.y + (Y.altKey ? (G.height-height)/2 : edge.includes("n") ? G.height - height : 0);
         G.size = { width, height };
@@ -1587,6 +1604,7 @@ export function DDcreateBoard(deps) {
           el.style.height = height + "px";
           el.style.transform = `translate3d(${x - G.x}px,${y - G.y}px,0)`;
           el.dataset.size = width + " \u00d7 " + height;
+          if (sticky) el.style.setProperty("--object-size", (G.textSize || 16) * (G.scale || 1) + "px");
         }
         preview.current.set(G.ref, { x, y, w: width, h: height });
         paintWires(); paintSelection();
@@ -1626,12 +1644,16 @@ export function DDcreateBoard(deps) {
         return;
       }
       if (G.kind === "newlink") {
+        const target = nodeAt(Tt, G.from), from = layout.map.get(G.from);
         ((draftPath.current.style.display = "block"),
           draftPath.current.setAttribute(
             "d",
             `M${G.start.x} ${G.start.y}L${Tt.x} ${Tt.y}`,
           ),
-          showPreview(nodeAt(Tt, G.from)?.id));
+          showPreview(target?.id));
+        // Over empty canvas, a note-to-be waits at the end of the line (FigJam).
+        if (!target && from?.kind === "sticky" && Math.hypot(ct, ot) > 30) showGhost(dropRect(from, G.port, Tt), from.color);
+        else hideGhost();
         return;
       }
       if (G.kind === "marquee" || G.kind === "section-create") {
@@ -1665,12 +1687,14 @@ export function DDcreateBoard(deps) {
         if (ct) {
           G.style.width = ct.w + "px";
           G.style.height = ct.h + "px";
+          if (ct.kind === "sticky") G.style.setProperty("--object-size", (ct.textSize || 14) + "px");
         }
         const ot = G.querySelector("[data-duration]");
         ot && ct?.min && (ot.textContent = w(ct.min));
       }
       (preview.current.clear(),
         (pointerWire.current = null),
+        hideGhost(),
         draftPath.current && (draftPath.current.style.display = "none"),
         marquee.current && (marquee.current.style.display = "none"),
         paintWires(), paintSelection());
@@ -1716,6 +1740,13 @@ export function DDcreateBoard(deps) {
           clearPreview();
           return;
         }
+        // FigJam: a click (no drag) on a section's empty area selects the section.
+        if (ct.tapSection && !ct.moved && !ct.right) {
+          clearPreview();
+          if (ct.shift) setSelected((s) => { const next = new Set(s); next.has(ct.tapSection) ? next.delete(ct.tapSection) : next.add(ct.tapSection); return next; });
+          else selectOne(ct.tapSection);
+          return;
+        }
         if (ct.kind === "pan") {
           const context = pendingContext.current;
           pendingContext.current = null;
@@ -1752,7 +1783,9 @@ export function DDcreateBoard(deps) {
           if (n && ct.size)
             commit(
               (d) => {
-                let next = core.setStyle(d, [n], n.memberOf ? { height: ct.size.height } : ct.size);
+                // A scaled sticky keeps its text in proportion (FigJam).
+                const textSize = n.kind === "sticky" && ct.scale && ct.scale !== 1 ? { textSize: Math.round((ct.textSize || 16) * ct.scale * 10) / 10 } : {};
+                let next = core.setStyle(d, [n], n.memberOf ? { height: ct.size.height } : { ...ct.size, ...textSize });
                 if (
                   !n.memberOf &&
                   ct.position &&
@@ -1996,13 +2029,20 @@ export function DDcreateBoard(deps) {
               );
         } else if (ct.kind === "newlink") {
           const point = toWorld(Y.clientX, Y.clientY),
-            target = nodeAt(point, ct.from);
+            target = nodeAt(point, ct.from),
+            from = layout.map.get(ct.from);
+          hideGhost();
           if (target && ct.moved)
             addLink(ct.from, target.id, {
               fromPort: ct.port,
               toPort: nearestPort(target, point),
             });
-          else
+          else if (ct.moved && from?.kind === "sticky" && Math.hypot(Y.clientX - ct.sx, Y.clientY - ct.sy) > 30) {
+            // Dropped on empty canvas: make the connected note there, as FigJam does.
+            const r = dropRect(from, ct.port, point),
+              ref = addSticky({ x: r.x + r.w / 2, y: r.y + r.h / 2 }, noteLike(from));
+            addLink(ct.from, ref, { fromPort: ct.port, toPort: oppositeSide[ct.port] }, true);
+          } else
             setStatus(
               DDlanguage === "fa"
                 ? "برای اتصال، نقطه را تا نود مقصد بکش"
@@ -2110,6 +2150,11 @@ export function DDcreateBoard(deps) {
             ((moveRAF.current = 0),
               latestMove.current && paintGesture(latestMove.current));
           })));
+      // The sticky tool carries a faint note under the pointer (FigJam).
+      if (!gesture.current && tool === "sticky" && Y.pointerType !== "touch") {
+        const p = toWorld(Y.clientX, Y.clientY);
+        showGhost({ x: p.x - 120, y: p.y - 120, w: 240, h: 240 });
+      }
     }
     function pointerUp(Y) {
       if ((touches.current.delete(Y.pointerId), pinch.current)) {
@@ -2152,13 +2197,17 @@ export function DDcreateBoard(deps) {
         setConnecting(null);
         return;
       }
+      const tapSection = sectionBackground && nodeEl?.dataset.lifeType === "section" && tool === "select" ? nodeEl.dataset.boardId : null;
       if (
         Y.button === 1 ||
         space.current ||
         tool === "hand" ||
         Y.pointerType === "touch"
-      )
-        return startPan(Y);
+      ) {
+        startPan(Y);
+        if (tapSection && Y.button === 0 && !space.current && tool !== "hand") gesture.current.tapSection = tapSection;
+        return;
+      }
       (Y.shiftKey ||
         (setSelected(new Set()), setWireId(null), onSelectBlock?.(null)),
         (gesture.current = {
@@ -2170,9 +2219,54 @@ export function DDcreateBoard(deps) {
           initial: [...selected],
           shift: Y.shiftKey,
           moved: !1,
+          tapSection,
         }),
         viewport.current.setPointerCapture(Y.pointerId),
         viewport.current.focus({ preventScroll: !0 }));
+    }
+    // FigJam's connector toolbar: color, weight, text, dash, type and both ends.
+    const wireColors = ["#1E1E1E", "#757575", "#F24822", "#FFA629", "#FFCD29", "#14AE5C", "#0D99FF", "#9747FF", "#FF24BD"];
+    function wireButton(label, content, onClick, pressed) {
+      return _.createElement("button", { type: "button", key: label, className: "b2-icon dd-wire-button", "aria-label": label, title: label, ...(pressed === undefined ? {} : { "aria-pressed": pressed }), onClick }, content);
+    }
+    function wireToolbar(wire) {
+      const ends = wireEnds(wire), style = wire.style || "curve", dashed = wire.dashed || wire.pattern === "dashed", weight = wire.width || 3;
+      const set = (patch, message) => patchWire(wire.id, patch, message);
+      const toggle = (name) => setWirePop((v) => (v === name ? null : name));
+      return _.createElement(_.Fragment, null,
+        _.createElement("span", { style: { position: "relative", display: "inline-flex" } },
+          wireButton(t("Line color", "رنگ خط"), _.createElement("span", { className: "dd-wire-color", style: { background: wire.color || "#757575" } }), () => toggle("color"), wirePop === "color"),
+          wirePop === "color" && _.createElement("div", { className: "dd-wire-pop", role: "group", "aria-label": t("Line colors", "رنگ‌های خط") },
+            wireColors.map((color) => _.createElement("button", { type: "button", key: color, className: "dd-swatch", style: { background: color }, "aria-label": t("Line color ", "رنگ خط ") + color, "aria-pressed": (wire.color || "#757575").toUpperCase() === color, onClick: () => { set({ color }, t("Line color changed", "رنگ خط تغییر کرد")); setWirePop(null); } })))),
+        _.createElement("span", { style: { position: "relative", display: "inline-flex" } },
+          wireButton(t("Line weight", "ضخامت خط"), "≡", () => toggle("weight"), wirePop === "weight"),
+          wirePop === "weight" && _.createElement("div", { className: "dd-wire-pop", role: "group", "aria-label": t("Line weights", "ضخامت‌های خط") },
+            [[2, t("Thin", "نازک")], [3, t("Medium", "متوسط")], [5, t("Thick", "ضخیم")]].map(([w, name]) => _.createElement("button", { type: "button", key: w, "aria-pressed": weight === w, onClick: () => { set({ width: w }, t("Line weight changed", "ضخامت خط تغییر کرد")); setWirePop(null); } }, name)))),
+        wireButton(t("Add text to line", "افزودن متن به خط"), "T", () => { setInspector(true); setTimeout(() => root.current?.querySelector('[aria-label="' + t("Connection label", "عنوان اتصال") + '"]')?.focus(), 0); }),
+        _.createElement("span", { className: "b2-sep" }),
+        wireButton(t("Dashed line", "خط‌چین"), "┄", () => set({ dashed: !dashed, pattern: dashed ? "solid" : "dashed" }, t("Line pattern changed", "الگوی خط تغییر کرد")), dashed),
+        wireButton(t("Straight line", "خط صاف"), "╱", () => set({ style: "straight", bend: null }, t("Line type changed", "نوع خط تغییر کرد")), style === "straight"),
+        wireButton(t("Elbowed line", "خط شکسته"), "⌐", () => set({ style: "elbow", bend: null }, t("Line type changed", "نوع خط تغییر کرد")), style === "elbow"),
+        wireButton(t("Curved line", "خط منحنی"), "∿", () => set({ style: "curve", bend: null }, t("Line type changed", "نوع خط تغییر کرد")), style === "curve"),
+        _.createElement("span", { className: "b2-sep" }),
+        wireButton(t("Arrow at start", "پیکان در ابتدا"), "←", () => setWireEnds(wire, { ...ends, start: !ends.start }), ends.start),
+        wireButton(t("Arrow at end", "پیکان در انتها"), "→", () => setWireEnds(wire, { ...ends, end: !ends.end }), ends.end),
+        // Direction matters here (it can mean which task leads), so it stays one click away.
+        wireButton(t("Reverse direction", "برعکس کردن جهت"), "⇄", () => patchWire(wire.id, { from: wire.to, to: wire.from, fromPort: wire.toPort, toPort: wire.fromPort }, t("Connection reversed", "جهت اتصال عوض شد"))),
+        _.createElement("span", { className: "b2-sep" }),
+        toolButton("Connection details", "gear", () => setInspector((Y) => !Y)),
+        toolButton(DDUI("Delete connection"), "trash", () => deleteWire()),
+      );
+    }
+    // Arrowheads at either end. Older links keep one arrow, flipped by arrowReverse.
+    function wireEnds(wire) {
+      return {
+        start: !!(wire.arrowStart || (wire.arrow && wire.arrowReverse)),
+        end: !!(wire.arrow && !wire.arrowReverse),
+      };
+    }
+    function setWireEnds(wire, ends) {
+      patchWire(wire.id, { arrow: ends.end, arrowReverse: false, arrowStart: ends.start }, t("Line ends changed", "سر خط تغییر کرد"));
     }
     function patchWire(Y, G, ct) {
       const current = layoutRef.current.edges.find((e) => e.id === Y);
@@ -2210,7 +2304,7 @@ export function DDcreateBoard(deps) {
         ct,
       );
     }
-    function addLink(Y, G, ct = {}) {
+    function addLink(Y, G, ct = {}, keep = false) {
       if (Y === G) return;
       const relation = DDconnectRelation(dayRef.current, Y, G, setup);
       if (relation !== null) {
@@ -2255,9 +2349,10 @@ export function DDcreateBoard(deps) {
           "\u0627\u062A\u0635\u0627\u0644 \u0633\u0627\u062E\u062A\u0647 \u0634\u062F",
         ),
       ),
-        setWireId(ot),
-        setSelected(new Set()),
-        setInspector(!0));
+        // FigJam selects the new line and shows only its toolbar. A note made at
+        // the end of the line keeps the focus instead, ready for typing.
+        keep || (setWireId(ot), setSelected(new Set())),
+        setInspector(!1));
     }
     function deleteWire(Y = wireId) {
       const edge = layoutRef.current.edges.find((e) => e.id === Y);
@@ -2560,6 +2655,41 @@ export function DDcreateBoard(deps) {
       }
       setSelected(new Set([ref]));setTool("select");setEditing({ref,value:""});
       return ref;
+    }
+    // FigJam previews where a note will land: under the sticky tool, over a "+"
+    // beside a note, and at the end of a connector dragged into empty space.
+    function showGhost(rect, color) {
+      const el = ghostNote.current;
+      if (!el) return;
+      Object.assign(el.style, { display: "block", left: rect.x + "px", top: rect.y + "px", width: rect.w + "px", height: rect.h + "px", background: color || appearanceRef.current.stickyColor });
+    }
+    function hideGhost() {
+      if (ghostNote.current) ghostNote.current.style.display = "none";
+    }
+    const oppositeSide = { left: "right", right: "left", top: "bottom", bottom: "top" };
+    // A note-sized spot one even gap from a note, on the given side.
+    function nearRect(node, side) {
+      const gap = 40, w = node.w, h = node.h;
+      return side === "right" ? { x: node.x + node.w + gap, y: node.y, w, h }
+        : side === "left" ? { x: node.x - gap - w, y: node.y, w, h }
+        : side === "bottom" ? { x: node.x, y: node.y + node.h + gap, w, h }
+        : { x: node.x, y: node.y - gap - h, w, h };
+    }
+    // Where a note goes when a connector from `port` is dropped at `p`: its facing side meets the end.
+    function dropRect(from, port, p) {
+      const w = from.w, h = from.h;
+      return port === "right" ? { x: p.x, y: p.y - h / 2, w, h }
+        : port === "left" ? { x: p.x - w, y: p.y - h / 2, w, h }
+        : port === "bottom" ? { x: p.x - w / 2, y: p.y, w, h }
+        : { x: p.x - w / 2, y: p.y - h, w, h };
+    }
+    function noteLike(node) {
+      return { w: node.w, h: node.h, color: node.color, textSize: node.textSize };
+    }
+    function addNear(node, side) {
+      hideGhost();
+      const r = nearRect(node, side);
+      addSticky({ x: r.x + r.w / 2, y: r.y + r.h / 2 }, noteLike(node));
     }
     // A new habit starts with an empty name, typed right on the board.
     function ddAddHabit() {
@@ -3373,30 +3503,11 @@ export function DDcreateBoard(deps) {
       noteSession.current = noteId;
     }
     function noteEditor(node) {
+      // FigJam: you type straight onto the note; it saves as you type, and a
+      // click outside (or Esc / Ctrl+Enter) finishes.
       return _.createElement(
         "div",
         { className: "dd-note-editor" },
-        _.createElement(
-          "div",
-          { className: "dd-note-editor-head" },
-          _.createElement(
-            "span",
-            null,
-            DDlanguage === "fa" ? "ذخیرهٔ خودکار" : "Saves as you type",
-          ),
-          _.createElement(
-            "button",
-            {
-              type: "button",
-              onClick: () => finishEdit(),
-              "aria-label":
-                DDlanguage === "fa"
-                  ? "پایان ویرایش نوت"
-                  : "Finish editing note",
-            },
-            DDlanguage === "fa" ? "تمام" : "Done",
-          ),
-        ),
         _.createElement("textarea", {
           key: node.id,
           autoFocus: true,
@@ -3404,7 +3515,7 @@ export function DDcreateBoard(deps) {
           value: editing.value,
           maxLength: 4000,
           "aria-label": DDUI("Sticky note text"),
-          placeholder: DDUI("Write your idea\u2026"),
+          placeholder: t("Type anything…", "هر چیزی بنویس…"),
           onPointerDown: (event) => event.stopPropagation(),
           onChange: (event) => {
             const value = event.target.value;
@@ -3643,7 +3754,7 @@ export function DDcreateBoard(deps) {
                           _.createElement(
                             "div",
                             { className: "dd-note-preview", dir: "auto" },
-                            Y.title || DDUI("Double-click or Edit to write"),
+                            Y.title || _.createElement("span", { className: "dd-note-placeholder" }, t("Type anything…", "هر چیزی بنویس…")),
                           ),
                         )
                       : _.createElement(
@@ -3803,6 +3914,7 @@ export function DDcreateBoard(deps) {
                     y: Y.y,
                     width: Y.w,
                     height: Y.h,
+                    textSize: Y.textSize || 16,
                     sx: event.clientX,
                     sy: event.clientY,
                     pointerId: event.pointerId,
@@ -3862,7 +3974,24 @@ export function DDcreateBoard(deps) {
               }
             },
           }),
-        !ct &&
+        // FigJam: a selected sticky offers a "+" on each side for the next note.
+        Tt && G && !ot && !ct && selected.size === 1 &&
+          ["left", "right", "top", "bottom"].map((side) =>
+            _.createElement("button", {
+              type: "button",
+              key: "add-" + side,
+              className: "dd-add-near " + side,
+              "data-add-near": side,
+              "aria-label": t("Add note ", "افزودن یادداشت ") + { left: t("left", "چپ"), right: t("right", "راست"), top: t("above", "بالا"), bottom: t("below", "پایین") }[side],
+              title: t("Add a note here", "افزودن یادداشت اینجا"),
+              onPointerDown: (e) => e.stopPropagation(),
+              onPointerEnter: () => showGhost(nearRect(Y, side), Y.color),
+              onPointerLeave: hideGhost,
+              onClick: (e) => { e.stopPropagation(); addNear(Y, side); },
+            }, "+"),
+          ),
+        // Sections show resize handles only; their connection points hid them.
+        !ct && !Y.lifeSection &&
           ["left", "right", "top", "bottom"].map((Kt) =>
             _.createElement("button", {
               type: "button",
@@ -5157,45 +5286,7 @@ export function DDcreateBoard(deps) {
             "aria-label": "Selection actions",
           },
           selectedWire
-            ? _.createElement(
-                _.Fragment,
-                null,
-                _.createElement(
-                  "strong",
-                  null,
-                  DDUI("\u0627\u062A\u0635\u0627\u0644"),
-                  selectedWire.label ? " \xB7 " + selectedWire.label : "",
-                ),
-                toolButton("Connection details", "gear", () =>
-                  setInspector((Y) => !Y),
-                ),
-                toolButton(DDUI("Reverse connection"), "swap", () =>
-                  patchWire(
-                    selectedWire.id,
-                    {
-                      from: selectedWire.to,
-                      to: selectedWire.from,
-                      fromPort: selectedWire.toPort,
-                      toPort: selectedWire.fromPort,
-                    },
-                    DDUI(
-                      "\u062C\u0647\u062A \u0627\u062A\u0635\u0627\u0644 \u0639\u0648\u0636 \u0634\u062F",
-                    ),
-                  ),
-                ),
-                toolButton(DDUI("Reset connection route"), "fit", () =>
-                  patchWire(
-                    selectedWire.id,
-                    { bend: null, fromPort: null, toPort: null },
-                    DDUI(
-                      "\u0645\u0633\u06CC\u0631 \u0627\u062A\u0635\u0627\u0644 \u062E\u0648\u062F\u06A9\u0627\u0631 \u0634\u062F",
-                    ),
-                  ),
-                ),
-                toolButton(DDUI("Delete connection"), "trash", () =>
-                  deleteWire(),
-                ),
-              )
+            ? wireToolbar(selectedWire)
             : _.createElement(
                 _.Fragment,
                 null,
@@ -5283,6 +5374,10 @@ export function DDcreateBoard(deps) {
                   toolButton(DDUI("Edit selected node"), "pen", () =>
                     openEdit(selectedNode.id),
                   ),
+                // The note's own bar stays out of sight on desktop (FigJam), so its
+                // "to plan" action lives here.
+                selectedNode?.kind === "sticky" && toolButton(t("Change color", "تغییر رنگ"), null, () => setQuickColor(quickColor === selectedNode.id ? null : selectedNode.id), { "aria-expanded": quickColor === selectedNode.id }, "●"),
+                selectedNode?.kind === "sticky" && toolButton(DDUI("Convert note to plan"), "task", () => convertSticky(selectedNode), {}, DDUI("→ پلن")),
                 // Section actions live in the selection toolbar, as in FigJam; the
                 // section itself carries only its title.
                 selectedNode?.lifeSection && _.createElement(_.Fragment,null,
@@ -5342,6 +5437,7 @@ export function DDcreateBoard(deps) {
           onPointerCancelCapture: (e) => touches.current.delete(e.pointerId),
           onPointerDown: backgroundDown,
           onPointerMove: pointerMove,
+          onPointerLeave: () => { if (!gesture.current) hideGhost(); },
           onPointerUp: pointerUp,
           onPointerCancel: (Y) => {
             (touches.current.delete(Y.pointerId), api.current.cancelGesture());
@@ -5381,18 +5477,20 @@ export function DDcreateBoard(deps) {
                 {
                   id: "b4-arrow",
                   viewBox: "0 0 10 10",
-                  refX: "9",
+                  refX: "8",
                   refY: "5",
-                  markerWidth: "7",
-                  markerHeight: "7",
+                  markerWidth: "4.2",
+                  markerHeight: "4.2",
                   orient: "auto-start-reverse",
                   markerUnits: "strokeWidth",
                 },
                 _.createElement("path", {
-                  d: "M1 1L9 5 1 9",
+                  d: "M1.5 1.5L8.5 5 1.5 8.5",
                   fill: "none",
                   stroke: "context-stroke",
-                  strokeWidth: "1.5",
+                  strokeWidth: "1.6",
+                  strokeLinecap: "round",
+                  strokeLinejoin: "round",
                 }),
               ),
             ),
@@ -5453,10 +5551,10 @@ export function DDcreateBoard(deps) {
                       "data-wire-path": !0,
                       d: G.d,
                       fill: "none",
-                      stroke: Y.color || "#85827A",
-                      strokeWidth: Y.width || 1.8,
+                      // FigJam lines are grey and keep their weight relative to the canvas.
+                      stroke: Y.color || "var(--dd-wire,#757575)",
+                      strokeWidth: Y.width || 3,
                       opacity: Y.opacity ?? 1,
-                      vectorEffect: "non-scaling-stroke",
                       strokeDasharray:
                         Y.pattern === "dotted"
                           ? "1 5"
@@ -5464,8 +5562,8 @@ export function DDcreateBoard(deps) {
                             ? "6 5"
                             : void 0,
                       strokeLinecap: "round",
-                      markerStart: Y.arrow && Y.arrowReverse ? "url(#b4-arrow)" : void 0,
-                      markerEnd: Y.arrow && !Y.arrowReverse ? "url(#b4-arrow)" : void 0,
+                      markerStart: wireEnds(Y).start ? "url(#b4-arrow)" : void 0,
+                      markerEnd: wireEnds(Y).end ? "url(#b4-arrow)" : void 0,
                       className: "b4-wire-line",
                     }),
                     Y.label &&
@@ -5542,10 +5640,11 @@ export function DDcreateBoard(deps) {
               ref: draftPath,
               style: { display: "none" },
               fill: "none",
-              stroke: "var(--now)",
-              strokeWidth: 2,
-              vectorEffect: "non-scaling-stroke",
-              strokeDasharray: "6 4",
+              // While dragging, FigJam already shows the real grey line with its arrow.
+              stroke: "var(--dd-wire,#757575)",
+              strokeWidth: 3,
+              strokeLinecap: "round",
+              markerEnd: "url(#b4-arrow)",
             }),
           ),
           _.createElement("svg", {
@@ -5554,6 +5653,7 @@ export function DDcreateBoard(deps) {
             "aria-hidden": true,
           }),
           layout.nodes.map(renderNode),
+          _.createElement("div", { className: "dd-ghost-note", ref: ghostNote, "aria-hidden": true, style: { display: "none" } }),
           _.createElement("div", {
             className: "b4-marquee",
             ref: marquee,
@@ -5746,6 +5846,14 @@ export function DDcreateBoard(deps) {
             }),
           ),
         ),
+      // With the sticky tool, FigJam offers the note colors right above the dock.
+      tool === "sticky" && _.createElement("div", { className: "dd-sticky-colors", role: "radiogroup", "aria-label": t("Sticky note color", "رنگ یادداشت"), onPointerDown: (e) => e.stopPropagation() },
+        core.stickyColors.map((color) => _.createElement("button", {
+          type: "button", key: color, role: "radio", style: { background: color },
+          "aria-checked": appearanceRef.current.stickyColor === color,
+          "aria-label": t("Sticky color ", "رنگ یادداشت ") + color,
+          onClick: () => changeAppearance({ stickyColor: color }),
+        }))),
       _.createElement(
         "div",
         {
@@ -5756,9 +5864,8 @@ export function DDcreateBoard(deps) {
         [
           ["select", DDUI("\u0627\u0646\u062A\u062E\u0627\u0628"), "sort"],
           ["hand", DDUI("\u062F\u0633\u062A"), "hand"],
-          ...(mode === "lanes"
-            ? []
-            : [["connector", DDUI("\u0627\u062A\u0635\u0627\u0644"), "tree"]]),
+          // Like FigJam, connectors start from a note's side points (or X / L),
+          // so the dock keeps no connector or feeling tool.
           ["block", DDUI("\u0628\u0644\u0627\u06A9"), "plus"],
           [
             "sticky",
@@ -5766,7 +5873,6 @@ export function DDcreateBoard(deps) {
             "sticky",
           ],
           ["section", t("Section", "سکشن"), "square"],
-          ["feeling", DDUI("Feeling"), "smile"],
         ].map(([Y, G, ct]) =>
           _.createElement(
             "button",

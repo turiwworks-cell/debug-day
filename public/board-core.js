@@ -225,7 +225,8 @@ export const DDboardCore = {
     if (Number.isFinite(p.opacity)) next.opacity = clamp(p.opacity, 0, 1);
     if (Number.isFinite(p.width)) next.width = clamp(p.width, 64, 1200);
     if (Number.isFinite(p.height)) next.height = clamp(p.height, 64, 1800);
-    if (Number.isFinite(p.textSize)) next.textSize = clamp(p.textSize, 12, 40);
+    // Scaled stickies carry their text with them, so allow small and large type.
+    if (Number.isFinite(p.textSize)) next.textSize = clamp(p.textSize, 4, 400);
     if (["start", "center", "end"].includes(p.textAlign))
       next.textAlign = p.textAlign;
     return next;

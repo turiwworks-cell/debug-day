@@ -150,12 +150,8 @@ const { start, fixture } = require("./harness.cjs");
         // Create a real lane relationship with the connector tool, in either drawing direction.
         await nav(1);
         await page.locator('[data-board-id="b:writing"]').waitFor();
-        await page
-          .getByRole("button", {
-            name: t("Connect nodes", "اتصال نودها"),
-            exact: true,
-          })
-          .click();
+        // The connector tool has no dock button any more (FigJam); use its shortcut.
+        await page.locator(".b2-viewport").focus(); await page.keyboard.press("x");
         await page.locator('[data-board-id="lane:life"] .b4-node-body').click();
         await page.locator('[data-board-id="b:writing"] .b4-node-body').click();
         assert.equal((await read()).blocks[0].lane, "life");
@@ -309,12 +305,8 @@ const { start, fixture } = require("./harness.cjs");
         await page.waitForSelector("#qa", { state: "attached" });
         await nav(1);
         // The path repaints while the pointer is still down, using actual touch on phones.
-        await page
-          .getByRole("button", {
-            name: t("Connect nodes", "اتصال نودها"),
-            exact: true,
-          })
-          .click();
+        // The connector tool has no dock button any more (FigJam); use its shortcut.
+        await page.locator(".b2-viewport").focus(); await page.keyboard.press("x");
         await page.locator('[data-board-id="b:writing"] .b4-node-body').click();
         await page.locator('[data-board-id="b:long"] .b4-node-body').click();
         const line = (await read()).canvas.board4.links.find(
@@ -330,7 +322,7 @@ const { start, fixture } = require("./harness.cjs");
             ),
           });
         }
-        await page.locator(".b4-selectionbar button").nth(1).click();
+        await page.locator(".b4-selectionbar").getByRole("button", { name: t("Reverse direction", "برعکس کردن جهت"), exact: true }).click();
         const reversed = (await read()).canvas.board4.links.find(
           (item) => item.id === line.id,
         );
@@ -343,12 +335,9 @@ const { start, fixture } = require("./harness.cjs");
             .count(),
           1,
         );
-        await page
-          .getByRole("button", {
-            name: t("Close properties", "بستن ویژگی‌ها"),
-            exact: true,
-          })
-          .click();
+        // The details panel opens only on request now (FigJam); close it if open.
+        const closeProps = page.getByRole("button", { name: t("Close properties", "بستن ویژگی‌ها"), exact: true });
+        if (await closeProps.count()) await closeProps.click();
         const path = page
             .locator('[data-wire-id="' + line.id + '"] [data-wire-path]')
             .first(),

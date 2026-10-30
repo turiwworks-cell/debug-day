@@ -93,5 +93,7 @@ Use **Sections** to jump to a section or **Compact layout** to remove empty spac
 
 Sections behave like FigJam (5.13): drawing or growing a section around notes or other sections takes them in, and moving it carries everything nested. Delete removes a section with its contents (one Undo restores it); Ctrl/Cmd+Shift+G removes only the frame and keeps what was inside. Duplicate places the copy one gap to the right.
 
+Sticky notes and connectors follow FigJam (5.14): the sticky tool previews the note and offers colors above the dock, you type straight onto the note, the "+" beside a selected note adds the next one, side edges change only width while corners scale the note with its text, and dragging a connector into empty space creates a connected note. A selected line has its own toolbar for color, weight, text, dashes, line type and arrows. The dock no longer has connector or feeling tools; press X or L for connectors.
+
 MCP clients can read `get_life` and, with a write key, call `add_life_item`, `update_life_item` or `delete_life_item`. Every write needs the latest `expected_revision`; invalid parents, cycles, dimensions and colors are rejected. Deleting a section preserves its children.
 
