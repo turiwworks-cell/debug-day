@@ -48,7 +48,7 @@ const {start,fixture}=require('./harness.cjs');
     await page.locator('.b2-viewport').focus();await page.keyboard.press('e');
     const engine=page.getByRole('dialog',{name:t('Engine','انجین')});await engine.waitFor();
     const add=engine.locator('[data-lane="work"] .dd-engine-add input');await add.fill('Made inside a section');await add.press('Enter');
-    assert.ok((await read()).days[f.date].blocks.some(b=>b.name==='Made inside a section'),'the Engine is the same everywhere');
+    assert.equal((await read()).days[f.date].blocks.find(b=>b.name==='Made inside a section')?.from,'a','the Engine is the same everywhere, and the task knows its section');
     await page.keyboard.press('Escape');await engine.waitFor({state:'detached'});
     // A note made outside the section lands inside it.
     await page.locator('.b2-viewport').focus();await page.keyboard.press('s');
@@ -73,6 +73,7 @@ const {start,fixture}=require('./harness.cjs');
     await page.mouse.move(eb.x+eb.width-80,eb.y+eb.height-50,{steps:16});await page.mouse.up();
     await page.waitForFunction((date)=>JSON.parse(localStorage.getItem('debug-day:v2')).days[date].blocks.some(b=>b.name==='Shared idea'),f.date);
     assert.equal(await item('n'),undefined,'the note became the task');
+    assert.equal((await read()).days[f.date].blocks.find(b=>b.name==='Shared idea').from,'a','it remembers the section it sat in');
    }
    // Into the nested section, then back out one level at a time.
    // On a phone from the button on its name; on desktop (the task's details are
