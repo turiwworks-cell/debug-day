@@ -230,7 +230,7 @@ function tool(name, description, properties, required = [], write = false) {
     annotations: {
       title: name.replaceAll("_", " "),
       readOnlyHint: !write,
-      destructiveHint: name === "delete_block",
+      destructiveHint: name === "delete_block" || name === "delete_life_item",
       idempotentHint: !name.startsWith("add_"),
       openWorldHint: false,
     },

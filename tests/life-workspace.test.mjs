@@ -4,6 +4,7 @@ import {DDlifeState,DDlifeDefault,DDlifeBounds,DDlifeCompact,DDlifeAbs,DDnormali
 import {DDboardCore as core} from '../public/board-core.js';
 import {DDbuildSearchIndex,DDeditSearchResult} from '../public/search.js';
 import {callTool,save,read} from '../src/worker.js';
+import worker from '../src/worker.js';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
 
@@ -50,6 +51,12 @@ test('Life MCP supports validated revision-protected writes and preserves childr
  const env={DB:{prepare(query){let args=[];return {bind(...values){args=values;return this},async first(){return sql.prepare(query).get(...args)||null}}}}};
  try {
   await save(env,{setup:{life:{items},types:[],lanes:[]},days:{}},0);
+  env.MCP_WRITE_TOKEN='w'.repeat(64);env.MCP_READ_TOKEN='r'.repeat(64);
+  const listing=async(key)=>(await (await worker.fetch(new Request('https://planner.example/mcp',{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/list'})}),env)).json()).result.tools;
+  const writeTools=await listing(env.MCP_WRITE_TOKEN),readTools=await listing(env.MCP_READ_TOKEN);
+  assert.equal(writeTools.find((t)=>t.name==='delete_life_item').annotations.destructiveHint,true);
+  assert.ok(readTools.some((t)=>t.name==='get_life'));
+  assert.equal(readTools.some((t)=>t.name==='add_life_item'),false);
   const life=await callTool('get_life',{},env,'read');assert.equal(life.life.items.length,2);
   await assert.rejects(callTool('add_life_item',{expected_revision:1,type:'sticky',text:'Read only'},env,'read'));
   await assert.rejects(callTool('add_life_item',{expected_revision:1,type:'other'},env,'write'),/Invalid type/);
