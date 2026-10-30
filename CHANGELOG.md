@@ -1,3 +1,10 @@
+## 5.20.0 — 2026-10-31
+Branch: codex/phase5-side-rails
+- Add optional goal and note rails from existing board connections, ordered from the main board to the open section.
+- Add today’s habits at the right edge with shared controls and inline history.
+- Remember each rail in synced preferences; support English, Persian, keyboard toggles and phone overlays.
+- Cover rails and offline export in browser tests; wait for the section camera before saving test coordinates.
+
 ## 5.19.0 — 2026-10-30
 Branch: claude/project-thread-xu3qj6
 - Every Engine task can say where it came from: a Life section or the main board. A task added inside a section's board, or made from a note that sat in a section, gets that section on its own. Change it from the "↖" picker on each Engine row.

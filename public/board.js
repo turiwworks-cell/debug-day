@@ -13,6 +13,7 @@ import {
   DDlifeParentAt,
   DDlifeState, DDlifeHistory, DDlifeVisible, DDlifeCompact, DDlifeColor, DDlifeMoveBy, DDlifeRemove, DDlifeDescendants, DDlifeAdopt, DDlifePath, DDlifeKeepIn,
 } from "./life-board.js";
+import{DDBoardRails,DDinstallRailStyles,DDsetRailRole,DDrailPreferences,DDrailScope}from"./rails.js";
 const life = { DDinstallLifeStyles, DDlifeAbs, DDlifeAdd, DDlifeBounds, DDlifeHead, DDlifeItems, DDlifeParentAt };
 // Board interaction engine. Legacy planner adapters are injected once by the app.
 export function DDcreateBoard(deps) {
@@ -40,6 +41,7 @@ export function DDcreateBoard(deps) {
   let sharedClipboard = null;
   life.DDinstallLifeStyles();
   DDinstallBoardExperience();
+  DDinstallRailStyles();
   DDinstallEngineStyles();
   let stepTextContext;
   return function BoardWorkspace({
@@ -61,7 +63,8 @@ export function DDcreateBoard(deps) {
     onRevealObject,
   }) {
     const DDlanguage = deps.language(),
-      t = (en, fa) => (DDlanguage === "fa" ? fa : en);
+      t = (en, fa) => (DDlanguage === "fa" ? fa : en),
+      railDate = new Date().toLocaleDateString("en-CA");
     const {
         useState: useState,
         useRef: useRef,
@@ -1371,6 +1374,22 @@ export function DDcreateBoard(deps) {
       const dark = setup.look?.theme === "dark" || (setup.look?.theme !== "light" && matchMedia("(prefers-color-scheme:dark)").matches);
       onUpdateSetup?.(s=>({...s,look:{...s.look,theme:dark?"light":"dark"}}));
     }
+    function toggleRail(key, mobile = matchMedia("(max-width:700px)").matches) {
+      onUpdateSetup?.((s) => {
+        const open = DDrailPreferences(s.preferences, mobile), next = !open[key], patch = {};
+        for (const k of ["goal", "note", "habits"]) if (k === key || (mobile && next)) patch["boardRail" + k[0].toUpperCase() + k.slice(1)] = k === key ? next : false;
+        return { ...s, preferences: { ...s.preferences, ...patch } };
+      });
+    }
+    function revealRail(row) {
+      if (!layout.map.has(row.id)) {
+        const item = row.lifeId && DDlifeItems(setup).find((i) => i.id === row.lifeId);
+        enterRoom(item ? DDrailScope(item, DDlifeItems(setup)) : null);
+        setTimeout(() => revealBoardResult(row), 0);
+        return;
+      }
+      revealBoardResult(row);
+    }
     function revealBoardResult(row) {
       finishEdit(); cancelGesture(); setProperties(false); setInspector(false); setSearch(null);
       pendingReveal.current = row; onRevealObject?.();
@@ -1965,7 +1984,7 @@ export function DDcreateBoard(deps) {
                 const inside = pos.x + node.w/2 >= frame.x && pos.x + node.w/2 <= frame.x + frame.w && pos.y + node.h/2 >= frame.y + DDlifeHead && pos.y + node.h/2 <= frame.y + frame.h;
                 if (!inside && !node.lifeSection) {
                   const old = Tt.__life.items.find((i) => i.id === node.lifeId), id=Tt.notes.some((i)=>i.id===old.id)?C():old.id;
-                  Tt.notes.push({ id, kind: "sticky", text: old.text, color: old.color || node.color, x: pos.x, y: pos.y });
+                  Tt.notes.push({ id, kind: "sticky", text: old.text, role: old.role, color: old.color || node.color, x: pos.x, y: pos.y });
                   Tt.canvas ||= {}; Tt.canvas.board4 ||= {};
                   Tt.canvas.board4.styles ||= {}; Tt.canvas.board4.styles["sticky:" + id] = { width: old.w, height: old.h, ...old.style };
                   Tt.__life.items = Tt.__life.items.filter((i) => i.id !== old.id);
@@ -1976,7 +1995,7 @@ export function DDcreateBoard(deps) {
                 const target = DDlifeParentAt(Tt.__life.items, pos.x - frame.x + node.w/2, pos.y - frame.y - DDlifeHead + node.h/2);
                 if (target) {
                   const old = Tt.notes.find((i) => i.id === node.noteId), base = DDlifeAbs(Tt.__life.items,target.id),id=Tt.__life.items.some((i)=>i.id===old.id)?"lf-"+C():old.id;
-                  Tt.__life.items = DDlifeAdd(Tt.__life.items,{id,type:"sticky",parent:target.id,text:old.text,color:old.color,x:pos.x-frame.x-base.x,y:pos.y-frame.y-DDlifeHead-base.y,w:node.w,h:node.h,style:model.styles[node.id]});
+                  Tt.__life.items = DDlifeAdd(Tt.__life.items,{id,type:"sticky",parent:target.id,text:old.text,role:old.role,color:old.color,x:pos.x-frame.x-base.x,y:pos.y-frame.y-DDlifeHead-base.y,w:node.w,h:node.h,style:model.styles[node.id]});
                   Tt.notes = Tt.notes.filter((i) => i.id !== old.id);
                   transferRef(Tt,node.id,"life:"+id); delete ot[ref];
                 }
@@ -3270,7 +3289,7 @@ export function DDcreateBoard(deps) {
             if(ot.target.closest("button") && ["Enter"," "].includes(ot.key) && !ot.ctrlKey && !ot.metaKey)return;
             if (
               ot.target.closest(
-                "input,textarea,select,[contenteditable=true],.b6-context,.b6-properties,.b6-camera,.b6-view-panel,.dd-sticker-dialog,.dd-board-timer,.dd-board-search,.b4-help-backdrop,.dd-engine-backdrop",
+                "input,textarea,select,[contenteditable=true],.b6-context,.b6-properties,.b6-camera,.b6-view-panel,.dd-sticker-dialog,.dd-board-timer,.dd-board-search,.b4-help-backdrop,.dd-engine-backdrop,.dd-board-rails",
               ) ||
               (ot.target.closest("[role=dialog]") &&
                 !root.current?.contains(ot.target))
@@ -3479,6 +3498,8 @@ export function DDcreateBoard(deps) {
             }
             const Tt = K;
             if (Tt === "v") setTool("select");
+            else if (Tt === "g") { ot.preventDefault(); toggleRail(ot.shiftKey ? "note" : "goal"); }
+            else if (Tt === "h" && ot.shiftKey) { ot.preventDefault(); toggleRail("habits"); }
             else if (Tt === "h") setTool("hand");
             else if (Tt === "c" || Tt === "x" || Tt === "l") {connectionStyle.current=Tt==="l"&&!ot.shiftKey?"straight":"elbow";setTool("connector");}
             else if (Tt === "b") setTool("block");
@@ -4931,7 +4952,7 @@ export function DDcreateBoard(deps) {
         for (const ref of [...result.refs]) if(ref.startsWith("sticky:")) {
           const old=result.day.notes.find((i)=>"sticky:"+i.id===ref), style=result.day.canvas?.board4?.styles?.[ref]||{};
           if(!old)continue;
-          result.day.__life.items=DDlifeAdd(result.day.__life.items,{id:old.id,type:"sticky",parent:target.id,text:old.text,color:old.color,x:old.x-frame.x-base.x,y:old.y-frame.y-DDlifeHead-base.y,w:style.width||220,h:style.height||160});
+          result.day.__life.items=DDlifeAdd(result.day.__life.items,{id:old.id,type:"sticky",parent:target.id,text:old.text,role:old.role,color:old.color,x:old.x-frame.x-base.x,y:old.y-frame.y-DDlifeHead-base.y,w:style.width||220,h:style.height||160});
           result.day.notes=result.day.notes.filter((i)=>i!==old);
           core.cleanRefs(result.day,[ref]);result.refs[result.refs.indexOf(ref)]="life:"+old.id;
         }
@@ -5157,6 +5178,10 @@ export function DDcreateBoard(deps) {
                 shortcut: "Enter",
               },
             ),
+          ...(selectedNode?.kind === "sticky" ? ["goal", "note"].map((role) => {
+            const note = selectedNode.lifeId ? DDlifeItems(setup).find((n) => n.id === selectedNode.lifeId) : day.notes.find((n) => n.id === selectedNode.noteId), active = note?.role === role;
+            return item("rail-" + role, active ? (role === "goal" ? "Remove goal role" : "Remove note role") : (role === "goal" ? "Make it the goal" : "Make it a note"), active ? (role === "goal" ? "برداشتن هدف" : "برداشتن نوت") : (role === "goal" ? "هدف کن" : "نوت کن"), "sticky", () => commit((d) => DDsetRailRole(d, selectedNode.id, active ? undefined : role)), { checked: active, disabled: allLocked });
+          }) : []),
           ...styleItems,
           selectedNode?.kind === "block" && item("task-symbol","Change task sticker / emoji","تغییر استیکر / ایموجی کار","spark",()=>{finishEdit();setStickerPicker({target:selectedNode.blockId,current:selectedNode.emoji});},{disabled:allLocked}),
           sep("clipboard-sep"),
@@ -5534,6 +5559,17 @@ export function DDcreateBoard(deps) {
             _.createElement("span",{className:"dd-room-sep","aria-hidden":true},"›"),
             _.createElement("button",{type:"button",dir:"auto","data-room-crumb":s.id,"aria-current":i===all.length-1?"page":undefined,onClick:()=>{if(i<all.length-1)enterRoom(s.id);}},s.text||t("Section","سکشن"))))),
       ),
+      _.createElement(DDBoardRails, {
+        React: _, day, items: DDlifeItems(setup), room: layout.room, sharedLinks: DDlifeState(setup).links,
+        nodes: layout.nodes, preferences: setup.preferences, language: DDlanguage,
+        onToggle: toggleRail, onReveal: revealRail, days: allDays, habits: setup.habits || [],
+        habitDay: day.date === railDate ? day : allDays?.[railDate] || { date: railDate, blocks: [], notes: [], bugs: [] },
+        onHabitChange: (id, patch) => {
+          const date = new Date().toLocaleDateString("en-CA"), update = (d) => deps.habits.DDsetHabitEntry(d, id, patch);
+          if (day.date === date) commit(update);
+          else onUpdateDayOnDate?.(date, update);
+        },
+      }),
       lifeNav && _.createElement("nav",{className:"dd-life-nav","aria-label":t("Life sections","سکشن‌های زندگی"),onPointerDown:(e)=>e.stopPropagation()},
         _.createElement("strong",null,t("Life sections","سکشن‌های زندگی")),
         _.createElement("button",{type:"button",onClick:()=>{const area=layout.map.get("section:life");if(area)resizeLifeArea({w:area.w*1.25,h:area.h*1.25});}},t("Enlarge Life area +25%","بزرگ‌تر کردن محدودهٔ زندگی +۲۵٪")),
