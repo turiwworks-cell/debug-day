@@ -54,6 +54,114 @@ export function DDengineTask(name, lane, setup = {}, id = crypto.randomUUID()) {
   };
 }
 
+// A note turned into a task: the first line is its name, the other lines its steps.
+export function DDengineTaskFromNote(text, lane, setup = {}, makeId = () => crypto.randomUUID()) {
+  const lines = String(text || "")
+    .split("\n")
+    .map((line) => line.replace(/^\s*(?:[-*•]|\d+[.)]|\[[ xX]?\])\s+/, "").trim())
+    .filter(Boolean);
+  const task = DDengineTask(lines[0] || "", lane, setup, makeId());
+  task.subtasks = lines.slice(1).map((line) => ({ id: makeId(), text: line, done: false, expanded: true, children: [] }));
+  return task;
+}
+
+// Each day starts with a fresh Engine. The latest earlier day that had tasks,
+// counted back from `date`; `skip` steps further back, one such day at a time.
+export function DDengineEarlierDay(days = {}, date, skip = 0) {
+  const earlier = Object.keys(days)
+    .filter((key) => key < date && (days[key]?.blocks || []).length)
+    .sort()
+    .reverse();
+  const key = earlier[Math.max(0, Math.min(skip, earlier.length - 1))];
+  return key ? { date: key, day: days[key], more: skip < earlier.length - 1 } : null;
+}
+
+// A copy of an earlier task for today: new ids, not done, no score yet.
+export function DDengineCopy(block, makeId = () => crypto.randomUUID()) {
+  const steps = (items) =>
+    (items || []).map((item) => ({ ...item, id: makeId(), done: false, children: steps(item.children) }));
+  const copy = { ...structuredClone(block), id: makeId(), done: false, subtasks: steps(block.subtasks) };
+  delete copy.score;
+  delete copy.bx;
+  delete copy.by;
+  delete copy.at;
+  if (copy.measure === "count") copy.count = 0;
+  return copy;
+}
+
+// Is a task with this name already in today's Engine?
+const sameName = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
+export function DDengineHas(day, block) {
+  return (day?.blocks || []).some((b) => sameName(b.name, block.name));
+}
+
+// The earlier Engine, shown inside today's: copy one task, or every open one.
+function EarlierEngine({ React: R, days, day, lanes, language, dateFormat, onCopy }) {
+  const h = R.createElement,
+    fa = language === "fa",
+    t = (en, f) => (fa ? f : en),
+    [skip, setSkip] = R.useState(0),
+    earlier = DDengineEarlierDay(days, day.date, skip);
+  if (!earlier)
+    return h("div", { className: "dd-engine-earlier", "data-empty": true }, t("No earlier day has tasks yet.", "هنوز روز قبلی با کار نداری."));
+  const laneName = (id) => lanes.find((lane) => lane.id === id)?.name || t("Parked", "پارک‌شده"),
+    open = earlier.day.blocks.filter((b) => !b.done && !DDengineHas(day, b));
+  return h(
+    "div",
+    { className: "dd-engine-earlier", "data-earlier-date": earlier.date },
+    h(
+      "div",
+      { className: "dd-engine-earlier-head" },
+      h(
+        "button",
+        { type: "button", disabled: !earlier.more, "aria-label": t("Earlier day", "روز قبل‌تر"), onClick: () => setSkip(skip + 1) },
+        fa ? "›" : "‹",
+      ),
+      h("strong", null, t("Engine of ", "انجین ") + (dateFormat ? dateFormat(earlier.date) : earlier.date)),
+      h(
+        "button",
+        { type: "button", disabled: !skip, "aria-label": t("Later day", "روز بعدتر"), onClick: () => setSkip(Math.max(0, skip - 1)) },
+        fa ? "‹" : "›",
+      ),
+      h(
+        "button",
+        {
+          type: "button",
+          className: "dd-engine-copy-all",
+          disabled: !open.length,
+          onClick: () => onCopy(open),
+        },
+        t("Copy all open", "کپی همهٔ کارهای باز") + " (" + open.length + ")",
+      ),
+    ),
+    h(
+      "ul",
+      null,
+      earlier.day.blocks.map((block) => {
+        const here = DDengineHas(day, block);
+        return h(
+          "li",
+          { key: block.id, "data-done": !!block.done, "data-earlier-task": block.id },
+          h("span", { className: "dd-engine-earlier-name", dir: "auto" }, (block.done ? "✓ " : "") + (block.name || t("Untitled", "بی‌نام"))),
+          h("small", null, laneName(block.lane)),
+          here
+            ? h("span", { className: "dd-engine-here" }, t("Already today", "امروز هست"))
+            : h(
+                "button",
+                {
+                  type: "button",
+                  className: "dd-engine-copy",
+                  "aria-label": t("Copy to today: ", "کپی به امروز: ") + (block.name || ""),
+                  onClick: () => onCopy([block]),
+                },
+                t("+ Today", "+ امروز"),
+              ),
+        );
+      }),
+    ),
+  );
+}
+
 const KINDS = [
   ["time", "✓", "Tick", "تیکی"],
   ["score", "★", "Score", "نمره‌ای"],
@@ -215,6 +323,9 @@ export function DDEngineOverlay({
   onAdd,
   onReveal,
   onClose,
+  days,
+  dateFormat,
+  makeId,
 }) {
   const h = R.createElement,
     fa = language === "fa",
@@ -222,6 +333,7 @@ export function DDEngineOverlay({
     lanes = setup?.lanes || [],
     groups = DDengineGroups(day, lanes),
     progress = DDcompletion(day, lanes.map((lane) => lane.id)),
+    [earlierOpen, setEarlierOpen] = R.useState(false),
     panel = R.useRef(null);
   R.useEffect(() => {
     const previous = document.activeElement;
@@ -273,6 +385,17 @@ export function DDEngineOverlay({
           h("span", { className: "dd-engine-bar" }, h("i", { style: { width: progress.percent + "%" } })),
           h("b", null, progress.done + "/" + progress.total),
         ),
+        days &&
+          h(
+            "button",
+            {
+              type: "button",
+              className: "dd-engine-earlier-toggle",
+              "aria-expanded": earlierOpen,
+              onClick: () => setEarlierOpen(!earlierOpen),
+            },
+            t("Earlier Engine", "انجین روزهای قبل"),
+          ),
         h(
           "button",
           { type: "button", className: "dd-engine-close", onClick: onClose, "aria-label": t("Close Engine", "بستن انجین") },
@@ -281,6 +404,17 @@ export function DDEngineOverlay({
           t("Close", "بستن"),
         ),
       ),
+      earlierOpen &&
+        h(EarlierEngine, {
+          React: R,
+          days,
+          day,
+          lanes,
+          language,
+          dateFormat,
+          onCopy: (blocks) =>
+            onChange((d) => ({ ...d, blocks: [...d.blocks, ...blocks.map((b) => DDengineCopy(b, makeId))] })),
+        }),
       h(
         "div",
         { className: "dd-engine-lanes" },
@@ -358,6 +492,26 @@ export const DDengineCSS = `
 .dd-engine-reveal:hover{background:var(--wash,#eee);color:var(--ink,#121211)}
 .dd-engine-add input{width:100%;box-sizing:border-box;font:inherit;font-size:13px;padding:7px 9px;border-radius:8px;border:1px dashed var(--rule-2,#bbb);background:transparent;color:var(--ink,#121211)}
 .dd-engine-add input:focus{border-style:solid;outline:none;border-color:var(--panel-engine,#F05A28)}
+.dd-engine-earlier-toggle{padding:6px 10px;border-radius:8px;background:none;color:var(--ink-2,#444);font-size:12px;box-shadow:inset 0 0 0 1px var(--rule-2,#0002)}
+.dd-engine-earlier-toggle[aria-expanded=true]{background:var(--wash,#eee);color:var(--ink,#121211)}
+.dd-engine-earlier{margin:12px 18px 0;padding:10px 12px;border-radius:12px;background:var(--wash,#f1efe9);font-size:13px;max-height:34vh;overflow:auto;flex:none}
+.dd-engine-earlier[data-empty]{color:var(--ink-3,#666)}
+.dd-engine-earlier-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.dd-engine-earlier-head>button:not(.dd-engine-copy-all){width:26px;height:26px;border-radius:7px;background:var(--paper,#fff);color:var(--ink,#121211)}
+.dd-engine-earlier-head>button:disabled{opacity:.35}
+.dd-engine-copy-all{margin-inline-start:auto;padding:5px 10px;border-radius:7px;background:var(--panel-engine,#F05A28);color:#fff;font-size:12px}
+.dd-engine-copy-all:disabled{opacity:.4}
+.dd-engine-earlier ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.dd-engine-earlier li{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:8px;background:var(--paper,#fff)}
+.dd-engine-earlier li[data-done=true] .dd-engine-earlier-name{opacity:.55}
+.dd-engine-earlier-name{flex:1;min-width:0;overflow-wrap:anywhere}
+.dd-engine-earlier small{color:var(--ink-3,#666);font-size:11px}
+.dd-engine-copy{padding:3px 8px;border-radius:6px;background:var(--wash,#eee);color:var(--ink,#121211);font-size:12px;white-space:nowrap}
+.dd-engine-here{font-size:11px;color:var(--ink-3,#666);white-space:nowrap}
+.dd-engine-area{position:absolute;border:2px dashed color-mix(in srgb,var(--panel-engine,#F05A28) 55%,transparent);background:color-mix(in srgb,var(--panel-engine,#F05A28) 5%,transparent);border-radius:28px;box-sizing:border-box}
+.dd-engine-area-title{position:absolute;left:18px;bottom:calc(100% - 16px);transform:scale(clamp(1,var(--b4-inverse,1),4));display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:var(--panel-engine,#F05A28);color:#fff;font:600 15px/1.2 var(--sans,system-ui);white-space:nowrap;transform-origin:0 100%;box-shadow:0 2px 8px #0002}
+.dd-engine-area-title small{font-weight:500;opacity:.85}
+.dd-engine-area-title button{padding:2px 8px;border-radius:999px;background:#fff3;color:#fff;font-size:12px}
 .dd-engine-foot{padding:10px 18px;font-size:12px;color:var(--ink-3,#666);border-top:1px solid var(--rule-2,#0001)}
 @media (max-width:640px){.dd-engine-backdrop{padding:10px;align-items:stretch}.dd-engine{max-height:none}.dd-engine-lanes{grid-template-columns:1fr;padding:12px}.dd-engine-bar{width:64px}.dd-engine-check,.dd-engine-kinds button,.dd-engine-reveal{min-width:28px;min-height:28px}}
 @media (prefers-reduced-motion:reduce){.dd-engine-backdrop{animation:none}}

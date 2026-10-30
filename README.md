@@ -13,7 +13,7 @@ A personal daily planner with a time-scaled board, mind maps, Persian/English UI
 - `public/habits.js` — habits: a daily tick plus minutes, four color levels, stats, and their Plan, Board and Settings panels.
 - `public/life-board.js` — the shared Life section: sections and sticky notes kept in `setup.life`, shown on every day's board.
 - `public/panels.js` — the list of panels (Engine, Plan, Board, Habits, Calendar, App changes), each with one color and icon, used by the tabs, headings, app map and Ctrl+Space.
-- `public/engine.js` — the Engine: today's tasks by lane, brought over the Board with E or from Ctrl+Space. It edits `day.blocks` directly.
+- `public/engine.js` — the Engine: today's tasks by lane, brought over the Board with E or from Ctrl+Space, the earlier-day copy panel, and the Engine section's styles. It edits `day.blocks` directly.
 - Download HTML embeds these modules and the planner snapshot into one offline file.
 - `src/worker.js` — Cloudflare Worker for private sync and MCP.
 - `src/oauth.js` — OAuth code + PKCE, consent, rotating refresh tokens, and scoped access.
@@ -89,6 +89,8 @@ Before a frontend merge, check Chromium at 1440×900 and 390×844 with touch, in
 ### Engine (5.16)
 
 The Engine is today's tasks, each in exactly one lane (`block.lane`). Press E anywhere on the Board, use the toolbar's Engine button, or pick Engine (the first row) in Ctrl+Space. The board stays behind it, dimmed. Tick, score or mark a task waiting, rename it, move it to another lane, add tasks per lane, or jump to a task on the board; E or Esc closes it. Tasks have three kinds: tick (default, optional minutes), score out of 10 (`measure: "score"`, `score`), and waiting. Older counted cards still work. Stickers moved to Shift+E. Feelings were removed from the interface; saved feelings stay in the data.
+
+On the mindmap Board the Engine has its own section (5.17), a dashed area around today's tree that is separate from Life. Drop a note inside it to turn it into a task in the nearest lane (first line = name, other lines = steps). Every day starts with a fresh Engine; "Earlier Engine" in the overlay shows the latest earlier day with tasks, and copies one task or all open ones into today with new ids, not done and unscored.
 
 ### Shared Life workspace (5.11)
 

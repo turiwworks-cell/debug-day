@@ -1,3 +1,11 @@
+## 5.17.0 — 2026-10-30
+Branch: claude/project-thread-xu3qj6
+- The Engine has its own section on the mindmap Board: a dashed orange area around today's tree, apart from Life. It grows with today's tasks, and its name pill has an "Open · E" button that brings the Engine over the board.
+- Drop a note inside the Engine section and it becomes a task in the nearest lane: the first line is the task name, the other lines become its steps. The note is removed.
+- Each day still starts with a fresh Engine. "Earlier Engine" inside the Engine shows the latest earlier day with tasks (‹ › steps further back); add one task to today or copy all open ones. Copies get new ids and start not done and unscored; tasks already in today are marked.
+- At low zoom the Engine name sits on the section's top edge so it never covers the tasks.
+- Add unit tests for note-to-task, earlier day, copy and duplicate check, and browser steps for the section, the earlier Engine and dropping a note.
+
 ## 5.16.0 — 2026-10-30
 Branch: claude/project-thread-xu3qj6
 - The Engine: today's tasks, each in one lane, are now called the Engine. Press E anywhere on the Board to bring it over the dimmed board; tick, score, mark waiting, rename, move a task to another lane or add one, then press E or Esc to go back. Same data as Plan and Lanes.
