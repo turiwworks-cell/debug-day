@@ -97,3 +97,31 @@ test("dropping on a section joins it; dropping on empty space leaves it", () => 
   assert.equal(self.find((i) => i.id === "a").parent, "");
   assert.ok(DDlifeBounds(base).w >= 1000);
 });
+
+test("FigJam sections: drawing around things takes them in; Delete takes the contents", async () => {
+  const { DDlifeAdopt, DDlifeRemoveTree } = await import("../public/life-board.js");
+  let items = [
+    { id: "old", type: "section", parent: "", x: 100, y: 100, w: 300, h: 200, text: "Section 1" },
+    { id: "n", type: "sticky", parent: "old", x: 20, y: 20, w: 100, h: 100, text: "inside" },
+    { id: "loose", type: "sticky", parent: "", x: 450, y: 120, w: 100, h: 100, text: "beside" },
+    { id: "far", type: "sticky", parent: "", x: 900, y: 900, w: 100, h: 100, text: "far" },
+  ];
+  // Placed by hand: hanging over the edge does not grow the section.
+  items = DDlifeAdd(items, { id: "edge", type: "sticky", parent: "old", x: 250, y: 150, w: 100, h: 100 });
+  assert.deepEqual([items[0].w, items[0].h], [300, 200]);
+  items = DDlifeAdopt(DDlifeAdd(items, { id: "big", type: "section", parent: "", x: 60, y: 40, w: 560, h: 340 }), "big");
+  const by = (id) => items.find((i) => i.id === id);
+  assert.equal(by("old").parent, "big");
+  assert.equal(by("loose").parent, "big");
+  assert.equal(by("far").parent, "");
+  assert.equal(by("n").parent, "old", "grandchildren keep their own section");
+  assert.deepEqual(DDlifeAbs(items, "loose"), { x: 450, y: 120 }, "adopted items do not move");
+  // Moving the outer section carries everything nested in it.
+  const moved = DDlifeMoveBy(items, "big", 1000, 0);
+  assert.deepEqual(DDlifeAbs(moved, "n"), { x: 1120, y: 120 });
+  const left = DDlifeRemoveTree(items, "big");
+  assert.deepEqual(left.map((i) => i.id), ["far"]);
+  const kept = DDlifeRemoveTree(items, "big", new Set(["n"]));
+  assert.deepEqual(kept.map((i) => [i.id, i.parent]), [["n", ""], ["far", ""]]);
+  assert.deepEqual(DDlifeAbs(kept, "n"), { x: 120, y: 120 });
+});

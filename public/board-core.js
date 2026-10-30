@@ -531,12 +531,24 @@ export const DDboardCore = {
         })
         .map((sub) => ({ ...sub, children: trim(sub.children, block) }));
     const next = clone(day);
+    // A deleted section takes its contents with it (FigJam). Locked contents stay,
+    // in place, under the nearest parent that is left.
     if (next.__life) for (const node of items.filter((n) => n.lifeId)) {
-      const it = next.__life.items.find((i) => i.id === node.lifeId);
-      if (!it) continue;
-      next.__life.items = next.__life.items.filter((i) => i !== it).map((i) => i.parent === it.id ? { ...i, parent:it.parent, x:i.x+it.x, y:i.y+it.y } : i);
-      next.__life.links = (next.__life.links || []).filter((l) => l.from !== node.id && l.to !== node.id);
-      refs.add(node.id);
+      const list = next.__life.items, gone = new Set([node.lifeId]);
+      if (!list.some((i) => i.id === node.lifeId)) continue;
+      for (let grew = true; grew; ) {
+        grew = false;
+        for (const i of list) if (!gone.has(i.id) && gone.has(i.parent) && !locked.has("life:" + i.id)) (gone.add(i.id), (grew = true));
+      }
+      const byId = new Map(list.map((i) => [i.id, i]));
+      next.__life.items = list.filter((i) => !gone.has(i.id)).map((i) => {
+        if (!gone.has(i.parent)) return i;
+        let x = i.x, y = i.y, p = byId.get(i.parent), hops = 0;
+        while (p && gone.has(p.id) && hops++ < 60) ((x += p.x), (y += p.y), (p = byId.get(p.parent)));
+        return { ...i, parent: p ? p.id : "", x, y };
+      });
+      for (const id of gone) refs.add("life:" + id);
+      next.__life.links = (next.__life.links || []).filter((l) => !refs.has(l.from) && !refs.has(l.to));
     }
     next.blocks = next.blocks
       .filter((b) => !blocks.has(b.id))

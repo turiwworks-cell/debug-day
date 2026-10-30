@@ -1,3 +1,14 @@
+## 5.13.0 — 2026-10-30
+Branch: claude/figjam-sections
+- Draw a section around notes or other sections and it takes them in, like FigJam; growing a section over neighbours does the same, and moving it carries everything nested.
+- Name new sections in order (Section 1, Section 2, …) and allow small sections; drawn sizes are no longer forced up to 320×160.
+- Let a section shrink past its contents and stop growing it when a note is placed by hand near its edge; contents stay put and may hang over.
+- Delete a section together with its contents on the Board and in search, with one Undo; Ctrl/Cmd+Shift+G (or the toolbar) removes only the frame. MCP delete still keeps children.
+- Show each section's title at a steady on-screen size with a section icon, shorten it when the section is narrow, and keep the selection toolbar clear of it (below the section when there is no room above).
+- Move section actions (collapse, add note, add section, remove frame) into the selection toolbar; the section itself no longer shows a second toolbar.
+- Duplicate places the copy one even gap to the right on the same row instead of piling copies diagonally.
+- Add unit and en/fa browser checks for nesting, numbering, toolbar clearance, carried moves, duplicate placement, delete and ungroup.
+
 ## 5.12.0 — 2026-10-30
 Branch: codex/figjam-board-experience
 - Add a Board timer shared with Plan, with editable duration, start/pause, reset and an extra minute; use wall time so background tabs do not slow the countdown.
