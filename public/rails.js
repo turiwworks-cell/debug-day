@@ -32,8 +32,13 @@ export function DDrailConnections(ref, links, rows) {
   return out;
 }
 
-export function DDrailGroups(day, items, room, sharedLinks = [], nodes = []) {
-  const rows = new Map(DDboardSearchRows(day, items, nodes).map((r) => [r.id, r])),
+export function DDrailGroups(day, items, room, sharedLinks = [], nodes = [], habits = []) {
+  const rows = new Map([
+      ...DDboardSearchRows(day, items, nodes).map((r) => [r.id, r]),
+      // A section hides the board's Habits frame, but its connected habits
+      // still exist and must remain reachable from an ancestor goal.
+      ...habits.map((habit) => ["habit:" + habit.id, { id: "habit:" + habit.id, title: habit.name, habitId: habit.id, kind: "habit" }]),
+    ]),
     links = [...(day.canvas?.board4?.links || []), ...sharedLinks],
     scopes = [null, ...DDlifePath(items, room).map((i) => i.id)],
     notes = [
@@ -73,7 +78,7 @@ export function DDBoardRails({ React: R, day, items, room, sharedLinks, nodes, p
   const h = R.createElement, t = (en, fa) => language === "fa" ? fa : en,
     root = R.useRef(null), [mobile, setMobile] = R.useState(() => matchMedia("(max-width:700px)").matches),
     [stats, setStats] = R.useState(null), open = DDrailPreferences(preferences, mobile),
-    groups = DDrailGroups(day, items, room, sharedLinks, nodes), levels = DDhabitLevels(preferences?.habitLevels),
+    groups = DDrailGroups(day, items, room, sharedLinks, nodes, habits), levels = DDhabitLevels(preferences?.habitLevels),
     names = { goal: t("Goals", "هدف‌ها"), note: t("Notes", "نوت‌ها"), habits: t("Today's habits", "عادت‌های امروز") },
     keys = { goal: "G", note: "Shift+G", habits: "Shift+H" };
   R.useLayoutEffect(() => {

@@ -38,6 +38,13 @@ test("connections combine day and shared links, in either direction, without sta
   assert.equal(DDrailGroups(renamed, items, "b").goal.at(-1).rows[0].title, "Paint");
 });
 
+test("connected habits remain reachable when a section hides their board frame", () => {
+  const d = structuredClone(day);
+  d.canvas.board4.links.push({ id: "habit", from: "sticky:day", to: "habit:draw" });
+  const groups = DDrailGroups(d, items, "b", [], [], [{ id: "draw", name: "Drawing" }]);
+  assert.deepEqual(groups.goal[0].rows.map((r) => [r.id, r.title]), [["habit:draw", "Drawing"]]);
+});
+
 test("roles are exclusive fields on canonical notes, support undo snapshots, and survive normalization and copying", () => {
   const original = { ...day, __life: { items } }, next = DDsetRailRole(original, "life:small", "note");
   assert.equal(original.__life.items.find((i) => i.id === "small").role, "goal");
