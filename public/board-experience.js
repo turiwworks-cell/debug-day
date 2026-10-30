@@ -79,7 +79,7 @@ export function DDmarqueeSelection(nodes, box, locked) {
 
 export function DDselectionToolbar(bounds, camera, viewport, size, top = 72, bottom = 82) {
   const x = camera.x + (bounds.x + bounds.w / 2) * camera.z - size.w / 2;
-  const above = camera.y + bounds.y * camera.z - size.h - 14;
+  const above = camera.y + bounds.y * camera.z - size.h - 24;
   const below = camera.y + (bounds.y + bounds.h) * camera.z + 14;
   return { x: Math.max(8, Math.min(viewport.w - size.w - 8, x)),
     y: Math.max(top, Math.min(viewport.h - bottom - size.h, above >= top ? above : below)) };

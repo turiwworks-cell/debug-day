@@ -57,7 +57,8 @@ const { start, fixture } = require("./harness.cjs");
       assert.equal((await read()).blocks[0].note, "Draft the intro first");
       assert.equal(await details.locator(".dd-card-steps li").count(), 2);
 
-      await page.locator("[data-add-step]").click();
+      await page.getByRole("button",{name:language==="fa"?"گزینه‌های بیشتر":"More actions",exact:true}).click();
+      await page.getByRole("menuitem",{name:language==="fa"?"افزودن قدم":"Add a step",exact:true}).click();
       await page.locator(".b4-child input").fill("Pick three images");
       await page.locator(".b4-child button[type=submit]").click();
       await page.waitForFunction(

@@ -1,3 +1,10 @@
+## 5.21.0 — 2026-10-31
+Branch: codex/board-feel-cards
+- Show all sticky text with automatic height, square/wide width snapping, and full edge resize bands.
+- Simplify the selection toolbar and add plain markdown bold, strike and interactive to-do lines.
+- Keep creation dates on new notes and copies; show dates using the selected calendar.
+- Preserve markdown completion when turning notes into Engine tasks.
+
 ## 5.20.0 — 2026-10-31
 Branch: codex/phase5-side-rails
 - Add optional goal and note rails from existing board connections, ordered from the main board to the open section.

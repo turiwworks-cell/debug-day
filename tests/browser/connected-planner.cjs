@@ -372,6 +372,8 @@ const { start, fixture } = require("./harness.cjs");
         await page.reload();
         await page.waitForSelector("#qa", { state: "attached" });
         await nav(1);
+        await page.locator(".b4-modes button").nth(1).click();
+        await page.waitForSelector('.b2-viewport[data-mode="lanes"]');
         const task = page.locator('[data-board-id="b:writing"] .b4-node-body'),
           frame = await page
             .locator('[data-board-id="lane:life"]')

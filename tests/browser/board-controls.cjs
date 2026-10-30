@@ -230,7 +230,7 @@ const { start, fixture } = require("./harness.cjs");
         await width.press("Enter");
         assert.equal(
           (await read()).canvas.board4.styles["sticky:note"].width,
-          320,
+          360,
         );
         await page.screenshot({
           path:

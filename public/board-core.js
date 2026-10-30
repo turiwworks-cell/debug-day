@@ -1,3 +1,4 @@
+import{DDstickySnap}from"./stickies.js";
 // Pure board operations. View preferences stay on this device; object styles sync with the day.
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const finite = (value, fallback = 0) =>
@@ -223,7 +224,7 @@ export const DDboardCore = {
     for (const key of ["fill", "textColor"])
       if (this.color(p[key])) next[key] = this.color(p[key]).hex;
     if (Number.isFinite(p.opacity)) next.opacity = clamp(p.opacity, 0, 1);
-    if (Number.isFinite(p.width)) next.width = clamp(p.width, 64, 1200);
+    if (Number.isFinite(p.width)) next.width = clamp(p.width, 64, 4000);
     if (Number.isFinite(p.height)) next.height = clamp(p.height, 64, 1800);
     // Scaled stickies carry their text with them, so allow small and large type.
     if (Number.isFinite(p.textSize)) next.textSize = clamp(p.textSize, 4, 400);
@@ -253,8 +254,14 @@ export const DDboardCore = {
       board = next.canvas?.board4 || {},
       locked = new Set(board.locked || []),
       styles = { ...board.styles };
+    const requestedPatch=patch;
     for (const node of nodes) {
+      let patch={...requestedPatch};
       if (locked.has(node.id)) continue;
+      if(node.kind === "sticky" && Number.isFinite(patch.width)) {
+        const item=node.lifeId?next.__life?.items.find(i=>i.id===node.lifeId):next.notes.find(i=>i.id===node.noteId);
+        patch.width=DDstickySnap(patch.width,item?.baseW||240);
+      }
       if (node.lifeId && next.__life) {
         const it = next.__life.items.find((i) => i.id === node.lifeId);
         if (!it) continue;
@@ -759,6 +766,7 @@ export const DDboardCore = {
     for (const item of payload.items) {
       const data = clone(item.data),
         newKey = newId();
+      if (data.kind === "sticky" || data.type === "sticky") data.at = new Date().toLocaleDateString("en-CA");
       let ref;
       if (item.kind === "life" && next.__life) {
         data.id = newKey;

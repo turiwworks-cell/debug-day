@@ -123,3 +123,9 @@ The right rail shows **today’s habits**, including while you explore an older 
 Use the edge buttons or **G** (goals), **Shift+G** (notes), **Shift+H** (habits). **H** still selects the hand tool; **E** and **Shift+E** keep their Engine and sticker shortcuts. Each toggle syncs through setup preferences and survives reloads and standalone HTML export. Phones start with closed rails and open one overlay at a time below the header and section path, above the bottom tools. Press Escape inside a rail to close it. Rails tuck away while drawing and in the locked Board preview.
 
 Rail regression coverage: `node --test tests/rails.test.mjs` and `node tests/browser/rails.cjs` (both languages at 1440×900 and 390×844).
+
+## Sticky cards (5.21)
+
+Sticky text grows the card automatically; saved legacy heights remain in the data. Side resizing chooses square or wide; corners scale the base and text together, with a minimum base of 160. Selected edges are full resize bands. The shorter toolbar keeps connection, palette, More, Plan and lock actions, plus section actions. Other commands remain in More and retain their keyboard shortcuts.
+
+Use **B**, **S̶**, **☑** or Ctrl/Cmd+B, Ctrl/Cmd+Shift+X, Ctrl/Cmd+Shift+9 for light markdown formatting. Checkboxes update the same plain note text; editing shows that text directly. New notes and duplicates show their creation date in the chosen calendar. Older day notes use their day; older Life notes have no invented date. `public/stickies.js` contains the pure formatting/sizing helpers and presentation.

@@ -14,6 +14,7 @@ import {
   DDlifeState, DDlifeHistory, DDlifeVisible, DDlifeCompact, DDlifeColor, DDlifeMoveBy, DDlifeRemove, DDlifeDescendants, DDlifeAdopt, DDlifePath, DDlifeKeepIn,
 } from "./life-board.js";
 import{DDBoardRails,DDinstallRailStyles,DDsetRailRole,DDrailPreferences,DDrailScope}from"./rails.js";
+import{DDstickyDateLabel,DDstickyToday,DDstickyHeight,DDstickySnap,DDstickyFormat,DDstickyTodo,DDStickyText,DDinstallStickyStyles}from"./stickies.js";
 const life = { DDinstallLifeStyles, DDlifeAbs, DDlifeAdd, DDlifeBounds, DDlifeHead, DDlifeItems, DDlifeParentAt };
 // Board interaction engine. Legacy planner adapters are injected once by the app.
 export function DDcreateBoard(deps) {
@@ -42,6 +43,7 @@ export function DDcreateBoard(deps) {
   life.DDinstallLifeStyles();
   DDinstallBoardExperience();
   DDinstallRailStyles();
+  DDinstallStickyStyles();
   DDinstallEngineStyles();
   let stepTextContext;
   return function BoardWorkspace({
@@ -155,6 +157,7 @@ export function DDcreateBoard(deps) {
         () => !globalThis.matchMedia?.("(max-width: 700px)").matches,
       ),
       noteDraft = useRef(null),
+      stickyHeights = useRef(new Map()), [stickyRevision,setStickyRevision] = useState(0),
       appearanceRef = useRef(appearance),
       guideSvg = useRef(null),
       clipboard = useRef(sharedClipboard),
@@ -279,6 +282,10 @@ export function DDcreateBoard(deps) {
       draft.__life = copy(shared);
       let result = Y(draft);
       if (!result) return;
+      const oldNotes = new Map([...(ot.notes || []), ...(shared.items || [])].map(n=>[n.id,n]));
+      for(const note of [...(result.notes || []), ...(result.__life?.items || [])]) {
+        if((note.kind === "sticky" || note.type === "sticky") && !oldNotes.has(note.id)) note.at = DDstickyToday();
+      }
       if (layoutRef.current?.room && result.__life?.items) keepInRoom(result, ot, shared, layoutRef.current.room);
       const nextLife = result.__life || shared;
       delete result.__life;
@@ -670,20 +677,10 @@ export function DDcreateBoard(deps) {
                 ),
               ),
         );
-      const noteH = (note) =>
-        model.styles["sticky:" + note.id]?.height ??
-        Math.min(
-          260,
-          Math.max(
-            96,
-            62 +
-              24 *
-                String(note.text || " ")
-                  .split("\n")
-                  .reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / 34)), 0),
-          ),
-        );
-      // A card section: the block header with its members stacked under it.
+      const noteH = (note,width=240) => {
+        const m=stickyHeights.current.get("sticky:"+note.id);
+        return DDstickyHeight(width,m&&m.w===width&&m.text===note.text?m.h:String(note.text||"").split("\n").reduce((sum,l)=>sum+Math.max(1,Math.ceil(l.length/25)),0)*24+80);
+      };
       const cardSection = (block, x, y, laneId) => {
         const type = block.color
             ? { ...typeFor(block.type), color: block.color }
@@ -741,7 +738,7 @@ export function DDcreateBoard(deps) {
           cy += 58;
         }
         for (const note of notesFor.get(block.id) || []) {
-          const height = noteH(note);
+          const height = noteH(note,inner);
           members.push({
             id: "sticky:" + note.id,
             noteId: note.id,
@@ -1127,7 +1124,8 @@ export function DDcreateBoard(deps) {
             textColor: "#121211",
             x: finite(Jt.x, 40),
             y: finite(Jt.y, 40),
-            w: Jt.kind === "emoji" ? 64 : 220,
+            at: Jt.at || day.date, baseW:Jt.baseW || 240,
+            w: Jt.kind === "emoji" ? 64 : 240,
             h: Jt.kind === "emoji" ? 64 : 160,
           });
         if (lf) for (const it of items.filter((i) => roomItem ? roomSet.has(i.id) && roomVisible(i) : DDlifeVisible(items, i))) {
@@ -1135,6 +1133,7 @@ export function DDcreateBoard(deps) {
           Y.push({ id: "life:" + it.id, lifeId: it.id, lifeSection: it.type === "section", kind: it.type === "section" ? "life-section" : "sticky", room: roomItem?.id === it.id || undefined,
             title: it.text || (it.type === "section" ? t("Section","سکشن") : ""), color, textColor: core.contrast(color), collapsed: it.collapsed, parentId: it.parent ? "life:" + it.parent : null,
             x: lf.x + a.x, y: lf.y + DDlifeHead + a.y, w: it.w, h: it.collapsed ? 38 : it.h,
+            at: it.at, baseW:it.baseW || 240,
             ...it.style, opacity: it.style?.opacity ?? 1, stack: it.type === "section" ? 2 + items.filter((i) => DDlifeDescendants(items,i.id).has(it.id)).length : 20 });
         }
         for (const n of Y) {
@@ -1156,6 +1155,11 @@ export function DDcreateBoard(deps) {
           }
           n.stack = 15 + Math.max(0, model.stack.indexOf(n.id) + 1);
         }
+        for(const n of Y) if(n.kind === "sticky") {
+          const measured=stickyHeights.current.get(n.id);
+          n.h=DDstickyHeight(n.w, measured && measured.w===n.w && measured.text===n.title && measured.size===(n.textSize||16) ? measured.h : (n.title.split("\n").length*24+72));
+        }
+        for(let pass=0;pass<20;pass++) { let changed=false; for(const n of Y) if(n.parentId) { const parent=Y.find(p=>p.id===n.parentId);if(parent?.lifeSection&&!parent.collapsed&&n.y+n.h+24>parent.y+parent.h){parent.h=n.y+n.h+24-parent.y;changed=true;} } if(!changed)break; }
         const An = new Map(Y.map((Jt) => [Jt.id, Jt])),
           Kt = new Set(model.hidden),
           Dn = [
@@ -1201,10 +1205,22 @@ export function DDcreateBoard(deps) {
         visibleKey,
         day.canvas,
         ddNodeMatches,
-        room,
+        room, stickyRevision,
       ]),
       layoutRef = useRef(layout);
     layoutRef.current = layout;
+    useLayoutEffect(()=>{
+      const measure=()=>{let changed=false;for(const n of layout.nodes.filter(n=>n.kind==="sticky")) {
+        const el=elementRefs.current.get(n.id),body=el?.querySelector(":scope>.b4-node-body"),input=el?.querySelector("textarea");
+        if(input){input.style.height="0px";input.style.height=input.scrollHeight+"px";}
+        if(!body)continue;
+        const h=Math.ceil(body.scrollHeight+(el.querySelector(".dd-sticky-footer")?.offsetHeight||0)),old=stickyHeights.current.get(n.id);
+        if(!old||old.h!==h||old.w!==n.w||old.text!==n.title||old.size!==(n.textSize||16)){stickyHeights.current.set(n.id,{w:n.w,text:n.title,size:n.textSize||16,h});changed=true;}
+      }if(changed)setStickyRevision(v=>v+1);};
+      measure();const observer=new ResizeObserver(measure);
+      for(const el of elementRefs.current.values()){const body=el.querySelector?.(":scope>.b4-node-body");if(body&&el.dataset.nodeKind==="sticky"){observer.observe(body);const footer=el.querySelector(".dd-sticky-footer");if(footer)observer.observe(footer);}}
+      return()=>observer.disconnect();
+    },[layout,editing,DDlanguage]);
     // Where each task came from (phase 4): every section's done / not done record,
     // read from all days. Nothing is stored, so it is the same on every day.
     const sourceHistory = useMemo(
@@ -1695,12 +1711,14 @@ export function DDcreateBoard(deps) {
         const resized = layout.map.get(G.ref), sticky = resized?.kind === "sticky";
         // FigJam stickies: the left/right edges change only the width (text reflows);
         // corners and the top/bottom edges scale the whole note, text included.
+        G.centered=Y.altKey;
         if (sticky && (edge.length === 2 || edge === "n" || edge === "s")) {
-          const scale = Math.max(40 / G.width, 40 / G.height, Math.min(4000 / G.width, edge.length === 2 ? Math.max(width / G.width, height / G.height) : height / G.height));
+          const scale = Math.max(160 / (resized.baseW || 240), Math.min(4000 / G.width, edge.length === 2 ? Math.max(width / G.width, height / G.height) : height / G.height));
           width = G.width * scale;
           height = G.height * scale;
           G.scale = scale;
         } else if (sticky) {
+          width=Math.max(resized.baseW||240,width);
           height = G.height;
           G.scale = 1;
         } else if (Y.shiftKey && edge.length === 2) {
@@ -1890,6 +1908,7 @@ export function DDcreateBoard(deps) {
           return;
         }
         if (ct.kind === "note-resize") {
+          elementRefs.current.get(ct.ref)?.removeAttribute("data-resizing");
           const el = elementRefs.current.get(ct.ref);
           if (el) delete el.dataset.size;
         }
@@ -1902,7 +1921,14 @@ export function DDcreateBoard(deps) {
               (d) => {
                 // A scaled sticky keeps its text in proportion (FigJam).
                 const textSize = n.kind === "sticky" && ct.scale && ct.scale !== 1 ? { textSize: Math.round((ct.textSize || 16) * ct.scale * 10) / 10 } : {};
-                let next = core.setStyle(d, [n], n.memberOf ? { height: ct.size.height } : { ...ct.size, ...textSize });
+                if(n.kind === "sticky") {
+                  const corner=(ct.edge||"se").length===2,base=Math.max(160,(n.baseW||240)*(corner?(ct.scale||1):1));
+                  ct.size.width=corner?DDstickySnap(n.w,n.baseW||240)/(n.baseW||240)*base:DDstickySnap(ct.size.width,base);
+                  if(ct.centered)ct.position.x=n.x+(n.w-ct.size.width)/2;else if(ct.edge?.includes("w"))ct.position.x=n.x+n.w-ct.size.width;
+                  const list=n.lifeId?d.__life.items:d.notes,item=list.find(i=>i.id===(n.lifeId||n.noteId));if(item)item.baseW=base;
+                }
+                const stickySize=n.kind==="sticky"?{width:ct.size.width}:ct.size;
+                let next = core.setStyle(d, [n], n.memberOf ? { height: ct.size.height } : { ...stickySize, ...textSize });
                 if (
                   !n.memberOf &&
                   ct.position &&
@@ -1984,7 +2010,7 @@ export function DDcreateBoard(deps) {
                 const inside = pos.x + node.w/2 >= frame.x && pos.x + node.w/2 <= frame.x + frame.w && pos.y + node.h/2 >= frame.y + DDlifeHead && pos.y + node.h/2 <= frame.y + frame.h;
                 if (!inside && !node.lifeSection) {
                   const old = Tt.__life.items.find((i) => i.id === node.lifeId), id=Tt.notes.some((i)=>i.id===old.id)?C():old.id;
-                  Tt.notes.push({ id, kind: "sticky", text: old.text, role: old.role, color: old.color || node.color, x: pos.x, y: pos.y });
+                  Tt.notes.push({ id, kind: "sticky", text: old.text, role: old.role, at:old.at, baseW:old.baseW, color: old.color || node.color, x: pos.x, y: pos.y });
                   Tt.canvas ||= {}; Tt.canvas.board4 ||= {};
                   Tt.canvas.board4.styles ||= {}; Tt.canvas.board4.styles["sticky:" + id] = { width: old.w, height: old.h, ...old.style };
                   Tt.__life.items = Tt.__life.items.filter((i) => i.id !== old.id);
@@ -1995,7 +2021,7 @@ export function DDcreateBoard(deps) {
                 const target = DDlifeParentAt(Tt.__life.items, pos.x - frame.x + node.w/2, pos.y - frame.y - DDlifeHead + node.h/2);
                 if (target) {
                   const old = Tt.notes.find((i) => i.id === node.noteId), base = DDlifeAbs(Tt.__life.items,target.id),id=Tt.__life.items.some((i)=>i.id===old.id)?"lf-"+C():old.id;
-                  Tt.__life.items = DDlifeAdd(Tt.__life.items,{id,type:"sticky",parent:target.id,text:old.text,role:old.role,color:old.color,x:pos.x-frame.x-base.x,y:pos.y-frame.y-DDlifeHead-base.y,w:node.w,h:node.h,style:model.styles[node.id]});
+                  Tt.__life.items = DDlifeAdd(Tt.__life.items,{id,type:"sticky",parent:target.id,text:old.text,role:old.role,at:old.at,baseW:old.baseW,color:old.color,x:pos.x-frame.x-base.x,y:pos.y-frame.y-DDlifeHead-base.y,w:node.w,h:node.h,style:model.styles[node.id]});
                   Tt.notes = Tt.notes.filter((i) => i.id !== old.id);
                   transferRef(Tt,node.id,"life:"+id); delete ot[ref];
                 }
@@ -3006,15 +3032,7 @@ export function DDcreateBoard(deps) {
         setTool("select"));
     }
     function convertSticky(Y) {
-      const G = Y.title
-          .split(
-            `
-`,
-          )
-          .map((ot) => ot.replace(/^[-*•\d.)\s]+/, "").trim())
-          .filter(Boolean),
-        ct = C(),
-        // The task remembers the section the note sat in (or the open section).
+      const parsed=DDengineTaskFromNote(Y.title,setup.lanes[0]?.id||"",setup,C),G=[parsed.name,...parsed.subtasks.map(s=>s.text)],ct=C(),
         from = (Y.lifeId && DDlifeItems(setup).find((i) => i.id === Y.lifeId)?.parent) || layout.room || "";
       (commit(
         (ot) => ({
@@ -3040,10 +3058,10 @@ export function DDcreateBoard(deps) {
               emo: "",
               done: !1,
               expanded: !0,
-              subtasks: G.slice(1).map((St) => ({
+              subtasks: G.slice(1).map((St,index) => ({
                 id: C(),
                 text: St,
-                done: !1,
+                done: parsed.subtasks[index]?.done || false,
                 expanded: !0,
                 children: [],
               })),
@@ -3286,6 +3304,10 @@ export function DDcreateBoard(deps) {
       useEffect(() => {
         const Y = (ot) => {
             if(ot.isComposing)return;
+            if(root.current?.contains(ot.target) && (ot.ctrlKey||ot.metaKey) && (ot.target.closest(".dd-note-editor") || (!ot.target.closest("input,textarea,select,[contenteditable=true]") && selectedNode?.kind==="sticky"))) {
+              const key=core.shortcutKey(ot),kind=key==="b"&&!ot.shiftKey?"bold":ot.shiftKey&&key==="x"?"strike":ot.shiftKey&&ot.code==="Digit9"?"todo":null;
+              if(kind){ot.preventDefault();ot.stopImmediatePropagation();formatSticky(kind);return;}
+            }
             if(ot.target.closest("button") && ["Enter"," "].includes(ot.key) && !ot.ctrlKey && !ot.metaKey)return;
             if (
               ot.target.closest(
@@ -3712,6 +3734,13 @@ export function DDcreateBoard(deps) {
       );
       noteSession.current = noteId;
     }
+    function formatSticky(kind) {
+      const node=layout.map.get(editingRef.current?.ref)||selectedNode;if(node?.kind!=="sticky")return;
+      const input=elementRefs.current.get(node.id)?.querySelector("textarea"),text=editingRef.current?.ref===node.id?editingRef.current.value:node.title;
+      const next=DDstickyFormat(text,input?.selectionStart??0,input?.selectionEnd??text.length,kind);
+      commit(d=>{const list=node.lifeId?d.__life.items:d.notes,n=list.find(n=>n.id===(node.lifeId||node.noteId));if(n)n.text=next.text;return d;});
+      if(input){setEditing({ref:node.id,value:next.text});requestAnimationFrame(()=>{input.focus();input.setSelectionRange(next.start,next.end);});}
+    }
     function noteEditor(node) {
       // FigJam: you type straight onto the note; it saves as you type, and a
       // click outside (or Esc / Ctrl+Enter) finishes.
@@ -3749,6 +3778,7 @@ export function DDcreateBoard(deps) {
             }
           },
         }),
+        /(?:^|\n)- \[ \] ?$/.test(editing.value) && _.createElement("small",{className:"dd-sticky-hint"},t("Add a task…","یک کار اضافه کن…")),
       );
     }
     // A section's record, on its own board under the section: every day's tasks
@@ -3911,6 +3941,7 @@ export function DDcreateBoard(deps) {
         Y.lifeSection && sectionStrip(Y),
         // Where the task came from: the section's name, on the card's corner.
         Y.kind === "block" && Y.from && sectionNames.has(Y.from) && _.createElement("span", { className: "dd-task-from", dir: "auto", title: t("Came from ", "آمده از ") + sectionNames.get(Y.from), "data-from": Y.from }, "↖ " + sectionNames.get(Y.from)),
+        Tt && Y.at && _.createElement("time",{className:"dd-sticky-footer",dateTime:Y.at},DDstickyDateLabel(Y.at,DDlanguage)),
         quickColor === Y.id && _.createElement("div",{className:"dd-native-colors",onPointerDown:(e)=>e.stopPropagation()},
           core.stickyColors.map((color)=>_.createElement("button",{type:"button",key:color,style:{background:color},"aria-label":t("Use color ","انتخاب رنگ ")+color,onClick:(e)=>{e.stopPropagation();commit((d)=>core.setStyle(d,[Y],{fill:color}));setQuickColor(null);}},""))),
         Pt
@@ -4025,7 +4056,7 @@ export function DDcreateBoard(deps) {
                           _.createElement(
                             "div",
                             { className: "dd-note-preview", dir: "auto" },
-                            Y.title || _.createElement("span", { className: "dd-note-placeholder" }, t("Type anything…", "هر چیزی بنویس…")),
+                            Y.title ? _.createElement(DDStickyText,{React:_,text:Y.title,language:DDlanguage,onToggle:(index)=>commit(d=>{const list=Y.lifeId?d.__life.items:d.notes,note=list.find(i=>i.id===(Y.lifeId||Y.noteId));if(note)note.text=DDstickyTodo(note.text,index);return d;})}) : _.createElement("span", { className: "dd-note-placeholder" }, t("Type anything…", "هر چیزی بنویس…")),
                           ),
                         )
                       : _.createElement(
@@ -4162,7 +4193,7 @@ export function DDcreateBoard(deps) {
         (Tt || (Y.lifeSection && !Y.collapsed)) &&
           !ct &&
           !ot &&
-          (Y.memberOf ? ["s"] : Y.room ? ["e", "se", "s"] : ["nw", "n", "ne", "e", "se", "s", "sw", "w"]).map(
+          (Tt ? ["nw","ne","e","se","sw","w"] : Y.memberOf ? ["s"] : Y.room ? ["e", "se", "s"] : ["nw", "n", "ne", "e", "se", "s", "sw", "w"]).map(
             (edge) =>
               _.createElement("button", {
                 type: "button",
@@ -4196,11 +4227,13 @@ export function DDcreateBoard(deps) {
                     width: Y.w,
                     height: Y.h,
                     textSize: Y.textSize || 16,
+                    baseW:Y.baseW||240,
                     sx: event.clientX,
                     sy: event.clientY,
                     pointerId: event.pointerId,
                     moved: false,
                   };
+                  elementRefs.current.get(Y.id)?.setAttribute("data-resizing","true");
                   viewport.current.setPointerCapture(event.pointerId);
                 },
               }),
@@ -4952,7 +4985,7 @@ export function DDcreateBoard(deps) {
         for (const ref of [...result.refs]) if(ref.startsWith("sticky:")) {
           const old=result.day.notes.find((i)=>"sticky:"+i.id===ref), style=result.day.canvas?.board4?.styles?.[ref]||{};
           if(!old)continue;
-          result.day.__life.items=DDlifeAdd(result.day.__life.items,{id:old.id,type:"sticky",parent:target.id,text:old.text,role:old.role,color:old.color,x:old.x-frame.x-base.x,y:old.y-frame.y-DDlifeHead-base.y,w:style.width||220,h:style.height||160});
+          result.day.__life.items=DDlifeAdd(result.day.__life.items,{id:old.id,type:"sticky",parent:target.id,text:old.text,role:old.role,at:old.at,baseW:old.baseW,color:old.color,x:old.x-frame.x-base.x,y:old.y-frame.y-DDlifeHead-base.y,w:style.width||220,h:style.height||160});
           result.day.notes=result.day.notes.filter((i)=>i!==old);
           core.cleanRefs(result.day,[ref]);result.refs[result.refs.indexOf(ref)]="life:"+old.id;
         }
@@ -5184,6 +5217,10 @@ export function DDcreateBoard(deps) {
           }) : []),
           ...styleItems,
           selectedNode?.kind === "block" && item("task-symbol","Change task sticker / emoji","تغییر استیکر / ایموجی کار","spark",()=>{finishEdit();setStickerPicker({target:selectedNode.blockId,current:selectedNode.emoji});},{disabled:allLocked}),
+          selectedNode && item("card-details","Card details","جزئیات کارت","task",()=>{setDetails(v=>!v);setProperties(false);}),
+          selectedNode && ["block","subtask"].includes(selectedNode.kind) && item("add-step","Add a step","افزودن قدم","plus",()=>setChild({blockId:selectedNode.blockId,subId:selectedNode.subId||null,value:""})),
+          item("fit-selection","Zoom to selection","نمای انتخاب","fit",()=>fit(true)),
+          item("select-branch","Select branch","انتخاب شاخه","tree",selectBranch,{disabled:!selectedNode}),
           sep("clipboard-sep"),
           item("copy", "Copy", "کپی", "copy", () => copySelection(), {
             disabled: !copyable,
@@ -5585,7 +5622,7 @@ export function DDcreateBoard(deps) {
             className: "b4-selectionbar",
             ref: selectionbar,
             role: "toolbar",
-            onPointerDown:e=>e.stopPropagation(),
+            onPointerDown:e=>{e.stopPropagation();if(editingRef.current)e.preventDefault();},
             "aria-label": "Selection actions",
           },
           selectedWire
@@ -5625,17 +5662,6 @@ export function DDcreateBoard(deps) {
                   selectedNode?.min > 0 &&
                     _.createElement("b", null, w(selectedNode.min)),
                 ),
-                selectedNode &&
-                  ["block", "subtask", "bug", "habit"].includes(selectedNode.kind) &&
-                  toolButton(
-                    t("Card details", "جزئیات کارت"),
-                    "task",
-                    () => {
-                      setDetails(!details);
-                      setProperties(false);
-                    },
-                    { "aria-pressed": details },
-                  ),
                 toolButton(
                   t("Color & properties", "رنگ و ویژگی‌ها"),
                   "palette",
@@ -5657,29 +5683,8 @@ export function DDcreateBoard(deps) {
                         : { selection: true },
                     ),
                 ),
-                toolButton("Zoom to selection", "fit", () => fit(!0)),
-                selectedNode &&
-                  (selectedNode.kind === "block" ||
-                    selectedNode.kind === "subtask") &&
-                  toolButton(
-                    t("Add a step", "افزودن قدم"),
-                    "plus",
-                    () =>
-                      setChild({
-                        blockId: selectedNode.blockId,
-                        subId: selectedNode.subId || null,
-                        value: "",
-                      }),
-                    { "data-add-step": true },
-                    t("Step", "قدم"),
-                  ),
-                selectedNode &&
-                  toolButton(DDUI("Edit selected node"), "pen", () =>
-                    openEdit(selectedNode.id),
-                  ),
                 // The note's own bar stays out of sight on desktop (FigJam), so its
                 // "to plan" action lives here.
-                selectedNode?.kind === "sticky" && toolButton(t("Change color", "تغییر رنگ"), null, () => setQuickColor(quickColor === selectedNode.id ? null : selectedNode.id), { "aria-expanded": quickColor === selectedNode.id }, "●"),
                 selectedNode?.kind === "sticky" && toolButton(DDUI("Convert note to plan"), "task", () => convertSticky(selectedNode), {}, DDUI("→ پلن")),
                 // Section actions live in the selection toolbar, as in FigJam; the
                 // section itself carries only its title.
@@ -5689,20 +5694,8 @@ export function DDcreateBoard(deps) {
                   toolButton(t("Add sticky note","افزودن یادداشت"),"plus",()=>addLifeItem("sticky",selectedNode.lifeId)),
                   toolButton(t("Add section inside","افزودن سکشن داخل"),"square",()=>addLifeItem("section",selectedNode.lifeId)),
                   toolButton(t("Remove section, keep contents (Ctrl+Shift+G)","برداشتن سکشن با حفظ محتوا (Ctrl+Shift+G)"),"swap",()=>groupSelection(true))),
-                selectedNode &&
-                  mode === "mindmap" &&
-                  toolButton(DDUI("Select branch"), "tree", selectBranch),
-                toolButton(DDUI("Duplicate selection"), "copy", duplicate),
-                selected.size > 1 &&
-                  toolButton(DDUI("Group selection"), "tree", () =>
-                    groupSelection(),
-                  ),
-                Object.values(model.groups).some((Y) =>
-                  Y.some((G) => selected.has(G)),
-                ) &&
-                  toolButton(DDUI("Ungroup selection"), "swap", () =>
-                    groupSelection(!0),
-                  ),
+                selectedNode?.kind === "sticky" && _.createElement(_.Fragment,null,
+                  ...[["bold","B"],["strike","S̶"],["todo","☑"]].map(([kind,label])=>toolButton(t(kind==="bold"?"Bold":kind==="strike"?"Strikethrough":"To-do",kind==="bold"?"پررنگ":kind==="strike"?"خط‌خورده":"کار"),null,()=>formatSticky(kind),{"data-note-format":kind},label))),
                 toolButton("Lock or unlock selection", "\u25A3", () =>
                   boardChange(
                     (Y) => ({
@@ -5721,7 +5714,7 @@ export function DDcreateBoard(deps) {
                     ),
                   ),
                 ),
-                toolButton("Delete selected nodes", "trash", deleteNodes),
+
               ),
         ),
       _.createElement(

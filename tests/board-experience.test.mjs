@@ -25,7 +25,7 @@ test("marquee selects touched notes, fully enclosed containers and skips locked 
 test("selection toolbar follows camera and flips below a selection near the header",()=>{
   const b={x:100,y:100,w:200,h:100},v={w:900,h:700},size={w:320,h:44};
   assert.deepEqual(DDselectionToolbar(b,{x:0,y:0,z:1},v,size),{x:40,y:214});
-  assert.deepEqual(DDselectionToolbar(b,{x:80,y:100,z:1},v,size),{x:120,y:142});
+  assert.deepEqual(DDselectionToolbar(b,{x:80,y:100,z:1},v,size),{x:120,y:132});
   const edge=DDselectionToolbar({x:1000,y:800,w:100,h:100},{x:0,y:0,z:1},v,size);
   assert.equal(edge.x,572);assert.equal(edge.y,574);
 });
