@@ -10,7 +10,7 @@ import {
   DDlifeHead,
   DDlifeItems,
   DDlifeParentAt,
-  DDlifeState, DDlifeHistory, DDlifeVisible, DDlifeCompact, DDlifeColor, DDlifeMoveBy, DDlifeRemove, DDlifeDescendants,
+  DDlifeState, DDlifeHistory, DDlifeVisible, DDlifeCompact, DDlifeColor, DDlifeMoveBy, DDlifeRemove, DDlifeDescendants, DDlifeAdopt,
 } from "./life-board.js";
 const life = { DDinstallLifeStyles, DDlifeAbs, DDlifeAdd, DDlifeBounds, DDlifeHead, DDlifeItems, DDlifeParentAt };
 // Board interaction engine. Legacy planner adapters are injected once by the app.
@@ -1202,7 +1202,11 @@ export function DDcreateBoard(deps) {
       }
       if (!nodes.length) return;
       const topbar = host.querySelector(".b2-top"), br = topbar?.getBoundingClientRect(), vr = view.getBoundingClientRect();
-      const position = DDselectionToolbar(core.bounds(nodes), cam.current, {w:view.clientWidth,h:view.clientHeight}, {w:bar.offsetWidth,h:bar.offsetHeight}, Math.max(64,(br?.bottom || vr.top+64)-vr.top+10),view.clientWidth<700?134:84);
+      // A section's title tab sits above it; keep the toolbar clear of the title.
+      const tab = elementRefs.current.get(nodes.find((n) => n.lifeSection)?.id)?.querySelector(":scope>.b4-node-body");
+      const head = ((tab?.getBoundingClientRect().height || 26) + 10) / cam.current.z;
+      const framed = nodes.map((n) => (n.lifeSection ? { ...n, y: n.y - head, h: n.h + head } : n));
+      const position = DDselectionToolbar(core.bounds(framed), cam.current, {w:view.clientWidth,h:view.clientHeight}, {w:bar.offsetWidth,h:bar.offsetHeight}, Math.max(64,(br?.bottom || vr.top+64)-vr.top+10),view.clientWidth<700?134:84);
       const panel=host.querySelector(".b6-properties,.dd-card-details"), pr=panel?.getBoundingClientRect();
       if(pr && position.x+bar.offsetWidth>pr.left-vr.left && position.x<pr.right-vr.left && position.y+bar.offsetHeight>pr.top-vr.top && position.y<pr.bottom-vr.top) {
         if(pr.left-vr.left-bar.offsetWidth-12>=8)position.x=pr.left-vr.left-bar.offsetWidth-12;
@@ -1570,19 +1574,9 @@ export function DDcreateBoard(deps) {
           height = G.height * scale;
         }
         const resized = layout.map.get(G.ref);
-        width = Math.round(Math.max(resized?.lifeSection ? 320 : 144, Math.min(resized?.lifeSection ? 20000 : 1200, width)));
-        height = Math.round(Math.max(96, Math.min(resized?.lifeSection ? 20000 : 1800, height)));
-        if (resized?.lifeSection) {
-          const kids = DDlifeItems(setup).filter((i)=>i.parent===resized.lifeId);
-          const minX = edge.includes("w") ? Math.min(G.width,...kids.map((i)=>i.x-24)) : G.width;
-          const minY = edge.includes("n") ? Math.min(G.height,...kids.map((i)=>i.y-24)) : G.height;
-          width=Math.max(width,G.width-minX,...kids.map((i)=>edge.includes("w")?G.width-i.x+24:i.x+i.w+24));
-          height=Math.max(height,G.height-minY,...kids.map((i)=>edge.includes("n")?G.height-i.y+24:i.y+(i.collapsed?38:i.h)+24));
-          if(Y.altKey){
-            width=Math.max(width,...kids.map(i=>2*Math.max(G.width/2-i.x,i.x+i.w-G.width/2)+48));
-            height=Math.max(height,...kids.map(i=>2*Math.max(G.height/2-i.y,i.y+(i.collapsed?38:i.h)-G.height/2)+48));
-          }
-        }
+        // Like FigJam, a section may shrink past its contents; they stay put and hang over.
+        width = Math.round(Math.max(resized?.lifeSection ? 80 : 144, Math.min(resized?.lifeSection ? 20000 : 1200, width)));
+        height = Math.round(Math.max(resized?.lifeSection ? 60 : 96, Math.min(resized?.lifeSection ? 20000 : 1800, height)));
         const x = G.x + (Y.altKey ? (G.width-width)/2 : edge.includes("w") ? G.width - width : 0),
           y = G.y + (Y.altKey ? (G.height-height)/2 : edge.includes("n") ? G.height - height : 0);
         G.size = { width, height };
@@ -1770,6 +1764,8 @@ export function DDcreateBoard(deps) {
                   const dx = ct.position.x-n.x, dy = ct.position.y-n.y;
                   next.__life.items = next.__life.items.map((i)=>i.parent===n.lifeId?{...i,x:i.x-dx,y:i.y-dy}:i);
                 }
+                // A section grown over neighbours takes them in, as in FigJam.
+                if (n.lifeSection && next.__life) next.__life.items = DDlifeAdopt(next.__life.items, n.lifeId);
                 return next;
               },
               t("Note resized", "اندازهٔ نوت تغییر کرد"),
@@ -2338,10 +2334,13 @@ export function DDcreateBoard(deps) {
         selected,
         mode,
       );
+      // FigJam puts the copy beside the original, one even gap to the right, so
+      // repeated duplicates line up in a row instead of piling up.
+      const picked = layout.nodes.filter((n) => selected.has(n.id));
       if (payload)
         pastePayload(payload, {
-          x: payload.origin.x + 32,
-          y: payload.origin.y + 32,
+          x: payload.origin.x + (picked.length ? nodeBounds(picked).w : 0) + 40,
+          y: payload.origin.y,
         });
     }
     function revealEdit(Y) {
@@ -2486,6 +2485,11 @@ export function DDcreateBoard(deps) {
       ),
         setChild(null));
     }
+    // FigJam numbers new sections: Section 1, Section 2, …
+    function sectionName(items) {
+      const count=items.filter((i)=>i.type==="section").length+1;
+      return t("Section ","سکشن ")+count.toLocaleString(DDlanguage==="fa"?"fa-IR":"en-US");
+    }
     // A new Life section at a spot on the canvas (inside the section under it, if any).
     function addLifeSection(point) {
       const frame = layout.map.get("section:life"), id = "lf-"+C();
@@ -2493,9 +2497,10 @@ export function DDcreateBoard(deps) {
         let rel=frame&&point?{x:point.x-frame.x,y:point.y-frame.y-DDlifeHead}:null;
         const parent=rel&&DDlifeParentAt(d.__life.items,rel.x,rel.y);
         if(parent){const base=DDlifeAbs(d.__life.items,parent.id);rel={x:rel.x-base.x,y:rel.y-base.y};}
-        const spec={id,type:"section",parent:parent?.id||"",...(rel?{x:Math.round(rel.x),y:Math.round(rel.y)}:{}),
-          ...(point?.w?{w:Math.max(320,Math.round(point.w)),h:Math.max(160,Math.round(point.h))}:{})};
-        d.__life.items=DDlifeAdd(d.__life.items,spec);
+        const spec={id,type:"section",parent:parent?.id||"",text:sectionName(d.__life.items),
+          ...(rel?{x:Math.round(rel.x),y:Math.round(rel.y)}:{}),
+          ...(point?.w?{w:Math.max(80,Math.round(point.w)),h:Math.max(60,Math.round(point.h))}:{})};
+        d.__life.items=DDlifeAdopt(DDlifeAdd(d.__life.items,spec),id);
         if(frame && point && !parent) {
           // Grow the shared canvas around a newly drawn section; existing objects
           // keep their absolute positions even when the origin moves north/west.
@@ -2511,7 +2516,7 @@ export function DDcreateBoard(deps) {
     }
     function addLifeItem(type,parent="") {
       const id="lf-"+C();
-      lifeChange((list)=>DDlifeAdd(list.map((i)=>i.id===parent?{...i,collapsed:false}:i),{id,type,parent,w:type==="sticky"?240:480,h:type==="sticky"?240:320,...(type==="sticky"?{color:appearanceRef.current.stickyColor,style:{textSize:16}}:{})}));
+      lifeChange((list)=>DDlifeAdd(list.map((i)=>i.id===parent?{...i,collapsed:false}:i),{id,type,parent,w:type==="sticky"?240:480,h:type==="sticky"?240:320,...(type==="sticky"?{color:appearanceRef.current.stickyColor,style:{textSize:16}}:{text:sectionName(list)})}));
       setSelected(new Set(["life:"+id])); setEditing({ref:"life:"+id,value:""});
     }
     function jumpLife(id) {
@@ -2747,6 +2752,17 @@ export function DDcreateBoard(deps) {
       setSelected(Y);
     }
     function groupSelection(Y = !1) {
+      // FigJam: ungrouping a section removes only the frame; what was inside stays.
+      const frames = Y ? [...selected].map((ref) => layout.map.get(ref)).filter((n) => n?.lifeSection && !locked.has(n.id)) : [];
+      if (frames.length) {
+        commit((d) => {
+          for (const n of frames) d.__life.items = DDlifeRemove(d.__life.items, n.lifeId);
+          d.__life.links = (d.__life.links || []).filter((l) => !frames.some((n) => l.from === n.id || l.to === n.id));
+          return d;
+        }, t("Section removed; its contents stay", "سکشن برداشته شد؛ محتوایش ماند"));
+        setSelected(new Set());
+        return;
+      }
       boardChange(
         (G) => {
           if (Y)
@@ -3673,12 +3689,6 @@ export function DDcreateBoard(deps) {
               _.createElement(
                 "div",
                 { className: "b4-node-actions" },
-                Y.lifeSection && _.createElement(_.Fragment,null,
-                  toolButton(t(Y.collapsed ? "Expand section" : "Collapse section",Y.collapsed ? "باز کردن سکشن" : "بستن سکشن"),null,()=>{setSelected(new Set([Y.id]));lifeChange((list)=>list.map((i)=>i.id===Y.lifeId?{...i,collapsed:!i.collapsed}:i));},{},Y.collapsed?"▸":"▾"),
-                  toolButton(t("Rename section","تغییر نام سکشن"),"edit",()=>openEdit(Y.id)),
-                  toolButton(t("Change color","تغییر رنگ"),null,()=>setQuickColor(quickColor===Y.id?null:Y.id),{},"●"),
-                  toolButton(t("Add sticky note","افزودن یادداشت"),"plus",()=>addLifeItem("sticky",Y.lifeId)),
-                  toolButton(t("Add section inside","افزودن سکشن داخل"),"square",()=>addLifeItem("section",Y.lifeId))),
                 (Y.kind === "block" || Y.kind === "subtask") &&
                   _.createElement(
                     _.Fragment,
@@ -5273,6 +5283,13 @@ export function DDcreateBoard(deps) {
                   toolButton(DDUI("Edit selected node"), "pen", () =>
                     openEdit(selectedNode.id),
                   ),
+                // Section actions live in the selection toolbar, as in FigJam; the
+                // section itself carries only its title.
+                selectedNode?.lifeSection && _.createElement(_.Fragment,null,
+                  toolButton(t(selectedNode.collapsed ? "Expand section" : "Collapse section",selectedNode.collapsed ? "باز کردن سکشن" : "بستن سکشن"),null,()=>lifeChange((list)=>list.map((i)=>i.id===selectedNode.lifeId?{...i,collapsed:!i.collapsed}:i)),{},selectedNode.collapsed?"▸":"▾"),
+                  toolButton(t("Add sticky note","افزودن یادداشت"),"plus",()=>addLifeItem("sticky",selectedNode.lifeId)),
+                  toolButton(t("Add section inside","افزودن سکشن داخل"),"square",()=>addLifeItem("section",selectedNode.lifeId)),
+                  toolButton(t("Remove section, keep contents (Ctrl+Shift+G)","برداشتن سکشن با حفظ محتوا (Ctrl+Shift+G)"),"swap",()=>groupSelection(true))),
                 selectedNode &&
                   mode === "mindmap" &&
                   toolButton(DDUI("Select branch"), "tree", selectBranch),

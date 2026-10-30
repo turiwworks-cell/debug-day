@@ -15,7 +15,7 @@ export const DDboardShortcuts = [
   ["Enter", "Edit selected object", "ویرایش شیء منتخب"], ["Ctrl/Cmd+Enter", "Create adjacent note", "ایجاد نوت مجاور"],
   ["Ctrl/Cmd+D", "Duplicate", "تکثیر"], ["Ctrl/Cmd+C / X / V", "Copy / cut / paste", "کپی / برش / چسباندن"],
   ["Ctrl/Cmd+Z", "Undo", "بازگشت"], ["Ctrl/Cmd+Shift+Z / Ctrl+Y", "Redo", "انجام مجدد"],
-  ["Ctrl/Cmd+G", "Group", "گروه‌کردن"], ["Ctrl/Cmd+Shift+G", "Ungroup", "بازکردن گروه"],
+  ["Ctrl/Cmd+G", "Group", "گروه‌کردن"], ["Ctrl/Cmd+Shift+G", "Ungroup / remove section, keep contents", "بازکردن گروه / برداشتن سکشن با حفظ محتوا"],
   ["Ctrl/Cmd+Shift+L", "Lock / unlock", "قفل / بازکردن قفل"],
   ["[ / ]", "Send to back / bring to front", "فرستادن به پشت / آوردن به جلو"],
   ["Ctrl/Cmd+[ / ]", "Move one layer back / forward", "یک لایه عقب / جلو"],
@@ -203,10 +203,13 @@ export const DDboardExperienceCSS = `
 .b6 .dd-note-editor{border-radius:2px;overflow:hidden;background:var(--node-color)}
 .b6 .dd-note-editor textarea{padding:18px 20px;font-size:var(--object-size,14px);line-height:1.5}
 .b6 .b4-life-section{background:color-mix(in srgb,var(--node-color) 12%,var(--paper))!important;border:1px solid color-mix(in srgb,var(--node-color) 45%,transparent);border-radius:12px}
-.b6 .b4-life-section>.b4-node-body{top:-33px;height:28px;max-width:calc(100% - 42px);border-radius:6px;padding:0 9px}
-.b6 .b4-life-section>.b4-node-actions{top:-33px;height:28px;border-radius:6px;opacity:0;transition:opacity .1s}
-.b6 .b4-life-section:is(:hover,.selected,:focus-within)>.b4-node-actions{opacity:1}
-.b6 .b4-life-section[data-collapsed=true]>.b4-node-body,.b6 .b4-life-section[data-collapsed=true]>.b4-node-actions{top:0}
+.b6 .b4-life-section{--dd-sec-k:clamp(.5,var(--b4-inverse,1),8)}
+.b6 .b4-life-section>.b4-node-body{top:auto;bottom:100%;margin-bottom:calc(6px * var(--dd-sec-k));height:calc(26px * var(--dd-sec-k));width:auto;max-width:100%;border-radius:calc(5px * var(--dd-sec-k));padding:0 calc(8px * var(--dd-sec-k));overflow:hidden}
+.b6 .b4-life-section>.b4-node-body .b4-node-title{font-size:calc(13px * var(--dd-sec-k));font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.b6 .b4-life-section>.b4-node-body .b4-node-title::before{content:"";display:inline-block;flex:none;width:.95em;height:.8em;margin-inline-end:.5em;border:.12em solid currentColor;border-radius:.15em;box-shadow:inset 0 .22em 0 -.05em currentColor;vertical-align:-.08em;opacity:.85}
+.b6 .b4-life-section>.b4-node-actions{display:none}
+.b6 .b4-life-section[data-collapsed=true]>.b4-node-body{top:0;bottom:auto;margin:0}
+@media(pointer:coarse){.b6 .b4-life-section>.b4-node-body{height:calc(36px * var(--dd-sec-k))}}
 .b6 .b4-port::after{background:var(--paper);border:1.5px solid var(--board-selection);width:9px;height:9px;left:17.5px;top:17.5px}
 .b6 .b6-note-resize[data-edge]:after{border-color:var(--board-selection);border-radius:1px;background:var(--paper)}
 .b6 .b4-node:not(.selected)>.b6-note-resize[data-edge]{opacity:0;pointer-events:none}

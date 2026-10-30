@@ -56,9 +56,13 @@ const {start,fixture}=require("./harness.cjs");
    await page.keyboard.press("Control+z");
    data=await read();assert.deepEqual(data.days[f.date].notes,before.days[f.date].notes,"one undo restores both sides of a transfer");
    assert.equal(data.setup.life.items.some((i)=>i.id==="daily"),false);
-   await a.getByRole("button",{name:t("Collapse section","بستن سکشن"),exact:true}).click();
+   // Section actions live in the selection toolbar (FigJam), not inside the section.
+   assert.equal(await a.locator(".b4-node-actions button").count(),0,"no extra toolbar inside a section");
+   await a.focus();
+   const bar=page.locator(".b4-selectionbar");
+   await bar.getByRole("button",{name:t("Collapse section","بستن سکشن"),exact:true}).click();
    assert.equal(await n.count(),0,"collapsed contents are hidden");
-   await a.getByRole("button",{name:t("Expand section","باز کردن سکشن"),exact:true}).click();
+   await bar.getByRole("button",{name:t("Expand section","باز کردن سکشن"),exact:true}).click();
    assert.equal(await n.count(),1);
    await page.getByRole("button",{name:t("Section navigator","فهرست سکشن‌ها"),exact:true}).click();
    await page.locator(".dd-life-nav").getByRole("button",{name:/Work & play/}).click();

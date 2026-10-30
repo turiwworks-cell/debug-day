@@ -32,13 +32,20 @@ test('native copy includes hidden descendants of a collapsed section and remaps 
  assert.deepEqual([newItems[1].x,newItems[1].y],[40,70]);
  assert.equal(new Set(pasted.day.__life.items.map(i=>i.id)).size,4);
 });
-test('native appearance, nudge and deletion update shared notes and preserve children',()=>{
+test('native appearance, nudge and deletion update shared notes; deleting a section deletes its contents',()=>{
  const d=doc(),n={id:'life:n',lifeId:'n',kind:'sticky',x:100,y:150};
  const styled=core.setStyle(d,[n],{fill:'#D3B8FF',width:300,height:240});
  assert.deepEqual([styled.__life.items[1].color,styled.__life.items[1].w,styled.__life.items[1].h],['#D3B8FF',300,240]);
  const moved=core.place(styled,[n],{'life:n':{x:110,y:160}},'mindmap');assert.deepEqual([moved.__life.items[1].x,moved.__life.items[1].y],[50,80]);
- const original=DDlifeAbs(d.__life.items,'n'),removed=core.remove(d,[{id:'life:a',lifeId:'a',kind:'life-section'}]);
- assert.equal(removed.__life.items[0].parent,'');assert.deepEqual(DDlifeAbs(removed.__life.items,'n'),original);
+ // FigJam: Delete takes the section and everything inside it.
+ const removed=core.remove(d,[{id:'life:a',lifeId:'a',kind:'life-section'}]);
+ assert.deepEqual(removed.__life.items,[]);
+ // A locked note survives in place, under the nearest remaining parent.
+ const original=DDlifeAbs(d.__life.items,'n'),guarded=structuredClone(d);
+ guarded.canvas={...guarded.canvas,board4:{...guarded.canvas?.board4,locked:['life:n']}};
+ const kept=core.remove(guarded,[{id:'life:a',lifeId:'a',kind:'life-section'}]);
+ assert.equal(kept.__life.items.length,1);assert.equal(kept.__life.items[0].parent,'');
+ assert.deepEqual(DDlifeAbs(kept.__life.items,'n'),original);
 });
 test('global search indexes Life once and edits the same shared record',()=>{
  const data={setup:{life:{items}},days:{}},rows=DDbuildSearchIndex(data,'2026-10-30');

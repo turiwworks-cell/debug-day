@@ -89,7 +89,9 @@ Before a frontend merge, check Chromium at 1440×900 and 390×844 with touch, in
 
 Life notes use the native board tools: select, multi-select, copy/paste, resize, connect and move notes between the current day and Life. Shared content and frame geometry live in setup; the outer Life area only pans or resizes. Undo/Redo survives switching days or returning from Plan.
 
-Use **Sections** to jump to a section or **Compact layout** to remove empty space without discarding content. A section's arrow collapses its contents. Life is editable in Plan and searchable across the app.
+Use **Sections** to jump to a section or **Compact layout** to remove empty space without discarding content. Select a section and use its toolbar arrow to collapse its contents. Life is editable in Plan and searchable across the app.
+
+Sections behave like FigJam (5.13): drawing or growing a section around notes or other sections takes them in, and moving it carries everything nested. Delete removes a section with its contents (one Undo restores it); Ctrl/Cmd+Shift+G removes only the frame and keeps what was inside. Duplicate places the copy one gap to the right.
 
 MCP clients can read `get_life` and, with a write key, call `add_life_item`, `update_life_item` or `delete_life_item`. Every write needs the latest `expected_revision`; invalid parents, cycles, dimensions and colors are rejected. Deleting a section preserves its children.
 

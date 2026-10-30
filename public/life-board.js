@@ -273,7 +273,8 @@ export function DDlifeAdd(items, spec) {
   const section = spec.type === "section",
     w = spec.w || (section ? 480 : 240),
     h = spec.h || (section ? 320 : 240),
-    pos = Number.isFinite(spec.x) && Number.isFinite(spec.y) ? { x: spec.x, y: spec.y } : freeSpot(items, spec.parent || "", w, h),
+    placed = Number.isFinite(spec.x) && Number.isFinite(spec.y),
+    pos = placed ? { x: spec.x, y: spec.y } : freeSpot(items, spec.parent || "", w, h),
     item = {
       id: spec.id,
       type: spec.type,
@@ -286,7 +287,38 @@ export function DDlifeAdd(items, spec) {
       ...(spec.style ? { style: { ...spec.style } } : {}),
       color: spec.color || (section ? "#A8DAFF" : "#FFE299"),
     };
-  return DDlifeFit([...items, item], item.parent);
+  // Like FigJam, something placed by hand may hang over its section's edge;
+  // only an automatically chosen spot grows the section around it.
+  return placed ? [...items, item] : DDlifeFit([...items, item], item.parent);
+}
+
+// FigJam: a section drawn or resized around things takes them in. Only siblings
+// that sit wholly inside it join; nothing already inside is pushed out.
+export function DDlifeAdopt(items, sectionId) {
+  const sec = find(items, sectionId);
+  if (!sec || sec.type !== "section" || sec.collapsed) return items;
+  const inside = (i) => i.id !== sec.id && i.parent === sec.parent &&
+    i.x >= sec.x && i.y >= sec.y && i.x + i.w <= sec.x + sec.w && i.y + (i.collapsed ? 38 : i.h) <= sec.y + sec.h;
+  if (!items.some(inside)) return items;
+  return items.map((i) => (inside(i) ? { ...i, parent: sec.id, x: i.x - sec.x, y: i.y - sec.y } : i));
+}
+
+// Deleting a section deletes what is inside it (FigJam). Anything in `keep`
+// (locked items) stays where it is and moves up to the nearest remaining parent.
+export function DDlifeRemoveTree(items, id, keep = new Set()) {
+  if (!find(items, id)) return items;
+  const gone = new Set([id]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const it of items) if (!gone.has(it.id) && gone.has(it.parent) && !keep.has(it.id)) (gone.add(it.id), (grew = true));
+  }
+  return items.filter((i) => !gone.has(i.id)).map((i) => {
+    if (!gone.has(i.parent)) return i;
+    let x = i.x, y = i.y, p = find(items, i.parent), hops = 0;
+    while (p && gone.has(p.id) && hops++ < 60) ((x += p.x), (y += p.y), (p = p.parent ? find(items, p.parent) : null));
+    return { ...i, parent: p && !gone.has(p.id) ? p.id : "", x, y };
+  });
 }
 
 export function DDlifeUpdate(items, id, patch) {

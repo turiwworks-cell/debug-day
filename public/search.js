@@ -1,4 +1,4 @@
-import { DDlifeItems, DDlifeRemove, DDlifeHistory, DDlifeState } from "./life-board.js";
+import { DDlifeItems, DDlifeRemoveTree, DDlifeHistory, DDlifeState } from "./life-board.js";
 // Readable, additive search and command palette. React is supplied by the app.
 export function DDsearchDigits(value = "") {
   return String(value).replace(/[۰-۹٠-٩]/g, (c) =>
@@ -453,9 +453,11 @@ export function DDcleanBoard(day, refs) {
 export function DDeditSearchResult(snapshot, row, action, value, ensureDay) {
   if (row.kind === "life") {
     const data=structuredClone(snapshot), before=DDlifeItems(data.setup);
-    const items=action==="delete" ? DDlifeRemove(before,row.itemId) : action==="rename" || action==="text" ? before.map((i)=>i.id===row.itemId?{...i,text:String(value).slice(0,4000)}:i) : before;
+    // Deleting a section deletes its contents, the same as on the Board.
+    const items=action==="delete" ? DDlifeRemoveTree(before,row.itemId) : action==="rename" || action==="text" ? before.map((i)=>i.id===row.itemId?{...i,text:String(value).slice(0,4000)}:i) : before;
     if (items===before) return snapshot;
-    data.setup.life={...data.setup.life,v:2,items}; return data;
+    const kept=new Set(items.map((i)=>"life:"+i.id)), live=(ref)=>!String(ref).startsWith("life:")||kept.has(ref);
+    data.setup.life={...data.setup.life,v:2,items,...(Array.isArray(data.setup.life?.links)?{links:data.setup.life.links.filter((l)=>live(l.from)&&live(l.to))}:{})}; return data;
   }
   if (
     action === "move" &&
