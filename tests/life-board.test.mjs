@@ -125,3 +125,13 @@ test("FigJam sections: drawing around things takes them in; Delete takes the con
   assert.deepEqual(kept.map((i) => [i.id, i.parent]), [["n", ""], ["far", ""]]);
   assert.deepEqual(DDlifeAbs(kept, "n"), { x: 120, y: 120 });
 });
+
+test("sections moved together never drop into each other", () => {
+  const items = [
+    { id: "a", type: "section", parent: "", x: 0, y: 0, w: 200, h: 200 },
+    { id: "b", type: "section", parent: "", x: 300, y: 0, w: 400, h: 400 },
+  ];
+  // Alone, "a" moved over "b" joins it; moved together with "b" it stays top level.
+  assert.equal(DDlifeMoveBy(items, "a", 350, 50).find((i) => i.id === "a").parent, "b");
+  assert.equal(DDlifeMoveBy(items, "a", 350, 50, ["b"]).find((i) => i.id === "a").parent, "");
+});

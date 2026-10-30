@@ -203,12 +203,15 @@ export const DDboardExperienceCSS = `
 .b6 .dd-note-editor{border-radius:2px;overflow:hidden;background:var(--node-color)}
 .b6 .dd-note-editor textarea{padding:18px 20px;font-size:var(--object-size,14px);line-height:1.5}
 .b6 .b4-life-section{background:color-mix(in srgb,var(--node-color) 12%,var(--paper))!important;border:1px solid color-mix(in srgb,var(--node-color) 45%,transparent);border-radius:12px}
-.b6 .b4-life-section{--dd-sec-k:clamp(.05,var(--b4-inverse,1),60)}
-.b6 .b4-life-section>.b4-node-body{top:auto;bottom:100%;margin-bottom:calc(6px * var(--dd-sec-k));height:calc(26px * var(--dd-sec-k));width:auto;max-width:max(100%,calc(160px * var(--dd-sec-k)));border-radius:calc(5px * var(--dd-sec-k));padding:0 calc(8px * var(--dd-sec-k));overflow:hidden}
-.b6 .b4-life-section>.b4-node-body .b4-node-title{font-size:calc(13px * var(--dd-sec-k));font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.b6 .b4-life-section>.b4-node-body .b4-node-title::before{content:"";display:inline-block;flex:none;width:.95em;height:.8em;margin-inline-end:.5em;border:.12em solid currentColor;border-radius:.15em;box-shadow:inset 0 .22em 0 -.05em currentColor;vertical-align:-.08em;opacity:.85}
+/* FigJam: the name pill sits inside the top-left corner. It keeps one on-screen size when zoomed out and grows with the board when zoomed in. */
+.b6 .b4-life-section{--dd-sec-k:clamp(1,var(--b4-inverse,1),60)}
+.b6 .b4-life-section>.b4-node-body{top:calc(10px * var(--dd-sec-k));left:calc(10px * var(--dd-sec-k));bottom:auto;margin:0;height:calc(28px * var(--dd-sec-k));width:auto;max-width:none;border-radius:calc(6px * var(--dd-sec-k));border:calc(1px * var(--dd-sec-k)) solid color-mix(in srgb,var(--node-color) 70%,#1e1e1e 30%);padding:0 calc(8px * var(--dd-sec-k));overflow:hidden;z-index:3;box-shadow:none}
+.b6 .b4-life-section>.b4-node-body .b4-node-title{font-size:calc(16px * var(--dd-sec-k));font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.b6 .b4-life-section>.b4-node-body .b4-node-title::before{content:none}
 .b6 .b4-life-section>.b4-node-actions{display:none}
-.b6 .b4-life-section[data-collapsed=true]>.b4-node-body{top:0;bottom:auto;margin:0}
+/* Ctrl+Space search opens above the full-screen board too. */
+.cmd-backdrop.dd-command-backdrop{z-index:1200}
+.b6 .b4-life-section[data-collapsed=true]>.b4-node-body{top:calc(5px * var(--dd-sec-k));bottom:auto;margin:0}
 @media(pointer:coarse){.b6 .b4-life-section>.b4-node-body{height:calc(36px * var(--dd-sec-k))}}
 .b6 .b4-port::after{background:var(--paper);border:1.5px solid var(--board-selection);width:9px;height:9px;left:17.5px;top:17.5px}
 .b6 .b6-note-resize[data-edge]:after{border-color:var(--board-selection);border-radius:1px;background:var(--paper)}
@@ -247,6 +250,8 @@ export const DDboardExperienceCSS = `
 .b6 .dd-add-near{position:absolute;width:22px;height:22px;padding:0;border-radius:50%;display:grid;place-items:center;font:600 15px/1 var(--sans);color:var(--board-selection);background:var(--paper);border:1.5px solid var(--board-selection);transform:translate(-50%,-50%) scale(var(--b4-inverse,1));opacity:.85;z-index:6;cursor:pointer}
 .b6 .dd-add-near:hover,.b6 .dd-add-near:focus-visible{background:var(--board-selection);color:#fff;opacity:1}
 @media(hover:none),(pointer:coarse){.b6 .dd-add-near{display:none}}
+/* With the "+" showing, it is the connector start too; the circles behind the edges go. */
+@media(hover:hover) and (pointer:fine){.b6 .b4-node:has(>.dd-add-near)>.b4-port{display:none}}
 .b6 .dd-add-near.left{left:calc(-46px * var(--b4-inverse,1));top:50%}
 .b6 .dd-add-near.right{left:calc(100% + 46px * var(--b4-inverse,1));top:50%}
 .b6 .dd-add-near.top{left:50%;top:calc(-46px * var(--b4-inverse,1))}

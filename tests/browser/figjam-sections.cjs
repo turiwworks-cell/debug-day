@@ -49,6 +49,32 @@ const {join}=require('node:path');
    // Snapping may round the move; the nested note must move exactly as its outer section does.
    assert.ok(frameAfter.x-frameBefore.x>60,'the outer section moved');
    assert.ok(Math.abs((after.x-before.x)-(frameAfter.x-frameBefore.x))<1.5&&Math.abs((after.y-before.y)-(frameAfter.y-frameBefore.y))<1.5,'nested notes move with the outer section');
+   // A drag on the empty body moves the section too, not only its title.
+   await page.keyboard.press('Escape');
+   const ob=await o.boundingBox(),inner=await a.boundingBox(),body={x:ob.x+ob.width-14,y:ob.y+ob.height-14};
+   assert.ok(body.x>inner.x+inner.width&&body.y>inner.y+inner.height,'the grab point is on the outer section only');
+   await page.mouse.move(body.x,body.y);await page.mouse.down();
+   await page.mouse.move(body.x-70,body.y+50,{steps:10});await page.mouse.up();
+   const moved=await o.boundingBox(),innerMoved=await a.boundingBox();
+   assert.ok(moved.x-ob.x<-50&&moved.y-ob.y>30,'dragging the body moves the section: '+JSON.stringify({ob,moved}));
+   assert.ok(Math.abs((innerMoved.x-inner.x)-(moved.x-ob.x))<1.5,'its contents come along');
+   assert.equal(await o.getAttribute('aria-selected'),'true','and it is selected');
+   // The name pill sits inside the top-left corner. Zoomed out it keeps its
+   // on-screen size; zoomed in it grows with the board.
+   const pill=()=>o.locator(':scope>.b4-node-body').boundingBox();
+   await page.locator('.b2-viewport').focus();await page.keyboard.press('0');await page.waitForTimeout(80);
+   let p=await pill(),sb=await o.boundingBox();
+   assert.ok(p.x>sb.x&&p.y>sb.y&&p.y+p.height<sb.y+sb.height,'the name sits inside the section');
+   const atOne=p.height;
+   for(let i=0;i<4;i++)await page.keyboard.press('-');
+   await page.waitForTimeout(80);
+   const smaller=await o.boundingBox();p=await pill();
+   assert.ok(smaller.width<sb.width*.6,'zoomed out');
+   assert.ok(Math.abs(p.height-atOne)<1.5,'zoomed out the name keeps its size: '+p.height+' vs '+atOne);
+   await page.keyboard.press('0');for(let i=0;i<2;i++)await page.keyboard.press('=');
+   await page.waitForTimeout(80);p=await pill();
+   assert.ok(p.height>atOne*1.2,'zoomed in the name grows with the board');
+   await page.keyboard.press('Shift+1');await page.waitForTimeout(80);
    // Duplicate puts the copy beside the original, one gap to the right.
    await n.focus();await page.keyboard.press('Control+d');
    life=await read();
