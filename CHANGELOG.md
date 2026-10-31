@@ -1,3 +1,13 @@
+## 5.26.0 — 2026-10-31
+Branch: claude/project-thread-bgfqx1
+- The Sections list is now a flowchart, like After Effects' Tab flowchart: Main board, then top sections, then the sections inside them, joined by curved lines with arrows.
+- Tab on the board opens it and Tab closes it (D, the Sections button and Ctrl+Space still work). Tab in the toolbar and fields still moves focus as before.
+- The board you are in is a blue pill and the way to it is blue. Click any section to go into its board; Shift+click shows it on the board.
+- Nothing from the list was lost: find (lights matches, opens folds), fold with − / +, note counts, colors and custom colors in the right-click / long-press menu, Family shade, and the Life area size tools behind ≡.
+- Keyboard: arrows follow the lines, Home goes to Main board, Enter goes in, Shift+Enter shows. In Persian it runs right to left; on a phone it is a bottom sheet with 44px pills.
+- On a desktop it opens just below the toolbar and the "where you are" bar.
+- `public/sections-list.js` is replaced by `public/sections-flow.js`; tests moved to `tests/sections-flow.test.mjs` and `tests/browser/sections-flow.cjs`.
+
 ## 5.25.0 — 2026-10-31
 Branch: claude/project-thread-slkpwv
 - New look for the whole app ("Graphite"): calm graphite surfaces in dark mode and soft aluminium grey in light mode, soft rounded corners, light outlines, and one accent (lime in dark, orange in light).

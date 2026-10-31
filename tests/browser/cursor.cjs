@@ -28,14 +28,23 @@ const { start, fixture } = require("./harness.cjs");
     assert.equal(geometry.w,requested,"custom width is saved in shared setup");
     for (const theme of ["light", "dark"]) {
       await page.evaluate((theme) => document.documentElement.dataset.theme = theme, theme);
-      const contrast = await page.locator(".dd-sections").evaluate((el) => {
+      const contrast = await page.locator(".dd-flow").evaluate((el) => {
+        // rgb()/rgba() in 0–255, or color(srgb …) in 0–1 for color-mix().
+        const parse = (value) => {
+          const n = value.match(/[\d.]+/g).map(Number), unit = value.startsWith("color(") ? 1 : 255;
+          return { rgb: n.slice(0, 3).map((v) => v / unit), alpha: n.length > 3 ? n[3] : 1 };
+        };
         const luminance = (value) => {
-          const rgb = value.match(/[\d.]+/g).slice(0, 3).map(Number).map((v) => { v /= 255; return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; });
+          const rgb = parse(value).rgb.map((v) => (v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4));
           return .2126 * rgb[0] + .7152 * rgb[1] + .0722 * rgb[2];
         };
-        const bg = luminance(getComputedStyle(el).backgroundColor);
+        // Each label against the first solid background behind it (the blue "you are here" pill has its own).
+        const behind = (node) => {
+          for (let at = node; at; at = at.parentElement) { const bg = getComputedStyle(at).backgroundColor; if (parse(bg).alpha > .5) return bg; }
+          return "rgb(255, 255, 255)";
+        };
         return [...el.querySelectorAll("strong,button")].map((node) => {
-          const fg = luminance(getComputedStyle(node).color);
+          const bg = luminance(behind(node)), fg = luminance(getComputedStyle(node).color);
           return (Math.max(bg, fg) + .05) / (Math.min(bg, fg) + .05);
         });
       });
