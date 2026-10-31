@@ -1,4 +1,4 @@
-## 5.23.0 — 2026-10-31
+## 5.24.0 — 2026-10-31
 Branch: claude/project-thread-bgfqx1
 - Sections opens a clear list again, instead of the card-file drawer (removed): Main board first, then every section in board order, right under its parent, with a guide line per level.
 - Each family sits on its top section's color; rows show note counts, "You're here" marks the board you are in, and folding (list only, remembered) shows how many are folded away.
@@ -7,6 +7,15 @@ Branch: claude/project-thread-bgfqx1
 - Subsections now get their own shade of the family color (hue turned a little, a touch lighter, fixed by id) instead of the same color as their parent.
 - Pick any color yourself from the list (palette, custom picker, or back to the family shade) or the board's color panel, for top sections and subsections. A subsection's own color is saved with `ownColor`; Claude's colors for subsections count too.
 - Tests: new unit and browser tests for the list and colors; other browser tests now use the list.
+
+## 5.23.0 — 2026-10-31
+Branch: claude/project-thread-xu3qj6
+- Browser zoom never resizes the app: Ctrl/Cmd with + = - 0 and Ctrl/Cmd+wheel are taken over everywhere. On the Board they zoom in, zoom out and fit all; Safari's pinch zooms the Board too.
+- Opening the Board from search (Ctrl+Space results, Engine, Sections and Board panels, any board item) goes straight to full screen.
+- Zoomed out, only the big sections keep their names: a section inside another hides its name and dots once it is under 260px wide on screen, and they come back when you zoom in.
+- The "+" beside a selected note is a small dot with one size and distance on screen at any zoom, and becomes a "+" under the pointer. Connection points stay one small size too. Both hide under 35% zoom.
+- Connectors are stronger: dark ink instead of faded blue or grey, never thinner than about 2.4px on screen, rounded elbow corners (dragged bends too), a filled arrowhead, and thicker and blue under the pointer. A line's own opacity setting now shows.
+- New unit and browser tests for the zoom lock, search to full screen, section names, the "+" dot and connectors.
 
 ## 5.22.0 — 2026-10-31
 Branch: claude/project-thread-xu3qj6 (started on codex/board-feel-cards)

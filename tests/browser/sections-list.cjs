@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict');
 const {start,fixture}=require('./harness.cjs');
-// The Sections list (5.23): Sections, D or Ctrl+Space bring up every section in
+// The Sections list (5.24): Sections, D or Ctrl+Space bring up every section in
 // board order, each under its parent, on its family's tint. A subsection shows
 // its own shade of the family color until it is given a color of its own. It
 // only reads setup.life, so a color or a name changed anywhere shows in the list,
@@ -48,11 +48,13 @@ const {start,fixture}=require('./harness.cjs');
    assert.equal(await modal.locator('.dd-panel-row').nth(1).getAttribute('data-panel'),'sections');
    await tap(modal.locator('.dd-panel-row[data-panel="sections"] .dd-command-open'));
    await list.waitFor();
+   await page.locator('.b2.focus-mode').waitFor();// from search the Board opens in full screen (5.23)
    assert.deepEqual(await shown(),['','a','c','e','d','b','g'],'Main board first, then each section right under its parent, in board order (not the saved order)');
    await tap(list.locator('.dd-sections-close'));await list.waitFor({state:'detached'});
 
    // Full screen board, mind map.
-   await page.locator('.b2-viewport').focus();await page.keyboard.press('Control+Shift+F');await page.locator('.b2.focus-mode').waitFor();
+   if(!await page.locator('.b2.focus-mode').count()){await page.locator('.b2-viewport').focus();await page.keyboard.press('Control+Shift+F');}
+   await page.locator('.b2.focus-mode').waitFor();
    if((await page.locator('.b2-viewport').getAttribute('data-mode'))!=='mindmap')await page.locator('.b4-modes button').nth(0).click();
 
    // The toolbar button opens it and the same button closes it.

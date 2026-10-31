@@ -124,7 +124,7 @@ Use the edge buttons or **G** (goals), **Shift+G** (notes), **Shift+H** (habits)
 
 Rail regression coverage: `node --test tests/rails.test.mjs` and `node tests/browser/rails.cjs` (both languages at 1440×900 and 390×844).
 
-## Sections list and section colors (5.23)
+## Sections list and section colors (5.24)
 
 Press **Sections** in the Board toolbar, the **D** key, or pick **Sections** (right after Engine) in Ctrl+Space. A list opens beside the board (a bottom sheet on a phone). **Main board** comes first, then every section in board order (top to bottom, then left to right), each right under its parent with a guide line per level. Each family sits on a soft wash of its top section's color. A row shows the section's note count; the board you are in is marked **You're here**. The fold arrow folds a section in the list only (the board is not touched) and shows how many sections are folded away; folds are remembered on the device.
 
@@ -132,10 +132,14 @@ Click a name to show that section on the board; ↗ goes into its own board. On 
 
 Colors: click a row's swatch for eight soft colors plus ink black and paper white, a **Custom** color picker, and, on a subsection, **Family shade**. A top section's color moves its whole family. A subsection shows its own shade of its parent's color (the hue turned a little and a touch lighter, chosen from its id, so moving or renaming it never changes it) until it gets a color of its own; that color is saved with `ownColor: true` and its children then take shades of it. The board's color panel works the same way for subsections, with "Use the family shade again". Claude's `update_life_item` color on a subsection is its own color too. `DDsectionTint(items, id)` in `public/life-board.js` returns `{ fill, ink, line, own }` for every place a section shows: board frames and name pills, the list, task chips in Mindmap, Lanes and Plan, the Engine "from" picker, the section record and search results. Task chips show the whole path ("Growth › Learning", or "Growth › … › Learning" when long), read live from `block.from`.
 
-The list lives in `public/sections-list.js`. Coverage: `node --test tests/sections-list.test.mjs` and `node tests/browser/sections-list.cjs` (en and fa at 1440×900, fa at 390×844). The 5.21 card-file drawer was removed in 5.23.
+The list lives in `public/sections-list.js`. Coverage: `node --test tests/sections-list.test.mjs` and `node tests/browser/sections-list.cjs` (en and fa at 1440×900, fa at 390×844). The 5.21 card-file drawer was removed in 5.24.
 
 ## Sticky cards (5.22)
 
 Sticky text grows the card automatically; saved legacy heights remain in the data. Side resizing chooses square or wide; corners scale the base and text together, with a minimum base of 160. Selected edges are full resize bands. The shorter toolbar keeps connection, palette, More, Plan and lock actions, plus section actions and, for tasks, Card details and Add a step. It moves beside an open side rail instead of covering it. Other commands remain in More and retain their keyboard shortcuts.
 
 Use **B**, **S̶**, **☑** or Ctrl/Cmd+B, Ctrl/Cmd+Shift+X, Ctrl/Cmd+Shift+9 for light markdown formatting. Checkboxes update the same plain note text; editing shows that text directly. New notes and duplicates show their creation date in the chosen calendar. Older day notes use their day; older Life notes have no invented date. `public/stickies.js` contains the pure formatting/sizing helpers and presentation.
+
+## Board canvas feel (5.23)
+
+Browser zoom never resizes the app: Ctrl/Cmd with **+ = - 0** and Ctrl/Cmd+wheel are caught everywhere, and on the Board they zoom in, zoom out and fit all (Safari's pinch zooms the Board as well). Opening the Board from search goes straight to full screen. Zoomed out, a section inside another hides its name and dots once it is under 260px wide on screen, so only the big sections' names stay. The "+" beside a selected note and the connection points are small dots of one size on screen, a "+" under the pointer, and hide under 35%. Connectors are dark ink with rounded elbows and a filled arrow, never thinner than about 2.4px on screen, and turn thicker and blue under the pointer. Coverage: `node --test tests/board-canvas.test.mjs` and `node tests/browser/board-canvas.cjs`.
