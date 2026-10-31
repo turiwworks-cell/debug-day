@@ -43,12 +43,14 @@ const {start,fixture}=require('./harness.cjs');
    assert.equal(await modal.locator('.dd-panel-row').nth(1).getAttribute('data-panel'),'sections');
    await tap(modal.locator('.dd-panel-row[data-panel="sections"] .dd-command-open'));
    await drawer.waitFor();
+   await page.locator('.b2.focus-mode').waitFor();// from search the Board opens in full screen (5.23)
    assert.equal(await page.locator('.views button[aria-pressed=true],.views button.on,.views button[aria-selected=true]').first().getAttribute('data-panel').catch(()=>null)??'board','board');
    assert.deepEqual(await shown(),['main','a','c','d','b','g'],'Main board first, then each divider with its cards behind it');
    await page.keyboard.press('Escape');await drawer.waitFor({state:'detached'});
 
    // Full screen board, mind map.
-   await page.locator('.b2-viewport').focus();await page.keyboard.press('Control+Shift+F');await page.locator('.b2.focus-mode').waitFor();
+   if(!await page.locator('.b2.focus-mode').count()){await page.locator('.b2-viewport').focus();await page.keyboard.press('Control+Shift+F');}
+   await page.locator('.b2.focus-mode').waitFor();
    if((await page.locator('.b2-viewport').getAttribute('data-mode'))!=='mindmap')await page.locator('.b4-modes button').nth(0).click();
 
    // The toolbar button opens it and the same button closes it.

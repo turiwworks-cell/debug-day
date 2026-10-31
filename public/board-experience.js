@@ -176,6 +176,32 @@ export function DDBoardSearch({ React:R,language,rows,query,onQuery,onReveal,onC
       r.from?h(DDSectionChip,{React:R,items,id:r.from,language,className:"dd-search-from"}):h("small",null,r.kind==="life-section"&&items.length?DDsectionPath(items,r.lifeId,60,t("Section","سکشن")).full:r.lifeId?"Life":r.kind)))));
 }
 
+// Browser zoom never resizes the app. Ctrl/Cmd with + = - 0 and Ctrl/Cmd+wheel
+// (also a trackpad pinch) are taken over everywhere; the Board turns them into
+// its own zoom. Returns 1 (in), -1 (out), 0 (fit) or null for any other key.
+export function DDzoomKey(event) {
+  if (!event || !(event.ctrlKey || event.metaKey) || event.altKey) return null;
+  const key = event.key, code = event.code || "";
+  if (key === "0" || code === "Digit0" || code === "Numpad0") return 0;
+  if (key === "-" || key === "_" || code === "Minus" || code === "NumpadSubtract") return -1;
+  if (key === "+" || key === "=" || code === "Equal" || code === "NumpadAdd") return 1;
+  return null;
+}
+export function DDinstallZoomLock(target = globalThis) {
+  if (!target?.addEventListener || target.__ddZoomLock) return;
+  target.__ddZoomLock = true;
+  target.addEventListener("keydown", (event) => {
+    const step = DDzoomKey(event);
+    if (step === null) return;
+    event.preventDefault();
+    target.dispatchEvent(new CustomEvent("debug-day-board-zoom", { detail: step }));
+  }, true);
+  target.addEventListener("wheel", (event) => { if (event.ctrlKey || event.metaKey) event.preventDefault(); }, { passive: false, capture: true });
+  // Safari pinches with gesture events; on the Board the Board zooms instead.
+  for (const type of ["gesturestart", "gesturechange", "gestureend"])
+    target.addEventListener(type, (event) => { if (event.target?.closest?.(".b2-viewport")) event.preventDefault(); }, { passive: false, capture: true });
+}
+
 export function DDinstallBoardExperience() {
   if (typeof document==="undefined" || document.getElementById("dd-board-experience")) return;
   document.head.append(Object.assign(document.createElement("style"),{id:"dd-board-experience",textContent:DDboardExperienceCSS}));
@@ -266,8 +292,10 @@ export const DDboardExperienceCSS = `
 /* Resize handles win over connection points; zoomed out, the points no longer grow over them. */
 .b6 .b4-node>.b4-node-actions:empty{display:none}
 .b6 .b4-node>.b6-note-resize[data-edge]{z-index:9}.b6 .b4-node>.b4-port{z-index:7;transform:scale(clamp(.6,var(--b4-inverse,1),1.6))}
-.b6{--dd-wire:#757575}:root[data-theme=dark] .b6{--dd-wire:#A3A3A3}
-@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .b6{--dd-wire:#A3A3A3}}
+/* Connectors read clearly: dark ink, full strength, never thinner than about 2.4px on screen. Under the pointer they thicken in blue. */
+.b6{--dd-wire:var(--ink-2,#4a4843)}
+.b6 .b4-wire-line{stroke-width:max(calc(var(--w,3) * 1px),calc(var(--w,3) * .8px * var(--b4-inverse,1)));transition:stroke .12s}
+.b6 .b4-wire:hover .b4-wire-line{stroke:var(--board-selection);stroke-width:max(calc(var(--w,3) * 1.6px),calc(var(--w,3) * 1.3px * var(--b4-inverse,1)))}
 .b6 .dd-wire-pop{display:inline-flex;align-items:center;gap:3px;margin-inline:2px;padding:2px 4px;background:#ffffff14;border-radius:8px;flex:none}
 .b6 .dd-wire-pop button{min-width:26px;height:26px;border-radius:6px;padding:0 6px;color:#fff;background:transparent;font-size:11px}
 .b6 .dd-wire-pop button[aria-pressed=true],.b6 .dd-wire-pop button:hover{background:#ffffff22}
@@ -275,5 +303,23 @@ export const DDboardExperienceCSS = `
 .b6 .dd-wire-color{display:inline-block;width:14px;height:14px;border-radius:50%;border:1.5px solid #fff8}
 @media(prefers-reduced-motion:reduce){.b6 *{transition:none!important}}
 @media(max-width:700px){.b6 .b6-properties{top:182px}.b6 .b4-sticky .dd-note-preview{padding:20px 20px 60px}}
+/* Zoomed out, a section inside another hides its name once it is small on screen; the big sections keep theirs. */
+.b6 .b4-life-section[data-label-hidden=true]:not(.selected):not(:focus-within)>:is(.b4-node-body,.dd-sec-history){opacity:0;visibility:hidden;pointer-events:none}
+.b6 .b4-life-section>:is(.b4-node-body,.dd-sec-history){transition:opacity .15s,visibility .15s}
+/* "+" beside a selected note: a small dot that keeps one size and distance on screen, a "+" under the pointer. */
+.b6 .dd-add-near{width:calc(20px * var(--b4-inverse,1));height:calc(20px * var(--b4-inverse,1));transform:translate(-50%,-50%);border:0;background:transparent;color:transparent;font-size:calc(14px * var(--b4-inverse,1));opacity:1;isolation:isolate}
+.b6 .dd-add-near::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:50%;background:var(--board-selection);transform:scale(.3);transition:transform .12s}
+.b6 .dd-add-near:hover,.b6 .dd-add-near:focus-visible{background:transparent;color:#fff}
+.b6 .dd-add-near:hover::before,.b6 .dd-add-near:focus-visible::before{transform:scale(1)}
+.b6 .dd-add-near.left{left:calc(-16px * var(--b4-inverse,1))}
+.b6 .dd-add-near.right{left:calc(100% + 16px * var(--b4-inverse,1))}
+.b6 .dd-add-near.top{top:calc(-16px * var(--b4-inverse,1))}
+.b6 .dd-add-near.bottom{top:calc(100% + 16px * var(--b4-inverse,1))}
+/* Connection points: one small dot on screen at any zoom, bigger under the pointer. */
+.b6 .b4-node>.b4-port{transform:scale(var(--b4-inverse,1))}
+.b6 .b4-port::after{width:7px;height:7px;left:18.5px;top:18.5px;transition:transform .12s}
+.b6 .b4-port:hover::after,.b6 .b4-port:focus-visible::after{transform:scale(1.7)}
+/* Far out (under 35%) the dots and "+" go. */
+.b6 .b2-viewport.b4-far :is(.dd-add-near,.b4-port){display:none}
 `;
 

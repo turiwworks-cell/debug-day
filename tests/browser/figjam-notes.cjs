@@ -62,8 +62,11 @@ const {start,fixture}=require('./harness.cjs');
    let d=await day();assert.equal(d.notes.length,before+1);
    const made=d.notes.at(-1);assert.equal(made.text,'Typed on the note');assert.equal(made.color,'#A8DAFF','the chosen color is used');
    assert.equal(await page.locator('.dd-ghost-note').evaluate((e)=>e.style.display),'none');
-   // "+" beside a selected note adds a neighbour one gap away.
-   await page.locator('.b2-viewport').focus();await page.keyboard.press('f');
+   // "+" beside a selected note adds a neighbour one gap away. Fit all lands
+   // under 35% here, where the "+" hides (5.23), so step in once.
+   const fitNear=async()=>{await page.locator('.b2-viewport').focus();await page.keyboard.press('f');await page.waitForTimeout(400);
+    if(Number(await page.locator('.b2-viewport').getAttribute('data-zoom'))<0.35){await page.keyboard.press('=');await page.waitForTimeout(300);}};
+   await fitNear();
    await note('a').locator('.dd-note-preview').click();
    const plus=note('a').locator('[data-add-near="left"]');await plus.waitFor();
    await plus.click();await page.keyboard.press('Escape');
@@ -87,7 +90,7 @@ const {start,fixture}=require('./harness.cjs');
    assert.ok((await note('a').boundingBox()).height>=(await note('a').boundingBox()).width-1,'the note stays at least square');
    // A connector dropped on empty canvas makes a connected note there.
    await page.keyboard.press('Escape');
-   await page.locator('.b2-viewport').focus();await page.keyboard.press('f');
+   await fitNear();
    await note('a').locator('.dd-note-preview').click();
    if(await note('a').locator('textarea').count())await page.keyboard.press('Escape');
    // With "+" showing there are no separate circles; dragging "+" draws the line.
