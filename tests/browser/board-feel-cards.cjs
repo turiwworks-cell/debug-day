@@ -22,6 +22,6 @@ const {start,fixture}=require('./harness.cjs');
  const labels=await page.locator('.b4-selectionbar button').evaluateAll(els=>els.map(e=>e.getAttribute('aria-label')));for(const old of ['Zoom to selection','Delete selected nodes','Duplicate selection','Edit selected node'])assert.ok(!labels.includes(old));
  if(!mobile){const r=await note.boundingBox(),bar=await page.locator('.b4-selectionbar').boundingBox();assert.ok(r.y-bar.y-bar.height>=16);await page.mouse.move(r.x+r.width-1,r.y+r.height*.3);await page.mouse.down();await page.mouse.move(r.x+r.width+105,r.y+r.height*.3,{steps:8});await page.mouse.up();await page.waitForTimeout(160);assert.equal((await read()).days[f.date].canvas.board4.styles['sticky:note'].width,360);}
  await canvas.focus();await page.keyboard.press('Shift+2');await page.waitForTimeout(150);
- await page.screenshot({path:'C:/Users/sa/Documents/Codex/2026-10-31/files-pasted-by-the-user-debug/outputs/cards-'+language+'-'+(mobile?'phone':'desktop')+'.png'});
+ await page.screenshot({path:require('node:path').join(require('node:os').tmpdir(),'cards-'+language+'-'+(mobile?'phone':'desktop')+'.png')});
  await page.reload();await page.waitForSelector('#qa',{state:'attached'});const saved=(await read()).days[f.date].notes;assert.ok(saved.every(n=>n.id==='note'||n.at===f.date));assert.deepEqual(errors,[]);await page.context().close();console.log('cards',language,mobile?'phone':'desktop','ok');
  }}finally{await h.stop();}})().catch(e=>{console.error(e);process.exit(1)});

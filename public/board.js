@@ -1318,6 +1318,16 @@ export function DDcreateBoard(deps) {
         if(pr.left-vr.left-bar.offsetWidth-12>=8)position.x=pr.left-vr.left-bar.offsetWidth-12;
         else position.y=Math.max((br?.bottom||vr.top+114)-vr.top+6,pr.top-vr.top-bar.offsetHeight-8);
       }
+      // Never cover an open side rail: slide beside it.
+      for(const r of [...host.querySelectorAll(".dd-rail-panel")].map((e)=>e.getBoundingClientRect()).filter((r)=>r.width&&r.height)){
+        const L=r.left-vr.left,R=r.right-vr.left,T=r.top-vr.top,B=r.bottom-vr.top;
+        if(position.x+bar.offsetWidth>L&&position.x<R&&position.y+bar.offsetHeight>T&&position.y<B){
+          if(L>vr.width/2&&L-bar.offsetWidth-8>=8)position.x=L-bar.offsetWidth-8;
+          else if(R+8+bar.offsetWidth<=vr.width-8)position.x=R+8;
+          else if(B+8+bar.offsetHeight<=vr.height-8)position.y=B+8;
+          else if(T-8-bar.offsetHeight>=8)position.y=T-8-bar.offsetHeight;
+        }
+      }
       bar.style.left = position.x + "px"; bar.style.top = position.y + "px";
     }
     function paintCamera() {
@@ -5217,9 +5227,7 @@ export function DDcreateBoard(deps) {
           }) : []),
           ...styleItems,
           selectedNode?.kind === "block" && item("task-symbol","Change task sticker / emoji","تغییر استیکر / ایموجی کار","spark",()=>{finishEdit();setStickerPicker({target:selectedNode.blockId,current:selectedNode.emoji});},{disabled:allLocked}),
-          selectedNode && item("card-details","Card details","جزئیات کارت","task",()=>{setDetails(v=>!v);setProperties(false);}),
-          selectedNode && ["block","subtask"].includes(selectedNode.kind) && item("add-step","Add a step","افزودن قدم","plus",()=>setChild({blockId:selectedNode.blockId,subId:selectedNode.subId||null,value:""})),
-          item("fit-selection","Zoom to selection","نمای انتخاب","fit",()=>fit(true)),
+          item("fit-selection","Zoom to selection","زوم روی انتخاب","fit",()=>fit(true)),
           item("select-branch","Select branch","انتخاب شاخه","tree",selectBranch,{disabled:!selectedNode}),
           sep("clipboard-sep"),
           item("copy", "Copy", "کپی", "copy", () => copySelection(), {
@@ -5452,7 +5460,7 @@ export function DDcreateBoard(deps) {
         setSelected(new Set([n.id]));setWireId(null);queueCamera();scheduleCamera();viewport.current.focus({preventScroll:true});
       }
       paintSelection();
-    },[layout,selected,wireId,wireSelection,focus,properties,tick]);
+    },[layout,selected,wireId,wireSelection,focus,properties,tick,setup.preferences]);
     return _.createElement(
       "section",
       {
@@ -5648,7 +5656,7 @@ export function DDcreateBoard(deps) {
                     "span",
                     { dir: "auto" },
                     selectedNode
-                      ? selectedNode.title
+                      ? (selectedNode.kind === "sticky" ? String(selectedNode.title || "").replace(/\*\*|~~/g, "").replace(/^\s*- \[[ xX]\]\s*/gm, "") : selectedNode.title)
                       : (selected.size
                           ? selected.size + t(" objects", " شیء")
                           : "") +
@@ -5662,6 +5670,27 @@ export function DDcreateBoard(deps) {
                   selectedNode?.min > 0 &&
                     _.createElement("b", null, w(selectedNode.min)),
                 ),
+                // Tasks keep their own two actions; the note-only buttons below were trimmed.
+                selectedNode &&
+                  ["block", "subtask", "bug", "habit"].includes(selectedNode.kind) &&
+                  toolButton(
+                    t("Card details", "جزئیات کارت"),
+                    "task",
+                    () => {
+                      setDetails(!details);
+                      setProperties(false);
+                    },
+                    { "aria-pressed": details },
+                  ),
+                selectedNode &&
+                  (selectedNode.kind === "block" || selectedNode.kind === "subtask") &&
+                  toolButton(
+                    t("Add a step", "افزودن قدم"),
+                    "plus",
+                    () => setChild({ blockId: selectedNode.blockId, subId: selectedNode.subId || null, value: "" }),
+                    { "data-add-step": true },
+                    t("Step", "قدم"),
+                  ),
                 toolButton(
                   t("Color & properties", "رنگ و ویژگی‌ها"),
                   "palette",

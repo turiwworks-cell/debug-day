@@ -79,10 +79,12 @@ const {start,fixture}=require('./harness.cjs');
    await drag(note('a').locator('[data-edge="e"]'),60,30);
    let s=await style('a');assert.ok(s.width>240,'right edge widens');assert.equal(s.height,240,'right edge keeps the height');assert.equal(s.textSize,16);
    const w0=s.width;
+   await page.waitForTimeout(250); // the width settles with a short snap animation
    await drag(note('a').locator('[data-edge="se"]'),80,80);
-   s=await style('a');const k=s.height/240;
+   // Height follows the text (5.21), so the scale shows in the text size and width.
+   s=await style('a');const k=s.textSize/16;
    assert.ok(k>1.1,'corner scales up');assert.ok(Math.abs(s.width/w0-k)<.02,'corner keeps the proportions');
-   assert.ok(Math.abs(s.textSize-16*k)<.2,'corner scales the text too');
+   assert.ok((await note('a').boundingBox()).height>=(await note('a').boundingBox()).width-1,'the note stays at least square');
    // A connector dropped on empty canvas makes a connected note there.
    await page.keyboard.press('Escape');
    await page.locator('.b2-viewport').focus();await page.keyboard.press('f');

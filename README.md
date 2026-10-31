@@ -126,6 +126,6 @@ Rail regression coverage: `node --test tests/rails.test.mjs` and `node tests/bro
 
 ## Sticky cards (5.21)
 
-Sticky text grows the card automatically; saved legacy heights remain in the data. Side resizing chooses square or wide; corners scale the base and text together, with a minimum base of 160. Selected edges are full resize bands. The shorter toolbar keeps connection, palette, More, Plan and lock actions, plus section actions. Other commands remain in More and retain their keyboard shortcuts.
+Sticky text grows the card automatically; saved legacy heights remain in the data. Side resizing chooses square or wide; corners scale the base and text together, with a minimum base of 160. Selected edges are full resize bands. The shorter toolbar keeps connection, palette, More, Plan and lock actions, plus section actions and, for tasks, Card details and Add a step. It moves beside an open side rail instead of covering it. Other commands remain in More and retain their keyboard shortcuts.
 
 Use **B**, **S̶**, **☑** or Ctrl/Cmd+B, Ctrl/Cmd+Shift+X, Ctrl/Cmd+Shift+9 for light markdown formatting. Checkboxes update the same plain note text; editing shows that text directly. New notes and duplicates show their creation date in the chosen calendar. Older day notes use their day; older Life notes have no invented date. `public/stickies.js` contains the pure formatting/sizing helpers and presentation.
