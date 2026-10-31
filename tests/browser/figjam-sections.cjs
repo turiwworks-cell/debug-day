@@ -50,7 +50,7 @@ const {join}=require('node:path');
    assert.ok(frameAfter.x-frameBefore.x>60,'the outer section moved');
    assert.ok(Math.abs((after.x-before.x)-(frameAfter.x-frameBefore.x))<1.5&&Math.abs((after.y-before.y)-(frameAfter.y-frameBefore.y))<1.5,'nested notes move with the outer section');
    // On the empty body of a section that is not selected, a drag draws a selection
-   // box (5.26); once the section is selected, a drag on its body moves it.
+   // box (5.28); once the section is selected, a drag on its body moves it.
    await page.keyboard.press('Escape');
    const ob=await o.boundingBox(),inner=await a.boundingBox(),body={x:ob.x+ob.width-14,y:ob.y+ob.height-14};
    assert.ok(body.x>inner.x+inner.width&&body.y>inner.y+inner.height,'the grab point is on the outer section only');

@@ -25,7 +25,7 @@ const { start, fixture } = require("./harness.cjs");
     assert.equal(await page.locator(".views button .dd-panel-icon").count(), 3);
     const color = (selector) => page.locator(selector).first().evaluate((node) => getComputedStyle(node).getPropertyValue("--pc").trim());
     assert.equal(await color('.dd-habits[data-panel="habits"]'), "#2BA672");
-    // App changes was removed (5.26): no section, no panel.
+    // App changes was removed (5.28): no section, no panel.
     assert.equal(await page.locator('[data-section-id="lab"]').count(), 0);
 
     // The footer no longer repeats the header's map, Calendar and Feelings.
@@ -63,7 +63,7 @@ const { start, fixture } = require("./harness.cjs");
     await banner.locator('.dd-panel-icon[data-panel="plan"]').waitFor();
     assert.equal(await page.locator("section.plan").count(), 1);
     assert.equal(await page.locator(".dd-habits").count(), 0);
-    // App changes was removed (5.26), so search no longer offers it.
+    // App changes was removed (5.28), so search no longer offers it.
     await page.keyboard.press("Control+Space");
     await modal.getByRole("combobox").fill("app changes");
     assert.equal(await modal.locator('.dd-panel-row[data-panel="lab"]').count(), 0);

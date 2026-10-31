@@ -374,6 +374,12 @@ const { start, fixture } = require("./harness.cjs");
         await nav(1);
         await page.locator(".b4-modes button").nth(1).click();
         await page.waitForSelector('.b2-viewport[data-mode="lanes"]');
+        // Switching mode fits the day on the next tick; read the lane only once the camera is still.
+        await page.waitForFunction(() => {
+          const now = document.querySelector(".b2-world").style.transform, w = window;
+          if (w.__ddCam !== now) { w.__ddCam = now; w.__ddCamAt = performance.now(); return false; }
+          return performance.now() - w.__ddCamAt > 200;
+        }, null, { polling: 50 });
         const task = page.locator('[data-board-id="b:writing"] .b4-node-body'),
           frame = await page
             .locator('[data-board-id="lane:life"]')
@@ -393,8 +399,10 @@ const { start, fixture } = require("./harness.cjs");
           .getByRole("button", { name: t("Undo", "واگرد"), exact: true })
           .click();
         assert.equal((await read()).blocks[0].lane, "work");
+        // Redo lives in the top dock's ⋯.
+        await page.locator('[data-dock-more="top"]').click();
         await page
-          .getByRole("button", { name: t("Redo", "انجام دوباره"), exact: true })
+          .getByRole("menuitem", { name: t("Redo", "انجام مجدد"), exact: true })
           .click();
         assert.equal((await read()).blocks[0].lane, "life");
         await nav(0);

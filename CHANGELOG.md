@@ -1,3 +1,43 @@
+## 5.28.0 — 2026-10-31
+Branch: claude/project-thread-slkpwv
+- Notes: a to-do list no longer breaks the note. The tick box was stretched across the note and squeezed the words into one letter per line; now each task sits on one line beside a small box. Turning lines into to-dos never doubles a box ("- [ ] - [ ]") or touches blank lines.
+- Notes: text is larger and firmer (×1.15, medium weight, darker), and a note without its own size now reads at 16px like new notes.
+- Notes keep their size at every zoom. Zooming out no longer makes notes taller (their date line used to grow with zoom-out and stretch them).
+- Double-click (or double-tap) anywhere makes a note there, ready to type: empty board, inside a section, the Engine or the Feed. A double-click on a section's name still renames it; on a note or card it still edits.
+- Notes are made on sections: the Note tool (S) now works over a section and the note joins that section.
+- Sections and selection: a section's name always drags it. On its empty area a click selects it, a drag draws a selection box (so you can pick notes and sections inside it together), and once it is selected a drag there moves everything selected. Shift-click still adds or removes.
+- Section names follow one rule at every zoom: they shrink with the board only down to a readable size, never run past their section (long names end in "…"), always sit above the notes inside, and when two names would overlap the bigger section keeps its name until there is room again. No more huge names zoomed out, or names that vanish right away.
+- The Life section is now called Feed (فید): its pill, the toolbar, search and the size tools. Your Life lane is unchanged.
+- The Feed moves: drag its name pill. It keeps its spot on every day. The Feed and the Engine both grow from a corner grip (bottom-right); the Engine keeps the size you give it, and a new day starts with the same size.
+- Habits are no longer a section under the Engine on the board; the habits rail beside the board (Shift+H) is where they live.
+- Plan no longer shows the Feed list.
+- App changes is removed: no section, no panel, no search results, no Settings entry. Old notes stay saved.
+- The selection bar shows "3 objects" or a section's name in full instead of cutting it after a few letters.
+- New browser test `tests/browser/board-fixes.cjs`; tests for habits, panels, rails, search, sections, notes and section names updated.
+
+## 5.27.0 — 2026-10-31
+Branch: claude/project-thread-ix6zdi
+- Every Board dock keeps only what you use most; the rest moved to a right-click on that dock, or its ⋯ button (on a phone too). Nothing was removed.
+- Top bar keeps Undo, Timer, Search, Engine, Life, Sections and Full screen. Redo, Fit all, light / dark, Export SVG and Help moved to its ⋯.
+- Tools dock keeps Select, Hand, Task, Note, Section and Stickers. Snap, Dot grid, Minimap and Canvas settings moved to its ⋯.
+- Selection bar keeps Card details, Add a step, Color, → Plan, and for a section Open and Fold. Lock, a section's add / remove, and note styling (outside typing) are in ⋯. Bold, strike and to-do still show while you type in a note.
+- Line bar keeps color, weight, the three line shapes, end arrow and Reverse. Text, dashes, start arrow, details and delete are in ⋯.
+- Right-click the zoom box for its presets.
+- New icons for all Board docks and menus, from one set (`public/board-icons.js`). Each action has its own picture: Full screen, Fit all and Life no longer look alike, the Engine is a gear and Canvas settings are sliders, Sections is a tree instead of "···", the Section tool is a titled frame instead of a task box, Snap is a magnet and the Minimap is a small map.
+- Goals, Notes and Today's habits pills use the new icons (flag, page, repeat-check).
+- Tests updated for the moved buttons.
+- The Lanes drag test now waits for the board's camera to stop moving before it measures the lane, so it no longer fails now and then.
+
+## 5.26.0 — 2026-10-31
+Branch: claude/project-thread-bgfqx1
+- The Sections list is now a flowchart, like After Effects' Tab flowchart: Main board, then top sections, then the sections inside them, joined by curved lines with arrows.
+- Tab on the board opens it and Tab closes it (D, the Sections button and Ctrl+Space still work). Tab in the toolbar and fields still moves focus as before.
+- The board you are in is a blue pill and the way to it is blue. Click any section to go into its board; Shift+click shows it on the board.
+- Nothing from the list was lost: find (lights matches, opens folds), fold with − / +, note counts, colors and custom colors in the right-click / long-press menu, Family shade, and the Life area size tools behind ≡.
+- Keyboard: arrows follow the lines, Home goes to Main board, Enter goes in, Shift+Enter shows. In Persian it runs right to left; on a phone it is a bottom sheet with 44px pills.
+- On a desktop it opens just below the toolbar and the "where you are" bar.
+- `public/sections-list.js` is replaced by `public/sections-flow.js`; tests moved to `tests/sections-flow.test.mjs` and `tests/browser/sections-flow.cjs`.
+
 ## 5.25.0 — 2026-10-31
 Branch: claude/project-thread-slkpwv
 - New look for the whole app ("Graphite"): calm graphite surfaces in dark mode and soft aluminium grey in light mode, soft rounded corners, light outlines, and one accent (lime in dark, orange in light).

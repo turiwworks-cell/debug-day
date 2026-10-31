@@ -96,7 +96,7 @@ const {start,fixture}=require('./harness.cjs');
     assert.equal(await plus.evaluate((e)=>getComputedStyle(e).display),'none','far out the "+" goes');
     await key('0');
    }
-   // Section names (5.26): one rule at every zoom. A name shrinks with the board down to a
+   // Section names (5.28): one rule at every zoom. A name shrinks with the board down to a
    // readable size and stays while there is room; it steps aside only when it would sit on a
    // bigger section's name (or its section is a speck), and comes back when there is room again.
    await page.locator('[data-life-jump]').click();await page.waitForTimeout(250);

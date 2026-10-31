@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict');
 const {start,fixture}=require('./harness.cjs');
-// Board fixes (5.26): notes keep their size at every zoom and read clearly,
+// Board fixes (5.28): notes keep their size at every zoom and read clearly,
 // notes are made on sections (sticky tool and double-click), a double-click
 // anywhere makes a note, a drag on a section's empty area selects what is in
 // it, the Feed moves by its name and grows from its corner, and the Engine

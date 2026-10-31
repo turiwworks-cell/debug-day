@@ -86,15 +86,15 @@ export function DDpanelCounts(day = {}, setup = {}, language) {
   };
 }
 
-// The Section Drawer is not a panel of its own: it opens over the Board. It
-// sits right after the Engine in Ctrl+Space.
+// The Sections flowchart is not a panel of its own: it opens over the Board.
+// It sits right after the Engine in Ctrl+Space.
 export const DDsectionsCommand = {
   id: "sections",
   icon: "🗂️",
   color: "#8A6E4B",
   name: ["Sections", "سکشن‌ها"],
-  about: ["Open the Sections list: find a section, show it on the board or go into its board", "فهرست سکشن‌ها را باز کن: یک سکشن پیدا کن، روی برد نشانش بده یا وارد بردش شو"],
-  words: "sections list drawer colors life rooms سکشن فهرست کشو رنگ زندگی",
+  about: ["Open the Sections flowchart: see every section at once and go into any of them", "فلوچارت سکشن‌ها را باز کن: همهٔ سکشن‌ها را یک‌جا ببین و وارد هر کدام شو"],
+  words: "sections flowchart flow chart tree list drawer colors life rooms سکشن فلوچارت درخت فهرست کشو رنگ زندگی",
   isolate: false,
 };
 

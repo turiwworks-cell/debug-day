@@ -256,7 +256,7 @@ export function DDbuildSearchIndex(data, today) {
         group: "notes",
       });
   }
-  // App changes (feedback) was removed from the app in 5.26; its old data stays saved but is not searched.
+  // App changes (feedback) was removed from the app in 5.28; its old data stays saved but is not searched.
   for (const worry of setup.worries || [])
     add({
       id: "worry:" + worry.id,

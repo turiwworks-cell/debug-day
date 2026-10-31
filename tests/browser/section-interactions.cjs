@@ -44,7 +44,8 @@ const {join}=require('node:path');
     }
     assert.equal(await note.locator('textarea').count(),0,'short touch drags do not enter edit mode');
     await page.locator('[data-sections-button]').click();
-    await page.locator('.dd-sections [data-section-show="b"]').click();
+    await page.locator('.dd-flow [data-flow-node="b"] .dd-flow-pill').dispatchEvent('contextmenu');
+    await page.locator('.dd-flow [data-flow-show="b"]').tap();await page.locator('.dd-flow').waitFor({state:'detached'});
     assert.equal(await page.locator('[data-life-id="b"]').getAttribute('aria-selected'),'true','section navigator is reachable on phones');
    }else{
     await note.focus();

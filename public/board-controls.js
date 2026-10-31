@@ -1,65 +1,6 @@
+import { DDBoardIcon } from "./board-icons.js";
 // Small React controls are kept separate from pointer/gesture handling.
 export function DDcreateBoardControls(core) {
-  const icons = {
-    select: "M4 3l5 14 2-6 6-2z",
-    hand: "M7 10V5a1.5 1.5 0 013 0v4-6a1.5 1.5 0 013 0v6-4a1.5 1.5 0 013 0v7l-2 5H8l-4-5a1.5 1.5 0 012-2l1 1",
-    download: "M10 2v10M6 8l4 4 4-4M3 14v4h14v-4",
-    copy: "M7 7h10v10H7zM4 13V4h9",
-    cut: "M7 7l10 10M7 13L17 3M6 3a3 3 0 110 6 3 3 0 010-6zM6 11a3 3 0 110 6 3 3 0 010-6z",
-    paste: "M7 5H4v13h12V5h-3M7 3h6v4H7z",
-    duplicate: "M7 7h10v10H7zM3 11V3h8M9 12h6M12 9v6",
-    trash: "M4 6h12M8 6V3h4v3M6 6l1 12h6l1-12M9 9v6M12 9v6",
-    edit: "M4 14l-1 4 4-1L17 7l-3-3zM12 6l3 3",
-    connect: "M4 4h4v4H4zM12 12h4v4h-4zM8 6h6v6",
-    palette:
-      "M10 3a7 7 0 100 14h1a2 2 0 001-3 1 1 0 011-2h2c4 0 2-9-5-9zM6 8h.1M9 6h.1M13 7h.1M5 11h.1",
-    opacity: "M10 2c-2 3-6 7-6 10a6 6 0 0012 0c0-3-4-7-6-10zM10 6v10",
-    lock: "M5 9h10v9H5zM7 9V6a3 3 0 016 0v3",
-    unlock: "M5 9h10v9H5zM7 9V6a3 3 0 015-2",
-    group: "M3 3h5v5H3zM12 12h5v5h-5zM12 3h5v5h-5zM3 12h5v5H3z",
-    ungroup: "M2 6V2h4M14 2h4v4M2 14v4h4M14 18h4v-4M7 7h6v6H7z",
-    front: "M6 6h11v11H6zM3 11V3h8M10 10l3-3 3 3M13 7v7",
-    back: "M3 3h11v11H3zM7 17h10V7M5 8l3 3 3-3M8 5v6",
-    forward: "M5 5h12v12H5zM2 10V2h8M8 11l3-3 3 3",
-    backward: "M3 3h12v12H3zM7 18h11V7M6 8l3 3 3-3",
-    left: "M3 3v14M6 6h10v3H6zM6 12h7v3H6z",
-    centerX: "M10 2v16M4 5h12v3H4zM6 12h8v3H6z",
-    right: "M17 3v14M4 6h10v3H4zM7 12h7v3H7z",
-    top: "M3 3h14M6 6h3v10H6zM12 6h3v7h-3z",
-    centerY: "M2 10h16M5 4h3v12H5zM12 6h3v8h-3z",
-    bottom: "M3 17h14M6 4h3v10H6zM12 7h3v7h-3z",
-    distributeX: "M3 3v14M17 3v14M6 6h2v8H6zM12 6h2v8h-2z",
-    distributeY: "M3 3h14M3 17h14M6 6h8v2H6zM6 12h8v2H6z",
-    fit: "M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4M7 7h6v6H7z",
-    zoom: "M8.5 3a5.5 5.5 0 110 11 5.5 5.5 0 010-11zM13 13l4 4",
-    grid: "M4 4h1M9 4h1M14 4h1M4 9h1M9 9h1M14 9h1M4 14h1M9 14h1M14 14h1",
-    settings:
-      "M10 6a4 4 0 110 8 4 4 0 010-8zM10 2v2M10 16v2M2 10h2M16 10h2M4 4l1 1M15 15l1 1M4 16l1-1M15 5l1-1",
-    check: "M4 10l4 4 8-9",
-    close: "M5 5l10 10M15 5L5 15",
-    more: "M4 10h.1M10 10h.1M16 10h.1",
-    chevron: "M7 4l6 6-6 6",
-    arrow: "M3 10h14M12 5l5 5-5 5",
-    reverse: "M3 6h14l-3-3M17 14H3l3 3",
-    undo: "M7 4L3 8l4 4M3 8h8a5 5 0 010 10",
-    redo: "M13 4l4 4-4 4M17 8H9a5 5 0 000 10",
-    note: "M4 3h12v10l-4 4H4zM12 17v-4h4",
-    task: "M3 4h14v13H3zM6 8l1 1 2-2M11 8h3M6 13h8",
-    text: "M4 4h12M10 4v13M7 17h6",
-    eye: "M2 10c5-8 11-8 16 0-5 8-11 8-16 0zM10 7a3 3 0 110 6 3 3 0 010-6z",
-    eyedropper: "M13 3l4 4-2 2-4-4zM12 7L4 15v2h2l8-8",
-    spark: "M10 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z",
-    help: "M7 6a3 3 0 015 1c0 2-2 2-2 5M10 16h.1M10 2a8 8 0 110 16 8 8 0 010-16z",
-    plus: "M10 3v14M3 10h14",
-    reset: "M4 5v5h5M4 10a6 6 0 116 6",
-    pin: "M6 3h8M7 3v6l-3 3h12l-3-3V3M10 12v6",
-    align: "M4 3v14M7 6h10M7 10h7M7 14h10",
-    timer: "M7 2h6M10 5a6 6 0 110 12 6 6 0 010-12zM10 8v4l2 1M14 4l2 2",
-    play: "M6 3l11 7-11 7z",
-    pause: "M6 4v12M14 4v12",
-    moon: "M16 12A7 7 0 018 3a7 7 0 108 9z",
-    sun: "M10 6a4 4 0 110 8 4 4 0 010-8zM10 1v2M10 17v2M1 10h2M17 10h2M4 4l1 1M15 15l1 1M4 16l1-1M15 5l1-1",
-  };
   function ui(R, language) {
     return {
       h: R.createElement,
@@ -67,48 +8,9 @@ export function DDcreateBoardControls(core) {
       fa: language === "fa",
     };
   }
+  // The pictures live in board-icons.js, shared with the rails and docks.
   function Icon({ React: R, name, size = 18 }) {
-    return R.createElement(
-      "svg",
-      {
-        width: size,
-        height: size,
-        viewBox: "0 0 20 20",
-        "data-icon": name,
-        fill: "none",
-        stroke: "currentColor",
-        strokeWidth: 1.6,
-        strokeLinecap: "round",
-        strokeLinejoin: "round",
-        "aria-hidden": true,
-      },
-      R.createElement("path", {
-        d:
-          icons[
-            {
-              connector: "connect",
-              sort: "select",
-              tree: "connect",
-              smile: "spark",
-              layers: "front",
-              branch: "group",
-              feeling: "spark",
-              swap: "reverse",
-              map: "eye",
-              snap: "pin",
-              block: "task",
-              gridDots: "grid",
-              minimap: "eye",
-              search: "zoom",
-              expand: "fit",
-              shrink: "fit",
-              fitAll: "fit",
-              gear: "settings",
-              "?": "help",
-            }[name] || name
-          ] || icons.more,
-      }),
-    );
+    return DDBoardIcon({ React: R, name, size });
   }
   function NumberField({
     React: R,
@@ -960,6 +862,14 @@ export function DDcreateBoardControls(core) {
         className: "b2-camera b6-camera",
         ref: root,
         dir: "ltr",
+        "data-dock": "zoom",
+        // Right-click opens the same presets as the ▾ button.
+        onContextMenu: (e) => {
+          if (e.target.closest("input")) return;
+          e.preventDefault();
+          e.stopPropagation();
+          setOpen(true);
+        },
         onKeyDown: (e) => {
           if (e.key === "Escape") {
             setOpen(false);
@@ -975,7 +885,7 @@ export function DDcreateBoardControls(core) {
           title: t("Zoom out", "کوچک‌نمایی"),
           onClick: () => onZoom(core.zoomStep(getCamera().z, -1)),
         },
-        "−",
+        h(Icon, { React: R, name: "minus", size: 16 }),
       ),
       h(
         "label",
@@ -1014,7 +924,7 @@ export function DDcreateBoardControls(core) {
           title: t("Zoom in", "بزرگ‌نمایی"),
           onClick: () => onZoom(core.zoomStep(getCamera().z, 1)),
         },
-        "+",
+        h(Icon, { React: R, name: "plus", size: 16 }),
       ),
       h(
         "button",

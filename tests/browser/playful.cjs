@@ -170,7 +170,7 @@ async function scenario(h,mobile,language){
       await page.getByRole("button",{name:"Undo",exact:true}).click();
       assert.equal((await read(page,f.date)).notes.length,2);
       const pending=page.waitForEvent("download");
-      await page.getByRole("button",{name:"Export board SVG",exact:true}).click();
+      await page.locator('[data-dock-more="top"]').click();await page.getByRole("menuitem",{name:"Export board SVG",exact:true}).click();
       const download=await pending,svg=readFileSync(await download.path(),"utf8");
       assert.match(svg,/dd-sticker-art/);assert.match(svg,/linearGradient/);assert.doesNotMatch(svg,/>sticker:cloud</);
     }
