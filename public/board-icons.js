@@ -1,0 +1,123 @@
+// One icon set for every Board dock and menu. 20×20, 1.6 stroke, round ends.
+// Each picture shows what the button does, and no two actions share a picture.
+const dot = (x, y, r = 1) => `M${x - r} ${y}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0z`;
+const corners = "M3 7V4.5A1.5 1.5 0 014.5 3H7M13 3h2.5A1.5 1.5 0 0117 4.5V7M17 13v2.5a1.5 1.5 0 01-1.5 1.5H13M7 17H4.5A1.5 1.5 0 013 15.5V13";
+export const DDboardIcons = {
+  // Tools
+  select: "M5 3l11 6.6-4.8 1.3L8.6 15.6z",
+  hand: "M7 10V5a1.5 1.5 0 013 0v4-6a1.5 1.5 0 013 0v6-4a1.5 1.5 0 013 0v7l-2 5H8l-4-5a1.5 1.5 0 012-2l1 1",
+  task: "M5 3h10a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2zM6.5 10.2l2.4 2.4 4.6-5",
+  note: "M4 3h12v9l-5 5H4zM11 17v-5h5",
+  section: "M3 8h14v8.5a.5.5 0 01-.5.5h-13a.5.5 0 01-.5-.5zM4.5 2.5h4a1.5 1.5 0 010 3h-4a1.5 1.5 0 010-3z",
+  sticker: "M10 2.5a7.5 7.5 0 110 15 7.5 7.5 0 010-15zM6.8 11.6c1.7 2 4.7 2 6.4 0" + dot(7.6, 8, 0.4) + dot(12.4, 8, 0.4),
+  // View
+  snap: "M4 3h4v7a2 2 0 004 0V3h4v7a6 6 0 01-12 0zM4 6.5h4M12 6.5h4",
+  grid: [5, 10, 15].flatMap((y) => [5, 10, 15].map((x) => dot(x, y, 0.65))).join(""),
+  map: "M2.5 4h15v12h-15zM10.5 9.5h5v4.5h-5z",
+  settings: "M3 6h8M15 6h2M13 4a2 2 0 110 4 2 2 0 010-4zM3 14h2M9 14h8M7 12a2 2 0 110 4 2 2 0 010-4z",
+  fitAll: corners + dot(7.5, 8, 1) + dot(12.5, 8.5, 1) + dot(9.5, 12.5, 1),
+  fit: corners + "M7.5 7.5h5v5h-5z",
+  fitDay: corners + dot(10, 10, 2.4),
+  expand: "M12 3h5v5M17 3l-5.5 5.5M8 17H3v-5M3 17l5.5-5.5",
+  shrink: "M16 8h-4.5V3.5M11.5 8.5L17 3M4 12h4.5v4.5M8.5 11.5L3 17",
+  zoom: "M8.5 3a5.5 5.5 0 110 11 5.5 5.5 0 010-11zM13 13l4 4",
+  zoomIn: "M8.5 3a5.5 5.5 0 110 11 5.5 5.5 0 010-11zM13 13l4 4M8.5 6v5M6 8.5h5",
+  minus: "M4 10h12",
+  plus: "M10 4v12M4 10h12",
+  // Places
+  engine: "M8.4 4.2L8.6 2.1h2.8l.2 2.1 1.4.6 1.6-1.3 1.9 1.9-1.3 1.6.6 1.4 2.1.2v2.8l-2.1.2-.6 1.4 1.3 1.6-1.9 1.9-1.6-1.3-1.4.6-.2 2.1H8.6l-.2-2.1-1.4-.6-1.6 1.3-1.9-1.9 1.3-1.6-.6-1.4-2.1-.2V8.6l2.1-.2.6-1.4-1.3-1.6 1.9-1.9L7 4.8zM10 7.5a2.5 2.5 0 110 5 2.5 2.5 0 010-5z",
+  leaf: "M4.5 15.5C4.5 8 8.5 3.5 16.5 3.5c0 8-4.5 12-12 12zM4.5 15.5l6.5-6.5M3 17l1.5-1.5",
+  sections: "M4 3.5h2.5M10 4.5h7M4 3.5V16M4 10h3M10 10h7M4 16h3M10 16h7",
+  enter: "M9 4H5a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1v-4M12 3h5v5M17 3l-7 7",
+  goal: "M5 18V3M5 3.5h9.5l-2.3 3.2 2.3 3.3H5",
+  lines: "M5 3h10v14H5zM8 7h4M8 10h4M8 13h2.5",
+  habit: "M16.5 10a6.5 6.5 0 11-2-4.7M16.5 3v3.2h-3.2M7.2 10.2l2 2 3.8-4",
+  // History and help
+  undo: "M7.5 4.5L4 8l3.5 3.5M4 8h8a4.5 4.5 0 010 9H9",
+  redo: "M12.5 4.5L16 8l-3.5 3.5M16 8H8a4.5 4.5 0 000 9h3",
+  help: "M10 2.5a7.5 7.5 0 110 15 7.5 7.5 0 010-15zM7.7 7.6A2.4 2.4 0 0112.4 8c0 1.7-2.4 2-2.4 3.6" + dot(10, 14.2, 0.4),
+  info: "M10 2.5a7.5 7.5 0 110 15 7.5 7.5 0 010-15zM10 9v5" + dot(10, 6.2, 0.4),
+  timer: "M7.5 2h5M10 5a6 6 0 110 12 6 6 0 010-12zM10 8v3.5l2 1.2M14.6 4.6l1.3 1.3",
+  moon: "M16 12A7 7 0 018 3a7 7 0 108 9z",
+  sun: "M10 6.5a3.5 3.5 0 110 7 3.5 3.5 0 010-7zM10 1.5v2M10 16.5v2M1.5 10h2M16.5 10h2M4 4l1.4 1.4M14.6 14.6L16 16M4 16l1.4-1.4M14.6 5.4L16 4",
+  export: "M10 13V3M6.5 6.5L10 3l3.5 3.5M4 11v5a1 1 0 001 1h10a1 1 0 001-1v-5",
+  download: "M10 3v10M6.5 9.5L10 13l3.5-3.5M4 15v1a1 1 0 001 1h10a1 1 0 001-1v-1",
+  // Selection
+  palette: "M10 2.5a7.5 7.5 0 100 15c1.3 0 1.8-.9 1.4-1.9-.5-1.1.1-2.1 1.3-2.1h1.8c2 0 3-1.2 3-3.3 0-4.3-3.3-7.7-7.5-7.7z" + dot(6.3, 9.5, 0.6) + dot(8, 6.2, 0.6) + dot(12, 6.2, 0.6),
+  more: dot(4.5, 10, 0.6) + dot(10, 10, 0.6) + dot(15.5, 10, 0.6),
+  lock: "M5 9h10v8.5H5zM7 9V6.5a3 3 0 016 0V9M10 12.3v2",
+  unlock: "M5 9h10v8.5H5zM7 9V6.5a3 3 0 015.6-1.5M10 12.3v2",
+  addStep: "M3 4h10M6 4v5.5A1.5 1.5 0 007.5 11H9M14 9v7M10.5 12.5h7",
+  toPlan: "M2.5 10H8M5.5 7.5L8 10l-2.5 2.5M10 4h5.5A1.5 1.5 0 0117 5.5v9a1.5 1.5 0 01-1.5 1.5H10M11.8 10.2l1.6 1.6 2.6-3",
+  collapse: "M5 7.5l5 5 5-5",
+  expandDown: "M7.5 5l5 5-5 5",
+  unframe: "M3 7V4.5A1.5 1.5 0 014.5 3H7M13 3h2.5A1.5 1.5 0 0117 4.5V7M17 13v2.5a1.5 1.5 0 01-1.5 1.5H13M7 17H4.5A1.5 1.5 0 013 15.5V13M7.5 10h5",
+  sectionAdd: "M11 8H3v8.5a.5.5 0 00.5.5H10M4.5 2.5h4a1.5 1.5 0 010 3h-4a1.5 1.5 0 010-3zM15 10v7M11.5 13.5h7",
+  noteAdd: "M4 3h12v6M4 3v14h6M15 11v6M12 14h6",
+  bold: "M6 3.5h4.8a3.2 3.2 0 010 6.4H6zM6 9.9h5.7a3.3 3.3 0 010 6.6H6z",
+  strike: "M3.5 10h13M13.6 6.2C13.1 4.8 11.8 4 10 4 7.9 4 6.4 5 6.4 6.7c0 1.4 1 2.3 3.6 3.3M6.6 13.6c.5 1.5 1.9 2.4 3.6 2.4 2.2 0 3.6-1 3.6-2.8",
+  todo: "M3.5 5.5h5v5h-5zM5 8l1 1 1.6-1.8M11 8h5.5M3.5 14.5h5M11 14.5h5.5",
+  // Lines
+  connect: "M3 4h4.5v4.5H3zM12.5 11.5H17V16h-4.5zM7.5 6.2h2.5a1.5 1.5 0 011.5 1.5v3.8",
+  weight: "M3 5h14M3 10h14M3 15h14M3 14.2h14M3 15.8h14",
+  text: "M4 5V3.5h12V5M10 3.5v13M7.5 16.5h5",
+  dashed: "M3 10h2.6M8.7 10h2.6M14.4 10H17",
+  straight: "M4 16L16 4" + dot(4, 16, 1) + dot(16, 4, 1),
+  elbow: "M4 16v-5a1.5 1.5 0 011.5-1.5h9A1.5 1.5 0 0016 8V4",
+  curve: "M3.5 16c7.5 0 5.5-12 13-12",
+  arrowStart: "M17 10H3.5M7.5 6l-4 4 4 4",
+  arrow: "M3 10h13.5M12.5 6l4 4-4 4",
+  reverse: "M3 7h13M13 4l3 3-3 3M17 13H4M7 10l-3 3 3 3",
+  branch: "M3 10h4M7 10c2.5 0 2.5-5 5.5-5H17M7 10c2.5 0 2.5 5 5.5 5H17" + dot(3, 10, 0.4),
+  // Edit
+  edit: "M4 13.5L3.2 17l3.5-.8L16.5 6.4a1.6 1.6 0 000-2.3l-.6-.6a1.6 1.6 0 00-2.3 0zM12 5l3 3",
+  copy: "M7 7h9.5v9.5H7zM4 13V4h9",
+  cut: "M7 7.5l9.5 9M7 12.5L16.5 3.5M5.5 3a2.5 2.5 0 110 5 2.5 2.5 0 010-5zM5.5 12a2.5 2.5 0 110 5 2.5 2.5 0 010-5z",
+  paste: "M7 4.5H4.5v13h11v-13H13M7 3h6v3H7z",
+  duplicate: "M7 7h10v10H7zM3.5 12.5V3.5h9M12 9.5v5M9.5 12h5",
+  trash: "M3.5 5.5h13M8 5.5V3h4v2.5M5.5 5.5l1 12h7l1-12M8.7 9v5.5M11.3 9v5.5",
+  opacity: "M10 2.5c-2.5 3.3-5.8 6.6-5.8 9.7a5.8 5.8 0 0011.6 0c0-3.1-3.3-6.4-5.8-9.7zM10 7v10",
+  eyedropper: "M13 3l4 4-2 2-4-4zM12 7l-8 8v2h2l8-8",
+  group: "M3 3h5v5H3zM12 3h5v5h-5zM3 12h5v5H3zM12 12h5v5h-5z",
+  ungroup: "M2.5 6V2.5H6M14 2.5h3.5V6M2.5 14v3.5H6M14 17.5h3.5V14M7 7h6v6H7z",
+  front: "M7 7h10v10H7zM3 12V3h9",
+  back: "M3 3h10v10H3zM7 17h10V7",
+  forward: "M5 5h12v12H5zM2 10V2h8M8.5 11.5l2.5-2.5 2.5 2.5",
+  backward: "M3 3h12v12H3zM7 18h11V7M6.5 8.5L9 11l2.5-2.5",
+  align: "M4 3v14M7 6h10M7 10h6M7 14h10",
+  left: "M3 3v14M6 6h10v3H6zM6 12h7v3H6z",
+  centerX: "M10 2v16M4 5h12v3H4zM6 12h8v3H6z",
+  right: "M17 3v14M4 6h10v3H4zM7 12h7v3H7z",
+  top: "M3 3h14M6 6h3v10H6zM12 6h3v7h-3z",
+  centerY: "M2 10h16M5 4h3v12H5zM12 6h3v8h-3z",
+  bottom: "M3 17h14M6 4h3v10H6zM12 7h3v7h-3z",
+  distributeX: "M3 3v14M17 3v14M6 6h2v8H6zM12 6h2v8h-2z",
+  distributeY: "M3 3h14M3 17h14M6 6h8v2H6zM6 12h8v2H6z",
+  // Small marks
+  check: "M4 10l4 4 8-9",
+  close: "M5 5l10 10M15 5L5 15",
+  chevron: "M7.5 4.5l5.5 5.5-5.5 5.5",
+  reset: "M4 4.5v5h5M4.3 9.5a6 6 0 111.4 5",
+  play: "M6 3.5l10.5 6.5L6 16.5z",
+  pause: "M6.5 4v12M13.5 4v12",
+  eye: "M2 10c5-7.5 11-7.5 16 0-5 7.5-11 7.5-16 0zM10 7.2a2.8 2.8 0 110 5.6 2.8 2.8 0 010-5.6z",
+  pin: "M6 3h8M7 3v6l-3 3h12l-3-3V3M10 12v6",
+};
+// Older names still used across the Board, and what each now draws.
+export const DDboardIconAliases = {
+  sort: "select", cursor: "select", move: "hand", block: "task", sticky: "note", square: "section",
+  smile: "sticker", bang: "sticker", spark: "sticker", feeling: "sticker", stickers: "sticker",
+  magnet: "snap", gridDots: "grid", minimap: "map", gear: "settings", view: "settings",
+  search: "zoom", fitSelection: "fit", list: "sections", life: "leaf",
+  connector: "connect", line: "connect", tree: "branch", layers: "front", swap: "reverse",
+  "?": "help", "▣": "lock", pen: "edit", arrange: "align", details: "info", step: "addStep",
+};
+export function DDboardIconPath(name) {
+  return DDboardIcons[DDboardIconAliases[name] || name] || DDboardIcons.more;
+}
+export function DDBoardIcon({ React: R, name, size = 18 }) {
+  return R.createElement("svg", {
+    width: size, height: size, viewBox: "0 0 20 20", "data-icon": name,
+    fill: "none", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true,
+  }, R.createElement("path", { d: DDboardIconPath(name) }));
+}

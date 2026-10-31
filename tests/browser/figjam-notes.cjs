@@ -111,8 +111,10 @@ const {start,fixture}=require('./harness.cjs');
    assert.equal(await page.getByRole('textbox',{name:t('Connection label','عنوان اتصال'),exact:true}).count(),0,'details stay closed until asked');
    const linkNow=async()=>(await day()).canvas.board4.links.find(l=>l.id===link.id);
    await bar.getByRole('button',{name:t('Straight line','خط صاف'),exact:true}).click();assert.equal((await linkNow()).style,'straight');
-   await bar.getByRole('button',{name:t('Dashed line','خط‌چین'),exact:true}).click();assert.equal((await linkNow()).dashed,true);
-   await bar.getByRole('button',{name:t('Arrow at start','پیکان در ابتدا'),exact:true}).click();
+   // Dashes and the start arrow sit in the line's ⋯ menu.
+   const lineMenu=async(en,fa)=>{await bar.getByRole('button',{name:t('More actions','گزینه‌های بیشتر'),exact:true}).click();await page.getByRole('menuitem',{name:t(en,fa),exact:true}).click();};
+   await lineMenu('Dashed line','خط‌چین');assert.equal((await linkNow()).dashed,true);
+   await lineMenu('Arrow at start','پیکان در ابتدا');
    let l=await linkNow();assert.equal(l.arrowStart,true);assert.equal(l.arrow,true,'end arrow stays');
    await bar.getByRole('button',{name:t('Line weight','ضخامت خط'),exact:true}).click();
    await bar.getByRole('button',{name:t('Thick','ضخیم'),exact:true}).click();assert.equal((await linkNow()).width,5);

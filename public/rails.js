@@ -1,3 +1,4 @@
+import{DDBoardIcon}from"./board-icons.js";
 import{DDlifePath}from"./life-board.js";
 import{DDboardSearchRows}from"./board-experience.js";
 import{DDHabitControls,DDHabitStats,DDhabitEntry,DDhabitLevels}from"./habits.js";
@@ -99,7 +100,7 @@ export function DDBoardRails({ React: R, day, items, room, sharedLinks, nodes, p
   const toggle = (key) => onToggle(key, mobile),
     button = (key) => h("button", { type: "button", className: "dd-rail-toggle", "data-rail-toggle": key,
       "aria-expanded": open[key], "aria-controls": "dd-rail-" + key, title: names[key] + " · " + keys[key],
-      onClick: () => toggle(key) }, h("span", { "aria-hidden": true }, key === "goal" ? "◎" : key === "note" ? "▤" : "✓"), names[key]),
+      onClick: () => toggle(key) }, h(DDBoardIcon, { React: R, name: key === "goal" ? "goal" : key === "note" ? "lines" : "habit", size: 15 }), names[key]),
     reveal = (row) => { if (mobile) onToggle(row.rail, true); onReveal(row); },
     notePanel = (key) => open[key] && h("aside", { id: "dd-rail-" + key, className: "dd-rail-panel", "aria-label": names[key], dir: language === "fa" ? "rtl" : "ltr" },
       !groups[key].length && h("p", { className: "dd-rail-empty" }, key === "goal" ? t('Choose “Make it the goal” on a note.', 'روی یک یادداشت «هدف کن» را بزن.') : t('Choose “Make it a note” on a note.', 'روی یک یادداشت «نوت کن» را بزن.')),

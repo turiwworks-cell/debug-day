@@ -136,12 +136,9 @@ const { start, fixture } = require("./harness.cjs");
         );
         await zoom.fill("65");
         await zoom.press("Enter");
-        await page
-          .getByRole("button", {
-            name: t("Canvas settings", "تنظیمات بوم"),
-            exact: true,
-          })
-          .click();
+        // Canvas settings live in the tools dock's ⋯ (or a right-click on it).
+        await page.locator('[data-dock-more="tools"]').click();
+        await menuItem("Canvas settings…", "تنظیمات بوم…").click();
         const view = page.locator(".b6-view-panel");
         await view.waitFor();
         await view
@@ -240,9 +237,14 @@ const { start, fixture } = require("./harness.cjs");
             (mobile ? "phone" : "desktop") +
             ".png",
         });
+        await props()
+          .getByRole("button", { name: t("Close properties", "بستن ویژگی‌ها") })
+          .click();
+        // Export lives in the top dock's right-click menu.
         if (!mobile && language === "en") {
           const pending = page.waitForEvent("download");
-          await page.getByRole("button",{name:"Export board SVG",exact:true}).click();
+          await page.locator(".b2-top-actions").click({ button: "right", position: { x: 4, y: 4 } });
+          await menuItem("Export board SVG", "خروجی SVG برد").click();
           const download = await pending,
             svg = require("node:fs").readFileSync(
               await download.path(),
@@ -251,9 +253,6 @@ const { start, fixture } = require("./harness.cjs");
           assert.match(svg, /opacity="0.75"/);
           assert.match(svg, /#123456/);
         }
-        await props()
-          .getByRole("button", { name: t("Close properties", "بستن ویژگی‌ها") })
-          .click();
         await nodeMenu();
         await menuItem("Copy", "کپی").click();
         await backgroundMenu();
@@ -406,12 +405,9 @@ const { start, fixture } = require("./harness.cjs");
           (await read()).canvas.board4.styles?.["sticky:note"]?.width,
           undefined,
         );
-        await page
-          .getByRole("button", {
-            name: t("Canvas settings", "تنظیمات بوم"),
-            exact: true,
-          })
-          .click();
+        // Canvas settings live in the tools dock's ⋯ (or a right-click on it).
+        await page.locator('[data-dock-more="tools"]').click();
+        await menuItem("Canvas settings…", "تنظیمات بوم…").click();
         await view
           .getByRole("checkbox", {
             name: t(
@@ -459,12 +455,9 @@ const { start, fixture } = require("./harness.cjs");
         await page.evaluate(
           () => (document.documentElement.dataset.theme = "dark"),
         );
-        await page
-          .getByRole("button", {
-            name: t("Canvas settings", "تنظیمات بوم"),
-            exact: true,
-          })
-          .click();
+        // Canvas settings live in the tools dock's ⋯ (or a right-click on it).
+        await page.locator('[data-dock-more="tools"]').click();
+        await menuItem("Canvas settings…", "تنظیمات بوم…").click();
         await view.waitFor();
         const inputColor = await view
           .getByRole("textbox", {

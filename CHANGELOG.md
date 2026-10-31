@@ -1,3 +1,16 @@
+## 5.27.0 — 2026-10-31
+Branch: claude/project-thread-ix6zdi
+- Every Board dock keeps only what you use most; the rest moved to a right-click on that dock, or its ⋯ button (on a phone too). Nothing was removed.
+- Top bar keeps Undo, Timer, Search, Engine, Life, Sections and Full screen. Redo, Fit all, light / dark, Export SVG and Help moved to its ⋯.
+- Tools dock keeps Select, Hand, Task, Note, Section and Stickers. Snap, Dot grid, Minimap and Canvas settings moved to its ⋯.
+- Selection bar keeps Card details, Add a step, Color, → Plan, and for a section Open and Fold. Lock, a section's add / remove, and note styling (outside typing) are in ⋯. Bold, strike and to-do still show while you type in a note.
+- Line bar keeps color, weight, the three line shapes, end arrow and Reverse. Text, dashes, start arrow, details and delete are in ⋯.
+- Right-click the zoom box for its presets.
+- New icons for all Board docks and menus, from one set (`public/board-icons.js`). Each action has its own picture: Full screen, Fit all and Life no longer look alike, the Engine is a gear and Canvas settings are sliders, Sections is a tree instead of "···", the Section tool is a titled frame instead of a task box, Snap is a magnet and the Minimap is a small map.
+- Goals, Notes and Today's habits pills use the new icons (flag, page, repeat-check).
+- Tests updated for the moved buttons.
+- The Lanes drag test now waits for the board's camera to stop moving before it measures the lane, so it no longer fails now and then.
+
 ## 5.26.0 — 2026-10-31
 Branch: claude/project-thread-bgfqx1
 - The Sections list is now a flowchart, like After Effects' Tab flowchart: Main board, then top sections, then the sections inside them, joined by curved lines with arrows.
