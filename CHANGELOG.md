@@ -1,3 +1,12 @@
+## 5.23.0 — 2026-10-31
+Branch: claude/project-thread-xu3qj6
+- Browser zoom never resizes the app: Ctrl/Cmd with + = - 0 and Ctrl/Cmd+wheel are taken over everywhere. On the Board they zoom in, zoom out and fit all; Safari's pinch zooms the Board too.
+- Opening the Board from search (Ctrl+Space results, Engine, Sections and Board panels, any board item) goes straight to full screen.
+- Zoomed out, only the big sections keep their names: a section inside another hides its name and dots once it is under 260px wide on screen, and they come back when you zoom in.
+- The "+" beside a selected note is a small dot with one size and distance on screen at any zoom, and becomes a "+" under the pointer. Connection points stay one small size too. Both hide under 35% zoom.
+- Connectors are stronger: dark ink instead of faded blue or grey, never thinner than about 2.4px on screen, rounded elbow corners (dragged bends too), a filled arrowhead, and thicker and blue under the pointer. A line's own opacity setting now shows.
+- New unit and browser tests for the zoom lock, search to full screen, section names, the "+" dot and connectors.
+
 ## 5.22.0 — 2026-10-31
 Branch: claude/project-thread-xu3qj6 (started on codex/board-feel-cards)
 - Sticky notes never scroll: they grow with their text and are at least square. Width has two shapes only, square or wide (1.5×), and snaps on release; a corner scales the whole note and its text.

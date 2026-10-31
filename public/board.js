@@ -2,7 +2,7 @@ import { DDcompletion, DDTaskMetadata, DDTaskTags, DDpriorityLabel, DDprogressLa
 import { DDreconcileDay, DDrelation, DDconnectRelation, DDdisconnectRelation, DDrewireRelation } from "./relations.js";
 import { DDconnectionGeometry } from "./connections.js";
 import { DDEngineOverlay, DDengineBus, DDengineTask, DDengineTaskFromNote, DDengineSources, DDengineSourceHistory, DDengineStrip, DDinstallEngineStyles } from "./engine.js";
-import { DDboardShortcuts, DDboardSearchRows, DDrootSelection, DDmarqueeSelection, DDselectionToolbar, DDBoardSearch, DDBoardTimer, DDBoardTimerButton, DDinstallBoardExperience } from "./board-experience.js";
+import { DDboardShortcuts, DDboardSearchRows, DDrootSelection, DDmarqueeSelection, DDselectionToolbar, DDBoardSearch, DDBoardTimer, DDBoardTimerButton, DDinstallBoardExperience, DDinstallZoomLock } from "./board-experience.js";
 import {
   DDinstallLifeStyles,
   DDlifeAbs,
@@ -44,6 +44,7 @@ export function DDcreateBoard(deps) {
   let sharedClipboard = null;
   life.DDinstallLifeStyles();
   DDinstallBoardExperience();
+  DDinstallZoomLock();
   DDinstallRailStyles();
   DDinstallStickyStyles();
   DDinstallEngineStyles();
@@ -1173,7 +1174,8 @@ export function DDcreateBoard(deps) {
             ...G,
             ...model.links.map((Jt) => ({
               ...Jt,
-              color: Jt.color || "var(--now)",
+              // A line you draw is dark ink until you colour it (FigJam).
+              color: Jt.color || "var(--dd-wire,#4A4843)",
               automatic: !1,
             })),
           ]),
@@ -1343,7 +1345,16 @@ export function DDcreateBoard(deps) {
       ((world.current.style.transform = `translate3d(${G.x}px,${G.y}px,0) scale(${G.z})`),
         Y.style.setProperty("--b4-inverse", 1 / G.z),
         Y.classList.toggle("b4-overview", G.z < 0.7),
-        Y.classList.toggle("b4-small", G.z < 0.95));
+        Y.classList.toggle("b4-small", G.z < 0.95),
+        Y.classList.toggle("b4-far", G.z < 0.35));
+      // Zoomed out, only the big sections keep their names (like FigJam): a
+      // section inside another hides its name pill once it is under 260px wide.
+      const sectionLayout = layoutRef.current?.map;
+      for (const el of world.current.querySelectorAll(".b4-life-section")) {
+        const n = sectionLayout?.get(el.dataset.boardId), parent = n?.parentId && sectionLayout.get(n.parentId);
+        const hide = !!(n && parent && !parent.room && n.w * G.z < 260);
+        if ((el.dataset.labelHidden === "true") !== hide) el.dataset.labelHidden = String(hide);
+      }
       let ct = appearanceRef.current.gridSize;
       Y.style.setProperty(
         "--b6-dot",
@@ -2420,7 +2431,7 @@ export function DDcreateBoard(deps) {
       const toggle = (name) => setWirePop((v) => (v === name ? null : name));
       return _.createElement(_.Fragment, null,
         _.createElement("span", { style: { position: "relative", display: "inline-flex" } },
-          wireButton(t("Line color", "رنگ خط"), _.createElement("span", { className: "dd-wire-color", style: { background: wire.color || "#757575" } }), () => toggle("color"), wirePop === "color"),
+          wireButton(t("Line color", "رنگ خط"), _.createElement("span", { className: "dd-wire-color", style: { background: wire.color || "var(--dd-wire,#4A4843)" } }), () => toggle("color"), wirePop === "color"),
           wirePop === "color" && _.createElement("div", { className: "dd-wire-pop", role: "group", "aria-label": t("Line colors", "رنگ‌های خط") },
             wireColors.map((color) => _.createElement("button", { type: "button", key: color, className: "dd-swatch", style: { background: color }, "aria-label": t("Line color ", "رنگ خط ") + color, "aria-pressed": (wire.color || "#757575").toUpperCase() === color, onClick: () => { set({ color }, t("Line color changed", "رنگ خط تغییر کرد")); setWirePop(null); } })))),
         _.createElement("span", { style: { position: "relative", display: "inline-flex" } },
@@ -3186,7 +3197,7 @@ export function DDcreateBoard(deps) {
       for (const Pt of layout.edges) {
         if (!ct.has(Pt.from) || !ct.has(Pt.to)) continue;
         const yn = wireGeometry(Pt);
-        ((Tt += `<path d="${yn.d}" fill="none" stroke="${ot(Pt.color === "var(--now)" ? "#7A5FF5" : Pt.color || "#85827A")}" stroke-width="${Pt.width || 1.8}" opacity="${Pt.opacity ?? 1}" stroke-dasharray="${Pt.pattern === "dotted" ? "1 5" : Pt.dashed || Pt.pattern === "dashed" ? "6 5" : "none"}"/>`),
+        ((Tt += `<path d="${yn.d}" fill="none" stroke="${ot(Pt.color === "var(--now)" ? "#7A5FF5" : !Pt.color || Pt.color.startsWith("var(") ? "#4A4843" : Pt.color)}" stroke-width="${Pt.width || 1.8}" opacity="${Pt.opacity ?? 1}" stroke-dasharray="${Pt.pattern === "dotted" ? "1 5" : Pt.dashed || Pt.pattern === "dashed" ? "6 5" : "none"}"/>`),
           Pt.label &&
             (Tt += `<text x="${yn.mid.x}" y="${yn.mid.y - 8}" font-family="Arial" font-size="12" text-anchor="middle">${ot(Pt.label)}</text>`));
       }
@@ -3308,11 +3319,27 @@ export function DDcreateBoard(deps) {
             }
           };
         Y.addEventListener("wheel", G, { passive: !1 });
+        // Ctrl/Cmd + = - 0 (caught for the whole app) zoom or fit this Board.
+        const keyZoom = (event) => {
+            const step = event.detail;
+            if (step === 0) api.current.fit(false);
+            else api.current.setZoom(core.zoomStep(cam.current.z, step));
+          },
+          // Safari pinch: zoom around the fingers, never the page.
+          pinch = { z: 1 },
+          gestureStart = (event) => { event.preventDefault(); pinch.z = cam.current.z; },
+          gestureChange = (event) => { event.preventDefault(); if (event.scale) api.current.setZoom(pinch.z * event.scale, event.clientX, event.clientY); };
+        window.addEventListener("debug-day-board-zoom", keyZoom);
+        Y.addEventListener("gesturestart", gestureStart, { passive: !1 });
+        Y.addEventListener("gesturechange", gestureChange, { passive: !1 });
         const ct = new ResizeObserver(() => api.current.paintCamera());
         return (
           ct.observe(Y),
           () => {
             (Y.removeEventListener("wheel", G), ct.disconnect());
+            window.removeEventListener("debug-day-board-zoom", keyZoom);
+            Y.removeEventListener("gesturestart", gestureStart);
+            Y.removeEventListener("gesturechange", gestureChange);
           }
         );
       }, []),
@@ -5812,17 +5839,17 @@ export function DDcreateBoard(deps) {
                   viewBox: "0 0 10 10",
                   refX: "8",
                   refY: "5",
-                  markerWidth: "4.2",
-                  markerHeight: "4.2",
+                  markerWidth: "4",
+                  markerHeight: "4",
                   orient: "auto-start-reverse",
                   markerUnits: "strokeWidth",
                 },
+                // A clear filled arrowhead in the line's own colour.
                 _.createElement("path", {
-                  d: "M1.5 1.5L8.5 5 1.5 8.5",
-                  fill: "none",
+                  d: "M1 1.2L9 5 1 8.8z",
+                  fill: "context-stroke",
                   stroke: "context-stroke",
-                  strokeWidth: "1.6",
-                  strokeLinecap: "round",
+                  strokeWidth: "0.8",
                   strokeLinejoin: "round",
                 }),
               ),
@@ -5886,8 +5913,8 @@ export function DDcreateBoard(deps) {
                       fill: "none",
                       // FigJam lines are grey and keep their weight relative to the canvas.
                       stroke: Y.color || "var(--dd-wire,#757575)",
-                      strokeWidth: Y.width || 3,
-                      opacity: Y.opacity ?? 1,
+                      // Width is set in CSS from --w so it never gets too thin on screen.
+                      style: { "--w": Y.width || 3, opacity: Y.opacity ?? 1 },
                       strokeDasharray:
                         Y.pattern === "dotted"
                           ? "1 5"

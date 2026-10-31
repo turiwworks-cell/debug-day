@@ -108,8 +108,9 @@ const {start,fixture}=require('./harness.cjs');
    // Back on the main board the dots agree: a big section counts its small ones.
    await tap(bar.locator('[data-room-crumb="main"]'));await bar.waitFor({state:'detached'});
    await strip('a').waitFor({state:'attached'});
-   assert.match(await strip('a').innerText(),new RegExp('1/'+(3+fromSketches)));
-   assert.match(await strip('c').innerText(),new RegExp('1/'+(1+fromSketches)));
+   // Zoomed out a small inner section hides its dots (5.23); they still count the same.
+   assert.match(await strip('a').textContent(),new RegExp('1/'+(3+fromSketches)));
+   assert.match(await strip('c').textContent(),new RegExp('1/'+(1+fromSketches)));
    // Moving a task back to the main board takes it out of the record.
    await page.locator('.b2-viewport').focus();await page.keyboard.press('e');await engine.waitFor();
    await engine.locator('[data-engine-task="writing"] select.dd-engine-from').selectOption('');

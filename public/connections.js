@@ -115,7 +115,8 @@ function rounded(points, radius) {
     const b = points[i],
       a = points[i - 1],
       c = points[i + 1];
-    if (!c || !radius) {
+    // No corner to round at the ends, or where two points sit on each other.
+    if (!c || !radius || distance(a, b) < 0.01 || distance(b, c) < 0.01) {
       d += `L${b.x} ${b.y}`;
       continue;
     }
@@ -165,7 +166,7 @@ export function DDconnectionGeometry(a, b, wire = {}, obstacles = []) {
     return {
       d:
         wire.style === "elbow"
-          ? `M${p.x} ${p.y}L${mid.x} ${p.y}L${mid.x} ${q.y}L${q.x} ${q.y}`
+          ? rounded(tidy([p, { x: mid.x, y: p.y }, { x: mid.x, y: q.y }, q]), 12)
           : `M${p.x} ${p.y}Q${2 * mid.x - (p.x + q.x) / 2} ${2 * mid.y - (p.y + q.y) / 2} ${q.x} ${q.y}`,
       p,
       q,
@@ -244,7 +245,7 @@ export function DDconnectionGeometry(a, b, wire = {}, obstacles = []) {
     if (!best || cost < best.cost) best = { points, cost };
   }
   return {
-    d: rounded(best.points, wire.style === "elbow" ? 0 : 12),
+    d: rounded(best.points, 12),
     p,
     q,
     mid: middle(best.points),
