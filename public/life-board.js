@@ -117,6 +117,8 @@ export function DDnormalizeLife(life) {
       ...(!section && ["goal", "note"].includes(r.role) ? { role: r.role } : {}),
       ...(r.style && typeof r.style === "object" ? { style: Object.fromEntries(Object.entries(r.style).filter(([k,v]) => (["textSize","opacity"].includes(k) && Number.isFinite(v)) || (k==="textAlign"&&["start","center","end"].includes(v)) || (k==="textColor"&&typeof v==="string"&&/^#[0-9a-f]{6}$/i.test(v)))) } : {}),
       ...(typeof r.color === "string" && /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(r.color) ? { color: r.color, ...(section && r.ownColor === true ? { ownColor: true } : {}) } : {}),
+      // A top section placed on the board outside the Feed.
+      ...(section && r.out === true ? { out: true } : {}),
     });
   }
   const sections = new Map(items.filter((i) => i.type === "section").map((i) => [i.id, i]));
@@ -126,6 +128,7 @@ export function DDnormalizeLife(life) {
     // A parent must be a section; walking up must end at the top without a loop.
     while (p && sections.has(p) && sections.get(p) !== it && hops++ < 50) p = sections.get(p).parent;
     if (!sections.has(it.parent) || it.parent === it.id || p) it.parent = "";
+    if (it.parent) delete it.out;
   }
   const refs = new Set(items.map((i) => "life:" + i.id));
   const links = (Array.isArray(life?.links) ? life.links : []).filter((l) => l && typeof l.id === "string" && refs.has(l.from) && refs.has(l.to) && l.from !== l.to).slice(0, 2000);
@@ -179,10 +182,49 @@ export function DDlifeVisible(items, it) {
   }
   return true;
 }
+// A section's own board is all of it: what sits outside the section's frame
+// there belongs to the section but stays on its board. The main board (or an
+// outer section's board) shows only what sits inside the frame, judged by the
+// middle of each thing, so a note hanging over the edge still shows.
+export function DDlifeInFrame(items, it) {
+  const p = it?.parent && items.find((i) => i.id === it.parent);
+  if (!p) return true;
+  const cx = it.x + (it.w || 240) / 2, cy = it.y + (it.collapsed ? 38 : it.h || 240) / 2;
+  return cx >= 0 && cx <= p.w && cy >= 0 && cy <= p.h;
+}
+// Is this thing drawn on the board of `room` ("" is the main board)?
+export function DDlifeShown(items, it, room = "") {
+  let c = it, hops = 0;
+  while (c?.parent && c.id !== room && hops++ < 60) {
+    if (c.parent !== room && !DDlifeInFrame(items, c)) return false;
+    c = items.find((i) => i.id === c.parent);
+  }
+  return true;
+}
+// The board a thing lives on: the section whose own board shows it, or "" for
+// the main board.
+export function DDlifeHome(items, id) {
+  let c = items.find((i) => i.id === id), hops = 0;
+  while (c?.parent && hops++ < 60) {
+    if (!DDlifeInFrame(items, c)) return c.parent;
+    c = items.find((i) => i.id === c.parent);
+  }
+  return "";
+}
+// When a section gets smaller, what ends up outside it drops to the board it
+// sits on, so nothing disappears from view.
+export function DDlifeRelease(items, sectionId) {
+  const sec = items.find((i) => i.id === sectionId);
+  if (!sec || sec.type !== "section") return items;
+  const out = new Set(items.filter((i) => i.parent === sectionId && !DDlifeInFrame(items, i)).map((i) => i.id));
+  if (!out.size) return items;
+  // Out of a section that sits outside the Feed, it stays outside the Feed too.
+  return items.map((i) => (out.has(i.id) ? { ...i, parent: sec.parent || "", x: Math.round(sec.x + i.x), y: Math.round(sec.y + i.y), ...(!sec.parent && sec.out ? { out: true } : {}) } : i));
+}
 export function DDlifeCompact(items) {
   let next = items.map((i) => ({ ...i }));
   function arrange(parent, width) {
-    const kids = next.filter((i) => i.parent === parent).sort((a,b) => a.y - b.y || a.x - b.x);
+    const kids = next.filter((i) => i.parent === parent && !(parent === "" && i.out)).sort((a,b) => a.y - b.y || a.x - b.x);
     for (const k of kids) if (k.type === "section" && !k.collapsed) arrange(k.id, Math.min(1000, Math.max(520, k.w)));
     let x = 24, y = 64, row = 0, right = 240;
     for (const k of kids) {
@@ -240,7 +282,8 @@ export function DDlifeDescendants(items, id) {
 export function DDlifeBounds(items) {
   let w = 0,
     h = 0;
-  for (const it of items) if (!it.parent) ((w = Math.max(w, it.x + it.w)), (h = Math.max(h, it.y + (it.collapsed ? 38 : it.h))));
+  // A section placed on the board outside the Feed (`out`) never stretches it.
+  for (const it of items) if (!it.parent && !it.out) ((w = Math.max(w, it.x + it.w)), (h = Math.max(h, it.y + (it.collapsed ? 38 : it.h))));
   return { w: Math.max(720, w + 48), h: Math.max(320, h + 48) };
 }
 
@@ -373,6 +416,7 @@ export function DDlifeMoveBy(items, id, dx, dy, moving = []) {
     target = DDlifeDropTarget(items, id, dx, dy, moving);
   const base = target ? DDlifeAbs(items, target.id) : { x: 0, y: 0 },
     moved = { ...it, parent: target ? target.id : "", x: Math.round(ax - base.x), y: Math.round(ay - base.y) };
+  if (target) delete moved.out;
   // Dropped last so it sits on top of its new neighbours.
   return [...items.filter((i) => i.id !== id), moved];
 }
@@ -499,8 +543,8 @@ export function DDlifeKeepIn(items, roomId, before = []) {
   return items.map((i) => {
     // Only the top of a stray branch moves; what is inside it comes along.
     if (!stray.has(i.id) || stray.has(i.parent)) return i;
-    const a = DDlifeAbs(items, i.id);
-    return { ...i, parent: roomId, x: Math.round(a.x - base.x), y: Math.round(a.y - base.y) };
+    const a = DDlifeAbs(items, i.id), { out, ...rest } = i;
+    return { ...rest, parent: roomId, x: Math.round(a.x - base.x), y: Math.round(a.y - base.y) };
   });
 }
 
@@ -574,8 +618,9 @@ export const DDlifeCSS = `
 .dd-room-bar [aria-current=page]{font-weight:650;cursor:default}
 .dd-room-bar [aria-current=page]:hover{background:transparent}
 .dd-room-sep{opacity:.45;padding:0 1px}
+.dd-room-note{opacity:.55;font-size:11.5px;font-weight:450;padding:0 10px 0 8px;max-width:340px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(pointer:coarse){.dd-room-bar button{min-height:40px}}
-@media(max-width:700px){.dd-room-bar{margin-top:56px}.dd-room-bar button{max-width:150px}}
+@media(max-width:700px){.dd-room-bar{margin-top:56px}.dd-room-bar button{max-width:150px}.dd-room-note{display:none}}
 .dd-life-dimensions{display:flex;gap:8px;padding:8px 0}
 .dd-life-dimensions label{flex:1;min-width:0;font-size:12px;color:var(--ink)}
 .dd-life-dimensions input{display:block;width:100%;min-height:36px;padding:5px;border:1px solid var(--rule-2);border-radius:6px;background:var(--paper);color:var(--ink);font:inherit}

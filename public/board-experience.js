@@ -238,6 +238,8 @@ export const DDboardExperienceCSS = `
 .b6 .b4-life-section{--dd-sec-k:clamp(1,calc(var(--b4-inverse,1) * .75),60)}
 .b6 .b4-life-section>.b4-node-body{top:calc(10px * var(--dd-sec-k));left:calc(10px * var(--dd-sec-k));bottom:auto;margin:0;height:calc(28px * var(--dd-sec-k));width:auto;max-width:calc(100% - 20px * var(--dd-sec-k));min-width:0;border-radius:calc(6px * var(--dd-sec-k));border:calc(1px * var(--dd-sec-k)) solid color-mix(in srgb,var(--node-color) 70%,#1e1e1e 30%);padding:0 calc(8px * var(--dd-sec-k));overflow:hidden;z-index:30;box-shadow:none}
 .b6 .b4-life-section>.b6-note-resize[data-edge]{z-index:31}
+/* Corners sit above the edge bands, so grabbing a corner resizes both ways (the bottom band used to cover it). */
+.b6 .b4-node>.b6-note-resize[data-resize][data-edge=nw],.b6 .b4-node>.b6-note-resize[data-resize][data-edge=ne],.b6 .b4-node>.b6-note-resize[data-resize][data-edge=sw],.b6 .b4-node>.b6-note-resize[data-resize][data-edge=se]{z-index:32}
 .b6 .b4-life-section>.b4-node-body{align-items:stretch}
 .b6 .b4-life-section>.b4-node-body .b4-node-title{font-size:calc(16px * var(--dd-sec-k));font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;min-width:0}
 .b6 .b4-life-section>.b4-node-body .b4-node-title::before{content:none}

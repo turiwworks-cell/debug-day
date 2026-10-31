@@ -174,3 +174,37 @@ test("a branch that drifts out comes back whole", () => {
   assert.equal(kept.find((i) => i.id === "kid").parent, "inner");
   assert.equal(kept.find((i) => i.id === "deep").parent, "kid", "what is inside it comes along");
 });
+
+import { DDlifeInFrame, DDlifeShown, DDlifeHome, DDlifeRelease } from "../public/life-board.js";
+test("a section's own board keeps what sits outside its frame (5.29)", () => {
+  const items = [
+    { id: "a", type: "section", parent: "", x: 0, y: 0, w: 400, h: 300 },
+    { id: "in", type: "sticky", parent: "a", x: 250, y: 100, w: 240, h: 240 },
+    { id: "far", type: "sticky", parent: "a", x: 600, y: 20, w: 240, h: 240 },
+    { id: "c", type: "section", parent: "a", x: 20, y: 20, w: 200, h: 200 },
+    { id: "k", type: "sticky", parent: "c", x: 300, y: 10, w: 100, h: 100 },
+  ];
+  const at = (id) => items.find((i) => i.id === id);
+  assert.equal(DDlifeInFrame(items, at("in")), true, "hanging over the edge still counts when its middle is inside");
+  assert.equal(DDlifeShown(items, at("far")), false, "the main board does not show it");
+  assert.equal(DDlifeShown(items, at("far"), "a"), true, "its section's board does");
+  assert.equal(DDlifeShown(items, at("k"), "a"), false, "a nested section keeps its own board");
+  assert.equal(DDlifeShown(items, at("k"), "c"), true);
+  assert.equal(DDlifeHome(items, "far"), "a");
+  assert.equal(DDlifeHome(items, "k"), "c");
+  assert.equal(DDlifeHome(items, "in"), "");
+  const released = DDlifeRelease(items, "c");
+  assert.deepEqual([released.find((i) => i.id === "k").parent, released.find((i) => i.id === "k").x], ["a", 320], "made smaller, what is outside drops onto the board it sits on");
+});
+test("a section outside the Feed stays out of it (5.29)", () => {
+  const items = [
+    { id: "a", type: "section", parent: "", x: 0, y: 0, w: 400, h: 300 },
+    { id: "free", type: "section", parent: "", x: 5000, y: 0, w: 400, h: 300, out: true },
+    { id: "q", type: "sticky", parent: "free", x: 500, y: 10, w: 100, h: 100 },
+  ];
+  assert.equal(DDlifeBounds(items).w, DDlifeBounds(items.slice(0, 1)).w, "the Feed does not stretch to reach it");
+  assert.equal(DDnormalizeLife({ items }).items.find((i) => i.id === "free").out, true, "the mark is kept");
+  assert.equal(DDnormalizeLife({ items: [...items, { id: "s", type: "section", parent: "a", x: 0, y: 0, w: 100, h: 100, out: true }] }).items.find((i) => i.id === "s").out, undefined, "only a top section can be outside");
+  assert.equal(DDlifeRelease(items, "free").find((i) => i.id === "q").out, true, "what drops out of it stays outside the Feed");
+  assert.equal(DDlifeMoveBy(items, "free", -2000, 0).find((i) => i.id === "free").out, true, "the board decides; a move keeps the mark unless it lands in a section");
+});
