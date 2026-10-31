@@ -439,7 +439,7 @@ export function DDSectionsFlowchart({ React: R, items = [], room = null, languag
       max: 100000,
       step: 100,
       defaultValue: Math.round(frame?.[key] || 240),
-      "aria-label": key === "w" ? t("Life area width", "عرض محدودهٔ زندگی") : t("Life area height", "ارتفاع محدودهٔ زندگی"),
+      "aria-label": key === "w" ? t("Feed width", "عرض فید") : t("Feed height", "ارتفاع فید"),
       onBlur: (event) => {
         const value = Number(event.target.value);
         if (event.target.value && Number.isFinite(value) && value >= 240 && value <= 100000) onSize?.({ [key]: value });
@@ -473,10 +473,10 @@ export function DDSectionsFlowchart({ React: R, items = [], room = null, languag
           "aria-label": t("Find a section", "پیدا کردن سکشن"),
           onChange: (event) => setQuery(event.target.value),
         })),
-      h("button", { type: "button", className: "dd-flow-tools-button", "data-life-tools": true, "aria-expanded": tools, "aria-label": t("Life area size & layout", "اندازه و چیدمان محدودهٔ زندگی"), title: t("Life area size & layout", "اندازه و چیدمان محدودهٔ زندگی"), onClick: () => setTools((v) => !v) }, h("span", { "aria-hidden": true })),
+      h("button", { type: "button", className: "dd-flow-tools-button", "data-life-tools": true, "aria-expanded": tools, "aria-label": t("Feed size & layout", "اندازه و چیدمان فید"), title: t("Feed size & layout", "اندازه و چیدمان فید"), onClick: () => setTools((v) => !v) }, h("span", { "aria-hidden": true })),
       h("button", { type: "button", className: "dd-flow-close", "aria-label": t("Close the flowchart", "بستن فلوچارت"), title: t("Close (Tab or Esc)", "بستن (Tab یا Esc)"), onClick: onClose }, "×")),
     tools && h("div", { className: "dd-flow-tools" },
-      h("button", { type: "button", onClick: onEnlarge }, t("Enlarge Life area +25%", "بزرگ‌تر کردن محدودهٔ زندگی +۲۵٪")),
+      h("button", { type: "button", onClick: onEnlarge }, t("Enlarge Feed +25%", "بزرگ‌تر کردن فید +۲۵٪")),
       h("div", { className: "dd-life-dimensions" }, ["w", "h"].map(sizeInput)),
       h("button", { type: "button", onClick: onCompact }, t("Compact layout", "جمع‌وجور کن"))),
     h("div", { className: "dd-flow-canvas", ref: canvas },

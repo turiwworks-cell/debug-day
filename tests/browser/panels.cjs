@@ -25,8 +25,8 @@ const { start, fixture } = require("./harness.cjs");
     assert.equal(await page.locator(".views button .dd-panel-icon").count(), 3);
     const color = (selector) => page.locator(selector).first().evaluate((node) => getComputedStyle(node).getPropertyValue("--pc").trim());
     assert.equal(await color('.dd-habits[data-panel="habits"]'), "#2BA672");
-    assert.equal(await color('[data-section-id="lab"][data-panel="lab"]'), "#D39A00");
-    assert.equal(await page.locator('[data-section-id="lab"] .dd-panel-title').innerText(), "App changes");
+    // App changes was removed (5.28): no section, no panel.
+    assert.equal(await page.locator('[data-section-id="lab"]').count(), 0);
 
     // The footer no longer repeats the header's map, Calendar and Feelings.
     assert.deepEqual(await page.locator(".foot .utilities button").allInnerTexts(), ["Settings"]);
@@ -39,7 +39,7 @@ const { start, fixture } = require("./harness.cjs");
     const modal = page.locator(".dd-command-modal");
     const first = modal.locator(".dd-result-group").first();
     assert.equal(await first.getAttribute("data-group"), "panels");
-    assert.equal(await first.locator(".dd-panel-row").count(), 8, "the panels, with Sections right after the Engine");
+    assert.equal(await first.locator(".dd-panel-row").count(), 7, "the panels, with Sections right after the Engine");
     assert.equal(await first.locator(".dd-panel-row").nth(1).getAttribute("data-panel"), "sections");
     const ids = await modal.locator(".dd-command-row").evaluateAll((rows) => rows.map((row) => row.id + row.textContent));
     assert.equal(new Set(ids.map((text) => text.replace(/^dd-result-\d+/, ""))).size, ids.length, "nothing is listed twice on the first page");
@@ -57,19 +57,24 @@ const { start, fixture } = require("./harness.cjs");
 
     // Typing finds a panel first.
     await page.keyboard.press("Control+Space");
-    await modal.getByRole("combobox").fill("app changes");
+    await modal.getByRole("combobox").fill("plan");
     assert.equal(await modal.locator(".dd-result-group").first().getAttribute("data-group"), "panels");
     await page.keyboard.press("Enter");
-    await banner.locator('.dd-panel-icon[data-panel="lab"]').waitFor();
-    assert.equal(await page.locator('[data-section-id="lab"]').count(), 1);
+    await banner.locator('.dd-panel-icon[data-panel="plan"]').waitFor();
+    assert.equal(await page.locator("section.plan").count(), 1);
     assert.equal(await page.locator(".dd-habits").count(), 0);
+    // App changes was removed (5.28), so search no longer offers it.
+    await page.keyboard.press("Control+Space");
+    await modal.getByRole("combobox").fill("app changes");
+    assert.equal(await modal.locator('.dd-panel-row[data-panel="lab"]').count(), 0);
+    await page.keyboard.press("Escape");
 
     // App map: one card per panel, Feelings and Stats share Calendar's. A number isolates, Shift+number shows it with the rest, 0 shows all.
     await page.keyboard.press("Alt+KeyM");
     await page.locator(".dd-panel-map").waitFor();
     assert.deepEqual(
       await page.locator(".dd-panel-map .app-map-card").evaluateAll((cards) => cards.map((card) => card.dataset.panel)),
-      ["engine", "plan", "board", "habits", "calendar", "lab"],
+      ["engine", "plan", "board", "habits", "calendar"],
     );
     assert.match(await page.locator('.app-map-card[data-panel="habits"] small').innerText(), /0 of 1 today/);
     await page.keyboard.press("Digit0");

@@ -96,22 +96,36 @@ const {start,fixture}=require('./harness.cjs');
     assert.equal(await plus.evaluate((e)=>getComputedStyle(e).display),'none','far out the "+" goes');
     await key('0');
    }
-   // Zoomed out, a section inside another hides its name; the big one keeps it.
+   // Section names (5.28): one rule at every zoom. A name shrinks with the board down to a
+   // readable size and stays while there is room; it steps aside only when it would sit on a
+   // bigger section's name (or its section is a speck), and comes back when there is room again.
    await page.locator('[data-life-jump]').click();await page.waitForTimeout(250);
    const top=page.locator('[data-life-id="top"]'),inner=page.locator('[data-life-id="inner"]');
    await inner.waitFor({state:'attached'});
    const labelShown=(loc)=>loc.locator(':scope > .b4-node-body').evaluate((e)=>getComputedStyle(e).visibility!=='hidden');
+   const pillPx=(loc)=>loc.locator(':scope > .b4-node-body').evaluate((e)=>e.getBoundingClientRect().height);
    await page.keyboard.press('Escape');
    await key('0');
    assert.equal(await inner.getAttribute('data-label-hidden'),'false');
    assert.equal(await labelShown(inner),true,'at 100% the inner name shows');
    await key('-');await key('-');
    assert.equal(await zoom(),0.5);
-   assert.equal(await inner.getAttribute('data-label-hidden'),'true','420 × 50% is under 260px');
    await page.waitForTimeout(200);
+   assert.equal(await inner.getAttribute('data-label-hidden'),'false','at 50% there is still room for the inner name');
+   assert.equal(await labelShown(inner),true);
+   const half=await pillPx(top);
+   assert.ok(half>=20&&half<=30,'the name pill stays readable, not huge: '+half);
+   const fits=await inner.evaluate((el)=>{const b=el.querySelector(':scope > .b4-node-body').getBoundingClientRect(),r=el.getBoundingClientRect();return b.right<=r.right+1;});
+   assert.ok(fits,'a name never runs past its section');
+   await key('-');await key('-');
+   assert.ok(await zoom()<0.5);
+   await page.waitForTimeout(200);
+   assert.equal(await inner.getAttribute('data-label-hidden'),'true','far out the smaller name steps aside instead of covering the bigger one');
    assert.equal(await labelShown(inner),false,'the inner name hides');
    assert.equal(await labelShown(top),true,'the big section keeps its name');
+   assert.ok(await pillPx(top)<=30,'and it does not grow on screen');
    await key('=');await key('=');
+   await page.waitForTimeout(200);
    assert.equal(await inner.getAttribute('data-label-hidden'),'false','zooming back in brings it back');
    const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth);
    assert.equal(overflow,false,'no sideways scroll');

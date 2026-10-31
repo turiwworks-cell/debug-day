@@ -150,6 +150,10 @@ html .dd-iso-tag{color:var(--on-now);border-radius:5px}
 html .b6 .b2-viewport{background-color:var(--board-canvas)}
 html .b6 .b2-icon[aria-pressed=true],html .b6 .b2-dock .b2-icon[aria-pressed=true]:has(>.dd-btn-label){background:var(--now);color:var(--on-now)}
 html .b6 .b4-selectionbar .b2-icon[aria-pressed=true]{background:var(--now);color:var(--on-now)}
+/* The selection bar names what is selected in full ("3 objects", a section name), up to a sensible width. */
+html .b6 .b4-selectionbar>strong{max-width:180px}
+html .b6 .b4-selectionbar>strong>span:nth-child(2){max-width:140px}
+@media (max-width:700px){html .b6 .b4-selectionbar>strong{max-width:120px}html .b6 .b4-selectionbar>strong>span:nth-child(2){max-width:86px}}
 html .b6 .b2-dock{border-radius:16px}
 html .b6 .b2-dock>.b2-icon{border-radius:11px}
 

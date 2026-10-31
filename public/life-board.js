@@ -157,16 +157,16 @@ export function DDLifePanel({ React:R, setup, days, onUpdateDayOnDate, onUpdateS
   function render(it) {
     const update=(text)=>change((s)=>({...s,items:s.items.map((i)=>i.id===it.id?{...i,text}:i)}));
     if (it.type==="sticky") return h("article",{key:it.id,className:"dd-plan-life-note",style:{background:it.color||DDlifeColors[0],color:DDlifeContrast(it.color||DDlifeColors[0])}},
-      h("textarea",{key:it.text,defaultValue:it.text,dir:"auto","aria-label":t("Life note","یادداشت زندگی"),onBlur:(e)=>update(e.target.value)}),
+      h("textarea",{key:it.text,defaultValue:it.text,dir:"auto","aria-label":t("Feed note","یادداشت فید"),onBlur:(e)=>update(e.target.value)}),
       h("button",{type:"button",onClick:()=>onOpen(it.id)},t("Show on board","نمایش روی برد")));
     return h("div",{key:it.id,className:"dd-plan-life-section"},h("div",{className:"dd-plan-life-heading"},
       h("button",{type:"button","aria-expanded":!it.collapsed,onClick:()=>change((s)=>({...s,items:s.items.map((i)=>i.id===it.id?{...i,collapsed:!i.collapsed}:i)}))},it.collapsed?"▸":"▾"),
-      h("input",{key:it.text,dir:"auto",defaultValue:it.text,"aria-label":t("Life section name","نام سکشن زندگی"),onBlur:(e)=>update(e.target.value)}),
+      h("input",{key:it.text,dir:"auto",defaultValue:it.text,"aria-label":t("Feed section name","نام سکشن فید"),onBlur:(e)=>update(e.target.value)}),
       h("button",{type:"button",onClick:()=>onOpen(it.id)},t("Board","برد"))),
       !it.collapsed&&h("div",{className:"dd-plan-life-children"},state.items.filter((i)=>i.parent===it.id).map(render)));
   }
   return h("section",{className:"dd-plan-life","data-section-id":"life",onKeyDown:(e)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"&&!e.target.matches("input,textarea")){e.preventDefault();undo();}}},
-    h("header",null,h("h2",null,t("Life · shared across days","زندگی · مشترک بین روزها")),h("button",{type:"button",onClick:()=>undo()},t("Undo Life edit","واگرد تغییر زندگی")),h("button",{type:"button",onClick:()=>undo(true)},t("Redo Life edit","انجام دوبارهٔ تغییر زندگی"))),
+    h("header",null,h("h2",null,t("Feed · shared across days","فید · مشترک بین روزها")),h("button",{type:"button",onClick:()=>undo()},t("Undo Feed edit","واگرد تغییر فید")),h("button",{type:"button",onClick:()=>undo(true)},t("Redo Life edit","انجام دوبارهٔ تغییر زندگی"))),
     state.items.filter((i)=>!i.parent).map(render));
 }
 export const DDlifeState = (setup) => DDnormalizeLife({ ...setup?.life, items: DDlifeItems(setup) });
@@ -555,7 +555,7 @@ export const DDlifeCSS = `
 .b4-frame[data-section]{background:color-mix(in srgb,var(--node-color) 14%,var(--wash))!important}
 .b4-frame[data-section=life]{background:transparent!important;border-style:dashed;box-shadow:none}
 .dd-life-frame{border:1px dashed var(--rule-2,#aaa);border-radius:14px;pointer-events:auto;z-index:0;touch-action:none;background:transparent}
-.dd-life-area-title{padding:12px 16px;color:var(--ink-2);font-size:14px;pointer-events:none}
+.dd-life-area-title{position:absolute;left:18px;bottom:calc(100% - 16px);transform:scale(clamp(1,var(--b4-inverse,1),4));transform-origin:0 100%;display:flex;align-items:baseline;gap:8px;padding:6px 14px;border-radius:999px;background:var(--ink,#171717);color:var(--paper,#fff);font:600 15px/1.2 var(--sans,system-ui);white-space:nowrap;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;box-shadow:0 4px 14px -6px #0006;z-index:2}\n.dd-life-area-title:active{cursor:grabbing}\n.dd-life-area-title small{font-weight:500;font-size:12px;opacity:.7}\n/* The Engine and the Feed grow from a corner grip that shows on hover. */\n.dd-area-resize{--k:clamp(1,var(--b4-inverse,1),4);position:absolute;right:calc(-6px * var(--k));bottom:calc(-6px * var(--k));width:calc(26px * var(--k));height:calc(26px * var(--k));padding:0;margin:0;border:0;border-radius:0;background:transparent;cursor:nwse-resize;z-index:6;opacity:.35;transition:opacity .12s;color:var(--ink-2,#555);min-width:0;min-height:0;box-shadow:none}\n.dd-engine-area>.dd-area-resize{color:var(--panel-engine,#F05A28)}\n:is(.dd-engine-area,.dd-life-frame):hover>.dd-area-resize,.dd-area-resize:focus-visible,.dd-area-resize:active{opacity:1}\n.dd-area-resize:after{content:"";position:absolute;left:22%;top:22%;width:42%;height:42%;border-right:calc(2.5px * var(--k)) solid currentColor;border-bottom:calc(2.5px * var(--k)) solid currentColor;border-bottom-right-radius:calc(6px * var(--k))}
 .b4-life-section{background:color-mix(in srgb,var(--node-color) 24%,var(--panel))!important;border:2px solid color-mix(in srgb,var(--node-color) 65%,#292526);box-shadow:none}
 .b4-life-section>.b4-node-body{position:absolute;top:-40px;left:0;height:34px;width:auto;max-width:calc(100% - 180px);border-radius:7px;background:var(--node-color);color:var(--node-text);padding:0 12px}
 .b4-life-section>.b4-node-actions{position:absolute;top:-40px;right:0;height:34px;border-radius:7px;background:var(--node-color);color:var(--node-text)}

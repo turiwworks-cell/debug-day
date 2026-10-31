@@ -50,7 +50,7 @@ export function DDboardSearchRows(day, lifeItems, visibleNodes = []) {
     visit(b.subtasks, []);
   }
   for (const n of day.notes || []) put({ id: "sticky:" + n.id, title: n.kind==="emoji"?(n.label||rows.get("sticky:"+n.id)?.title||n.text):n.text, detail: n.kind==="emoji"?n.text:"", kind: n.kind === "emoji" ? "emoji" : "sticky" });
-  for (const i of lifeItems) put({ id: "life:" + i.id, title: i.text, detail: "Life", lifeId: i.id, kind: i.type === "section" ? "life-section" : "sticky" });
+  for (const i of lifeItems) put({ id: "life:" + i.id, title: i.text, detail: "Feed", lifeId: i.id, kind: i.type === "section" ? "life-section" : "sticky" });
   return [...rows.values()];
 }
 
@@ -169,7 +169,7 @@ export function DDBoardSearch({ React:R,language,rows,query,onQuery,onReveal,onC
     e.stopPropagation();if(e.key==="Escape"){e.preventDefault();onClose();}
     else if(["ArrowDown","ArrowUp"].includes(e.key)){e.preventDefault();setIndex(n=>shown.length?(n+(e.key==="ArrowDown"?1:-1)+shown.length)%shown.length:0);}
     else if(e.key==="Enter"&&shown[index]){e.preventDefault();onReveal(shown[index]);}
-  }},h("div",{className:"b4-panel-head"},h("input",{ref:input,value:query,"aria-label":t("Search board nodes","جست‌وجوی اشیای برد"),placeholder:t("Search tasks, notes and Life…","جست‌وجوی کارها، نوت‌ها و زندگی…"),onChange:e=>onQuery(e.target.value),"aria-controls":"dd-board-results","aria-activedescendant":shown[index]?`dd-board-result-${index}`:undefined}),h("button",{type:"button","aria-label":t("Close board search","بستن جست‌وجوی برد"),onClick:onClose},"×")),
+  }},h("div",{className:"b4-panel-head"},h("input",{ref:input,value:query,"aria-label":t("Search board nodes","جست‌وجوی اشیای برد"),placeholder:t("Search tasks, notes and the Feed…","جست‌وجوی کارها، نوت‌ها و فید…"),onChange:e=>onQuery(e.target.value),"aria-controls":"dd-board-results","aria-activedescendant":shown[index]?`dd-board-result-${index}`:undefined}),h("button",{type:"button","aria-label":t("Close board search","بستن جست‌وجوی برد"),onClick:onClose},"×")),
     h("small",{role:"status"},matches.length?t(`${matches.length} results · ↑ ↓ Enter`,`${matches.length} نتیجه · ↑ ↓ Enter`):t("No matching objects","چیزی پیدا نشد")),
     h("div",{ref:list,id:"dd-board-results",role:"listbox","aria-label":t("Board results","نتیجه‌های برد")},shown.map((r,i)=>h("button",{type:"button",role:"option",id:`dd-board-result-${i}`,key:r.id,"aria-selected":index===i,dir:"auto",onMouseEnter:()=>setIndex(i),onClick:()=>onReveal(r)},h("span",null,r.title||t("Untitled","بدون عنوان")),
       // A task shows the section it came from; a section shows where it sits.
@@ -234,10 +234,12 @@ export const DDboardExperienceCSS = `
 .b6 .dd-note-editor{border-radius:2px;overflow:hidden;background:var(--node-color)}
 .b6 .dd-note-editor textarea{padding:18px 20px;font-size:var(--object-size,14px);line-height:1.5}
 .b6 .b4-life-section{background:color-mix(in srgb,var(--node-color) 12%,var(--paper))!important;border:1px solid color-mix(in srgb,var(--node-color) 45%,transparent);border-radius:12px}
-/* FigJam: the name pill sits inside the top-left corner. It keeps one on-screen size when zoomed out and grows with the board when zoomed in. */
-.b6 .b4-life-section{--dd-sec-k:clamp(1,var(--b4-inverse,1),60)}
-.b6 .b4-life-section>.b4-node-body{top:calc(10px * var(--dd-sec-k));left:calc(10px * var(--dd-sec-k));bottom:auto;margin:0;height:calc(28px * var(--dd-sec-k));width:auto;max-width:none;border-radius:calc(6px * var(--dd-sec-k));border:calc(1px * var(--dd-sec-k)) solid color-mix(in srgb,var(--node-color) 70%,#1e1e1e 30%);padding:0 calc(8px * var(--dd-sec-k));overflow:hidden;z-index:3;box-shadow:none}
-.b6 .b4-life-section>.b4-node-body .b4-node-title{font-size:calc(16px * var(--dd-sec-k));font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* FigJam: the name pill sits inside the top-left corner. It grows and shrinks with the board, stops shrinking at a readable 12px on screen, and is never wider than its section. */
+.b6 .b4-life-section{--dd-sec-k:clamp(1,calc(var(--b4-inverse,1) * .75),60)}
+.b6 .b4-life-section>.b4-node-body{top:calc(10px * var(--dd-sec-k));left:calc(10px * var(--dd-sec-k));bottom:auto;margin:0;height:calc(28px * var(--dd-sec-k));width:auto;max-width:calc(100% - 20px * var(--dd-sec-k));min-width:0;border-radius:calc(6px * var(--dd-sec-k));border:calc(1px * var(--dd-sec-k)) solid color-mix(in srgb,var(--node-color) 70%,#1e1e1e 30%);padding:0 calc(8px * var(--dd-sec-k));overflow:hidden;z-index:30;box-shadow:none}
+.b6 .b4-life-section>.b6-note-resize[data-edge]{z-index:31}
+.b6 .b4-life-section>.b4-node-body{align-items:stretch}
+.b6 .b4-life-section>.b4-node-body .b4-node-title{font-size:calc(16px * var(--dd-sec-k));font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;min-width:0}
 .b6 .b4-life-section>.b4-node-body .b4-node-title::before{content:none}
 .b6 .b4-life-section>.b4-node-actions{display:none}
 /* Ctrl+Space search opens above the full-screen board too. */
@@ -303,7 +305,7 @@ export const DDboardExperienceCSS = `
 .b6 .dd-wire-color{display:inline-block;width:14px;height:14px;border-radius:50%;border:1.5px solid #fff8}
 @media(prefers-reduced-motion:reduce){.b6 *{transition:none!important}}
 @media(max-width:700px){.b6 .b6-properties{top:182px}.b6 .b4-sticky .dd-note-preview{padding:20px 20px 60px}}
-/* Zoomed out, a section inside another hides its name once it is small on screen; the big sections keep theirs. */
+/* A section too small on screen to hold its name lets it step aside; selecting it shows the name again. */
 .b6 .b4-life-section[data-label-hidden=true]:not(.selected):not(:focus-within)>:is(.b4-node-body,.dd-sec-history){opacity:0;visibility:hidden;pointer-events:none}
 .b6 .b4-life-section>:is(.b4-node-body,.dd-sec-history){transition:opacity .15s,visibility .15s}
 /* "+" beside a selected note: a small dot that keeps one size and distance on screen, a "+" under the pointer. */

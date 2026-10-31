@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict');
 const {start,fixture}=require('./harness.cjs');
-// The Sections flowchart (5.26), like After Effects' Tab flowchart: Tab, D, the
+// The Sections flowchart (5.28), like After Effects' Tab flowchart: Tab, D, the
 // Sections button or Ctrl+Space bring up every section at once, Main board on the
 // start side and each section branching off its parent. The board you are in is
 // blue and so is the way to it. A click goes into a section; Shift+click or the
@@ -270,32 +270,35 @@ const {start,fixture}=require('./harness.cjs');
    assert.equal(await from.evaluate((el)=>getComputedStyle(el).backgroundColor),rgb(childFill));
    await page.keyboard.press('Escape');await engine.waitFor({state:'detached'});
 
-   // The Life area tools stay, behind the ≡ button.
+   // The Feed tools stay, behind the ≡ button.
    await open();
    const toggle=flow.locator('[data-life-tools]');
    assert.equal(await toggle.getAttribute('aria-expanded'),'false');
    await tap(toggle);
-   await flow.getByRole('button',{name:t('Enlarge Life area +25%','بزرگ‌تر کردن محدودهٔ زندگی +۲۵٪')}).waitFor();
+   await flow.getByRole('button',{name:t('Enlarge Feed +25%','بزرگ‌تر کردن فید +۲۵٪')}).waitFor();
    await flow.getByRole('button',{name:t('Compact layout','جمع‌وجور کن')}).waitFor();
-   const width=flow.getByRole('spinbutton',{name:t('Life area width','عرض محدودهٔ زندگی')});
+   const width=flow.getByRole('spinbutton',{name:t('Feed width','عرض فید')});
    const before=Number(await width.inputValue());
-   await tap(flow.getByRole('button',{name:t('Enlarge Life area +25%','بزرگ‌تر کردن محدودهٔ زندگی +۲۵٪')}));
+   await tap(flow.getByRole('button',{name:t('Enlarge Feed +25%','بزرگ‌تر کردن فید +۲۵٪')}));
    await page.waitForFunction((b)=>Number(document.querySelector('.dd-flow [aria-label] input[type=number], .dd-flow input[type=number]')?.value)>b,before);
    await close();
 
-   // Renaming the root in Plan updates the chips and the flowchart at once, without a reload.
+   // Renaming the root on the board updates Plan's chips, the board chip and the flowchart
+   // at once, without a reload. (Plan no longer lists the Feed itself, 5.28.)
    await page.locator('.b2-viewport').focus();await page.keyboard.press('Control+Shift+F');await page.locator('.b2.focus-mode').waitFor({state:'detached'});
    await page.locator('.views button').nth(0).click();
    const planChip=page.locator('.dd-plan-from[data-from="c"]');
    await planChip.first().waitFor({state:'attached'});
    assert.match(await planChip.first().textContent(),/Creative life › Sketches/,'Plan shows the path');
    assert.equal(await planChip.first().evaluate((el)=>getComputedStyle(el).backgroundColor),rgb(childFill),'in the same shade');
-   const fields=page.locator('.dd-plan-life input[aria-label]'),
-    field=fields.nth(await fields.evaluateAll((els)=>els.findIndex((el)=>el.value==='Creative life')));
+   assert.equal(await page.locator('.dd-plan-life').count(),0,'the Feed is not listed in Plan');
+   await page.locator('.views button').nth(1).click();
+   const rootNode=page.locator('[data-board-id="life:a"]');
+   await rootNode.focus();await page.keyboard.press('Enter');
+   const field=rootNode.locator('.b4-node-body input');
    assert.equal(await field.inputValue(),'Creative life');
-   // Plan's cards and Life list are folded away on a phone; type into the same field there.
-   if(mobile)await field.evaluate((el)=>{el.value='Studio life';el.dispatchEvent(new FocusEvent('focusout',{bubbles:true}));});
-   else{await field.fill('Studio life');await field.press('Tab');}
+   await field.fill('Studio life');await field.press('Enter');
+   await page.locator('.views button').nth(0).click();
    await page.waitForFunction(()=>/Studio life › Sketches/.test(document.querySelector('.dd-plan-from[data-from="c"]')?.innerText||''));
    await page.locator('.views button').nth(1).click();
    await chip.first().waitFor({state:'attached'});

@@ -1,3 +1,20 @@
+## 5.28.0 — 2026-10-31
+Branch: claude/project-thread-slkpwv
+- Notes: a to-do list no longer breaks the note. The tick box was stretched across the note and squeezed the words into one letter per line; now each task sits on one line beside a small box. Turning lines into to-dos never doubles a box ("- [ ] - [ ]") or touches blank lines.
+- Notes: text is larger and firmer (×1.15, medium weight, darker), and a note without its own size now reads at 16px like new notes.
+- Notes keep their size at every zoom. Zooming out no longer makes notes taller (their date line used to grow with zoom-out and stretch them).
+- Double-click (or double-tap) anywhere makes a note there, ready to type: empty board, inside a section, the Engine or the Feed. A double-click on a section's name still renames it; on a note or card it still edits.
+- Notes are made on sections: the Note tool (S) now works over a section and the note joins that section.
+- Sections and selection: a section's name always drags it. On its empty area a click selects it, a drag draws a selection box (so you can pick notes and sections inside it together), and once it is selected a drag there moves everything selected. Shift-click still adds or removes.
+- Section names follow one rule at every zoom: they shrink with the board only down to a readable size, never run past their section (long names end in "…"), always sit above the notes inside, and when two names would overlap the bigger section keeps its name until there is room again. No more huge names zoomed out, or names that vanish right away.
+- The Life section is now called Feed (فید): its pill, the toolbar, search and the size tools. Your Life lane is unchanged.
+- The Feed moves: drag its name pill. It keeps its spot on every day. The Feed and the Engine both grow from a corner grip (bottom-right); the Engine keeps the size you give it, and a new day starts with the same size.
+- Habits are no longer a section under the Engine on the board; the habits rail beside the board (Shift+H) is where they live.
+- Plan no longer shows the Feed list.
+- App changes is removed: no section, no panel, no search results, no Settings entry. Old notes stay saved.
+- The selection bar shows "3 objects" or a section's name in full instead of cutting it after a few letters.
+- New browser test `tests/browser/board-fixes.cjs`; tests for habits, panels, rails, search, sections, notes and section names updated.
+
 ## 5.27.0 — 2026-10-31
 Branch: claude/project-thread-ix6zdi
 - Every Board dock keeps only what you use most; the rest moved to a right-click on that dock, or its ⋯ button (on a phone too). Nothing was removed.
