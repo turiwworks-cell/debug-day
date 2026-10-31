@@ -44,6 +44,8 @@ const {start,fixture}=require('./harness.cjs');
    // Sticky tool: a ghost follows the pointer and the colors sit above the dock.
    await page.locator('.b2-viewport').focus();await page.keyboard.press('f');
    // A double-click anywhere on the board makes a note there, ready to type (5.28).
+   // Let the fit land first, so both clicks hit the same spot on the board.
+   await page.waitForFunction(()=>Number(document.querySelector('.b2-viewport').dataset.zoom)<1);await page.waitForTimeout(200);
    {const vb0=await page.locator('.b2-viewport').boundingBox(),n0=(await day()).notes.length;
     await page.mouse.dblclick(vb0.x+vb0.width*.62,vb0.y+vb0.height*.35);
     const typing=page.locator('.dd-note-editor textarea');await typing.waitFor();
