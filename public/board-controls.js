@@ -681,10 +681,13 @@ export function DDcreateBoardControls(core) {
               "روی همهٔ اشیای بازِ انتخاب‌شده اعمال می‌شود.",
             ),
           ),
-        // A section inside another takes its top section's color.
-        node?.lifeSection && node.parentId
-          ? h("small", { className: "dd-color-inherited" }, t("Takes the color of its top section. Color the top section to change it.", "رنگ سکشن بالایی‌اش را می‌گیرد. برای تغییر، سکشن بالایی را رنگ کن."))
-          : h(ColorPicker, {
+        // A section inside another shows a shade of its family color until it gets its own.
+        node?.lifeSection && node.parentId &&
+          h("small", { className: "dd-color-inherited" },
+            node.ownColor
+              ? h("button", { type: "button", className: "b6-text-button", "data-family-shade": true, disabled: locked, onClick: () => apply({ fill: null }) }, t("Use the family shade again", "دوباره سایهٔ رنگ خانواده"))
+              : t("A shade of its top section's color. Pick a color to give it its own.", "سایه‌ای از رنگ سکشن بالایی. یک رنگ بردار تا رنگ خودش را داشته باشد.")),
+        h(ColorPicker, {
           React: R,
           language,
           value: base,

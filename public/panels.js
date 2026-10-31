@@ -104,8 +104,8 @@ export const DDsectionsCommand = {
   icon: "🗂️",
   color: "#8A6E4B",
   name: ["Sections", "سکشن‌ها"],
-  about: ["Open the section drawer: pick a section and go into its board", "کشوی سکشن‌ها را باز کن: یک سکشن بردار و وارد بردش شو"],
-  words: "sections drawer folders cards life rooms سکشن کشو پوشه کارت زندگی",
+  about: ["Open the Sections list: find a section, show it on the board or go into its board", "فهرست سکشن‌ها را باز کن: یک سکشن پیدا کن، روی برد نشانش بده یا وارد بردش شو"],
+  words: "sections list drawer colors life rooms سکشن فهرست کشو رنگ زندگی",
   isolate: false,
 };
 

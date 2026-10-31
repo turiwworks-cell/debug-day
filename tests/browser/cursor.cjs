@@ -16,7 +16,7 @@ const { start, fixture } = require("./harness.cjs");
       assert.doesNotMatch(await page.locator(selector).first().evaluate((el) => getComputedStyle(el).cursor), /data:image/, selector);
     await page.getByRole("button", { name: "Hand tool", exact: true }).click();
     assert.doesNotMatch(await viewport.evaluate((el) => getComputedStyle(el).cursor), /data:image/);
-    await page.locator("[data-drawer-button]").click();await page.locator("[data-drawer-list]").click();
+    await page.locator("[data-sections-button]").click();await page.locator("[data-life-tools]").click();
     const before=await page.locator('[data-board-id="section:life"]').evaluate((el)=>({w:el.offsetWidth,h:el.offsetHeight}));
     await page.getByRole("button",{name:"Enlarge Life area +25%",exact:true}).click();
     let geometry=await page.evaluate(()=>JSON.parse(localStorage.getItem("debug-day:v2")).setup.life.frame);
@@ -28,7 +28,7 @@ const { start, fixture } = require("./harness.cjs");
     assert.equal(geometry.w,requested,"custom width is saved in shared setup");
     for (const theme of ["light", "dark"]) {
       await page.evaluate((theme) => document.documentElement.dataset.theme = theme, theme);
-      const contrast = await page.locator(".dd-life-nav").evaluate((el) => {
+      const contrast = await page.locator(".dd-sections").evaluate((el) => {
         const luminance = (value) => {
           const rgb = value.match(/[\d.]+/g).slice(0, 3).map(Number).map((v) => { v /= 255; return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; });
           return .2126 * rgb[0] + .7152 * rgb[1] + .0722 * rgb[2];
