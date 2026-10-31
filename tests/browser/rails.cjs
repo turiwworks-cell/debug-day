@@ -64,8 +64,8 @@ const { start, fixture } = require("./harness.cjs");
 
       // Nested board: main → Art → Sketches, and both day and shared connections.
       await page.locator('[data-sections-button]').click();
-      await page.locator('.dd-sections [data-enter-section="b"]').click();
-      if (await page.locator(".dd-sections").count()) await page.locator(".dd-sections-close").click();
+      await page.locator('.dd-flow [data-flow-node="b"] .dd-flow-pill').click();
+      await page.locator(".dd-flow").waitFor({ state: "detached" });
       await page.locator(".dd-room-bar").waitFor(); await open("goal");
       assert.deepEqual(await panel("goal").locator("[data-rail-group]").evaluateAll((els) => els.map((e) => e.dataset.railGroup)), ["sticky:note", "life:root", "life:big", "life:small"]);
       assert.match(await panel("goal").locator('[data-rail-group="life:small"]').innerText(), /Long research[\s\S]*Gentle reminder/);

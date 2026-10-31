@@ -86,9 +86,9 @@ const {start,fixture}=require('./harness.cjs');
    }
    // Into the nested section, then back out one level at a time.
    // On a phone from the button on its name; on desktop (the task's details are
-   // open beside it now) from the section list.
+   // open beside it now) from the Sections flowchart.
    if(mobile)await tap(page.locator('[data-board-id="life:c"] [data-enter-section="c"]'));
-   else{await page.locator('[data-sections-button]').click();await page.locator('.dd-sections [data-enter-section="c"]').click();await page.locator('.dd-sections-close').click();}
+   else{await page.locator('[data-sections-button]').click();await page.locator('.dd-flow [data-flow-node="c"] .dd-flow-pill').click();await page.locator('.dd-flow').waitFor({state:'detached'});}
    await page.waitForFunction(()=>/Sketches/.test(document.querySelector('.dd-room-bar')?.innerText||''));
    assert.equal(await page.locator('[data-board-id="life:a"]').count(),0,'the outer section is not drawn inside the inner one');
    assert.equal(await page.locator('[data-board-id="life:k"]').count(),1);
@@ -106,8 +106,8 @@ const {start,fixture}=require('./harness.cjs');
    assert.equal(await page.locator('[data-board-id="life:b"]').count(),1,'the main board again');
    assert.equal(await page.locator('[data-board-id="sticky:note"]').count(),1);
    // The selection toolbar can open a section too.
-   await tap(page.locator('[data-sections-button]'));await tap(page.locator('.dd-sections [data-section-show="b"]'));await page.waitForTimeout(300);
-   if(await page.locator('.dd-sections').count())await page.locator('.dd-sections-close').click();
+   await tap(page.locator('[data-sections-button]'));await page.locator('.dd-flow [data-flow-node="b"] .dd-flow-pill').dispatchEvent('contextmenu');
+   await tap(page.locator('.dd-flow [data-flow-show="b"]'));await page.locator('.dd-flow').waitFor({state:'detached'});await page.waitForTimeout(300);
    await tap(page.locator('[data-board-id="life:b"] .b4-node-title'));
    await tap(page.locator('.b4-selectionbar [data-enter-section="b"]'));
    await bar.waitFor();assert.match(await bar.innerText(),/Work & play/);

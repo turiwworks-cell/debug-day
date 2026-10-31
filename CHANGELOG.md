@@ -1,4 +1,4 @@
-## 5.26.0 — 2026-10-31
+## 5.27.0 — 2026-10-31
 Branch: claude/project-thread-ix6zdi
 - Every Board dock keeps only what you use most; the rest moved to a right-click on that dock, or its ⋯ button (on a phone too). Nothing was removed.
 - Top bar keeps Undo, Timer, Search, Engine, Life, Sections and Full screen. Redo, Fit all, light / dark, Export SVG and Help moved to its ⋯.
@@ -9,6 +9,16 @@ Branch: claude/project-thread-ix6zdi
 - New icons for all Board docks and menus, from one set (`public/board-icons.js`). Each action has its own picture: Full screen, Fit all and Life no longer look alike, the Engine is a gear and Canvas settings are sliders, Sections is a tree instead of "···", the Section tool is a titled frame instead of a task box, Snap is a magnet and the Minimap is a small map.
 - Goals, Notes and Today's habits pills use the new icons (flag, page, repeat-check).
 - Tests updated for the moved buttons.
+
+## 5.26.0 — 2026-10-31
+Branch: claude/project-thread-bgfqx1
+- The Sections list is now a flowchart, like After Effects' Tab flowchart: Main board, then top sections, then the sections inside them, joined by curved lines with arrows.
+- Tab on the board opens it and Tab closes it (D, the Sections button and Ctrl+Space still work). Tab in the toolbar and fields still moves focus as before.
+- The board you are in is a blue pill and the way to it is blue. Click any section to go into its board; Shift+click shows it on the board.
+- Nothing from the list was lost: find (lights matches, opens folds), fold with − / +, note counts, colors and custom colors in the right-click / long-press menu, Family shade, and the Life area size tools behind ≡.
+- Keyboard: arrows follow the lines, Home goes to Main board, Enter goes in, Shift+Enter shows. In Persian it runs right to left; on a phone it is a bottom sheet with 44px pills.
+- On a desktop it opens just below the toolbar and the "where you are" bar.
+- `public/sections-list.js` is replaced by `public/sections-flow.js`; tests moved to `tests/sections-flow.test.mjs` and `tests/browser/sections-flow.cjs`.
 
 ## 5.25.0 — 2026-10-31
 Branch: claude/project-thread-slkpwv
