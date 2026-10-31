@@ -393,8 +393,10 @@ const { start, fixture } = require("./harness.cjs");
           .getByRole("button", { name: t("Undo", "واگرد"), exact: true })
           .click();
         assert.equal((await read()).blocks[0].lane, "work");
+        // Redo lives in the top dock's ⋯.
+        await page.locator('[data-dock-more="top"]').click();
         await page
-          .getByRole("button", { name: t("Redo", "انجام دوباره"), exact: true })
+          .getByRole("menuitem", { name: t("Redo", "انجام مجدد"), exact: true })
           .click();
         assert.equal((await read()).blocks[0].lane, "life");
         await nav(0);

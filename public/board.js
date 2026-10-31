@@ -2470,7 +2470,7 @@ export function DDcreateBoard(deps) {
       return _.createElement("button", { type: "button", key: label, className: "b2-icon dd-wire-button", "aria-label": label, title: label, ...(pressed === undefined ? {} : { "aria-pressed": pressed }), onClick }, content);
     }
     function wireToolbar(wire) {
-      const ends = wireEnds(wire), style = wire.style || "curve", dashed = wire.dashed || wire.pattern === "dashed", weight = wire.width || 3;
+      const ends = wireEnds(wire), style = wire.style || "curve", weight = wire.width || 3;
       const set = (patch, message) => patchWire(wire.id, patch, message);
       const toggle = (name) => setWirePop((v) => (v === name ? null : name));
       return _.createElement(_.Fragment, null,
@@ -2479,23 +2479,19 @@ export function DDcreateBoard(deps) {
           wirePop === "color" && _.createElement("div", { className: "dd-wire-pop", role: "group", "aria-label": t("Line colors", "رنگ‌های خط") },
             wireColors.map((color) => _.createElement("button", { type: "button", key: color, className: "dd-swatch", style: { background: color }, "aria-label": t("Line color ", "رنگ خط ") + color, "aria-pressed": (wire.color || "#757575").toUpperCase() === color, onClick: () => { set({ color }, t("Line color changed", "رنگ خط تغییر کرد")); setWirePop(null); } })))),
         _.createElement("span", { style: { position: "relative", display: "inline-flex" } },
-          wireButton(t("Line weight", "ضخامت خط"), "≡", () => toggle("weight"), wirePop === "weight"),
+          wireButton(t("Line weight", "ضخامت خط"), _.createElement(controls.Icon,{React:_,name:"weight"}), () => toggle("weight"), wirePop === "weight"),
           wirePop === "weight" && _.createElement("div", { className: "dd-wire-pop", role: "group", "aria-label": t("Line weights", "ضخامت‌های خط") },
             [[2, t("Thin", "نازک")], [3, t("Medium", "متوسط")], [5, t("Thick", "ضخیم")]].map(([w, name]) => _.createElement("button", { type: "button", key: w, "aria-pressed": weight === w, onClick: () => { set({ width: w }, t("Line weight changed", "ضخامت خط تغییر کرد")); setWirePop(null); } }, name)))),
-        wireButton(t("Add text to line", "افزودن متن به خط"), "T", () => { setInspector(true); setTimeout(() => root.current?.querySelector('[aria-label="' + t("Connection label", "عنوان اتصال") + '"]')?.focus(), 0); }),
+        // Text, dashes, the start arrow, details and delete: ⋯ or a right-click.
         _.createElement("span", { className: "b2-sep" }),
-        wireButton(t("Dashed line", "خط‌چین"), "┄", () => set({ dashed: !dashed, pattern: dashed ? "solid" : "dashed" }, t("Line pattern changed", "الگوی خط تغییر کرد")), dashed),
-        wireButton(t("Straight line", "خط صاف"), "╱", () => set({ style: "straight", bend: null }, t("Line type changed", "نوع خط تغییر کرد")), style === "straight"),
-        wireButton(t("Elbowed line", "خط شکسته"), "⌐", () => set({ style: "elbow", bend: null }, t("Line type changed", "نوع خط تغییر کرد")), style === "elbow"),
-        wireButton(t("Curved line", "خط منحنی"), "∿", () => set({ style: "curve", bend: null }, t("Line type changed", "نوع خط تغییر کرد")), style === "curve"),
+        wireButton(t("Straight line", "خط صاف"), _.createElement(controls.Icon,{React:_,name:"straight"}), () => set({ style: "straight", bend: null }, t("Line type changed", "نوع خط تغییر کرد")), style === "straight"),
+        wireButton(t("Elbowed line", "خط شکسته"), _.createElement(controls.Icon,{React:_,name:"elbow"}), () => set({ style: "elbow", bend: null }, t("Line type changed", "نوع خط تغییر کرد")), style === "elbow"),
+        wireButton(t("Curved line", "خط منحنی"), _.createElement(controls.Icon,{React:_,name:"curve"}), () => set({ style: "curve", bend: null }, t("Line type changed", "نوع خط تغییر کرد")), style === "curve"),
         _.createElement("span", { className: "b2-sep" }),
-        wireButton(t("Arrow at start", "پیکان در ابتدا"), "←", () => setWireEnds(wire, { ...ends, start: !ends.start }), ends.start),
-        wireButton(t("Arrow at end", "پیکان در انتها"), "→", () => setWireEnds(wire, { ...ends, end: !ends.end }), ends.end),
+        wireButton(t("Arrow at end", "پیکان در انتها"), _.createElement(controls.Icon,{React:_,name:"arrow"}), () => setWireEnds(wire, { ...ends, end: !ends.end }), ends.end),
         // Direction matters here (it can mean which task leads), so it stays one click away.
-        wireButton(t("Reverse direction", "برعکس کردن جهت"), "⇄", () => patchWire(wire.id, { from: wire.to, to: wire.from, fromPort: wire.toPort, toPort: wire.fromPort }, t("Connection reversed", "جهت اتصال عوض شد"))),
-        _.createElement("span", { className: "b2-sep" }),
-        toolButton("Connection details", "gear", () => setInspector((Y) => !Y)),
-        toolButton(DDUI("Delete connection"), "trash", () => deleteWire()),
+        wireButton(t("Reverse direction", "برعکس کردن جهت"), _.createElement(controls.Icon,{React:_,name:"reverse"}), () => patchWire(wire.id, { from: wire.to, to: wire.from, fromPort: wire.toPort, toPort: wire.fromPort }, t("Connection reversed", "جهت اتصال عوض شد"))),
+        toolButton(t("More actions", "گزینه‌های بیشتر"), "more", (event) => openContext(event, { wire: wire.id }), { "data-dock-more": "line" }),
       );
     }
     // Arrowheads at either end. Older links keep one arrow, flipped by arrowReverse.
@@ -3734,6 +3730,10 @@ export function DDcreateBoard(deps) {
       }
       setWireSelection(ids.length ? { sel: S, ids } : null);
     }
+    // ⋯ at the end of a dock opens what the dock keeps out of sight (same as a right-click).
+    function dockMore(dock) {
+      return toolButton(t("More tools · right-click the bar", "ابزارهای بیشتر · راست‌کلیک روی نوار"), "more", (event) => openContext(event, { dock }), { "data-dock-more": dock, "aria-haspopup": "menu", "aria-expanded": menu?.dock === dock });
+    }
     function toolButton(Y, G, ct, ot = {}, lb) {
       const k = shortcutKeys.find(([a]) => a === Y || DDUI(a) === Y);
       return _.createElement(
@@ -3746,13 +3746,7 @@ export function DDcreateBoard(deps) {
           onClick: ct,
           ...ot,
         },
-        G === "?"
-          ? _.createElement(
-              "b",
-              { className: "dd-glyph", "aria-hidden": "true" },
-              G,
-            )
-          : G &&
+        G &&
               _.createElement(controls.Icon, {
                 React: _,
                 name:
@@ -5187,6 +5181,25 @@ export function DDcreateBoard(deps) {
         ...rest,
       });
       const sep = (id) => ({ id, separator: true });
+      // What each dock keeps out of sight: right-click the dock, or its ⋯.
+      if (menu.dock === "top")
+        return [
+          item("redo", "Redo", "انجام مجدد", "redo", () => undo(true), { disabled: !history.current.future.length, shortcut: "Ctrl/Cmd+Shift+Z" }),
+          sep("top-view-sep"),
+          item("fit-all", "Fit all objects", "نمایش همهٔ اشیا", "fitAll", () => fit(false), { shortcut: "Shift+1" }),
+          item("theme", "Toggle light / dark", "تغییر روشن / تیره", (setup.look?.theme === "dark" || (setup.look?.theme !== "light" && matchMedia("(prefers-color-scheme:dark)").matches)) ? "sun" : "moon", toggleBoardTheme),
+          item("export", "Export board SVG", "خروجی SVG برد", "export", exportSVG),
+          sep("top-help-sep"),
+          item("help", "Board help", "راهنمای برد", "help", () => setHelp(true), { shortcut: "?" }),
+        ];
+      if (menu.dock === "tools")
+        return [
+          item("snap", "Snap to grid", "چسبیدن به شبکه", "snap", () => toggleView("snap"), { checked: snap }),
+          item("grid", "Dot grid", "شبکهٔ نقطه‌ای", "grid", () => toggleView("grid"), { checked: grid }),
+          item("minimap", "Minimap", "نقشهٔ کوچک", "map", () => toggleView("map"), { checked: showMap }),
+          sep("tools-view-sep"),
+          item("view", "Canvas settings…", "تنظیمات بوم…", "settings", () => { setViewPanel(true); setProperties(false); setInspector(false); }),
+        ];
       const editable = selectedNodes.some((n) => !locked.has(n.id)),
         copyable = selectedNodes.some((n) =>
           ["block", "subtask", "sticky", "emoji", "bug", "life-section"].includes(n.kind),
@@ -5250,14 +5263,9 @@ export function DDcreateBoard(deps) {
               ),
             ),
           }),
-          item(
-            "arrow",
-            "Arrow at the end",
-            "فلش در انتها",
-            "arrow",
-            () => patchWire(wireId, { arrow: !selectedWire?.arrow }),
-            { checked: !!selectedWire?.arrow },
-          ),
+          item("dashed", "Dashed line", "خط‌چین", "dashed", () => { const dashed = selectedWire.dashed || selectedWire.pattern === "dashed"; patchWire(wireId, { dashed: !dashed, pattern: dashed ? "solid" : "dashed" }, t("Line pattern changed", "الگوی خط تغییر کرد")); }, { checked: !!(selectedWire?.dashed || selectedWire?.pattern === "dashed") }),
+          item("arrow-start", "Arrow at start", "پیکان در ابتدا", "arrowStart", () => { const ends = wireEnds(selectedWire); setWireEnds(selectedWire, { ...ends, start: !ends.start }); }, { checked: !!selectedWire && wireEnds(selectedWire).start }),
+          item("arrow", "Arrow at end", "پیکان در انتها", "arrow", () => { const ends = wireEnds(selectedWire); setWireEnds(selectedWire, { ...ends, end: !ends.end }); }, { checked: !!selectedWire && wireEnds(selectedWire).end }),
           item("reverse", "Reverse direction", "معکوس کردن جهت", "swap", () =>
             patchWire(wireId, {
               from: selectedWire.to,
@@ -5266,9 +5274,12 @@ export function DDcreateBoard(deps) {
               toPort: selectedWire.fromPort,
             }),
           ),
-          item("reset-route", "Reset route", "بازنشانی مسیر", "undo", () =>
+          item("reset-route", "Reset route", "بازنشانی مسیر", "reset", () =>
             patchWire(wireId, { bend: null, fromPort: null, toPort: null }),
           ),
+          sep("line-text-sep"),
+          item("line-text", "Add text to line", "افزودن متن به خط", "text", () => { setInspector(true); setTimeout(() => root.current?.querySelector('[aria-label="' + t("Connection label", "عنوان اتصال") + '"]')?.focus(), 0); }),
+          item("line-details", "Connection details…", "جزئیات اتصال…", "settings", () => setInspector(true)),
           sep("delete-sep"),
           item(
             "delete-wire",
@@ -5308,10 +5319,20 @@ export function DDcreateBoard(deps) {
             ),
           ...(selectedNode?.kind === "sticky" ? ["goal", "note"].map((role) => {
             const note = selectedNode.lifeId ? DDlifeItems(setup).find((n) => n.id === selectedNode.lifeId) : day.notes.find((n) => n.id === selectedNode.noteId), active = note?.role === role;
-            return item("rail-" + role, active ? (role === "goal" ? "Remove goal role" : "Remove note role") : (role === "goal" ? "Make it the goal" : "Make it a note"), active ? (role === "goal" ? "برداشتن هدف" : "برداشتن نوت") : (role === "goal" ? "هدف کن" : "نوت کن"), "sticky", () => commit((d) => DDsetRailRole(d, selectedNode.id, active ? undefined : role)), { checked: active, disabled: allLocked });
+            return item("rail-" + role, active ? (role === "goal" ? "Remove goal role" : "Remove note role") : (role === "goal" ? "Make it the goal" : "Make it a note"), active ? (role === "goal" ? "برداشتن هدف" : "برداشتن نوت") : (role === "goal" ? "هدف کن" : "نوت کن"), role === "goal" ? "goal" : "lines", () => commit((d) => DDsetRailRole(d, selectedNode.id, active ? undefined : role)), { checked: active, disabled: allLocked });
           }) : []),
+          // From the selection bar: note styling outside typing, and a section's add / remove.
+          selectedNode?.kind === "sticky" && item("text-style", "Text style", "سبک متن", "bold", null, {
+            disabled: allLocked,
+            children: [["bold", "Bold", "پررنگ", "Ctrl/Cmd+B"], ["strike", "Strikethrough", "خط‌خورده", "Ctrl/Cmd+Shift+X"], ["todo", "To-do", "کار", "Ctrl/Cmd+Shift+9"]].map(([kind, en, fa, shortcut]) => item("format-" + kind, en, fa, kind, () => formatSticky(kind), { shortcut })),
+          }),
+          ...(selectedNode?.lifeSection ? [
+            item("section-note", "Add sticky note inside", "افزودن یادداشت داخل", "noteAdd", () => addLifeItem("sticky", selectedNode.lifeId)),
+            item("section-inside", "Add section inside", "افزودن سکشن داخل", "sectionAdd", () => addLifeItem("section", selectedNode.lifeId)),
+            item("section-remove", "Remove section, keep contents", "برداشتن سکشن با حفظ محتوا", "unframe", () => groupSelection(true), { shortcut: "Ctrl/Cmd+Shift+G" }),
+          ] : []),
           ...styleItems,
-          selectedNode?.kind === "block" && item("task-symbol","Change task sticker / emoji","تغییر استیکر / ایموجی کار","spark",()=>{finishEdit();setStickerPicker({target:selectedNode.blockId,current:selectedNode.emoji});},{disabled:allLocked}),
+          selectedNode?.kind === "block" && item("task-symbol","Change task sticker / emoji","تغییر استیکر / ایموجی کار","sticker",()=>{finishEdit();setStickerPicker({target:selectedNode.blockId,current:selectedNode.emoji});},{disabled:allLocked}),
           item("fit-selection","Zoom to selection","زوم روی انتخاب","fit",()=>fit(true)),
           item("select-branch","Select branch","انتخاب شاخه","tree",selectBranch,{disabled:!selectedNode}),
           sep("clipboard-sep"),
@@ -5440,7 +5461,7 @@ export function DDcreateBoard(deps) {
         item("add-note", "Add note here", "افزودن نوت اینجا", "note", () =>
           addSticky(menu.point),
         ),
-        item("add-symbol","Add sticker / emoji here","افزودن استیکر / ایموجی اینجا","spark",()=>{finishEdit();setStickerPicker({point:menu.point});}),
+        item("add-symbol","Add sticker / emoji here","افزودن استیکر / ایموجی اینجا","sticker",()=>{finishEdit();setStickerPicker({point:menu.point});}),
         item("add-task", "Add task here", "افزودن کار اینجا", "task", () =>
           addBlock(null, menu.point),
         ),
@@ -5475,14 +5496,14 @@ export function DDcreateBoard(deps) {
           "fit-all",
           "Fit all objects",
           "نمایش همهٔ اشیا",
-          "fit",
+          "fitAll",
           () => fit(false),
           { shortcut: "Shift+1" },
         ),
         item("zoom-100", "Zoom to 100%", "زوم ۱۰۰٪", "zoom", () => setZoom(1), {
           shortcut: "0",
         }),
-        item("fit-day","Fit current day","نمای روز جاری","fit",()=>fit(false,"day"),{shortcut:"Shift+3"}),
+        item("fit-day","Fit current day","نمای روز جاری","fitDay",()=>fit(false,"day"),{shortcut:"Shift+3"}),
         item("view", "Canvas settings…", "تنظیمات بوم…", "settings", () => {
           setViewPanel(true);
           setProperties(false);
@@ -5505,6 +5526,7 @@ export function DDcreateBoard(deps) {
           disabled: !history.current.future.length,
           shortcut: "Ctrl/Cmd+Shift+Z",
         }),
+        item("help", "Board help", "راهنمای برد", "help", () => setHelp(true), { shortcut: "?" }),
         item("layout", "Layout options", "گزینه‌های چیدمان", "align", null, {
           children: [
             item(
@@ -5636,17 +5658,14 @@ export function DDcreateBoard(deps) {
             ),
           ),
         ),
+        // Daily tools stay in sight; the rest is one right-click (or ⋯) away.
         _.createElement(
           "div",
-          { className: "b2-top-actions" },
+          { className: "b2-top-actions", "data-dock": "top", onContextMenu: (event) => openContext(event, { dock: "top" }) },
           toolButton(DDUI("Undo"), "undo", () => undo(), {
             disabled: !history.current.past.length,
           }),
-          toolButton(DDUI("Redo"), "redo", () => undo(!0), {
-            disabled: !history.current.future.length,
-          }),
           onTimerChange && _.createElement(DDBoardTimerButton,{React:_,Icon:controls.Icon,language:DDlanguage,timer,open:timerOpen,onOpenChange:setTimerOpen,buttonRef:timerButton}),
-          toolButton(t("Toggle light / dark","تغییر روشن / تیره"),"moon",toggleBoardTheme,{className:"b2-icon dd-board-theme"}),
           _.createElement("span", { className: "b2-sep" }),
           toolButton(
             DDUI("Search board"),
@@ -5655,20 +5674,9 @@ export function DDcreateBoard(deps) {
             {},
             DDUI("Search"),
           ),
-          toolButton(
-            DDUI("Fit all objects"),
-            "fitAll",
-            () => fit(!1),
-            {},
-            DDUI("Fit all"),
-          ),
-          toolButton(
-            DDUI("Export board SVG"),
-            "download",
-            exportSVG,
-            {},
-            DDUI("Export"),
-          ),
+          toolButton(t("Go to the Engine (E brings it over the board)", "رفتن به انجین (E آن را روی برد می‌آورد)"),"engine",()=>{finishEdit();setEngine(false);fit(false,"day");},{"data-engine-jump":true},t("Engine","انجین")),
+          toolButton(t("Go to Life section", "رفتن به بخش زندگی"),"leaf",()=>{const first=DDlifeItems(setup).find((i)=>i.type==="section"&&!i.parent);if(first)jumpLife(first.id);else addLifeItem("section");},{"data-life-jump":true},t("Life","زندگی")),
+          toolButton(t("Sections (D)","سکشن‌ها (D)"),"sections",()=>{finishEdit();setLifeNav((v)=>!v);},{"aria-expanded":lifeNav,"data-sections-button":true},t("Sections","سکشن‌ها")),
           toolButton(
             DDUI(focus ? "Exit full screen" : "Full screen"),
             focus ? "shrink" : "expand",
@@ -5676,10 +5684,7 @@ export function DDcreateBoard(deps) {
             {},
             DDUI(focus ? "Exit full screen" : "Full screen"),
           ),
-          toolButton("Board help", "?", () => setHelp((Y) => !Y)),
-          toolButton(t("Go to the Engine (E brings it over the board)", "رفتن به انجین (E آن را روی برد می‌آورد)"),"settings",()=>{finishEdit();setEngine(false);fit(false,"day");},{"data-engine-jump":true},t("Engine","انجین")),
-          toolButton(t("Go to Life section", "رفتن به بخش زندگی"),"fitAll",()=>{const first=DDlifeItems(setup).find((i)=>i.type==="section"&&!i.parent);if(first)jumpLife(first.id);else addLifeItem("section");},{"data-life-jump":true},t("Life","زندگی")),
-          toolButton(t("Sections (D)","سکشن‌ها (D)"),"list",()=>{finishEdit();setLifeNav((v)=>!v);},{"aria-expanded":lifeNav,"data-sections-button":true},t("Sections","سکشن‌ها")),
+          dockMore("top"),
         ),
         // Where you are: the main board, then each section down to the open one.
         layout.room && _.createElement("div",{className:"dd-room-break","aria-hidden":true}),
@@ -5719,6 +5724,7 @@ export function DDcreateBoard(deps) {
             ref: selectionbar,
             role: "toolbar",
             onPointerDown:e=>{e.stopPropagation();if(editingRef.current)e.preventDefault();},
+            onContextMenu:(event)=>openContext(event,selectedWire?{wire:selectedWire.id}:selectedNode?{ref:selectedNode.id}:{selection:true}),
             "aria-label": "Selection actions",
           },
           selectedWire
@@ -5758,12 +5764,14 @@ export function DDcreateBoard(deps) {
                   selectedNode?.min > 0 &&
                     _.createElement("b", null, w(selectedNode.min)),
                 ),
-                // Tasks keep their own two actions; the note-only buttons below were trimmed.
+                // Only what a card is opened for stays here; lock, layers, the
+                // section's add / remove and note styling outside typing live in ⋯
+                // (or a right-click on this bar).
                 selectedNode &&
                   ["block", "subtask", "bug", "habit"].includes(selectedNode.kind) &&
                   toolButton(
                     t("Card details", "جزئیات کارت"),
-                    "task",
+                    "info",
                     () => {
                       setDetails(!details);
                       setProperties(false);
@@ -5774,7 +5782,7 @@ export function DDcreateBoard(deps) {
                   (selectedNode.kind === "block" || selectedNode.kind === "subtask") &&
                   toolButton(
                     t("Add a step", "افزودن قدم"),
-                    "plus",
+                    "addStep",
                     () => setChild({ blockId: selectedNode.blockId, subId: selectedNode.subId || null, value: "" }),
                     { "data-add-step": true },
                     t("Step", "قدم"),
@@ -5789,6 +5797,17 @@ export function DDcreateBoard(deps) {
                   },
                   { "aria-pressed": properties },
                 ),
+                // The note's own bar stays out of sight on desktop (FigJam), so its
+                // "to plan" action lives here.
+                selectedNode?.kind === "sticky" && toolButton(DDUI("Convert note to plan"), "toPlan", () => convertSticky(selectedNode), {}, DDUI("→ پلن")),
+                // Section actions live in the selection toolbar, as in FigJam; the
+                // section itself carries only its title.
+                selectedNode?.lifeSection && _.createElement(_.Fragment,null,
+                  toolButton(t("Open as its own board","ورود به برد سکشن"),"enter",()=>enterRoom(selectedNode.lifeId),{"data-enter-section":selectedNode.lifeId}),
+                  toolButton(t(selectedNode.collapsed ? "Expand section" : "Collapse section",selectedNode.collapsed ? "باز کردن سکشن" : "بستن سکشن"),selectedNode.collapsed?"expandDown":"collapse",()=>lifeChange((list)=>list.map((i)=>i.id===selectedNode.lifeId?{...i,collapsed:!i.collapsed}:i)))),
+                // Bold, strike and to-do sit here while you type in a note.
+                selectedNode?.kind === "sticky" && editing?.ref === selectedNode.id && _.createElement(_.Fragment,null,
+                  ...["bold","strike","todo"].map((kind)=>toolButton(t(kind==="bold"?"Bold":kind==="strike"?"Strikethrough":"To-do",kind==="bold"?"پررنگ":kind==="strike"?"خط‌خورده":"کار"),kind,()=>formatSticky(kind),{"data-note-format":kind}))),
                 toolButton(
                   t("More actions", "گزینه‌های بیشتر"),
                   "more",
@@ -5799,39 +5818,8 @@ export function DDcreateBoard(deps) {
                         ? { ref: selectedNode.id }
                         : { selection: true },
                     ),
+                  { "data-dock-more": "selection" },
                 ),
-                // The note's own bar stays out of sight on desktop (FigJam), so its
-                // "to plan" action lives here.
-                selectedNode?.kind === "sticky" && toolButton(DDUI("Convert note to plan"), "task", () => convertSticky(selectedNode), {}, DDUI("→ پلن")),
-                // Section actions live in the selection toolbar, as in FigJam; the
-                // section itself carries only its title.
-                selectedNode?.lifeSection && _.createElement(_.Fragment,null,
-                  toolButton(t("Open as its own board","ورود به برد سکشن"),null,()=>enterRoom(selectedNode.lifeId),{"data-enter-section":selectedNode.lifeId},"↗"),
-                  toolButton(t(selectedNode.collapsed ? "Expand section" : "Collapse section",selectedNode.collapsed ? "باز کردن سکشن" : "بستن سکشن"),null,()=>lifeChange((list)=>list.map((i)=>i.id===selectedNode.lifeId?{...i,collapsed:!i.collapsed}:i)),{},selectedNode.collapsed?"▸":"▾"),
-                  toolButton(t("Add sticky note","افزودن یادداشت"),"plus",()=>addLifeItem("sticky",selectedNode.lifeId)),
-                  toolButton(t("Add section inside","افزودن سکشن داخل"),"square",()=>addLifeItem("section",selectedNode.lifeId)),
-                  toolButton(t("Remove section, keep contents (Ctrl+Shift+G)","برداشتن سکشن با حفظ محتوا (Ctrl+Shift+G)"),"swap",()=>groupSelection(true))),
-                selectedNode?.kind === "sticky" && _.createElement(_.Fragment,null,
-                  ...[["bold","B"],["strike","S̶"],["todo","☑"]].map(([kind,label])=>toolButton(t(kind==="bold"?"Bold":kind==="strike"?"Strikethrough":"To-do",kind==="bold"?"پررنگ":kind==="strike"?"خط‌خورده":"کار"),null,()=>formatSticky(kind),{"data-note-format":kind},label))),
-                toolButton("Lock or unlock selection", "\u25A3", () =>
-                  boardChange(
-                    (Y) => ({
-                      ...Y,
-                      locked: [
-                        ...new Set([
-                          ...Y.locked.filter((G) => !selected.has(G)),
-                          ...([...selected].some((G) => !locked.has(G))
-                            ? [...selected]
-                            : []),
-                        ]),
-                      ],
-                    }),
-                    DDUI(
-                      "\u0642\u0641\u0644 \u0646\u0648\u062F\u0647\u0627 \u062A\u063A\u06CC\u06CC\u0631 \u06A9\u0631\u062F",
-                    ),
-                  ),
-                ),
-
               ),
         ),
       _.createElement(
@@ -6269,19 +6257,21 @@ export function DDcreateBoard(deps) {
           className: "b2-dock",
           role: "toolbar",
           "aria-label": DDUI("Canvas tools"),
+          "data-dock": "tools",
+          onContextMenu: (event) => openContext(event, { dock: "tools" }),
         },
         [
           ["select", DDUI("\u0627\u0646\u062A\u062E\u0627\u0628"), "sort"],
           ["hand", DDUI("\u062F\u0633\u062A"), "hand"],
           // Like FigJam, connectors start from a note's side points (or X / L),
           // so the dock keeps no connector or feeling tool.
-          ["block", DDUI("\u0628\u0644\u0627\u06A9"), "plus"],
+          ["block", DDUI("\u0628\u0644\u0627\u06A9"), "task"],
           [
             "sticky",
             DDUI("\u06CC\u0627\u062F\u062F\u0627\u0634\u062A"),
             "sticky",
           ],
-          ["section", t("Section", "سکشن"), "square"],
+          ["section", t("Section", "سکشن"), "section"],
         ].map(([Y, G, ct]) =>
           _.createElement(
             "button",
@@ -6313,11 +6303,7 @@ export function DDcreateBoard(deps) {
               React: _,
               name:
                 {
-                  cursor: "select",
-                  move: "hand",
-                  line: "connect",
-                  square: "task",
-                  bang: "spark",
+                  sort: "select",
                   sticky: "note",
                 }[ct] || ct,
             }),
@@ -6325,38 +6311,9 @@ export function DDcreateBoard(deps) {
           ),
         ),
         _.createElement("span", { className: "b2-sep" }),
-        toolButton(t("Stickers & emoji","استیکر و ایموجی"),"spark",()=>{finishEdit();setMenu(null);setStickerPicker({target:selectedNode?.kind==="block"?selectedNode.blockId:""});},{},t("Stickers","استیکر")),
-        toolButton(
-          DDUI("Snap to grid"),
-          "snap",
-          () => toggleView("snap"),
-          { "aria-pressed": snap, "data-view-toggle": true },
-          DDUI("Snap"),
-        ),
-        toolButton(
-          DDUI("Show grid"),
-          "grid",
-          () => toggleView("grid"),
-          { "aria-pressed": grid, "data-view-toggle": true },
-          DDUI("Grid"),
-        ),
-        toolButton(
-          DDUI("Toggle minimap"),
-          "map",
-          () => toggleView("map"),
-          { "aria-pressed": showMap, "data-view-toggle": true },
-          DDUI("Minimap"),
-        ),
-        toolButton(
-          t("Canvas settings", "تنظیمات بوم"),
-          "settings",
-          () => {
-            setViewPanel(!viewPanel);
-            setProperties(false);
-            setInspector(false);
-          },
-          { "aria-pressed": viewPanel },
-        ),
+        toolButton(t("Stickers & emoji","استیکر و ایموجی"),"sticker",()=>{finishEdit();setMenu(null);setStickerPicker({target:selectedNode?.kind==="block"?selectedNode.blockId:""});},{},t("Stickers","استیکر")),
+        // Snap, grid, minimap and canvas settings: right-click the dock, or ⋯.
+        dockMore("tools"),
       ),
       _.createElement(controls.ZoomControl, {
         React: _,
@@ -6393,7 +6350,11 @@ export function DDcreateBoard(deps) {
           items: contextItems(),
           onClose: closeContext,
           boardRef: root,
-          title: menu.wire
+          title: menu.dock === "top"
+            ? t("Board tools", "ابزارهای برد")
+            : menu.dock === "tools"
+            ? t("Canvas tools", "ابزارهای بوم")
+            : menu.wire
             ? t("Connection", "اتصال")
             : menu.ref || menu.selection
               ? selected.size > 1

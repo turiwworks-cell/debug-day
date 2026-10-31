@@ -43,10 +43,10 @@ const {join}=require("node:path");
    assert.ok((await page.locator(".dd-board-search").innerText()).includes("No matching objects"));
    await page.getByRole("textbox",{name:"Search board nodes",exact:true}).press("Escape");
 
-   await page.getByRole("button",{name:"Toggle light / dark",exact:true}).click();
+   await page.locator('[data-dock-more="top"]').click();await page.getByRole("menuitem",{name:"Toggle light / dark",exact:true}).click();
    await page.waitForFunction(()=>document.documentElement.dataset.theme==="dark");
    const dark=await viewport.evaluate(el=>getComputedStyle(el).backgroundColor);
-   await page.getByRole("button",{name:"Toggle light / dark",exact:true}).click();
+   await page.locator('[data-dock-more="top"]').click();await page.getByRole("menuitem",{name:"Toggle light / dark",exact:true}).click();
    await page.waitForFunction(()=>document.documentElement.dataset.theme==="light");
    assert.notEqual(await viewport.evaluate(el=>getComputedStyle(el).backgroundColor),dark,"theme changes the board canvas too");
 
@@ -79,7 +79,7 @@ const {join}=require("node:path");
    await page.getByRole("button",{name:"Close timer",exact:true}).click();
    await page.getByRole("button",{name:"Full screen",exact:true}).click();
 
-   await page.getByRole("button",{name:"Canvas settings",exact:true}).click();
+   await page.locator('[data-dock-more="tools"]').click();await page.getByRole("menuitem",{name:"Canvas settings…",exact:true}).click();
    await page.getByRole("checkbox",{name:"Open board in full screen",exact:true}).check();
    await page.getByRole("button",{name:"Close canvas settings",exact:true}).click();
    await page.getByRole("button",{name:"Exit full screen",exact:true}).click();
@@ -180,7 +180,7 @@ const {join}=require("node:path");
    const out=process.env.DEBUG_DAY_SCREENSHOTS;
    if(out){
     mkdirSync(out,{recursive:true});await page.screenshot({path:join(out,`board-experience-${mobile?"phone":"desktop"}-light.png`)});
-    await page.getByRole("button",{name:"Toggle light / dark",exact:true}).click();
+    await page.locator('[data-dock-more="top"]').click();await page.getByRole("menuitem",{name:"Toggle light / dark",exact:true}).click();
     await page.waitForFunction(()=>document.documentElement.dataset.theme==="dark");
     await page.getByRole("button",{name:"Board timer",exact:true}).click();
     await page.waitForTimeout(200);
