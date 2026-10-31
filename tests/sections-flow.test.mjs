@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import { DDsectionTint, DDsectionShade, DDsetSectionColor, DDshortPath, DDsectionPath, DDSectionChip, DDlifeContrast, DDsectionPalette, DDnormalizeLife } from "../public/life-board.js";
-import { DDsectionsRows, DDsectionsMarks, DDsectionsBus } from "../public/sections-list.js";
+import { DDsectionsFlow, DDflowCurve, DDsectionsMarks, DDsectionsBus } from "../public/sections-flow.js";
 import { DDboardCore as core } from "../public/board-core.js";
 import { callTool, save, read } from "../src/worker.js";
 
@@ -120,32 +120,99 @@ test("the chip reads the path live and wears the section's tint", () => {
   assert.equal(DDSectionChip({ React: R, items: life, id: "n", language: "en" }), null);
 });
 
-test("the list shows every section under its parent, in board order", () => {
-  const rows = DDsectionsRows(life);
-  assert.deepEqual(rows.map((r) => [r.kind, r.id, r.depth]), [["main", "", 0], ["section", "g", 0], ["section", "r", 1], ["section", "l", 1], ["section", "b", 2], ["section", "w", 0]],
-    "top to bottom, then left to right, each child right under its parent (not the saved order)");
-  assert.equal(rows[0].notes, 1, "notes on the main board");
-  assert.equal(rows.find((r) => r.id === "l").notes, 2);
-  assert.equal(rows.find((r) => r.id === "l").children, 1);
-  assert.equal(rows.find((r) => r.id === "g").children, 2);
-  assert.equal(rows.find((r) => r.id === "b").parent, "l");
-  const folded = DDsectionsRows(life, { folded: ["g"] });
-  assert.deepEqual(folded.map((r) => r.id), ["", "g", "w"], "a folded section hides what is inside");
-  assert.equal(folded[1].folded, true);
-  assert.equal(folded[1].hidden, 3, "and says how many are folded away");
-  assert.deepEqual(DDsectionsRows(life, { folded: ["b", "w"] }).map((r) => r.id), ["", "g", "r", "l", "b", "w"], "an empty section has nothing to fold");
-  assert.deepEqual(DDsectionsRows([]).map((r) => r.kind), ["main"]);
+test("the flowchart runs from the main board to every section, in board order", () => {
+  const flow = DDsectionsFlow(life), at = (id) => flow.nodes.find((n) => n.id === id);
+  assert.deepEqual(flow.nodes.map((n) => [n.id, n.depth]), [["", 0], ["g", 1], ["r", 2], ["l", 2], ["b", 3], ["w", 1]],
+    "top to bottom, then left to right, each child after its parent (not the saved order)");
+  assert.deepEqual(flow.links.map((l) => l.from + ">" + l.to), [">g", "g>r", "g>l", "l>b", ">w"]);
+  assert.equal(at("").name, "Main board");
+  assert.equal(at("").notes, 1, "notes on the main board");
+  assert.equal(at("l").notes, 2);
+  assert.equal(at("l").children, 1);
+  assert.equal(at("g").children, 2);
+  assert.equal(at("b").parent, "l");
+  assert.equal(at("").parent, null);
+  for (const link of flow.links) {
+    const from = at(link.from), to = at(link.to);
+    assert.ok(to.x >= from.x + from.w + 40, link.from + ">" + link.to + ": a section sits to the right of its parent, with room for the line");
+  }
+  assert.equal(at("g").y, (at("r").y + at("l").y) / 2, "a parent sits in the middle of its children");
+  assert.equal(at("l").y, at("b").y, "one child sits level with its parent");
+  for (const depth of [0, 1, 2, 3]) {
+    const column = flow.nodes.filter((n) => n.depth === depth).sort((a, b) => a.y - b.y);
+    column.slice(1).forEach((n, i) => assert.ok(n.y - column[i].y >= n.h, "pills in a column never overlap"));
+    assert.equal(new Set(column.map((n) => n.x)).size, 1, "a level is one column");
+  }
+  for (const n of flow.nodes) {
+    assert.ok(n.x >= 0 && n.x + n.w <= flow.width, n.id + " fits across");
+    assert.ok(n.y >= 0 && n.y + n.h <= flow.height, n.id + " fits down");
+  }
+  assert.deepEqual(DDsectionsFlow([]).nodes.map((n) => n.id), [""], "an empty Life area still shows the main board");
 });
 
-test("finding a section looks through every level and keeps the sections above it", () => {
-  const book = DDsectionsRows(life, { query: "book" });
-  assert.deepEqual(book.map((r) => [r.id, r.found, r.context]), [["g", false, true], ["l", false, true], ["b", true, false]], "parents stay, dimmed");
-  assert.deepEqual(DDsectionsRows(life, { query: "growth" }).map((r) => r.id), ["g", "r", "l", "b"], "a match on a parent finds what is inside it");
-  assert.deepEqual(DDsectionsRows(life, { query: "growth books" }).filter((r) => r.found).map((r) => r.id), ["b"], "words can come from different levels");
-  assert.deepEqual(DDsectionsRows(life, { query: "book", folded: ["g", "l"] }).map((r) => r.id), ["g", "l", "b"], "a search opens every fold");
-  assert.deepEqual(DDsectionsRows(life, { query: "nothing here" }), []);
+test("a folded section hides what is inside it and says how many", () => {
+  const folded = DDsectionsFlow(life, { folded: ["g"] });
+  assert.deepEqual(folded.nodes.map((n) => n.id), ["", "g", "w"]);
+  assert.deepEqual(folded.links.map((l) => l.to), ["g", "w"]);
+  const g = folded.nodes[1];
+  assert.deepEqual([g.folded, g.hidden, g.children], [true, 3, 2]);
+  assert.deepEqual(DDsectionsFlow(life, { folded: ["b", "w", "gone"] }).nodes.map((n) => n.id), ["", "g", "r", "l", "b", "w"], "an empty section has nothing to fold");
+  assert.equal(DDsectionsFlow(life, { folded: ["b"] }).nodes.find((n) => n.id === "b").folded, false);
+});
+
+test("the board you are in is blue, and so is the way to it", () => {
+  const flow = DDsectionsFlow(life, { room: "b" }), at = (id) => flow.nodes.find((n) => n.id === id);
+  assert.deepEqual(flow.nodes.filter((n) => n.here).map((n) => n.id), ["b"]);
+  assert.deepEqual(flow.nodes.filter((n) => n.trail).map((n) => n.id), ["", "g", "l", "b"]);
+  assert.deepEqual(flow.links.filter((l) => l.trail).map((l) => l.from + ">" + l.to), [">g", "g>l", "l>b"]);
+  assert.equal(at("r").trail, false);
+  const main = DDsectionsFlow(life, { room: "gone" });
+  assert.deepEqual(main.nodes.filter((n) => n.trail).map((n) => n.id), [""], "on the main board only the main board is lit");
+  assert.deepEqual(main.nodes.filter((n) => n.here).map((n) => n.id), [""], "and it is the board you are in");
+});
+
+test("finding a section lights it, dims the rest and opens the folds on the way", () => {
+  const book = DDsectionsFlow(life, { query: "book", folded: ["g", "l"] });
+  assert.deepEqual(book.nodes.map((n) => n.id), ["", "g", "r", "l", "b", "w"], "a search opens the folds it needs");
+  assert.deepEqual(book.nodes.filter((n) => n.found).map((n) => n.id), ["b"]);
+  assert.deepEqual(book.nodes.filter((n) => n.dim).map((n) => n.id), ["", "g", "r", "l", "w"]);
+  assert.deepEqual(DDsectionsFlow(life, { query: "growth" }).nodes.filter((n) => n.found).map((n) => n.id), ["g", "r", "l", "b"], "a match on a parent finds what is inside it");
+  assert.deepEqual(DDsectionsFlow(life, { query: "growth books" }).nodes.filter((n) => n.found).map((n) => n.id), ["b"], "words can come from different levels");
+  assert.deepEqual(DDsectionsFlow(life, { query: "nothing here" }).nodes.filter((n) => n.found), []);
+  assert.deepEqual(DDsectionsFlow(life, { query: "book", folded: ["w"] }).nodes.filter((n) => n.folded).map((n) => n.id), [], "a leaf has nothing to fold");
   const fa = [sec("p", "", "علاقه و دانش", 0, 0), sec("q", "p", "يادگيري", 0, 10)];
-  assert.deepEqual(DDsectionsRows(fa, { query: "یادگیری" }).filter((r) => r.found).map((r) => r.id), ["q"], "Arabic and Persian letters match");
+  assert.deepEqual(DDsectionsFlow(fa, { query: "یادگیری" }).nodes.filter((n) => n.found).map((n) => n.id), ["q"], "Arabic and Persian letters match");
+});
+
+test("in Persian the flowchart runs right to left, and on a phone the pills are bigger", () => {
+  const ltr = DDsectionsFlow(life, { mainLabel: "برد اصلی" }), rtl = DDsectionsFlow(life, { rtl: true, mainLabel: "برد اصلی" });
+  assert.equal(rtl.width, ltr.width);
+  rtl.nodes.forEach((n, i) => {
+    assert.equal(n.x + n.w, ltr.width - ltr.nodes[i].x, n.id + " is mirrored");
+    assert.equal(n.y, ltr.nodes[i].y);
+  });
+  assert.equal(rtl.nodes[0].name, "برد اصلی");
+  const phone = DDsectionsFlow(life, { phone: true });
+  assert.ok(phone.nodes.every((n) => n.h >= 44), "44px tap targets");
+  const long = DDsectionsFlow([sec("x", "", "A very very very long name for a section that goes on", 0, 0)], { measure: (text) => text.length * 8 });
+  assert.equal(long.nodes[1].w, 240, "a long name is cut, not stretched across the screen");
+  assert.equal(DDsectionsFlow([sec("x", "", "A", 0, 0)], { measure: () => 5 }).nodes[1].w, 84, "a short name still makes a pill you can hit");
+});
+
+test("a line leaves the parent's end and its arrow points back at the parent", () => {
+  const from = { x: 20, y: 100, w: 120, h: 30 }, to = { x: 240, y: 20, w: 100, h: 30 };
+  const curve = DDflowCurve(from, to);
+  assert.deepEqual(curve.start, { x: 158, y: 115 });
+  assert.deepEqual(curve.end, { x: 240, y: 35 });
+  assert.match(curve.d, /^M158,115 C/);
+  assert.ok(curve.point.x < 0, "the arrow points left, towards the parent");
+  assert.ok(curve.point.y > 0, "and down, since the parent is lower");
+  assert.ok(Math.abs(Math.hypot(curve.point.x, curve.point.y) - 1) < 1e-9);
+  assert.deepEqual(DDflowCurve({ x: 0, y: 0, w: 50, h: 30 }, { x: 150, y: 0, w: 50, h: 30 }).point, { x: -1, y: -0 }, "a level line points straight back");
+  const rtl = DDflowCurve({ x: 300, y: 100, w: 100, h: 30 }, { x: 100, y: 20, w: 100, h: 30 }, { rtl: true });
+  assert.deepEqual([rtl.start.x, rtl.end.x], [282, 200], "in Persian lines run from the parent's left to the child's right");
+  assert.ok(rtl.point.x > 0, "and the arrow points right, back at the parent");
+  assert.ok(rtl.mid.x < rtl.start.x && rtl.mid.x > rtl.end.x);
 });
 
 test("search marks sit on the right letters of the name", () => {

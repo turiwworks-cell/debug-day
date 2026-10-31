@@ -15,7 +15,7 @@ import {
 } from "./life-board.js";
 import{DDBoardRails,DDinstallRailStyles,DDsetRailRole,DDrailPreferences,DDrailScope}from"./rails.js";
 import{DDstickyDateLabel,DDstickyToday,DDstickyHeight,DDstickySnap,DDstickyFormat,DDstickyTodo,DDStickyText,DDinstallStickyStyles}from"./stickies.js";
-import { DDSectionsList, DDsectionsBus, DDinstallSectionsStyles } from "./sections-list.js";
+import { DDSectionsFlowchart, DDsectionsBus, DDinstallSectionsFlowStyles } from "./sections-flow.js";
 import { DDsectionTint, DDSectionChip, DDsetSectionColor } from "./life-board.js";
 const life = { DDinstallLifeStyles, DDlifeAbs, DDlifeAdd, DDlifeBounds, DDlifeHead, DDlifeItems, DDlifeParentAt };
 // Board interaction engine. Legacy planner adapters are injected once by the app.
@@ -48,7 +48,7 @@ export function DDcreateBoard(deps) {
   DDinstallRailStyles();
   DDinstallStickyStyles();
   DDinstallEngineStyles();
-  DDinstallSectionsStyles();
+  DDinstallSectionsFlowStyles();
   let stepTextContext;
   return function BoardWorkspace({
     day: day,
@@ -147,7 +147,7 @@ export function DDcreateBoard(deps) {
       [appearance, setAppearance] = useState(() => core.appearance()),
       [viewPanel, setViewPanel] = useState(false),
       [properties, setProperties] = useState(false),
-      // The Sections list (Sections, D or Ctrl+Space), with the Life area tools.
+      // The Sections flowchart (Tab, D, the Sections button or Ctrl+Space), with the Life area tools.
       [lifeNav, setLifeNav] = useState(() => DDsectionsBus.take()),
       // The Engine brought over the board (E, the toolbar or Ctrl+Space).
       [engine, setEngine] = useState(() => DDengineBus.take()),
@@ -3397,7 +3397,7 @@ export function DDcreateBoard(deps) {
             if(ot.target.closest("button") && ["Enter"," "].includes(ot.key) && !ot.ctrlKey && !ot.metaKey)return;
             if (
               ot.target.closest(
-                "input,textarea,select,[contenteditable=true],.b6-context,.b6-properties,.b6-camera,.b6-view-panel,.dd-sticker-dialog,.dd-board-timer,.dd-board-search,.b4-help-backdrop,.dd-engine-backdrop,.dd-sections,.dd-board-rails",
+                "input,textarea,select,[contenteditable=true],.b6-context,.b6-properties,.b6-camera,.b6-view-panel,.dd-sticker-dialog,.dd-board-timer,.dd-board-search,.b4-help-backdrop,.dd-engine-backdrop,.dd-flow-backdrop,.dd-board-rails",
               ) ||
               (ot.target.closest("[role=dialog]") &&
                 !root.current?.contains(ot.target))
@@ -3538,6 +3538,12 @@ export function DDcreateBoard(deps) {
               if(align){handled();arrangeSelection(align);return;}
             }
             if (St || ot.altKey) return;
+            // Tab brings the Sections flowchart over the board, like After Effects. Only on
+            // the canvas itself, so Tab still walks through the toolbar and the fields.
+            if (ot.key === "Tab" && !ot.shiftKey && (ot.target === document.body || ot.target === viewport.current || ot.target.classList?.contains("b4-node"))) {
+              handled(); finishEdit(); cancelGesture(); setMenu(null); setLifeNav((v) => !v);
+              return;
+            }
             if (ot.key === "ContextMenu" || (ot.shiftKey && ot.key === "F10")) {
               openContext(
                 ot,
@@ -5679,7 +5685,7 @@ export function DDcreateBoard(deps) {
           toolButton("Board help", "?", () => setHelp((Y) => !Y)),
           toolButton(t("Go to the Engine (E brings it over the board)", "رفتن به انجین (E آن را روی برد می‌آورد)"),"settings",()=>{finishEdit();setEngine(false);fit(false,"day");},{"data-engine-jump":true},t("Engine","انجین")),
           toolButton(t("Go to Life section", "رفتن به بخش زندگی"),"fitAll",()=>{const first=DDlifeItems(setup).find((i)=>i.type==="section"&&!i.parent);if(first)jumpLife(first.id);else addLifeItem("section");},{"data-life-jump":true},t("Life","زندگی")),
-          toolButton(t("Sections (D)","سکشن‌ها (D)"),"list",()=>{finishEdit();setLifeNav((v)=>!v);},{"aria-expanded":lifeNav,"data-sections-button":true},t("Sections","سکشن‌ها")),
+          toolButton(t("Sections flowchart (Tab or D)","فلوچارت سکشن‌ها (Tab یا D)"),"list",()=>{finishEdit();setLifeNav((v)=>!v);},{"aria-expanded":lifeNav,"data-sections-button":true},t("Sections","سکشن‌ها")),
         ),
         // Where you are: the main board, then each section down to the open one.
         layout.room && _.createElement("div",{className:"dd-room-break","aria-hidden":true}),
@@ -5701,7 +5707,7 @@ export function DDcreateBoard(deps) {
           else onUpdateDayOnDate?.(date, update);
         },
       }),
-      lifeNav && _.createElement(DDSectionsList, {
+      lifeNav && _.createElement(DDSectionsFlowchart, {
         React: _, items: DDlifeItems(setup), room: layout.room, language: DDlanguage, frame: layout.map.get("section:life"),
         onShow: (id) => jumpLife(id),
         onEnter: (id) => enterRoom(id),
