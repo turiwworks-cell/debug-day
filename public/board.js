@@ -11,7 +11,7 @@ import {
   DDlifeHead,
   DDlifeItems,
   DDlifeParentAt,
-  DDlifeState, DDlifeHistory, DDlifeVisible, DDlifeCompact, DDlifeColor, DDlifeMoveBy, DDlifeRemove, DDlifeDescendants, DDlifeAdopt, DDlifePath, DDlifeKeepIn,
+  DDlifeState, DDlifeHistory, DDlifeVisible, DDlifeCompact, DDlifeColor, DDlifeMoveBy, DDlifeRemove, DDlifeDescendants, DDlifeAdopt, DDlifePath, DDlifeKeepIn, DDlifeInFrame, DDlifeShown, DDlifeHome, DDlifeRelease,
 } from "./life-board.js";
 import{DDBoardRails,DDinstallRailStyles,DDsetRailRole,DDrailPreferences,DDrailScope}from"./rails.js";
 import{DDstickyDateLabel,DDstickyToday,DDstickyHeight,DDstickySnap,DDstickyFormat,DDstickyTodo,DDStickyText,DDinstallStickyStyles}from"./stickies.js";
@@ -515,7 +515,9 @@ export function DDcreateBoard(deps) {
     function startFeedMove(e) {
       const area = layout.map.get("section:life");
       if (!area || layout.room) return;
-      const refs = [area.id, ...layout.nodes.filter((n) => n.lifeId).map((n) => n.id)];
+      // Sections placed outside the Feed (and what is in them) stay where they are.
+      const items = DDlifeItems(setup), outside = new Set(items.filter((i) => !i.parent && i.out).flatMap((i) => [...DDlifeDescendants(items, i.id)]));
+      const refs = [area.id, ...layout.nodes.filter((n) => n.lifeId && !outside.has(n.lifeId)).map((n) => n.id)];
       setSelected(new Set());
       gesture.current = {
         kind: "move", pointerId: e.pointerId, sx: e.clientX, sy: e.clientY, refs,
@@ -1137,9 +1139,11 @@ export function DDcreateBoard(deps) {
             w: Jt.kind === "emoji" ? 64 : 240,
             h: Jt.kind === "emoji" ? 64 : 160,
           });
-        if (lf) for (const it of items.filter((i) => roomItem ? roomSet.has(i.id) && roomVisible(i) : DDlifeVisible(items, i))) {
+        // A section's own board shows everything in it; any other board shows only
+        // what sits inside each frame (search shows every match).
+        if (lf) for (const it of items.filter((i) => roomItem ? roomSet.has(i.id) && roomVisible(i) && DDlifeShown(items, i, roomItem.id) : DDlifeVisible(items, i) && (ddNodeMatches || DDlifeShown(items, i)))) {
           const a = DDlifeAbs(items, it.id), color = it.type === "section" ? DDsectionTint(items, it.id).fill : DDlifeColor(items, it);
-          Y.push({ id: "life:" + it.id, lifeId: it.id, lifeSection: it.type === "section", kind: it.type === "section" ? "life-section" : "sticky", room: roomItem?.id === it.id || undefined,
+          Y.push({ id: "life:" + it.id, lifeId: it.id, lifeSection: it.type === "section", kind: it.type === "section" ? "life-section" : "sticky", room: roomItem?.id === it.id || undefined, boardOnly: (roomItem && it.parent === roomItem.id && !DDlifeInFrame(items, it)) || undefined,
             title: it.text || (it.type === "section" ? t("Section","سکشن") : ""), color, textColor: core.contrast(color), ownColor: (it.type === "section" && !!it.parent && !!it.ownColor && !!it.color) || undefined, collapsed: it.collapsed, parentId: it.parent ? "life:" + it.parent : null,
             x: lf.x + a.x, y: lf.y + DDlifeHead + a.y, w: it.w, h: it.collapsed ? 38 : it.h,
             at: it.at, baseW:it.baseW || 240,
@@ -1168,7 +1172,7 @@ export function DDcreateBoard(deps) {
           const measured=stickyHeights.current.get(n.id);
           n.h=DDstickyHeight(n.w, measured && measured.w===n.w && measured.text===n.title && measured.size===(n.textSize||16) ? measured.h : (n.title.split("\n").length*24+72));
         }
-        for(let pass=0;pass<20;pass++) { let changed=false; for(const n of Y) if(n.parentId) { const parent=Y.find(p=>p.id===n.parentId);if(parent?.lifeSection&&!parent.collapsed&&n.y+n.h+24>parent.y+parent.h){parent.h=n.y+n.h+24-parent.y;changed=true;} } if(!changed)break; }
+        for(let pass=0;pass<20;pass++) { let changed=false; for(const n of Y) if(n.parentId && !n.boardOnly) { const parent=Y.find(p=>p.id===n.parentId);if(parent?.lifeSection&&!parent.collapsed&&n.y+n.h+24>parent.y+parent.h){parent.h=n.y+n.h+24-parent.y;changed=true;} } if(!changed)break; }
         const An = new Map(Y.map((Jt) => [Jt.id, Jt])),
           Kt = new Set(model.hidden),
           Dn = [
@@ -1221,6 +1225,12 @@ export function DDcreateBoard(deps) {
       labelPlace = useRef({ z: 0, layout: null });
     layoutRef.current = layout;
     useLayoutEffect(() => { placeSectionLabels(true); }, [layout]);
+    // How many things each section keeps on its own board, outside its frame.
+    const offFrame = useMemo(() => {
+      const items = DDlifeItems(setup), m = new Map();
+      for (const i of items) if (i.parent && !DDlifeInFrame(items, i)) m.set(i.parent, (m.get(i.parent) || 0) + 1);
+      return m;
+    }, [setup.life]);
     // Sections paint in nesting order (a parent under what is inside it); every
     // other node keeps its place.
     const paintOrder = useMemo(() => {
@@ -2015,7 +2025,12 @@ export function DDcreateBoard(deps) {
           const end = preview.current.get("section:life"), begin = ct.starts["section:life"];
           if (end && begin) {
             const x = Math.round(end.x), y = Math.round(end.y);
-            commit((d) => { d.__life.frame = { ...d.__life.frame, x, y }; return d; }, t("Feed moved", "فید جابه‌جا شد"));
+            const dx = x - Math.round(begin.x), dy = y - Math.round(begin.y);
+            commit((d) => {
+              d.__life.frame = { ...d.__life.frame, x, y };
+              d.__life.items = d.__life.items.map((i) => (!i.parent && i.out ? { ...i, x: i.x - dx, y: i.y - dy } : i));
+              return d;
+            }, t("Feed moved", "فید جابه‌جا شد"));
           }
         } else if (ct.kind === "note-resize" && ct.moved) {
           const n = layout.map.get(ct.ref);
@@ -2043,8 +2058,10 @@ export function DDcreateBoard(deps) {
                   const dx = ct.position.x-n.x, dy = ct.position.y-n.y;
                   next.__life.items = next.__life.items.map((i)=>i.parent===n.lifeId?{...i,x:i.x-dx,y:i.y-dy}:i);
                 }
-                // A section grown over neighbours takes them in, as in FigJam.
-                if (n.lifeSection && next.__life) next.__life.items = DDlifeAdopt(next.__life.items, n.lifeId);
+                // A section grown over neighbours takes them in, as in FigJam. Made
+                // smaller, what ends up outside drops to the board it sits on, so
+                // nothing vanishes; on its own board the whole board is still its.
+                if (n.lifeSection && next.__life) next.__life.items = DDlifeAdopt(layout.room === n.lifeId ? next.__life.items : DDlifeRelease(next.__life.items, n.lifeId), n.lifeId);
                 return next;
               },
               t("Note resized", "اندازهٔ نوت تغییر کرد"),
@@ -2127,7 +2144,7 @@ export function DDcreateBoard(deps) {
                 if (ct.refs.includes(node.parentId)) continue;
                 const target = DDlifeParentAt(Tt.__life.items, pos.x - frame.x + node.w/2, pos.y - frame.y - DDlifeHead + node.h/2, DDlifeDescendants(Tt.__life.items,node.lifeId));
                 const inside = pos.x + node.w/2 >= frame.x && pos.x + node.w/2 <= frame.x + frame.w && pos.y + node.h/2 >= frame.y + DDlifeHead && pos.y + node.h/2 <= frame.y + frame.h;
-                if (!inside && !node.lifeSection) {
+                if (!inside && !target && !node.lifeSection) {
                   const old = Tt.__life.items.find((i) => i.id === node.lifeId), id=Tt.notes.some((i)=>i.id===old.id)?C():old.id;
                   Tt.notes.push({ id, kind: "sticky", text: old.text, role: old.role, at:old.at, baseW:old.baseW, color: old.color || node.color, x: pos.x, y: pos.y });
                   Tt.canvas ||= {}; Tt.canvas.board4 ||= {};
@@ -2145,6 +2162,20 @@ export function DDcreateBoard(deps) {
                   transferRef(Tt,node.id,"life:"+id); delete ot[ref];
                 }
               }
+            }
+            // A section moved out of the Feed stays where it is dropped, on the
+            // board; moved back in, it is part of the Feed again.
+            if (frame && !layout.room && movingLife.length) {
+              const moved = new Set(movingLife);
+              Tt.__life.items = Tt.__life.items.map((i) => {
+                if (!moved.has(i.id) || i.type !== "section") return i;
+                const cx = i.x + i.w / 2, cy = i.y + (i.collapsed ? 38 : i.h) / 2,
+                  out = !i.parent && (cx < 0 || cy < 0 || cx > frame.w || cy > frame.h - DDlifeHead);
+                if (out) return i.out ? i : { ...i, out: true };
+                if (!i.out) return i;
+                const { out: gone, ...rest } = i;
+                return rest;
+              });
             }
             const Pt = clean(Tt.canvas?.board4),
               yn = { ...(Pt.layouts[mode] || {}) };
@@ -2879,16 +2910,33 @@ export function DDcreateBoard(deps) {
     function addLifeSection(point) {
       const frame = layout.map.get("section:life"), id = "lf-"+C(), roomNode = layout.room && layout.map.get("life:" + layout.room);
       commit(d=>{
-        // On a section's own board, a section drawn outside it goes inside it.
+        // A section's own board is all of it: a section drawn anywhere there,
+        // even outside the frame, belongs to that section and stays where it was drawn.
         let rel=frame&&point?{x:point.x-frame.x,y:point.y-frame.y-DDlifeHead}:null;
         let parent=rel&&DDlifeParentAt(d.__life.items,rel.x,rel.y,roomNode?outsideRoom(d.__life.items):undefined);
-        if(roomNode&&!parent){rel=null;parent=d.__life.items.find((i)=>i.id===layout.room);}
+        if(roomNode&&!parent)parent=d.__life.items.find((i)=>i.id===layout.room);
         if(parent){const base=DDlifeAbs(d.__life.items,parent.id);rel={x:rel.x-base.x,y:rel.y-base.y};}
         const spec={id,type:"section",parent:parent?.id||"",text:sectionName(d.__life.items),
           ...(rel?{x:Math.round(rel.x),y:Math.round(rel.y)}:{}),
           ...(point?.w?{w:Math.max(80,Math.round(point.w)),h:Math.max(60,Math.round(point.h))}:{})};
+        // Drawn on the board outside the Feed, the section stays right there: the
+        // Feed does not stretch to take it in.
+        const w=spec.w||480,h=spec.h||320,cx=point?point.x+w/2:0,cy=point?point.y+h/2:0,
+          out=!!(frame&&point&&!parent&&!layout.room&&(cx<frame.x||cx>frame.x+frame.w||cy<frame.y||cy>frame.y+frame.h));
         d.__life.items=DDlifeAdopt(DDlifeAdd(d.__life.items,spec),id);
-        if(frame && point && !parent && !layout.room) {
+        if(out){
+          d.__life.items=d.__life.items.map((i)=>i.id===id?{...i,out:true}:i);
+          // Notes of the day that sit wholly inside it join it, as in FigJam.
+          for(const note of [...(d.notes||[])]){
+            const n=layout.map.get("sticky:"+note.id);
+            if(!n||n.kind!=="sticky"||n.x<point.x||n.y<point.y||n.x+n.w>point.x+w||n.y+n.h>point.y+h)continue;
+            const nid=d.__life.items.some((i)=>i.id===note.id)?"lf-"+C():note.id;
+            d.__life.items=DDlifeAdd(d.__life.items,{id:nid,type:"sticky",parent:id,text:note.text,role:note.role,at:note.at,baseW:note.baseW,color:note.color,x:Math.round(n.x-point.x),y:Math.round(n.y-point.y),w:n.w,h:n.h,style:model.styles[n.id]});
+            d.notes=d.notes.filter((i)=>i.id!==note.id);
+            transferRef(d,n.id,"life:"+nid);
+          }
+        }
+        if(frame && point && !parent && !layout.room && !out) {
           // Grow the shared canvas around a newly drawn section; existing objects
           // keep their absolute positions even when the origin moves north/west.
           const left=Math.min(frame.x,point.x-24), top=Math.min(frame.y,point.y-DDlifeHead-40);
@@ -2898,7 +2946,7 @@ export function DDcreateBoard(deps) {
           d.__life.frame={...d.__life.frame,x:left,y:top,w:Math.max(frame.w+dx,b.w),h:Math.max(frame.h+dy,b.h+DDlifeHead)};
         }
         return d;
-      },t("Section added to the Feed","سکشن به فید اضافه شد"));
+      },t("Section added","سکشن اضافه شد"));
       setSelected(new Set(["life:"+id]));
     }
     function addLifeItem(type,parent="") {
@@ -2908,7 +2956,7 @@ export function DDcreateBoard(deps) {
     }
     // Open a section as its own board (null goes back to the main board). Each
     // board keeps its own camera while you move between them.
-    function enterRoom(id) {
+    function enterRoom(id, quiet = false) {
       finishEdit();
       const items = DDlifeItems(setup), it = id && items.find((i) => i.id === id && i.type === "section");
       if (id && !it) return;
@@ -2920,7 +2968,8 @@ export function DDcreateBoard(deps) {
       setSelected(new Set()); setWireId(null); setConnecting(null); setMenu(null);
       setStatus(it ? t("Inside ", "داخل ") + (it.text || t("Section", "سکشن")) + t(" · Esc goes back", " · Esc برای برگشت") : t("Main board", "برد اصلی"));
       const back = roomCams.current[id || ""];
-      setTimeout(() => {
+      // A jump to something on that board sets the camera itself.
+      if (!quiet) setTimeout(() => {
         if (back) { cam.current = back; api.current.paintCamera(); api.current.saveCamera(); }
         // A phone shows the section itself first; the Engine is just above it.
         else api.current.fit(false, id && (viewport.current?.clientWidth || 0) < 700 ? "room" : "all");
@@ -2934,10 +2983,14 @@ export function DDcreateBoard(deps) {
       const it = DDlifeItems(setup).find((i) => i.id === layout.room);
       enterRoom(it?.parent || null);
     }
-    function jumpLife(id) {
-      if (layout.room && !DDlifeDescendants(DDlifeItems(setup), layout.room).has(id)) {
-        enterRoom(null);
-        return setTimeout(() => api.current.jumpLife?.(id), 30);
+    function jumpLife(id, again = false) {
+      // Go to the board the thing lives on: the main board, or the section whose
+      // own board holds it (outside that section's frame).
+      const all = DDlifeItems(setup), target = all.find((i) => i.id === id), home = target ? DDlifeHome(all, id) : "";
+      const here = !target || (layout.room ? DDlifeDescendants(all, layout.room).has(id) && DDlifeShown(all, target, layout.room) : DDlifeShown(all, target));
+      if (!here && !again) {
+        enterRoom(home || null, true);
+        return setTimeout(() => api.current.jumpLife?.(id, true), 30);
       }
       const frame=layout.map.get("section:life"), items=DDlifeItems(setup), it=items.find((i)=>i.id===id), el=viewport.current;
       if (!frame || !it || !el) return;
@@ -2965,9 +3018,11 @@ export function DDcreateBoard(deps) {
       const inLife=frame && (parent || (rel.x>=0 && rel.y>=0 && rel.x<=frame.w && rel.y<=frame.h-DDlifeHead));
       let ref;
       if(roomNode&&!parent){
-        // On a section's own board a note made outside the section lands inside it.
-        ref="life:"+id;
-        commit(d=>{d.__life.items=DDlifeAdd(d.__life.items,{id,type:"sticky",parent:layout.room,w:width,h:height,text:"",color,style:{textSize:template.textSize||16}});return d;});
+        // A section's own board is all of it: a note made anywhere there belongs
+        // to the section and stays where it was made (outside the frame it lives
+        // on this board only).
+        ref="life:"+id;const base=DDlifeAbs(items,layout.room);
+        commit(d=>{d.__life.items=DDlifeAdd(d.__life.items,{id,type:"sticky",parent:layout.room,x:Math.round(rel.x-base.x-width/2),y:Math.round(rel.y-base.y-height/2),w:width,h:height,text:"",color,style:{textSize:template.textSize||16}});return d;});
       }else if(inLife){
         const base=parent?DDlifeAbs(items,parent.id):{x:0,y:0};ref="life:"+id;
         commit(d=>{d.__life.items=DDlifeAdd(d.__life.items,{id,type:"sticky",parent:parent?.id || "",x:rel.x-base.x-width/2,y:rel.y-base.y-height/2,w:width,h:height,text:"",color,style:{textSize:template.textSize||16}});return d;});
@@ -3346,7 +3401,12 @@ export function DDcreateBoard(deps) {
     }),
       useEffect(() => {
         const n = ddSearchNode && layout.map.get(ddSearchNode.ref);
-        // A search result outside the open section takes you back to the main board.
+        // A search result on a section's own board opens that board; one outside
+        // the open section takes you back to the main board.
+        if (ddSearchNode && !n && !ddNodeMatches && ddSearchNode.ref?.startsWith("life:")) {
+          const items = DDlifeItems(setup), id = ddSearchNode.ref.slice(5), home = items.some((i) => i.id === id) ? DDlifeHome(items, id) : "";
+          if (home && home !== layout.room) return enterRoom(home, true);
+        }
         if (ddSearchNode && !n && layout.room) return dropRoom();
         if (!n && ddSearchNode?.ref?.startsWith("life:")) {
           const items=DDlifeItems(setup), parents=new Set();let item=items.find((i)=>"life:"+i.id===ddSearchNode.ref);
@@ -4232,15 +4292,17 @@ export function DDcreateBoard(deps) {
                               _.createElement(B, { emoji: Y.emoji, size: 16 }),
                             Y.title,
                             Y.lifeSection && !Y.room && _.createElement("button", {
-                              type: "button", className: "dd-room-enter", "data-enter-section": Y.lifeId,
-                              title: t("Open this section as its own board", "باز کردن این سکشن در برد خودش"),
+                              type: "button", className: "dd-room-enter", "data-enter-section": Y.lifeId, "data-more": offFrame.get(Y.lifeId) || undefined,
+                              title: offFrame.get(Y.lifeId)
+                                ? t(offFrame.get(Y.lifeId) + " more on its own board · open it", offFrame.get(Y.lifeId).toLocaleString("fa-IR") + " چیز دیگه روی برد خودش · بازش کن")
+                                : t("Open this section as its own board", "باز کردن این سکشن در برد خودش"),
                               "aria-label": t("Enter section", "ورود به سکشن"),
                               // Opens on press, so a tap on a phone works even where the board
                               // treats the touch as a pan; Enter/Space still click it.
                               onPointerDown: (e) => { e.stopPropagation(); if (e.button) return; e.preventDefault(); enterRoom(Y.lifeId); },
                               onDoubleClick: (e) => e.stopPropagation(),
                               onClick: (e) => { e.stopPropagation(); if (!e.detail) enterRoom(Y.lifeId); },
-                            }, "↗"),
+                            }, offFrame.get(Y.lifeId) ? "↗ " + offFrame.get(Y.lifeId).toLocaleString(DDlanguage === "fa" ? "fa-IR" : "en-US") : "↗"),
                             Y.kind === "block" && Y.pri > 0 && _.createElement("small", { className: "dd-board-priority pri p" + Y.pri, title: DDpriorityLabel(Y.pri, DDlanguage) }, "P" + Y.pri),
                           ),
                           Y.kind === "block" && _.createElement(DDTaskTags, { React: _, task: Y, language: DDlanguage }),
@@ -5762,7 +5824,9 @@ export function DDcreateBoard(deps) {
           _.createElement("button",{type:"button",dir:"auto","data-room-crumb":"main",onClick:()=>enterRoom(null)},t("Main board","برد اصلی")),
           DDlifePath(DDlifeItems(setup),layout.room).map((s,i,all)=>_.createElement(_.Fragment,{key:s.id},
             _.createElement("span",{className:"dd-room-sep","aria-hidden":true},"›"),
-            _.createElement("button",{type:"button",dir:"auto","data-room-crumb":s.id,"aria-current":i===all.length-1?"page":undefined,onClick:()=>{if(i<all.length-1)enterRoom(s.id);}},s.text||t("Section","سکشن"))))),
+            _.createElement("button",{type:"button",dir:"auto","data-room-crumb":s.id,"aria-current":i===all.length-1?"page":undefined,onClick:()=>{if(i<all.length-1)enterRoom(s.id);}},s.text||t("Section","سکشن")))),
+          // This whole board is the section's; what sits outside its frame shows only here.
+          _.createElement("small",{className:"dd-room-note",dir:"auto"},t("Everything here is in this section · outside its frame stays on this board only","همه‌چیز اینجا مال این سکشنه · بیرون قاب فقط روی همین برد می‌مونه"))),
       ),
       _.createElement(DDBoardRails, {
         React: _, day, items: DDlifeItems(setup), room: layout.room, sharedLinks: DDlifeState(setup).links,

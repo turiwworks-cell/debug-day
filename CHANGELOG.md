@@ -1,3 +1,12 @@
+## 5.29.0 — 2026-10-31
+Branch: claude/project-thread-slkpwv
+- Notes: while you type, a note grows with its text. The text field was squeezed to the note's old size and scrolled inside it, so lines were cut in half at the top and bottom and long notes were hard to edit. The text also no longer shifts when you start typing.
+- A section's own board is all of it. Notes and sections made anywhere there, outside the section's frame too, belong to the section and stay where you made them (before, they were pulled into the frame). What sits outside the frame shows only on that board; the main board shows what is inside the frame, and the section's ↗ button counts the rest ("↗ 2").
+- Sections inside a section's board open as their own boards too. Search and the Sections flowchart open the board a thing lives on.
+- Making a section smaller never hides anything: what ends up outside drops onto the board it sits on.
+- A section drawn on the board outside the Feed stays right there; the Feed no longer stretches to take it in. Notes of the day inside it join it. Moving the Feed leaves it in place; dragging it into the Feed makes it part of the Feed again.
+- Grabbing a section's corner resizes both ways (the bottom edge used to cover the corner).
+
 ## 5.28.0 — 2026-10-31
 Branch: claude/project-thread-slkpwv
 - Notes: a to-do list no longer breaks the note. The tick box was stretched across the note and squeezed the words into one letter per line; now each task sits on one line beside a small box. Turning lines into to-dos never doubles a box ("- [ ] - [ ]") or touches blank lines.
