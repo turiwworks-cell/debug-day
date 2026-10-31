@@ -113,6 +113,8 @@ export function DDreconcileDay(
     "section:habits",
     "section:notes",
     "section:life",
+    // Where the Engine was moved to on the board (an offset, not a node).
+    "section:engine",
     ...DDlifeItems(setup).map((i) => "life:" + i.id),
     ...lanes.map((id) => "lane:" + id),
   ]);

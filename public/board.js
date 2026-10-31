@@ -480,6 +480,31 @@ export function DDcreateBoard(deps) {
         h: Math.max(240, bottom - y),
       });
     }
+    // Where the Engine was moved to. A new day starts where the last day left it.
+    function engineShift(saved) {
+      const ok = (p) => Number.isFinite(p?.x) && Number.isFinite(p?.y);
+      if (ok(saved?.["section:engine"])) return { x: saved["section:engine"].x, y: saved["section:engine"].y };
+      const last = Object.entries(allDays || {})
+        .filter(([date]) => date < day.date)
+        .sort(([a], [b]) => b.localeCompare(a))
+        .map(([, d]) => d.canvas?.board4?.layouts?.mindmap?.["section:engine"])
+        .find(ok);
+      return last ? { x: last.x, y: last.y } : { x: 0, y: 0 };
+    }
+    // Dragging the Engine's title moves the whole Engine: today's tree and its section.
+    function startEngineMove(e) {
+      const area = layout.map.get("section:engine");
+      if (!area || mode !== "mindmap" || layout.room) return;
+      const refs = [area.id, ...layout.nodes.filter((n) => ["day", "lane", "block", "subtask", "bug"].includes(n.kind) && !n.lifeId).map((n) => n.id)];
+      setSelected(new Set());
+      gesture.current = {
+        kind: "move", pointerId: e.pointerId, sx: e.clientX, sy: e.clientY, refs,
+        starts: Object.fromEntries(refs.map((ref) => { const n = layout.map.get(ref); return [ref, { x: n.x, y: n.y }]; })),
+        moved: false, frame: true, engine: true, tapRef: area.id,
+      };
+      viewport.current.setPointerCapture(e.pointerId);
+      viewport.current.focus({ preventScroll: true });
+    }
     // The Life section is the same on every day: it is kept in setup, not in the day.
     function lifeChange(change) {
       commit((d) => { d.__life.items = change(d.__life.items); return d; });
@@ -901,9 +926,11 @@ export function DDcreateBoard(deps) {
           ct = model.layouts[mode] || {},
           ot = new Set(),
           St = new Set(visibleKey.split("|")),
+          // Today's tree in the Engine starts where the Engine was moved to.
+          shift = { x: 0, y: 0 },
           Tt = (Jt, Xn, On) => ({
-            x: finite(ct[Jt]?.x, Xn),
-            y: finite(ct[Jt]?.y, On),
+            x: finite(ct[Jt]?.x, Xn + shift.x),
+            y: finite(ct[Jt]?.y, On + shift.y),
           }),
           Pt = (Jt) => (Y.push({ ...Jt, ...Tt(Jt.id, Jt.x, Jt.y) }), Y.at(-1)),
           yn = (Jt, Xn, On, ra = !1) =>
@@ -919,6 +946,7 @@ export function DDcreateBoard(deps) {
         if (mode === "mindmap") {
           let Jt = 56;
           const Xn = [];
+          Object.assign(shift, engineShift(ct));
           Pt({
             id: "day:root",
             kind: "day",
@@ -1073,8 +1101,9 @@ export function DDcreateBoard(deps) {
             });
             (Xn.push(kl), yn("day:root", Oa, "#85827A"), (Jt += 30));
           }
-          ct["day:root"] || (Y[0].y = Math.max(60, Jt / 2 - 35));
+          ct["day:root"] || (Y[0].y = Math.max(60, Jt / 2 - 35) + shift.y);
           engineFrame(Y);
+          Object.assign(shift, { x: 0, y: 0 });
         } else lanesLayout(Y, ct, ot, St, Pt);
         if (mode === "mindmap")
           lifeFrame(
@@ -1971,6 +2000,22 @@ export function DDcreateBoard(deps) {
               },
               t("Note resized", "اندازهٔ نوت تغییر کرد"),
             );
+        } else if (ct.kind === "move" && ct.moved && ct.engine) {
+          // The Engine moved: today's tree keeps its shape and lands in the new spot.
+          const end = preview.current.get("section:engine"), begin = ct.starts["section:engine"];
+          if (end && begin) {
+            const dx = Math.round(end.x - begin.x), dy = Math.round(end.y - begin.y),
+              tree = (ref) => ref === "day:root" || /^(lane|b|sub|bug):/.test(ref);
+            commit((d) => {
+              const board = clean(d.canvas?.board4), saved = { ...(board.layouts.mindmap || {}) }, from = engineShift(saved);
+              for (const [ref, pos] of Object.entries(saved))
+                if (tree(ref) && Number.isFinite(pos?.x) && Number.isFinite(pos?.y)) saved[ref] = { ...pos, x: pos.x + dx, y: pos.y + dy };
+              saved["section:engine"] = { x: from.x + dx, y: from.y + dy };
+              board.layouts = { ...board.layouts, mindmap: saved };
+              d.canvas = { ...(d.canvas || {}), board4: board };
+              return d;
+            }, t("Engine moved", "انجین جابه‌جا شد"));
+          }
         } else if (ct.kind === "move" && ct.moved) {
           setConnecting(null);
           if (ct.connect) setTool("select");
@@ -2265,7 +2310,7 @@ export function DDcreateBoard(deps) {
                 : "Select the target node; dragging moves the node",
             );
           }
-        } else if (ct.kind === "move" && !ct.moved) {
+        } else if (ct.kind === "move" && !ct.moved && !ct.engine) {
           const ot = lastTap.current;
           ot?.ref === ct.tapRef && Date.now() - ot.time < 340
             ? (openEdit(ct.tapRef), (lastTap.current = null))
@@ -3884,7 +3929,9 @@ export function DDcreateBoard(deps) {
         style: { position: "absolute", left: Y.x, top: Y.y, width: Y.w, height: Y.h },
         onPointerDown: (e) => { if (!e.target.closest("button")) { e.stopPropagation(); backgroundDown(e, true); } },
         onContextMenu: (e) => openContext(e, {}),
-      }, _.createElement("div", { className: "dd-engine-area-title" },
+      }, _.createElement("div", { className: "dd-engine-area-title", "data-engine-handle": true,
+          title: t("Drag to move the Engine", "برای جابه‌جایی انجین بکشید"),
+          onPointerDown: (e) => { if (e.button || e.target.closest("button")) return; e.stopPropagation(); e.preventDefault(); finishEdit(); setMenu(null); startEngineMove(e); } },
         "⚙ ", Y.title, _.createElement("small", null, Y.subtitle),
         _.createElement("button", { type: "button", "data-engine-open": true, title: t("Bring the Engine over the board (E)", "آوردن انجین روی برد (E)"), onPointerDown: (e) => { if (e.button) return; e.stopPropagation(); e.preventDefault(); finishEdit(); setEngine(true); }, onClick: () => { finishEdit(); setEngine(true); } }, t("Open · E", "باز کن · E"))));
       if (Y.section === "life") return _.createElement("div", {

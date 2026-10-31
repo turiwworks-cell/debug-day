@@ -1,3 +1,13 @@
+## 5.25.0 — 2026-10-31
+Branch: claude/project-thread-slkpwv
+- New look for the whole app ("Graphite"): calm graphite surfaces in dark mode and soft aluminium grey in light mode, soft rounded corners, light outlines, and one accent (lime in dark, orange in light).
+- Easier to read: one typeface (Geist) everywhere, no more small spaced-out capitals, no label under 12px, numbers line up.
+- Plan, Board and Calendar switches, filters and layouts are soft segmented controls; buttons, fields, cards, dialogs, search and the phone's Today card are rounded.
+- In dark mode, cards and fields follow the dark theme instead of staying light.
+- Sticky notes keep their design: nothing in the new look touches them.
+- The Engine's section can be moved: drag its title. Today's tree moves with it, the spot is kept (a new day starts where the last one left it), and new tasks land inside it.
+- The look lives in one file, `public/graphite.js`. Tests: unit test for the look and the saved Engine spot, browser test for moving the Engine.
+
 ## 5.24.0 — 2026-10-31
 Branch: claude/project-thread-bgfqx1
 - Sections opens a clear list again, instead of the card-file drawer (removed): Main board first, then every section in board order, right under its parent, with a guide line per level.
