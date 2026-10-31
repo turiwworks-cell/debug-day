@@ -97,10 +97,24 @@ export function DDpanelCounts(day = {}, setup = {}, language) {
   };
 }
 
+// The Section Drawer is not a panel of its own: it opens over the Board. It
+// sits right after the Engine in Ctrl+Space.
+export const DDsectionsCommand = {
+  id: "sections",
+  icon: "🗂️",
+  color: "#8A6E4B",
+  name: ["Sections", "سکشن‌ها"],
+  about: ["Open the section drawer: pick a section and go into its board", "کشوی سکشن‌ها را باز کن: یک سکشن بردار و وارد بردش شو"],
+  words: "sections drawer folders cards life rooms سکشن کشو پوشه کارت زندگی",
+  isolate: false,
+};
+
 // Rows for Ctrl+Space. open(id, isolate) runs when one is picked.
 export function DDpanelCommands(language, open) {
-  const fa = language === "fa";
-  return DDpanelList.map((panel) => ({
+  const fa = language === "fa",
+    list = [...DDpanelList];
+  list.splice(list.findIndex((panel) => panel.id === "engine") + 1, 0, DDsectionsCommand);
+  return list.map((panel) => ({
     id: "cmd-panel-" + panel.id,
     panel: { id: panel.id, icon: panel.icon, color: panel.color, isolate: panel.isolate },
     names: panel.name,

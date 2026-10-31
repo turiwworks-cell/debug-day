@@ -27,18 +27,21 @@ test("each panel has its own id, color and icon", () => {
 test("Ctrl+Space rows isolate a panel, or open the pages that have no isolate", () => {
   const calls = [],
     rows = DDpanelCommands("en", (id, isolate) => calls.push([id, isolate]));
-  assert.deepEqual(rows.map((row) => row.id), DDpanelList.map((panel) => "cmd-panel-" + panel.id));
+  const order = DDpanelList.map((panel) => panel.id);
+  order.splice(1, 0, "sections");
+  assert.deepEqual(rows.map((row) => row.id), order.map((id) => "cmd-panel-" + id), "Sections sits right after the Engine");
   for (const row of rows) {
     assert.ok(row.id.startsWith("cmd-"), "the app only passes cmd- rows to the palette");
     row.action();
   }
-  assert.deepEqual(calls, DDpanelList.map((panel) => [panel.id, panel.isolate]));
+  assert.deepEqual(calls, order.map((id) => [id, id === "sections" ? false : DDpanelList.find((panel) => panel.id === id).isolate]));
   calls.length = 0;
   rows.find((row) => row.panel.id === "habits").showWithRest();
   assert.deepEqual(calls, [["habits", false]]);
   assert.equal(rows.find((row) => row.panel.id === "calendar").showWithRest, null);
   assert.equal(DDpanelCommands("fa", () => {})[0].title, "انجین", "the Engine comes first in Ctrl+Space");
-  assert.equal(DDpanelCommands("fa", () => {})[1].title, "پلن");
+  assert.equal(DDpanelCommands("fa", () => {})[1].title, "سکشن‌ها", "then the Section Drawer");
+  assert.equal(DDpanelCommands("fa", () => {})[2].title, "پلن");
 });
 
 test("map counts read the day without changing it", () => {

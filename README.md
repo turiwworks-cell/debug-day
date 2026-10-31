@@ -124,7 +124,17 @@ Use the edge buttons or **G** (goals), **Shift+G** (notes), **Shift+H** (habits)
 
 Rail regression coverage: `node --test tests/rails.test.mjs` and `node tests/browser/rails.cjs` (both languages at 1440×900 and 390×844).
 
-## Sticky cards (5.21)
+## Section Drawer (5.21)
+
+Press **Sections** in the Board toolbar, the **D** key, or pick **Sections** (right after Engine) in Ctrl+Space. A line-art card file slides up over the dimmed board. Top-level sections are filled dividers in their color (two-letter initials and the number of sections inside in Roman numerals, like "CL III"); the sections inside are outlined cards filed behind them, numbered 01, 02… in board order. Tabs cycle through three columns. The front card is always **Main board**, which leaves a section board.
+
+Click a divider or card that has sections inside to open that folder; the path on the drawer front ("Main board › Creative life › …") leads back, and Backspace or ← goes up. Click a card with nothing inside, double-click any card, or press its ↗ to go into its board. Hover (or focus) a card to lift it and see its notes, today's open tasks from it and its last 14 days. **Find a section…** filters every level and shows paths; Enter opens the first match. Keys: ↑/↓ move between tabs, Enter enters, → opens a folder, ← goes up, Esc or D closes. In Persian the drawer is right to left, so → and ← swap. On a phone it is a full-width bottom sheet with 44px tabs. **☰ List** opens the earlier plain list, with the Life area size and Compact layout.
+
+Colors belong to top-level sections only: right-click a divider (long-press on a phone) for eight soft colors plus ink black and paper white; the board's color control works on top-level sections only. Sections inside take their root's color, a little lighter per level, and keep any old color in the data unshown. `DDsectionTint(items, id)` in `public/life-board.js` returns `{ fill, ink, line }` for every place a section shows: board frames and name pills, the 14-day dots, drawer tabs, task chips in Mindmap, Lanes and Plan, the Engine "from" picker, the section record and search results. Task chips show the whole path ("Growth › Learning", or "Growth › … › Learning" when long), read live from `block.from`, so a rename or move shows everywhere at once.
+
+The drawer lives in `public/drawer.js`. Coverage: `node --test tests/drawer.test.mjs` and `node tests/browser/drawer.cjs` (en and fa at 1440×900, fa at 390×844).
+
+## Sticky cards (5.22)
 
 Sticky text grows the card automatically; saved legacy heights remain in the data. Side resizing chooses square or wide; corners scale the base and text together, with a minimum base of 160. Selected edges are full resize bands. The shorter toolbar keeps connection, palette, More, Plan and lock actions, plus section actions and, for tasks, Card details and Add a step. It moves beside an open side rail instead of covering it. Other commands remain in More and retain their keyboard shortcuts.
 

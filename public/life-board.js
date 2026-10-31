@@ -389,6 +389,57 @@ export function DDlifePath(items, id) {
   return out;
 }
 
+// One color rule for every place a section shows: the board frame and its name,
+// the drawer tabs, task chips, the Engine, the record and Plan. Only a top-level
+// section has its own color; a section inside it takes that color, a little
+// lighter for each level down. Any old color saved on a child stays in the data.
+const hex6 = (hex) => {
+  let v = String(hex || "").slice(1);
+  if (v.length <= 4) v = [...v.slice(0, 3)].map((c) => c + c).join("");
+  return /^[0-9a-f]{6}/i.test(v) ? v.slice(0, 6) : "e6e6e6";
+};
+export function DDmixColor(a, b, amount) {
+  const x = hex6(a), y = hex6(b), k = Math.max(0, Math.min(1, amount));
+  return "#" + [0, 2, 4].map((i) => Math.round(parseInt(x.slice(i, i + 2), 16) * (1 - k) + parseInt(y.slice(i, i + 2), 16) * k)
+    .toString(16).padStart(2, "0")).join("").toUpperCase();
+}
+// Eight soft colors, then ink black and paper white.
+export const DDsectionPalette = ["#FFE08A", "#FFC48A", "#FFA799", "#FFA6D9", "#D3B8FF", "#9DD6FF", "#A8E6D5", "#C8E6A0", "#121211", "#FFFFFF"];
+export function DDsectionTint(items, id) {
+  const path = DDlifePath(items, id);
+  if (!path.length || path.at(-1).type !== "section") return null;
+  const sections = path.filter((i) => i.type === "section"), root = sections[0], depth = sections.length - 1,
+    fill = DDmixColor(DDlifeColor(items, root), "#FFFFFF", Math.min(0.72, depth * 0.2)),
+    ink = DDlifeContrast(fill);
+  return { fill, ink, line: DDmixColor(fill, ink === "#FFFFFF" ? "#FFFFFF" : "#121211", 0.4), root: root.id, depth };
+}
+
+// A section's name with everything above it: "Growth › Learning". When it is
+// too long for a chip, keep the first and last parts: "Growth › … › Learning".
+export function DDshortPath(parts, max = 28) {
+  const full = parts.join(" › ");
+  return { parts, full, short: full.length > max && parts.length > 2 ? parts[0] + " › … › " + parts.at(-1) : full };
+}
+export function DDsectionPath(items, id, max = 28, fallback = "Section") {
+  return DDshortPath(DDlifePath(items, id).filter((i) => i.type === "section").map((i) => String(i.text || "").trim() || fallback), max);
+}
+// The chip that says where a task came from. Only the section id is stored on
+// the task, so a rename, a move or a new color shows here at once.
+const chipCSS = `.dd-plan-from,.dd-room-history-from,.dd-search-from{display:inline-block;flex:none;max-width:min(240px,60%);vertical-align:middle;padding:0 7px;border:1px solid;border-radius:999px;font-size:11px;font-weight:500;line-height:1.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dd-plan-from{margin-inline-start:6px}.dd-room-history-from{margin-inline-start:auto}.dd-search-from{margin-top:3px;max-width:100%}`;
+export function DDSectionChip({ React: R, items, id, language, className = "dd-task-from", prefix = "↖ ", max = 28 }) {
+  const tint = id ? DDsectionTint(items, id) : null;
+  if (!tint) return null;
+  if (typeof document !== "undefined" && !document.getElementById("dd-chip-css"))
+    document.head.append(Object.assign(document.createElement("style"), { id: "dd-chip-css", textContent: chipCSS }));
+  const fa = language === "fa", path = DDsectionPath(items, id, max, fa ? "سکشن" : "Section"),
+    label = (fa ? "آمده از " : "Came from ") + path.full;
+  return R.createElement("span", {
+    className, dir: "auto", title: label, "aria-label": label, "data-from": id, "data-root": tint.root,
+    style: { background: tint.fill, color: tint.ink, borderColor: tint.line },
+  }, prefix + path.short);
+}
+
 // Inside a section's own board everything made or moved stays in that section.
 // Anything new, or anything that was inside and ended up outside, joins the
 // section again at the same place on the canvas (it may hang over the edge).

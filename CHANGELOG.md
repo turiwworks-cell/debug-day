@@ -1,4 +1,4 @@
-## 5.21.0 — 2026-10-31
+## 5.22.0 — 2026-10-31
 Branch: claude/project-thread-xu3qj6 (started on codex/board-feel-cards)
 - Sticky notes never scroll: they grow with their text and are at least square. Width has two shapes only, square or wide (1.5×), and snaps on release; a corner scales the whole note and its text.
 - Resize from anywhere on a selected note's side or corner, not only the small handles.
@@ -8,6 +8,17 @@ Branch: claude/project-thread-xu3qj6 (started on codex/board-feel-cards)
 - Turning a note into a task drops the markdown marks and keeps ticked to-dos as done steps.
 - The selection toolbar slides beside an open side rail instead of covering it.
 - Tests updated for the new note sizes; new browser test for cards.
+
+## 5.21.0 — 2026-10-31
+Branch: claude/project-thread-bgfqx1
+- New Section Drawer: a line-art card file of every section. Opens from the Sections button, the D key, or Ctrl+Space (right after Engine); Esc, D, a click outside or the same button closes it.
+- Top sections are colored dividers ("CL III"), the sections inside are numbered cards filed behind them. Main board is always the front card and leaves a section board.
+- Click a folder to open it, follow the path back, Backspace or ← goes up; ↗, a double-click or Enter goes into a section's board. Find a section across every level. Full keyboard, Persian right to left, phone bottom sheet with 44px tabs.
+- Hover a card to lift it and see its notes, today's open tasks and its 14-day dots.
+- Only top sections can be colored (right-click or long-press a divider: 8 soft colors, ink and paper). Sections inside take their root's color, a little lighter per level. One helper, DDsectionTint, colors board frames, drawer tabs, task chips, the Engine picker, the section record, Plan and search.
+- Task chips show the whole path ("Growth › Learning", shortened in the middle when long), read live, now also in Plan, the Engine picker, the record and search results.
+- The old Sections list is still there behind "☰ List" in the drawer, with the Life area size and Compact layout.
+- Add unit tests for the tint, path shortening and filing, and a browser test for the drawer in en/fa desktop and fa phone.
 
 ## 5.20.0 — 2026-10-31
 Branch: codex/phase5-side-rails

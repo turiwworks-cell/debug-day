@@ -1,3 +1,4 @@
+import { DDSectionChip, DDlifeItems } from "./life-board.js";
 // The shared meaning of a task: tags, importance and daily progress.
 // Time totals remain time totals. Progress measures completed work by importance.
 export function DDtags(value) {
@@ -67,8 +68,11 @@ export function DDprogressLabel(language) {
     ? "پیشرفت بر پایهٔ اولویت: P1 ×۴، P2 ×۳، P3 ×۲ و عادی ×۱. کارهای پارک‌شده حساب نمی‌شوند."
     : "Progress by priority: P1 ×4, P2 ×3, P3 ×2, normal ×1. Parked tasks are excluded.";
 }
-export function DDTaskTags({ React: R, task, language }) {
-  const tags = DDtags(task?.tags);
+// Plan passes setup, so a task also shows the section it came from, path and all.
+export function DDTaskTags({ React: R, task, language, setup }) {
+  const tags = DDtags(task?.tags),
+    from = setup && task?.from ? R.createElement(DDSectionChip, { React: R, items: DDlifeItems(setup), id: task.from, language, className: "dd-plan-from" }) : null;
+  if (from) return R.createElement(R.Fragment, null, from, DDTaskTags({ React: R, task, language }));
   return tags.length
     ? R.createElement(
         "span",

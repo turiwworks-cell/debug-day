@@ -265,7 +265,8 @@ export const DDboardCore = {
       if (node.lifeId && next.__life) {
         const it = next.__life.items.find((i) => i.id === node.lifeId);
         if (!it) continue;
-        if (Object.hasOwn(patch,"fill")) it.color = patch.fill || "#FFE299";
+        // Only a top-level section has its own color; a child takes its root's.
+        if (Object.hasOwn(patch,"fill") && !(it.type === "section" && it.parent)) it.color = patch.fill || "#FFE299";
         if (Number.isFinite(patch.width)) it.w = clamp(patch.width,64,20000);
         if (Number.isFinite(patch.height)) it.h = clamp(patch.height,64,20000);
         it.style = { ...it.style, ...this.style(patch) };
