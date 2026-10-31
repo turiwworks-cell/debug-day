@@ -1,3 +1,14 @@
+## 5.22.0 — 2026-10-31
+Branch: claude/project-thread-xu3qj6 (started on codex/board-feel-cards)
+- Sticky notes never scroll: they grow with their text and are at least square. Width has two shapes only, square or wide (1.5×), and snaps on release; a corner scales the whole note and its text.
+- Resize from anywhere on a selected note's side or corner, not only the small handles.
+- Shorter selection toolbar, sitting higher above the selection: Zoom, Edit, quick colour, Branch/Group, Duplicate and Delete moved to "…" (their keys still work). Tasks keep Card details and Add a step.
+- Bold, strikethrough and to-do with real checkboxes in notes (B / S / ☑, Ctrl+B, Ctrl+Shift+X, Ctrl+Shift+9). A checkbox ticks without opening the note. Text stays plain markdown.
+- Each note shows the date it was made at the bottom, in the chosen calendar. Older Life notes show none.
+- Turning a note into a task drops the markdown marks and keeps ticked to-dos as done steps.
+- The selection toolbar slides beside an open side rail instead of covering it.
+- Tests updated for the new note sizes; new browser test for cards.
+
 ## 5.21.0 — 2026-10-31
 Branch: claude/project-thread-bgfqx1
 - New Section Drawer: a line-art card file of every section. Opens from the Sections button, the D key, or Ctrl+Space (right after Engine); Esc, D, a click outside or the same button closes it.

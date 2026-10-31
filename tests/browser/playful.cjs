@@ -137,7 +137,9 @@ async function scenario(h,mobile,language){
       if(await page.locator(".b2-viewport.dd-board-locked").count())await page.locator(".b2-viewport").tap({position:{x:30,y:140}});
       await node().tap();
       await page.waitForFunction(id=>document.querySelector('[data-board-id="sticky:'+id+'"]')?.classList.contains("selected"),id);
-      await page.getByRole("button",{name:t("Zoom to selection","زوم روی انتخاب"),exact:true}).click();
+      // Zoom to selection lives in the toolbar's "…" menu since 5.21.
+      await page.locator(".b4-selectionbar").getByRole("button",{name:t("More actions","گزینه‌های بیشتر"),exact:true}).click();
+      await page.getByRole("menuitem",{name:new RegExp(t("Zoom to selection","زوم روی انتخاب"))}).first().click();
       if(await page.locator(".b2-viewport.dd-board-locked").count())await page.locator(".b2-viewport").tap({position:{x:30,y:140}});
       // Start a fresh double-tap after the previous selection and zoom action.
       await page.waitForTimeout(360);

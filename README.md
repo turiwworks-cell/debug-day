@@ -133,3 +133,9 @@ Click a divider or card that has sections inside to open that folder; the path o
 Colors belong to top-level sections only: right-click a divider (long-press on a phone) for eight soft colors plus ink black and paper white; the board's color control works on top-level sections only. Sections inside take their root's color, a little lighter per level, and keep any old color in the data unshown. `DDsectionTint(items, id)` in `public/life-board.js` returns `{ fill, ink, line }` for every place a section shows: board frames and name pills, the 14-day dots, drawer tabs, task chips in Mindmap, Lanes and Plan, the Engine "from" picker, the section record and search results. Task chips show the whole path ("Growth › Learning", or "Growth › … › Learning" when long), read live from `block.from`, so a rename or move shows everywhere at once.
 
 The drawer lives in `public/drawer.js`. Coverage: `node --test tests/drawer.test.mjs` and `node tests/browser/drawer.cjs` (en and fa at 1440×900, fa at 390×844).
+
+## Sticky cards (5.22)
+
+Sticky text grows the card automatically; saved legacy heights remain in the data. Side resizing chooses square or wide; corners scale the base and text together, with a minimum base of 160. Selected edges are full resize bands. The shorter toolbar keeps connection, palette, More, Plan and lock actions, plus section actions and, for tasks, Card details and Add a step. It moves beside an open side rail instead of covering it. Other commands remain in More and retain their keyboard shortcuts.
+
+Use **B**, **S̶**, **☑** or Ctrl/Cmd+B, Ctrl/Cmd+Shift+X, Ctrl/Cmd+Shift+9 for light markdown formatting. Checkboxes update the same plain note text; editing shows that text directly. New notes and duplicates show their creation date in the chosen calendar. Older day notes use their day; older Life notes have no invented date. `public/stickies.js` contains the pure formatting/sizing helpers and presentation.

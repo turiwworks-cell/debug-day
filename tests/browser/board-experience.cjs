@@ -111,9 +111,15 @@ const {join}=require("node:path");
     assert.deepEqual((await read()).setup.life,beforeDraw);
     await (await search("کار 123")).press("Enter");
     const noteBox=await hidden.boundingBox(),beforeMarquee=await world(),marqueeData=(await read()).setup.life;
-    await page.mouse.move(noteBox.x-30,noteBox.y-24);await page.mouse.down();
-    await page.mouse.move(noteBox.x+100,noteBox.y+100,{steps:10});await page.mouse.up();
-    assert.equal(await hidden.getAttribute("aria-selected"),"true","empty section space starts a marquee in Select");
+    // Since 5.15 a plain drag on a section's body moves the section (FigJam);
+    // Shift+drag on its empty space draws a marquee instead.
+    await viewport.focus();await page.keyboard.press("Escape");
+    assert.notEqual(await hidden.getAttribute("aria-selected"),"true");
+    await page.keyboard.down("Shift");
+    await page.mouse.move(noteBox.x-30,noteBox.y+noteBox.height/4);await page.mouse.down();
+    await page.mouse.move(noteBox.x+100,noteBox.y+noteBox.height/4+40,{steps:10});await page.mouse.up();
+    await page.keyboard.up("Shift");
+    assert.equal(await hidden.getAttribute("aria-selected"),"true","Shift on empty section space starts a marquee in Select");
     assert.equal(await world(),beforeMarquee,"a marquee inside a section does not pan");
     assert.deepEqual((await read()).setup.life,marqueeData,"marquee changes selection only");
     await viewport.focus();await page.keyboard.press("Control+Alt+t");
@@ -130,13 +136,17 @@ const {join}=require("node:path");
     await page.locator('[data-life-id="'+added.id+'"] textarea').press("Control+Enter");
     await (await search("Orbit idea")).press("Enter");
     const note=page.locator('[data-board-id="sticky:note"]');
-    assert.equal(await note.locator('[data-edge]').count(),8);
+    // Stickies grow with their text, so only sides and corners resize them (5.21).
+    assert.equal(await note.locator('[data-edge]').count(),6);
+    assert.equal(await note.locator('[data-edge="n"],[data-edge="s"]').count(),0);
     await note.locator(".dd-note-preview").dblclick();
     const text=note.locator("textarea");await text.fill("Long paragraph\n".repeat(80));
     const before=await world();await text.hover();await page.mouse.wheel(0,220);await page.waitForTimeout(50);
     assert.equal(await world(),before,"scrolling the editor does not pan the board");
     await text.press("End");await text.press("Space");
     assert.ok((await text.inputValue()).includes(" "));
+    // Notes grow with their text (5.21); keep this one short again so the fit checks below stay meaningful.
+    await text.fill("Orbit idea");
     await text.press("Control+Enter");
     await note.locator(".dd-note-preview").click();
     await viewport.focus();await page.keyboard.press("Control+Shift+l");

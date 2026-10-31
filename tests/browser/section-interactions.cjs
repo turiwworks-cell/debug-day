@@ -49,7 +49,7 @@ const {join}=require('node:path');
    }else{
     await note.focus();
     await drag(note.locator('[data-edge="se"]'),55,45);
-    let state=(await read()).setup.life.items.find(i=>i.id==='n');assert.ok(state.w>220&&state.h>160,'native note resize persists');
+    let state=(await read()).setup.life.items.find(i=>i.id==='n');assert.ok(state.w>220&&(state.style?.textSize||16)>16,'native note resize persists (a corner scales the note and its text; height follows the text)');
     const before=await read();await drag(note.locator('.dd-note-preview'),50,20,'escape');
     assert.deepEqual((await read()).setup.life,before.setup.life,'Escape cancels a drag');
     // A real port gesture connects Life notes using native wires, stored in shared setup.

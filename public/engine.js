@@ -59,12 +59,9 @@ export function DDengineTask(name, lane, setup = {}, id = crypto.randomUUID(), f
 
 // A note turned into a task: the first line is its name, the other lines its steps.
 export function DDengineTaskFromNote(text, lane, setup = {}, makeId = () => crypto.randomUUID(), from = "") {
-  const lines = String(text || "")
-    .split("\n")
-    .map((line) => line.replace(/^\s*(?:[-*•]|\d+[.)]|\[[ xX]?\])\s+/, "").trim())
-    .filter(Boolean);
-  const task = DDengineTask(lines[0] || "", lane, setup, makeId(), from);
-  task.subtasks = lines.slice(1).map((line) => ({ id: makeId(), text: line, done: false, expanded: true, children: [] }));
+  const lines = String(text || "").split("\n").map(line=>({done:/^\s*- \[x\]/i.test(line),text:line.replace(/\*\*|~~/g,"").replace(/^\s*(?:- \[[ xX]\]|[-*•]|\d+[.)]|\[[ xX]?\])\s*/,"").trim()})).filter(line=>line.text);
+  const task = DDengineTask(lines[0]?.text || "", lane, setup, makeId(), from);
+  task.subtasks = lines.slice(1).map(line=>({id:makeId(),text:line.text,done:line.done,expanded:true,children:[]}));
   return task;
 }
 

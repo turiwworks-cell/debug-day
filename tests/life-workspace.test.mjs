@@ -35,7 +35,7 @@ test('native copy includes hidden descendants of a collapsed section and remaps 
 test('native appearance, nudge and deletion update shared notes; deleting a section deletes its contents',()=>{
  const d=doc(),n={id:'life:n',lifeId:'n',kind:'sticky',x:100,y:150};
  const styled=core.setStyle(d,[n],{fill:'#D3B8FF',width:300,height:240});
- assert.deepEqual([styled.__life.items[1].color,styled.__life.items[1].w,styled.__life.items[1].h],['#D3B8FF',300,240]);
+ assert.deepEqual([styled.__life.items[1].color,styled.__life.items[1].w,styled.__life.items[1].h],['#D3B8FF',240,240]);
  const moved=core.place(styled,[n],{'life:n':{x:110,y:160}},'mindmap');assert.deepEqual([moved.__life.items[1].x,moved.__life.items[1].y],[50,80]);
  // FigJam: Delete takes the section and everything inside it.
  const removed=core.remove(d,[{id:'life:a',lifeId:'a',kind:'life-section'}]);
