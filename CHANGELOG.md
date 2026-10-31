@@ -9,6 +9,7 @@ Branch: claude/project-thread-ix6zdi
 - New icons for all Board docks and menus, from one set (`public/board-icons.js`). Each action has its own picture: Full screen, Fit all and Life no longer look alike, the Engine is a gear and Canvas settings are sliders, Sections is a tree instead of "···", the Section tool is a titled frame instead of a task box, Snap is a magnet and the Minimap is a small map.
 - Goals, Notes and Today's habits pills use the new icons (flag, page, repeat-check).
 - Tests updated for the moved buttons.
+- The Lanes drag test now waits for the board's camera to stop moving before it measures the lane, so it no longer fails now and then.
 
 ## 5.26.0 — 2026-10-31
 Branch: claude/project-thread-bgfqx1

@@ -374,6 +374,12 @@ const { start, fixture } = require("./harness.cjs");
         await nav(1);
         await page.locator(".b4-modes button").nth(1).click();
         await page.waitForSelector('.b2-viewport[data-mode="lanes"]');
+        // Switching mode fits the day on the next tick; read the lane only once the camera is still.
+        await page.waitForFunction(() => {
+          const now = document.querySelector(".b2-world").style.transform, w = window;
+          if (w.__ddCam !== now) { w.__ddCam = now; w.__ddCamAt = performance.now(); return false; }
+          return performance.now() - w.__ddCamAt > 200;
+        }, null, { polling: 50 });
         const task = page.locator('[data-board-id="b:writing"] .b4-node-body'),
           frame = await page
             .locator('[data-board-id="lane:life"]')
