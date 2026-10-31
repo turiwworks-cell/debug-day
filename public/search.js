@@ -256,34 +256,7 @@ export function DDbuildSearchIndex(data, today) {
         group: "notes",
       });
   }
-  for (const feedback of setup.feedbacks || []) {
-    const row = {
-      id: "feedback:" + feedback.id,
-      itemId: feedback.id,
-      kind: "feedback",
-      date: feedback.createdAt,
-      title: feedback.text,
-      detail: feedback.createdAt,
-      done: !!feedback.done,
-      priority: feedback.priority === "high" ? 1 : 0,
-      group: "notes",
-    };
-    add({
-      ...row,
-      extra: (feedback.thread || []).map((t) => t.text).join(" "),
-    });
-    for (const reply of feedback.thread || [])
-      add({
-        ...row,
-        id: "thread:" + feedback.id + ":" + reply.id,
-        kind: "thread",
-        itemId: reply.id,
-        feedbackId: feedback.id,
-        title: reply.text,
-        detail: feedback.text + " · " + reply.at,
-        date: reply.at,
-      });
-  }
+  // App changes (feedback) was removed from the app in 5.26; its old data stays saved but is not searched.
   for (const worry of setup.worries || [])
     add({
       id: "worry:" + worry.id,
@@ -313,7 +286,7 @@ export function DDbuildSearchIndex(data, today) {
       extra: DDsubText(block.subtasks),
       group: "notes",
     });
-  for (const it of DDlifeItems(setup)) add({ id:"life:"+it.id,kind:"life",itemId:it.id,title:it.text || "Section",detail:"Life · زندگی",category:"life",group:"life",extra:it.type });
+  for (const it of DDlifeItems(setup)) add({ id:"life:"+it.id,kind:"life",itemId:it.id,title:it.text || "Section",detail:"Feed · فید",category:"life",group:"life",extra:it.type });
   return index;
 }
 export function DDmatchSearch(row, query) {
@@ -743,7 +716,7 @@ export function DDCommandPalette(props) {
     today: t("Today's tasks", "کارهای امروز"),
     other: t("Other days", "روزهای دیگر"),
     notes: t("Notes & ideas", "یادداشت‌ها و ایده‌ها"),
-    life: t("Life · shared across days", "زندگی · مشترک بین روزها"),
+    life: t("Feed · shared across days", "فید · مشترک بین روزها"),
   };
   const order =
     raw.trim() && !query.commandsOnly

@@ -18,12 +18,12 @@ const { start, fixture } = require("./harness.cjs");
     assert.doesNotMatch(await viewport.evaluate((el) => getComputedStyle(el).cursor), /data:image/);
     await page.locator("[data-sections-button]").click();await page.locator("[data-life-tools]").click();
     const before=await page.locator('[data-board-id="section:life"]').evaluate((el)=>({w:el.offsetWidth,h:el.offsetHeight}));
-    await page.getByRole("button",{name:"Enlarge Life area +25%",exact:true}).click();
+    await page.getByRole("button",{name:"Enlarge Feed +25%",exact:true}).click();
     let geometry=await page.evaluate(()=>JSON.parse(localStorage.getItem("debug-day:v2")).setup.life.frame);
     assert.ok(geometry.w>before.w&&geometry.h>before.h,"visible enlarge action updates shared Life dimensions");
     const requested=geometry.w+500;
-    await page.getByRole("spinbutton",{name:"Life area width",exact:true}).fill(String(requested));
-    await page.getByRole("spinbutton",{name:"Life area width",exact:true}).press("Enter");
+    await page.getByRole("spinbutton",{name:"Feed width",exact:true}).fill(String(requested));
+    await page.getByRole("spinbutton",{name:"Feed width",exact:true}).press("Enter");
     geometry=await page.evaluate(()=>JSON.parse(localStorage.getItem("debug-day:v2")).setup.life.frame);
     assert.equal(geometry.w,requested,"custom width is saved in shared setup");
     for (const theme of ["light", "dark"]) {

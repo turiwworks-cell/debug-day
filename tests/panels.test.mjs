@@ -55,10 +55,9 @@ test("map counts read the day without changing it", () => {
   assert.deepEqual(DDpanelCounts(day, setup, "en"), {
     plan: "2 cards",
     habits: "1 of 2 today",
-    lab: "1 open",
   });
   assert.equal(DDpanelCounts(day, setup, "fa").plan, "۲ کارت");
-  assert.deepEqual(DDpanelCounts({}, {}, "en"), { plan: "0 cards", habits: null, lab: null });
+  assert.deepEqual(DDpanelCounts({}, {}, "en"), { plan: "0 cards", habits: null });
   assert.equal(JSON.stringify({ day, setup }), before);
 });
 
@@ -70,7 +69,8 @@ test("Stats lives inside Calendar and Feelings is gone, so the app map shows one
     assert.ok(DDpanelOf(panel.partOf), panel.id);
     assert.ok(!cards.includes(panel.id), panel.id);
   }
-  assert.deepEqual(cards, ["engine", "plan", "board", "habits", "calendar", "lab"]);
+  assert.deepEqual(cards, ["engine", "plan", "board", "habits", "calendar"]);
+  assert.equal(DDpanelOf("lab"), null, "App changes was removed (5.26)");
   assert.equal(DDpanelOf("feelings"), null, "the Feelings panel was removed");
   const calendar = map.children[cards.indexOf("calendar")],
     count = calendar.children[0].children.find((child) => child && child.type === "small");

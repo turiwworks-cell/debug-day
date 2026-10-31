@@ -219,24 +219,26 @@ const {start,fixture}=require('./harness.cjs');
    const toggle=list.locator('[data-life-tools]');
    assert.equal(await toggle.getAttribute('aria-expanded'),'false');
    await tap(toggle);
-   await list.getByRole('button',{name:t('Enlarge Life area +25%','بزرگ‌تر کردن محدودهٔ زندگی +۲۵٪')}).waitFor();
+   await list.getByRole('button',{name:t('Enlarge Feed +25%','بزرگ‌تر کردن فید +۲۵٪')}).waitFor();
    await list.getByRole('button',{name:t('Compact layout','جمع‌وجور کن')}).waitFor();
-   assert.equal(await list.getByRole('spinbutton',{name:t('Life area width','عرض محدودهٔ زندگی')}).count(),1);
+   assert.equal(await list.getByRole('spinbutton',{name:t('Feed width','عرض فید')}).count(),1);
    await tap(list.locator('.dd-sections-close'));await list.waitFor({state:'detached'});
 
-   // Renaming the root in Plan updates the chips and the list at once, without a reload.
+   // Renaming the root on the board updates Plan's chips, the board chip and the list at once, without a reload.
+   // (Plan no longer lists the Feed itself, 5.26; it still shows where each task came from.)
    await page.locator('.b2-viewport').focus();await page.keyboard.press('Control+Shift+F');await page.locator('.b2.focus-mode').waitFor({state:'detached'});
    await page.locator('.views button').nth(0).click();
    const planChip=page.locator('.dd-plan-from[data-from="c"]');
    await planChip.first().waitFor({state:'attached'});
    assert.match(await planChip.first().textContent(),/Creative life › Sketches/,'Plan shows the path');
    assert.equal(await planChip.first().evaluate((el)=>getComputedStyle(el).backgroundColor),rgb(childFill),'in the same shade');
-   const fields=page.locator('.dd-plan-life input[aria-label]'),
-    field=fields.nth(await fields.evaluateAll((els)=>els.findIndex((el)=>el.value==='Creative life')));
+   assert.equal(await page.locator('.dd-plan-life').count(),0,'the Feed is not listed in Plan');
+   await page.locator('.views button').nth(1).click();
+   await node('a').focus();await page.keyboard.press('Enter');
+   const field=node('a').locator('.b4-node-body input');
    assert.equal(await field.inputValue(),'Creative life');
-   // Plan's cards and Life list are folded away on a phone; type into the same field there.
-   if(mobile)await field.evaluate((el)=>{el.value='Studio life';el.dispatchEvent(new FocusEvent('focusout',{bubbles:true}));});
-   else{await field.fill('Studio life');await field.press('Tab');}
+   await field.fill('Studio life');await field.press('Enter');
+   await page.locator('.views button').nth(0).click();
    await page.waitForFunction(()=>/Studio life › Sketches/.test(document.querySelector('.dd-plan-from[data-from="c"]')?.innerText||''));
    await page.locator('.views button').nth(1).click();
    await chip.first().waitFor({state:'attached'});

@@ -11,8 +11,10 @@ export const DDstickySnap = (width, base = 240) => Math.abs(width-base) <= Math.
 export function DDstickyFormat(text, start, end, kind) {
  if(kind === "todo") {
   const a=text.lastIndexOf("\n",start-1)+1,b=text.indexOf("\n",end),stop=b<0?text.length:b;
-  const lines=text.slice(a,stop).split("\n"),remove=lines.every(l=>/^\s*- \[[ xX]\] /.test(l));
-  const value=lines.map(l=>remove?l.replace(/^(\s*)- \[[ xX]\] /,"$1"):l.replace(/^(\s*)(.*)$/,(_,s,t)=>s+"- [ ] "+t)).join("\n");
+  // Lines that are already tasks stay as they are (never "- [ ] - [ ] x"), and
+  // empty lines between parts of a note stay empty.
+  const lines=text.slice(a,stop).split("\n"),todo=l=>/^\s*- \[[ xX]\]( |$)/.test(l),filled=lines.filter(l=>l.trim()),remove=filled.length?filled.every(todo):lines.every(todo);
+  const value=lines.map(l=>remove?l.replace(/^(\s*)- \[[ xX]\] ?/,"$1"):todo(l)||(!l.trim()&&lines.length>1)?l:l.replace(/^(\s*)(.*)$/,(_,s,t)=>s+"- [ ] "+t)).join("\n");
   return {text:text.slice(0,a)+value+text.slice(stop),start:a,end:a+value.length};
  }
  const mark=kind==="bold"?"**":"~~",selected=text.slice(start,end);
@@ -40,8 +42,12 @@ export function DDinstallStickyStyles(){
 .b6 .b4-sticky>.b4-node-body{position:relative;inset:0;width:100%;height:max-content!important;flex:0 0 auto!important;min-height:0!important;overflow:visible;display:block;padding:0;box-sizing:border-box}
 .b6 .b4-sticky .dd-note-preview{position:relative;inset:auto;height:auto;min-height:0;max-height:none;overflow:visible;white-space:pre-wrap;overflow-wrap:anywhere;padding:20px 20px 8px;line-height:1.5;box-sizing:border-box}
 .b6 .b4-sticky .dd-note-editor{position:relative;inset:auto;min-height:0;padding:20px 20px 8px}.b6 .dd-note-editor textarea{height:auto;min-height:0;overflow:hidden;resize:none;line-height:1.5}
-.b6 .b4-sticky-head{top:4px;bottom:auto!important;pointer-events:none}.b6 .b4-sticky-head button:not(.dd-note-drag){display:none}.b6 .b4-sticky-head .dd-note-drag{pointer-events:auto}.dd-sticky-footer{display:block;position:absolute;bottom:0;left:0;right:0;pointer-events:none;padding:8px 16px 12px;color:var(--ink-2);font-size:calc(11px * var(--b4-inverse,1));line-height:1.3;text-align:start}
-.dd-sticky-todo{display:flex;align-items:flex-start;gap:8px;white-space:pre-wrap}.dd-sticky-todo input{flex:none;margin-top:.35em;accent-color:var(--accent)}.dd-sticky-todo[data-done=true]>span{text-decoration:line-through;opacity:.55}.dd-sticky-hint{opacity:.5}
+.b6 .b4-sticky-head{top:4px;bottom:auto!important;pointer-events:none}.b6 .b4-sticky-head button:not(.dd-note-drag){display:none}.b6 .b4-sticky-head .dd-note-drag{pointer-events:auto}.dd-sticky-footer{display:block;position:absolute;bottom:0;left:0;right:0;pointer-events:none;padding:8px 16px 12px;color:#121211a6;font-size:11px;line-height:1.3;text-align:start}
+.b6 .b4-sticky .dd-note-preview,.b6 .b4-sticky .dd-note-editor textarea{font-size:calc(var(--object-size,16px) * 1.15);font-weight:500;color:#141414;letter-spacing:-.005em}
+.dd-sticky-todo{display:flex;align-items:flex-start;gap:8px;white-space:pre-wrap}.dd-sticky-todo input{flex:none;margin-top:.35em;accent-color:var(--accent)}
+/* A to-do box is a checkbox, not a text field: never stretch it across the note (that squeezed the words into one letter per line). */
+.b6 .b4-node-body .dd-sticky-todo input[type=checkbox]{font-size:inherit;width:.9em;height:.9em;min-width:0;min-height:0;flex:none;padding:0;margin:.3em 0 0;border:0;border-radius:3px;background:none;box-shadow:none;cursor:pointer}
+.dd-sticky-todo>span{flex:1 1 auto;min-width:0}.dd-sticky-todo[data-done=true]>span{text-decoration:line-through;opacity:.55}.dd-sticky-hint{opacity:.5}
 .b6 .b4-sticky{transition:width 120ms ease}.b6 .b4-sticky:has(textarea),.b6 .b4-sticky[data-resizing=true]{transition:none}
 .b6 .b4-node.selected>.b6-note-resize[data-edge]{transform:none;opacity:1;position:absolute;background:transparent;border:0;margin:0;padding:0;min-width:0;min-height:0}
 .b6 .b4-node.selected>.b6-note-resize[data-edge=e],.b6 .b4-node.selected>.b6-note-resize[data-edge=w]{top:0;bottom:auto;width:calc(8px * var(--b4-inverse));height:100%;cursor:ew-resize}

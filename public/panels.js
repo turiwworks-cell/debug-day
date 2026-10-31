@@ -56,15 +56,6 @@ export const DDpanelList = [
     isolate: false,
     partOf: "calendar",
   },
-  {
-    id: "lab",
-    icon: "🛠️",
-    color: "#D39A00",
-    name: ["App changes", "تغییرات اپ"],
-    about: ["Ideas and notes about the app itself", "ایده‌ها و یادداشت‌ها دربارهٔ خود اپ"],
-    words: "lab feedback ideas app changes ایده بازخورد اپ",
-    isolate: true,
-  },
 ];
 
 export function DDpanelOf(id) {
@@ -88,12 +79,10 @@ export function DDpanelCounts(day = {}, setup = {}, language) {
     num = (value) => value.toLocaleString(fa ? "fa-IR" : "en-US"),
     blocks = day.blocks || [],
     habits = setup.habits || [],
-    ticked = habits.filter((habit) => day.habits?.[habit.id]?.done).length,
-    notes = (setup.feedbacks || []).filter((item) => !item.done).length;
+    ticked = habits.filter((habit) => day.habits?.[habit.id]?.done).length;
   return {
     plan: fa ? num(blocks.length) + " کارت" : blocks.length + (blocks.length === 1 ? " card" : " cards"),
     habits: habits.length ? (fa ? num(ticked) + " از " + num(habits.length) + " امروز" : ticked + " of " + habits.length + " today") : null,
-    lab: notes ? (fa ? num(notes) + " باز" : notes + " open") : null,
   };
 }
 

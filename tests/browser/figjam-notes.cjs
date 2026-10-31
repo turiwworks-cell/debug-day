@@ -43,10 +43,13 @@ const {start,fixture}=require('./harness.cjs');
    await page.keyboard.press('Escape');
    // Sticky tool: a ghost follows the pointer and the colors sit above the dock.
    await page.locator('.b2-viewport').focus();await page.keyboard.press('f');
-   // A double-click on empty board no longer makes a note.
+   // A double-click anywhere on the board makes a note there, ready to type (5.26).
    {const vb0=await page.locator('.b2-viewport').boundingBox(),n0=(await day()).notes.length;
     await page.mouse.dblclick(vb0.x+vb0.width*.62,vb0.y+vb0.height*.35);
-    assert.equal((await day()).notes.length,n0,'double-click adds nothing');await page.keyboard.press('Escape');}
+    const typing=page.locator('.dd-note-editor textarea');await typing.waitFor();
+    await typing.fill('Made by double-click');await page.keyboard.press('Escape');
+    const after=await day();assert.equal(after.notes.length,n0+1,'double-click adds one note');
+    assert.equal(after.notes.at(-1).text,'Made by double-click');await page.keyboard.press('Escape');}
    await page.locator('.b2-viewport').focus();await page.keyboard.press('s');
    const colors=page.locator('.dd-sticky-colors');await colors.waitFor();
    await colors.locator('button').nth(4).click();
@@ -130,6 +133,6 @@ const {start,fixture}=require('./harness.cjs');
    await page.keyboard.press('Escape');
    assert.deepEqual(errors,[]);await page.context().close();
   }
-  console.log('FigJam notes: dock, section clicks, sticky tool preview and colors, inline typing, + neighbours, FigJam resizing, + drag connectors, connector-to-new-note and line toolbar, multi-section moves, no double-click notes and Ctrl+Space in full screen passed (en/fa)');
+  console.log('FigJam notes: dock, section clicks, sticky tool preview and colors, inline typing, + neighbours, FigJam resizing, + drag connectors, connector-to-new-note and line toolbar, multi-section moves, double-click notes and Ctrl+Space in full screen passed (en/fa)');
  }finally{await h.stop()}
 })().catch(e=>{console.error(e);process.exit(1)});

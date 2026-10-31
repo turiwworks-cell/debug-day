@@ -49,18 +49,24 @@ const {join}=require('node:path');
    // Snapping may round the move; the nested note must move exactly as its outer section does.
    assert.ok(frameAfter.x-frameBefore.x>60,'the outer section moved');
    assert.ok(Math.abs((after.x-before.x)-(frameAfter.x-frameBefore.x))<1.5&&Math.abs((after.y-before.y)-(frameAfter.y-frameBefore.y))<1.5,'nested notes move with the outer section');
-   // A drag on the empty body moves the section too, not only its title.
+   // On the empty body of a section that is not selected, a drag draws a selection
+   // box (5.26); once the section is selected, a drag on its body moves it.
    await page.keyboard.press('Escape');
    const ob=await o.boundingBox(),inner=await a.boundingBox(),body={x:ob.x+ob.width-14,y:ob.y+ob.height-14};
    assert.ok(body.x>inner.x+inner.width&&body.y>inner.y+inner.height,'the grab point is on the outer section only');
+   await page.mouse.move(body.x,body.y);await page.mouse.down();
+   await page.mouse.move(body.x-40,body.y-30,{steps:6});await page.mouse.up();
+   assert.deepEqual(await o.boundingBox(),ob,'a drag on an unselected body does not move the section');
+   await page.mouse.click(body.x,body.y);
+   assert.equal(await o.getAttribute('aria-selected'),'true','a click selects it');
    await page.mouse.move(body.x,body.y);await page.mouse.down();
    await page.mouse.move(body.x-70,body.y+50,{steps:10});await page.mouse.up();
    const moved=await o.boundingBox(),innerMoved=await a.boundingBox();
    assert.ok(moved.x-ob.x<-50&&moved.y-ob.y>30,'dragging the body moves the section: '+JSON.stringify({ob,moved}));
    assert.ok(Math.abs((innerMoved.x-inner.x)-(moved.x-ob.x))<1.5,'its contents come along');
    assert.equal(await o.getAttribute('aria-selected'),'true','and it is selected');
-   // The name pill sits inside the top-left corner. Zoomed out it keeps its
-   // on-screen size; zoomed in it grows with the board.
+   // The name pill sits inside the top-left corner. Zoomed out it shrinks only
+   // down to a readable size; zoomed in it grows with the board.
    const pill=()=>o.locator(':scope>.b4-node-body').boundingBox();
    await page.locator('.b2-viewport').focus();await page.keyboard.press('0');await page.waitForTimeout(80);
    let p=await pill(),sb=await o.boundingBox();
@@ -70,7 +76,7 @@ const {join}=require('node:path');
    await page.waitForTimeout(80);
    const smaller=await o.boundingBox();p=await pill();
    assert.ok(smaller.width<sb.width*.6,'zoomed out');
-   assert.ok(Math.abs(p.height-atOne)<1.5,'zoomed out the name keeps its size: '+p.height+' vs '+atOne);
+   assert.ok(p.height<=atOne+0.5&&p.height>=18,'zoomed out the name stays readable without growing: '+p.height+' vs '+atOne);
    await page.keyboard.press('0');for(let i=0;i<2;i++)await page.keyboard.press('=');
    await page.waitForTimeout(80);p=await pill();
    assert.ok(p.height>atOne*1.2,'zoomed in the name grows with the board');

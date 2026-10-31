@@ -48,42 +48,19 @@ const { start, fixture } = require("./harness.cjs");
     const stretch = (await read()).setup.habits.find((x) => x.name === "Stretch");
     assert.ok(stretch);
 
-    // Board: a Habits section, no feelings box.
+    // Board: habits live in the rail beside the board, not in a section under the Engine.
     await page.locator(".views button").nth(1).click();
-    await page.locator('[data-board-id="section:habits"]').waitFor();
+    await page.locator('[data-board-id="section:engine"]').waitFor();
+    assert.equal(await page.locator('[data-board-id="section:habits"]').count(), 0);
+    assert.equal(await page.locator('[data-board-id^="habit:"]').count(), 0);
     assert.equal(await page.locator('[data-section-id="bugs"]').count(), 0);
-    assert.equal(await page.locator('[data-board-id="habit:write"]').getAttribute("data-level"), "2");
-    await page.locator(`[data-board-id="habit:${stretch.id}"] .b4-node-body`).click();
-    await page.locator(".dd-habit-details .dd-habit-tick").click();
-    assert.deepEqual((await today()).habits[stretch.id], { done: true });
-
     // Feelings were removed (5.16): no feeling cards on the Board.
     assert.equal(await page.locator('[data-board-id="bug:f2"]').count(), 0);
-    async function drag(from, to) {
-      const a = await from.boundingBox(), b = await to.boundingBox();
-      await page.mouse.move(a.x + a.width / 2, a.y + 12);
-      await page.mouse.down();
-      await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 12 });
-      await page.mouse.up();
-    }
 
-    // Lanes: drop a card into Habits and it becomes a habit.
-    await page.locator(".b4-modes button").nth(1).click();
-    await page.locator('[data-board-id="section:habits"]').waitFor();
-    await page.waitForTimeout(700);
-    await drag(page.locator('[data-board-id="b:long"] .b4-node-body'), page.locator('[data-board-id="section:habits"]'));
-    await page.waitForFunction(() => JSON.parse(localStorage.getItem("debug-day:v2")).setup.habits.some((x) => x.name === "Long research"));
-    assert.ok(!(await today()).blocks.some((b) => b.id === "long"));
-    const made = (await read()).setup.habits.find((x) => x.name === "Long research");
-    assert.equal(made.emo, "sticker:studio");
-    await page.locator(`[data-board-id="habit:${made.id}"]`).waitFor();
-
-    // Back in Plan, everything from the Board is there.
+    // Back in Plan, everything is still there.
     await page.locator(".views button").nth(0).click();
     await panel.waitFor();
-    assert.equal(await panel.locator(`[data-habit-id="${stretch.id}"] .dd-habit-tick`).getAttribute("aria-pressed"), "true");
-    assert.equal(await panel.locator(`[data-habit-id="${made.id}"]`).count(), 1);
-    await panel.locator(`[data-habit-id="${made.id}"] [data-symbol="sticker:studio"] svg`).waitFor();
+    assert.equal(await panel.locator(`[data-habit-id="${stretch.id}"]`).count(), 1);
 
     // Settings: the minutes for each level can change.
     await page.locator("button", { hasText: "Settings" }).last().click();
@@ -95,7 +72,7 @@ const { start, fixture } = require("./harness.cjs");
     await page.reload();
     await page.waitForSelector(".app", { state: "attached" });
     const after = await read();
-    assert.equal(after.setup.habits.length, 3);
+    assert.equal(after.setup.habits.length, 2);
     assert.equal(after.days[f.date].habits.write.min, 20);
     assert.equal(after.setup.preferences.habitLevels.good, 10);
 

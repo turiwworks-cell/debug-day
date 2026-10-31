@@ -458,14 +458,17 @@ export function DDcreateBoard(deps) {
     };
     // The Engine has its own section around today's tree, apart from Life. It
     // grows and shrinks with what is in it, and a note dropped inside becomes a task.
-    function engineFrame(Y) {
+    function engineFrame(Y, size = {}) {
       const tree = Y.filter((n) => ["day", "lane", "block", "subtask", "bug"].includes(n.kind) && !n.lifeId);
       if (!tree.length || ddNodeMatches) return;
       const PAD = 48, HEAD = 24,
         x = Math.min(...tree.map((n) => n.x)) - PAD,
         y = Math.min(...tree.map((n) => n.y)) - PAD - HEAD,
         right = Math.max(...tree.map((n) => n.x + n.w)) + PAD,
-        bottom = Math.max(...tree.map((n) => n.y + n.h)) + PAD;
+        bottom = Math.max(...tree.map((n) => n.y + n.h)) + PAD,
+        // It never gets smaller than today's tree; a size set by hand makes it roomier.
+        autoW = Math.max(480, right - x),
+        autoH = Math.max(240, bottom - y);
       Y.unshift({
         id: "section:engine",
         kind: "frame",
@@ -476,20 +479,23 @@ export function DDcreateBoard(deps) {
         textColor: "#fff",
         x,
         y,
-        w: Math.max(480, right - x),
-        h: Math.max(240, bottom - y),
+        w: Math.max(autoW, size.w || 0),
+        h: Math.max(autoH, size.h || 0),
+        autoW,
+        autoH,
       });
     }
     // Where the Engine was moved to. A new day starts where the last day left it.
     function engineShift(saved) {
-      const ok = (p) => Number.isFinite(p?.x) && Number.isFinite(p?.y);
-      if (ok(saved?.["section:engine"])) return { x: saved["section:engine"].x, y: saved["section:engine"].y };
+      const ok = (p) => Number.isFinite(p?.x) && Number.isFinite(p?.y),
+        pick = (p) => ({ x: p.x, y: p.y, ...(p.w > 0 ? { w: p.w } : {}), ...(p.h > 0 ? { h: p.h } : {}) });
+      if (ok(saved?.["section:engine"])) return pick(saved["section:engine"]);
       const last = Object.entries(allDays || {})
         .filter(([date]) => date < day.date)
         .sort(([a], [b]) => b.localeCompare(a))
         .map(([, d]) => d.canvas?.board4?.layouts?.mindmap?.["section:engine"])
         .find(ok);
-      return last ? { x: last.x, y: last.y } : { x: 0, y: 0 };
+      return last ? pick(last) : { x: 0, y: 0 };
     }
     // Dragging the Engine's title moves the whole Engine: today's tree and its section.
     function startEngineMove(e) {
@@ -505,6 +511,28 @@ export function DDcreateBoard(deps) {
       viewport.current.setPointerCapture(e.pointerId);
       viewport.current.focus({ preventScroll: true });
     }
+    // Dragging the Feed's name moves the Feed with everything in it, on every day.
+    function startFeedMove(e) {
+      const area = layout.map.get("section:life");
+      if (!area || layout.room) return;
+      const refs = [area.id, ...layout.nodes.filter((n) => n.lifeId).map((n) => n.id)];
+      setSelected(new Set());
+      gesture.current = {
+        kind: "move", pointerId: e.pointerId, sx: e.clientX, sy: e.clientY, refs,
+        starts: Object.fromEntries(refs.map((ref) => { const n = layout.map.get(ref); return [ref, { x: n.x, y: n.y }]; })),
+        moved: false, frame: true, feed: true, tapRef: area.id,
+      };
+      viewport.current.setPointerCapture(e.pointerId);
+      viewport.current.focus({ preventScroll: true });
+    }
+    // The Engine and the Feed grow from their bottom-right corner.
+    function startAreaResize(e, area) {
+      if (e.button !== 0) return;
+      e.preventDefault(); e.stopPropagation(); finishEdit(); setMenu(null);
+      gesture.current = { kind: area.section === "engine" ? "engine-resize" : "life-resize", pointerId: e.pointerId, sx: e.clientX, sy: e.clientY,
+        w: area.w, h: area.h, minW: area.autoW || 240, minH: area.autoH || 240, moved: false };
+      viewport.current.setPointerCapture(e.pointerId);
+    }
     // The Life section is the same on every day: it is kept in setup, not in the day.
     function lifeChange(change) {
       commit((d) => { d.__life.items = change(d.__life.items); return d; });
@@ -518,7 +546,7 @@ export function DDcreateBoard(deps) {
           id: "section:life",
           kind: "frame",
           section: "life",
-          title: "🌿 " + t("Life", "زندگی"),
+          title: t("Feed", "فید"),
           subtitle: t("Same on every day", "روی همهٔ روزها یکسان است"),
           color: "#4A4843",
           textColor: "#fff",
@@ -526,6 +554,8 @@ export function DDcreateBoard(deps) {
           y: finite(saved?.y, 1200),
           w: Math.max(b.w, saved?.w || 0),
           h: Math.max(life.DDlifeHead + b.h, saved?.h || 0),
+          autoW: b.w,
+          autoH: life.DDlifeHead + b.h,
         };
       Y.push(node);
       return node.y + node.h + 48;
@@ -596,63 +626,8 @@ export function DDcreateBoard(deps) {
             },
             CARD,
           ) + 48;
-      if (ddNodeMatches || !deps.habits) return top;
-      const H = deps.habits,
-        levels = H.DDhabitLevels(setup.preferences?.habitLevels),
-        habits = setup.habits || [];
-      return (
-        framePlace(
-          Y,
-          ct,
-          {
-            id: "section:habits",
-            kind: "frame",
-            section: "habits",
-            title: "🌱 " + t("Habits", "عادت‌ها"),
-            subtitle: habits.length
-              ? habits.filter((h) => H.DDhabitEntry(day, h.id).done).length +
-                "/" +
-                habits.length +
-                t(" today", " امروز")
-              : t(
-                  "Press + or drop a card here to make it a habit.",
-                  "با + یا انداختن یک کارت اینجا، عادت بساز.",
-                ),
-            color: "#4A4843",
-            textColor: "#fff",
-            x: left,
-            y: top,
-            w: 0,
-            h: 150,
-          },
-          habits,
-          (habit, auto) => {
-            const saved = near(ct["habit:" + habit.id], auto),
-              entry = H.DDhabitEntry(day, habit.id),
-              node = {
-                id: "habit:" + habit.id,
-                kind: "habit",
-                habitId: habit.id,
-                title: habit.name,
-                subtitle: H.DDhabitText(entry, levels, DDlanguage),
-                emoji: habit.emo,
-                icon: "leaf",
-                done: entry.done,
-                level: H.DDhabitLevel(entry, levels),
-                sectionId: "habits",
-                color: habit.color,
-                textColor: ee(habit.color),
-                x: finite(saved?.x, auto.x),
-                y: finite(saved?.y, auto.y),
-                w: CARD,
-                h: 52,
-              };
-            Y.push(node);
-            return { ...node, custom: !!saved };
-          },
-          CARD,
-        ) + 48
-      );
+      // Habits live in the rail beside the board (Shift+H), not in a section under the Engine.
+      return top;
     }
     // Lanes: each lane is a section, and each card is a section holding its
     // steps, feelings and notes. Relations show by placement, so no lines.
@@ -1102,8 +1077,8 @@ export function DDcreateBoard(deps) {
             (Xn.push(kl), yn("day:root", Oa, "#85827A"), (Jt += 30));
           }
           ct["day:root"] || (Y[0].y = Math.max(60, Jt / 2 - 35) + shift.y);
-          engineFrame(Y);
-          Object.assign(shift, { x: 0, y: 0 });
+          engineFrame(Y, shift);
+          Object.assign(shift, { x: 0, y: 0, w: 0, h: 0 });
         } else lanesLayout(Y, ct, ot, St, Pt);
         if (mode === "mindmap")
           lifeFrame(
@@ -1242,8 +1217,21 @@ export function DDcreateBoard(deps) {
         ddNodeMatches,
         room, stickyRevision,
       ]),
-      layoutRef = useRef(layout);
+      layoutRef = useRef(layout),
+      labelPlace = useRef({ z: 0, layout: null });
     layoutRef.current = layout;
+    useLayoutEffect(() => { placeSectionLabels(true); }, [layout]);
+    // Sections paint in nesting order (a parent under what is inside it); every
+    // other node keeps its place.
+    const paintOrder = useMemo(() => {
+      const list = layout.nodes, slots = [], sections = [];
+      list.forEach((n, i) => { if (n.lifeSection) { slots.push(i); sections.push(n); } });
+      if (sections.length < 2) return list;
+      sections.sort((a, b) => a.stack - b.stack);
+      const out = list.slice();
+      slots.forEach((slot, i) => (out[slot] = sections[i]));
+      return out;
+    }, [layout]);
     useLayoutEffect(()=>{
       const measure=()=>{let changed=false;for(const n of layout.nodes.filter(n=>n.kind==="sticky")) {
         const el=elementRefs.current.get(n.id),body=el?.querySelector(":scope>.b4-node-body"),input=el?.querySelector("textarea");
@@ -1365,6 +1353,32 @@ export function DDcreateBoard(deps) {
       }
       bar.style.left = position.x + "px"; bar.style.top = position.y + "px";
     }
+    // Section names follow one rule at every zoom. The name pill grows and shrinks
+    // with the board but never below a readable 12px on screen, and never gets
+    // wider than its section (a long name ends in "…"). When names would sit on
+    // top of each other, the bigger section's name stays and the smaller one
+    // steps aside until there is room again; a section too small on screen to
+    // hold a name hides it. Selecting a section always shows its name.
+    function placeSectionLabels(force = false) {
+      const G = cam.current, map = layoutRef.current?.map, host = world.current;
+      if (!host || !map) return;
+      if (!force && labelPlace.current.z === G.z && labelPlace.current.layout === layoutRef.current) return;
+      labelPlace.current = { z: G.z, layout: layoutRef.current };
+      const k = Math.max(1, 0.75 / G.z), gap = 4 / G.z,
+        depth = (n) => { let d = 0, p = n.parentId; while (p && d < 60) { d++; p = map.get(p)?.parentId; } return d; },
+        list = [...host.querySelectorAll(".b4-life-section")].map((el) => ({ el, n: map.get(el.dataset.boardId) })).filter((e) => e.n);
+      list.sort((a, b) => depth(a.n) - depth(b.n) || b.n.w * b.n.h - a.n.w * a.n.h);
+      const shown = [];
+      for (const { el, n } of list) {
+        const body = el.querySelector(":scope > .b4-node-body"),
+          r = { x: n.x + 10 * k, y: n.y + (n.collapsed ? 5 : 10) * k, w: body?.offsetWidth || 0, h: body?.offsetHeight || 28 * k },
+          tooSmall = !n.collapsed && (n.w * G.z < 64 || n.h * G.z < r.h * G.z * 1.6),
+          clash = shown.some((o) => r.x < o.x + o.w + gap && r.x + r.w + gap > o.x && r.y < o.y + o.h + gap && r.y + r.h + gap > o.y),
+          hide = !n.room && (tooSmall || clash);
+        if (!hide) shown.push(r);
+        if ((el.dataset.labelHidden === "true") !== hide) el.dataset.labelHidden = String(hide);
+      }
+    }
     function paintCamera() {
       cameraRAF.current = 0;
       const Y = viewport.current,
@@ -1375,14 +1389,7 @@ export function DDcreateBoard(deps) {
         Y.classList.toggle("b4-overview", G.z < 0.7),
         Y.classList.toggle("b4-small", G.z < 0.95),
         Y.classList.toggle("b4-far", G.z < 0.35));
-      // Zoomed out, only the big sections keep their names (like FigJam): a
-      // section inside another hides its name pill once it is under 260px wide.
-      const sectionLayout = layoutRef.current?.map;
-      for (const el of world.current.querySelectorAll(".b4-life-section")) {
-        const n = sectionLayout?.get(el.dataset.boardId), parent = n?.parentId && sectionLayout.get(n.parentId);
-        const hide = !!(n && parent && !parent.room && n.w * G.z < 260);
-        if ((el.dataset.labelHidden === "true") !== hide) el.dataset.labelHidden = String(hide);
-      }
+      placeSectionLabels();
       let ct = appearanceRef.current.gridSize;
       Y.style.setProperty(
         "--b6-dot",
@@ -1530,12 +1537,15 @@ export function DDcreateBoard(deps) {
       Y.stopPropagation();
       finishEdit();
       setMenu(null);
-      if (tool === "section") return backgroundDown(Y, true);
+      // The section and sticky tools work on top of anything, sections included.
+      if (tool === "section" || tool === "sticky") return backgroundDown(Y, true);
       if (space.current || (tool === "hand" && !ddMove) || Y.button === 1)
         return startPan(Y);
-      // Select tool draws a marquee inside day frames. A Life section moves from
-      // anywhere on its body, as in FigJam; on touch the body still pans.
-      if ((G.kind === "frame" || (G.lifeSection && (Y.pointerType === "touch" || Y.shiftKey))) && Y.target === Y.currentTarget) return backgroundDown(Y, true);
+      // A section's name always drags it. Its empty area: a click selects it, a
+      // drag draws a selection box (so notes and sections inside are easy to pick
+      // together), and once it is selected a drag there moves the whole selection.
+      // On touch the empty area pans.
+      if ((G.kind === "frame" || (G.lifeSection && (Y.pointerType === "touch" || Y.shiftKey || !selected.has(G.id)))) && Y.target === Y.currentTarget) return backgroundDown(Y, true);
       // The open section is the floor of its own board: it does not move.
       if (G.room) return backgroundDown(Y, true);
       const ddConnect = tool === "connector" && !ddMove && !Y.shiftKey;
@@ -1600,6 +1610,8 @@ export function DDcreateBoard(deps) {
         moved: false,
         frame: G.kind === "frame",
         tapRef: G.id,
+        // A double-click on a section's name renames it; on its empty area it adds a note.
+        onName: !!Y.target.closest(".b4-node-body"),
         shift: Y.shiftKey,
         connect: ddConnect,
         connectFrom: connecting,
@@ -1706,9 +1718,9 @@ export function DDcreateBoard(deps) {
           queueCamera());
         return;
       }
-      if (G.kind === "life-resize") {
-        G.size = { w:Math.max(240,G.w + ct/cam.current.z), h:Math.max(240,G.h + ot/cam.current.z) };
-        const el = elementRefs.current.get("section:life");
+      if (G.kind === "life-resize" || G.kind === "engine-resize") {
+        G.size = { w:Math.round(Math.max(G.minW,G.w + ct/cam.current.z)), h:Math.round(Math.max(G.minH,G.h + ot/cam.current.z)) };
+        const el = elementRefs.current.get(G.kind === "engine-resize" ? "section:engine" : "section:life");
         if (el) { el.style.width = G.size.w + "px"; el.style.height = G.size.h + "px"; }
         return;
       }
@@ -1876,7 +1888,7 @@ export function DDcreateBoard(deps) {
         if (ct) {
           G.style.width = ct.w + "px";
           G.style.height = ct.h + "px";
-          if (ct.kind === "sticky") G.style.setProperty("--object-size", (ct.textSize || 14) + "px");
+          if (ct.kind === "sticky") G.style.setProperty("--object-size", (ct.textSize || 16) + "px");
         }
         const ot = G.querySelector("[data-duration]");
         ot && ct?.min && (ot.textContent = w(ct.min));
@@ -1915,6 +1927,22 @@ export function DDcreateBoard(deps) {
       d.__life.links=(d.__life.links||[]).filter((l)=>!moved.includes(l));
       core.cleanRefs(d,[from]);
     }
+    // Two quick taps on the same thing, close together on screen.
+    function doubleTap(key, Y) {
+      const last = lastTap.current, now = Date.now();
+      if (last?.key === key && now - last.time < 400 && Math.hypot(Y.clientX - last.x, Y.clientY - last.y) < 16) {
+        lastTap.current = null;
+        return true;
+      }
+      lastTap.current = { key, time: now, x: Y.clientX, y: Y.clientY };
+      return false;
+    }
+    // A double-click (or double-tap) on empty board, a section's empty area or
+    // the Engine/Feed area adds a note right there.
+    function noteHere(Y) {
+      if (layout.room && mode !== "mindmap") return;
+      addSticky(toWorld(Y.clientX, Y.clientY));
+    }
     function endGesture(Y, G = !1) {
       const ct = gesture.current;
       if (!(!ct || ct.pointerId !== Y.pointerId)) {
@@ -1932,6 +1960,7 @@ export function DDcreateBoard(deps) {
         // FigJam: a click (no drag) on a section's empty area selects the section.
         if (ct.tapSection && !ct.moved && !ct.right) {
           clearPreview();
+          if (!ct.shift && doubleTap(ct.tapSection, Y)) return noteHere(Y);
           if (ct.shift) setSelected((s) => { const next = new Set(s); next.has(ct.tapSection) ? next.delete(ct.tapSection) : next.add(ct.tapSection); return next; });
           else selectOne(ct.tapSection);
           return;
@@ -1939,6 +1968,10 @@ export function DDcreateBoard(deps) {
         if (ct.kind === "pan") {
           const context = pendingContext.current;
           pendingContext.current = null;
+          if (!ct.moved && !ct.right && Y.pointerType === "touch" && tool === "select" && doubleTap("board", Y)) {
+            clearPreview();
+            return noteHere(Y);
+          }
           if (ct.right && ct.moved) {
             setMenu(null);
             suppressContext.current = true;
@@ -1967,7 +2000,23 @@ export function DDcreateBoard(deps) {
           if (el) delete el.dataset.size;
         }
         if (ct.kind === "life-resize" && ct.moved) {
-          commit((d) => { d.__life.frame = { ...d.__life.frame, ...ct.size }; return d; });
+          commit((d) => { d.__life.frame = { ...d.__life.frame, ...ct.size }; return d; }, t("Feed resized on every day","اندازهٔ فید در همهٔ روزها تغییر کرد"));
+        } else if (ct.kind === "engine-resize" && ct.moved && ct.size) {
+          // The Engine keeps the size you gave it; a new day starts with the same size.
+          commit((d) => {
+            const board = clean(d.canvas?.board4), saved = { ...(board.layouts.mindmap || {}) };
+            saved["section:engine"] = { ...engineShift(saved), w: ct.size.w, h: ct.size.h };
+            board.layouts = { ...board.layouts, mindmap: saved };
+            d.canvas = { ...(d.canvas || {}), board4: board };
+            return d;
+          }, t("Engine resized", "اندازهٔ انجین تغییر کرد"));
+        } else if (ct.kind === "move" && ct.moved && ct.feed) {
+          // The Feed moved: its place is shared by every day, like its notes.
+          const end = preview.current.get("section:life"), begin = ct.starts["section:life"];
+          if (end && begin) {
+            const x = Math.round(end.x), y = Math.round(end.y);
+            commit((d) => { d.__life.frame = { ...d.__life.frame, x, y }; return d; }, t("Feed moved", "فید جابه‌جا شد"));
+          }
         } else if (ct.kind === "note-resize" && ct.moved) {
           const n = layout.map.get(ct.ref);
           if (n && ct.size)
@@ -2010,7 +2059,7 @@ export function DDcreateBoard(deps) {
               const board = clean(d.canvas?.board4), saved = { ...(board.layouts.mindmap || {}) }, from = engineShift(saved);
               for (const [ref, pos] of Object.entries(saved))
                 if (tree(ref) && Number.isFinite(pos?.x) && Number.isFinite(pos?.y)) saved[ref] = { ...pos, x: pos.x + dx, y: pos.y + dy };
-              saved["section:engine"] = { x: from.x + dx, y: from.y + dy };
+              saved["section:engine"] = { ...from, x: from.x + dx, y: from.y + dy };
               board.layouts = { ...board.layouts, mindmap: saved };
               d.canvas = { ...(d.canvas || {}), board4: board };
               return d;
@@ -2297,6 +2346,8 @@ export function DDcreateBoard(deps) {
           const ot = ct.box,
             St = DDmarqueeSelection(layout.nodes, ot, locked);
           selectMarquee(new Set([...(ct.shift ? ct.initial : []), ...St]), ot);
+        } else if (ct.kind === "marquee" && !ct.moved && !ct.shift) {
+          if (doubleTap("board", Y)) noteHere(Y);
         } else if (ct.kind === "move" && !ct.moved && ct.connect) {
           if (ct.connectFrom && ct.connectFrom !== ct.tapRef) {
             addLink(ct.connectFrom, ct.tapRef);
@@ -2310,11 +2361,12 @@ export function DDcreateBoard(deps) {
                 : "Select the target node; dragging moves the node",
             );
           }
-        } else if (ct.kind === "move" && !ct.moved && !ct.engine) {
-          const ot = lastTap.current;
-          ot?.ref === ct.tapRef && Date.now() - ot.time < 340
-            ? (openEdit(ct.tapRef), (lastTap.current = null))
-            : (lastTap.current = { ref: ct.tapRef, time: Date.now() });
+        } else if (ct.kind === "move" && !ct.moved && !ct.engine && !ct.feed) {
+          const node = layout.map.get(ct.tapRef);
+          if (doubleTap(ct.tapRef, Y)) {
+            if ((node?.lifeSection || node?.kind === "frame") && !ct.onName) noteHere(Y);
+            else openEdit(ct.tapRef);
+          }
         }
         clearPreview();
       }
@@ -2850,7 +2902,7 @@ export function DDcreateBoard(deps) {
           d.__life.frame={...d.__life.frame,x:left,y:top,w:Math.max(frame.w+dx,b.w),h:Math.max(frame.h+dy,b.h+DDlifeHead)};
         }
         return d;
-      },t("Section added to Life","سکشن به زندگی اضافه شد"));
+      },t("Section added to the Feed","سکشن به فید اضافه شد"));
       setSelected(new Set(["life:"+id]));
     }
     function addLifeItem(type,parent="") {
@@ -2905,7 +2957,7 @@ export function DDcreateBoard(deps) {
         const bounds=DDlifeBounds(d.__life.items);
         for(const key of ["w","h"])if(Number.isFinite(patch[key]))d.__life.frame[key]=Math.min(100000,Math.max(key==="w"?bounds.w:bounds.h+DDlifeHead,Math.round(patch[key])));
         return d;
-      },t("Life area resized on every day","اندازهٔ محدودهٔ زندگی در همهٔ روزها تغییر کرد"));
+      },t("Feed resized on every day","اندازهٔ فید در همهٔ روزها تغییر کرد"));
     }
     function addSticky(point, template = {}) {
       const view = viewport.current, rect = view.getBoundingClientRect();
@@ -3256,7 +3308,7 @@ export function DDcreateBoard(deps) {
           else Tt += '<text x="'+(node.x+node.w/2)+'" y="'+(node.y+node.h*.78)+'" text-anchor="middle" font-size="'+(Math.min(node.w,node.h)*.72)+'" opacity="'+(node.opacity??1)+'">'+ot(node.symbol || node.title)+'</text>';
           continue;
         }
-        const size = node.textSize || 14,
+        const size = node.textSize || (node.kind === "sticky" ? 16 : 14),
           color = ["sticky", "day", "lane"].includes(node.kind)
             ? node.color
             : node.kind === "frame" || node.kind === "emoji"
@@ -3933,18 +3985,22 @@ export function DDcreateBoard(deps) {
           title: t("Drag to move the Engine", "برای جابه‌جایی انجین بکشید"),
           onPointerDown: (e) => { if (e.button || e.target.closest("button")) return; e.stopPropagation(); e.preventDefault(); finishEdit(); setMenu(null); startEngineMove(e); } },
         "⚙ ", Y.title, _.createElement("small", null, Y.subtitle),
-        _.createElement("button", { type: "button", "data-engine-open": true, title: t("Bring the Engine over the board (E)", "آوردن انجین روی برد (E)"), onPointerDown: (e) => { if (e.button) return; e.stopPropagation(); e.preventDefault(); finishEdit(); setEngine(true); }, onClick: () => { finishEdit(); setEngine(true); } }, t("Open · E", "باز کن · E"))));
+        _.createElement("button", { type: "button", "data-engine-open": true, title: t("Bring the Engine over the board (E)", "آوردن انجین روی برد (E)"), onPointerDown: (e) => { if (e.button) return; e.stopPropagation(); e.preventDefault(); finishEdit(); setEngine(true); }, onClick: () => { finishEdit(); setEngine(true); } }, t("Open · E", "باز کن · E"))),
+        mode === "mindmap" && !layout.room && _.createElement("button", { type: "button", className: "dd-area-resize", "data-resize": true, "data-edge": "se",
+          "aria-label": t("Resize Engine", "تغییر اندازهٔ انجین"), title: t("Drag to resize the Engine", "برای تغییر اندازهٔ انجین بکشید"),
+          onPointerDown: (e) => startAreaResize(e, Y) }));
       if (Y.section === "life") return _.createElement("div", {
         key:Y.id, ref:(el) => el ? elementRefs.current.set(Y.id,el) : elementRefs.current.delete(Y.id),
         className:"dd-life-frame", "data-board-id":Y.id, "data-node-kind":"life-area", "data-section":"life",
         style:{position:"absolute",left:Y.x,top:Y.y,width:Y.w,height:Y.h},
         onPointerDown:(e) => { if (!e.target.closest("button")) { e.stopPropagation(); backgroundDown(e, true); } },
         onContextMenu:(e) => openContext(e,{}),
-      }, _.createElement("div",{className:"dd-life-area-title"},Y.title, " · ",t("Shared across every day","مشترک بین همهٔ روزها")),
-      _.createElement("button",{type:"button",className:"b6-note-resize", "data-resize":true,"data-edge":"se","aria-label":t("Resize Life area","تغییر اندازهٔ محدودهٔ زندگی"),onPointerDown:(e) => {
-        if (e.button !== 0) return; e.preventDefault(); e.stopPropagation();
-        gesture.current={kind:"life-resize",pointerId:e.pointerId,sx:e.clientX,sy:e.clientY,w:Y.w,h:Y.h,moved:false}; viewport.current.setPointerCapture(e.pointerId);
-      }}));
+      }, _.createElement("div",{className:"dd-life-area-title","data-feed-handle":true,
+          title:t("Drag to move the Feed","برای جابه‌جایی فید بکشید"),
+          onPointerDown:(e) => { if (e.button || e.target.closest("button")) return; e.stopPropagation(); e.preventDefault(); finishEdit(); setMenu(null); startFeedMove(e); } },
+        Y.title, _.createElement("small",null,t("Same on every day","روی همهٔ روزها یکسان"))),
+      _.createElement("button",{type:"button",className:"dd-area-resize","data-resize":true,"data-edge":"se","aria-label":t("Resize Feed","تغییر اندازهٔ فید"),
+        title:t("Drag to resize the Feed","برای تغییر اندازهٔ فید بکشید"),onPointerDown:(e) => startAreaResize(e, Y)}));
       if (Y.kind === "section")
         return _.createElement("div", {
           key: Y.id,
@@ -4011,7 +4067,8 @@ export function DDcreateBoard(deps) {
             "--node-color": Y.color,
             "--node-text": Y.textColor,
             "--object-opacity": Y.opacity,
-            "--object-size": (Y.textSize || 14) + "px",
+            // A note without a size of its own reads at 16px, the size new notes get.
+            "--object-size": (Y.textSize || (Y.kind === "sticky" ? 16 : 14)) + "px",
             "--object-align": Y.textAlign || "start",
             background: St
               ? "var(--wash)"
@@ -4022,11 +4079,17 @@ export function DDcreateBoard(deps) {
                 : `color-mix(in srgb, var(--panel) ${Y.opacity * 100}%, transparent)`,
             color: yn || Tt || Pt ? Y.textColor : "var(--pi)",
             // A selected note sits above its neighbours so its "+" stays reachable.
-            zIndex: Tt && G && !Y.lifeSection ? 900 : Y.lifeId ? Y.stack : St ? 1 : Y.stack,
+            // Sections share one layer, painted parent first, so every section's
+            // name pill can sit above the notes and sections inside it.
+            zIndex: Tt && G && !Y.lifeSection ? 900 : Y.lifeSection ? "auto" : Y.lifeId ? Y.stack : St ? 1 : Y.stack,
           },
           onPointerDown: (Kt) => nodeDown(Kt, Y),
           onDoubleClick: (Kt) => {
-            (Kt.stopPropagation(), openEdit(Y.id));
+            Kt.stopPropagation();
+            // The pointer handlers already turn a double-click into an edit, a rename
+            // (on a section's name) or a new note (on its empty area).
+            if (editingRef.current || (St && !Kt.target.closest(".b4-node-body"))) return;
+            openEdit(Y.id);
           },
           onFocus: (e) => { if (e.target === e.currentTarget && (!St || Y.lifeId) && !selected.has(Y.id)) selectOne(Y.id); },
           // A section is a place on the canvas: right-click gives the canvas menu.
@@ -5678,7 +5741,7 @@ export function DDcreateBoard(deps) {
           ),
           toolButton("Board help", "?", () => setHelp((Y) => !Y)),
           toolButton(t("Go to the Engine (E brings it over the board)", "رفتن به انجین (E آن را روی برد می‌آورد)"),"settings",()=>{finishEdit();setEngine(false);fit(false,"day");},{"data-engine-jump":true},t("Engine","انجین")),
-          toolButton(t("Go to Life section", "رفتن به بخش زندگی"),"fitAll",()=>{const first=DDlifeItems(setup).find((i)=>i.type==="section"&&!i.parent);if(first)jumpLife(first.id);else addLifeItem("section");},{"data-life-jump":true},t("Life","زندگی")),
+          toolButton(t("Go to Feed", "رفتن به فید"),"fitAll",()=>{const first=DDlifeItems(setup).find((i)=>i.type==="section"&&!i.parent);if(first)jumpLife(first.id);else addLifeItem("section");},{"data-life-jump":true},t("Feed","فید")),
           toolButton(t("Sections (D)","سکشن‌ها (D)"),"list",()=>{finishEdit();setLifeNav((v)=>!v);},{"aria-expanded":lifeNav,"data-sections-button":true},t("Sections","سکشن‌ها")),
         ),
         // Where you are: the main board, then each section down to the open one.
@@ -6060,7 +6123,7 @@ export function DDcreateBoard(deps) {
             ref: guideSvg,
             "aria-hidden": true,
           }),
-          layout.nodes.map(renderNode),
+          paintOrder.map(renderNode),
           roomHistory(),
           _.createElement("div", { className: "dd-ghost-note", ref: ghostNote, "aria-hidden": true, style: { display: "none" } }),
           _.createElement("div", {

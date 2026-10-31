@@ -90,7 +90,8 @@ const { start, fixture } = require("./harness.cjs");
       assert.deepEqual((await read()).days[f.date].habits.draw, { done: true });
       await habit.locator(".dd-habit-min input").fill("30");
       assert.deepEqual((await read()).days[f.date].habits.draw, { done: true, min: 30 });
-      assert.equal(await page.locator('[data-board-id="habit:draw"]').getAttribute("data-level"), "3");
+      // Habits live in this rail only (5.26): nothing for them on the board itself.
+      assert.equal(await page.locator('[data-board-id^="habit:"]').count(), 0);
       await habit.locator(".dd-rail-heading").click();
       assert.equal(await habit.locator(".dd-habit-grid i[data-level]").count(), 56);
       assert.equal(await panel("habits").locator(".dd-habit-stats").count(), 1, "stats stay in the right rail");

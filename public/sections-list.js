@@ -356,7 +356,7 @@ export function DDSectionsList({ React: R, items = [], room = null, language, fr
       max: 100000,
       step: 100,
       defaultValue: Math.round(frame?.[key] || 240),
-      "aria-label": key === "w" ? t("Life area width", "عرض محدودهٔ زندگی") : t("Life area height", "ارتفاع محدودهٔ زندگی"),
+      "aria-label": key === "w" ? t("Feed width", "عرض فید") : t("Feed height", "ارتفاع فید"),
       onBlur: (event) => {
         const value = Number(event.target.value);
         if (event.target.value && Number.isFinite(value) && value >= 240 && value <= 100000) onSize?.({ [key]: value });
@@ -403,9 +403,9 @@ export function DDSectionsList({ React: R, items = [], room = null, language, fr
         }))),
     h("footer", { className: "dd-sections-foot" },
       h("button", { type: "button", className: "dd-sections-tools-toggle", "aria-expanded": tools, "data-life-tools": true, onClick: () => setTools((v) => !v) },
-        h("span", null, t("Life area size & layout", "اندازه و چیدمان محدودهٔ زندگی")), h("span", { "aria-hidden": true }, tools ? "▴" : "▾")),
+        h("span", null, t("Feed size & layout", "اندازه و چیدمان فید")), h("span", { "aria-hidden": true }, tools ? "▴" : "▾")),
       tools && h("div", { className: "dd-sections-tools" },
-        h("button", { type: "button", onClick: onEnlarge }, t("Enlarge Life area +25%", "بزرگ‌تر کردن محدودهٔ زندگی +۲۵٪")),
+        h("button", { type: "button", onClick: onEnlarge }, t("Enlarge Feed +25%", "بزرگ‌تر کردن فید +۲۵٪")),
         h("div", { className: "dd-life-dimensions" }, ["w", "h"].map(sizeInput)),
         h("button", { type: "button", onClick: onCompact }, t("Compact layout", "جمع‌وجور کن")))));
   return phone
