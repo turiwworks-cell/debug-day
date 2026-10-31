@@ -4,7 +4,7 @@ import { DDlifeState, DDlifeAdd, DDlifeUpdate, DDlifeRemove, DDnormalizeLife } f
 import { oauth, oauthRoute, oauthAccess } from "./oauth.js";
 const MAX_BYTES = 1500000;
 const VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"];
-const INFO = { name: "debug-day", title: "Debug Day", version: "5.23.0" };
+const INFO = { name: "debug-day", title: "Debug Day", version: "5.24.0" };
 class HttpError extends Error {
   constructor(status, message) {
     super(message);
@@ -269,7 +269,7 @@ const WRITE_TOOLS = [
   tool("add_life_item", "Add a shared Life section or note on every day. Read get_life first; requires explicit user intent and a write key.", {
     expected_revision:revisionSchema,type:{type:"string",enum:["section","sticky"]},role:{type:"string",enum:["","goal","note"]},text:{type:"string",maxLength:4000},parent:{type:"string",maxLength:80},color:{type:"string",pattern:"^#[0-9a-fA-F]{6}$"},x:{type:"number",minimum:-100000,maximum:100000},y:{type:"number",minimum:-100000,maximum:100000}
   },["expected_revision","type"],true),
-  tool("update_life_item", "Edit a shared Life item, including text, color, position, dimensions, parent or collapsed state. Read get_life first; requires explicit user intent.", {
+  tool("update_life_item", "Edit a shared Life item, including text, color, position, dimensions, parent or collapsed state. A subsection shows a shade of its top section's color until it is given its own color. Read get_life first; requires explicit user intent.", {
     expected_revision:revisionSchema,item_id:{type:"string",maxLength:80},role:{type:"string",enum:["","goal","note"]},text:{type:"string",maxLength:4000},parent:{type:"string",maxLength:80},color:{type:"string",pattern:"^#[0-9a-fA-F]{6}$"},x:{type:"number",minimum:-100000,maximum:100000},y:{type:"number",minimum:-100000,maximum:100000},w:{type:"number",minimum:64,maximum:20000},h:{type:"number",minimum:64,maximum:20000},collapsed:{type:"boolean"}
   },["expected_revision","item_id"],true),
   tool("delete_life_item", "Delete a shared Life item. Deleting a section preserves its children in their absolute positions. Read get_life first; requires explicit user intent.", {
@@ -556,11 +556,13 @@ async function callTool(name, args, env, access) {
     if (args.parent && !state.items.some((i)=>i.id===args.parent&&i.type==="section")) throw Error("Parent section not found");
     let item;
     if (name==="add_life_item") {
-      item={id:crypto.randomUUID(),type:args.type,text:args.text||"",role:args.role,parent:args.parent||"",...(args.color?{color:args.color}:{}),...(Number.isFinite(args.x)&&Number.isFinite(args.y)?{x:args.x,y:args.y}:{})};
+      item={id:crypto.randomUUID(),type:args.type,text:args.text||"",role:args.role,parent:args.parent||"",...(args.color?{color:args.color,...(args.type==="section"&&args.parent?{ownColor:true}:{})}:{}),...(Number.isFinite(args.x)&&Number.isFinite(args.y)?{x:args.x,y:args.y}:{})};
       state.items=DDlifeAdd(state.items,item); item=state.items.find((i)=>i.id===item.id);
     } else if (name==="delete_life_item") { state.items=DDlifeRemove(state.items,args.item_id); state.links=state.links.filter((l)=>l.from!=="life:"+args.item_id&&l.to!=="life:"+args.item_id); }
     else {
       const {expected_revision,item_id,...patch}=args;
+      // A color asked for a subsection is its own; without one it shows a shade of its top section's color.
+      if (patch.color && existing.type==="section" && (patch.parent ?? existing.parent)) patch.ownColor=true;
       const candidate=DDlifeUpdate(state.items,item_id,patch), cleaned=DDnormalizeLife({...state,items:candidate});
       if (Object.hasOwn(patch,"parent") && cleaned.items.find((i)=>i.id===item_id).parent!==patch.parent) throw Error("Section parenting would create a cycle");
       state.items=cleaned.items; item=state.items.find((i)=>i.id===item_id);

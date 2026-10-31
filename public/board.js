@@ -15,8 +15,8 @@ import {
 } from "./life-board.js";
 import{DDBoardRails,DDinstallRailStyles,DDsetRailRole,DDrailPreferences,DDrailScope}from"./rails.js";
 import{DDstickyDateLabel,DDstickyToday,DDstickyHeight,DDstickySnap,DDstickyFormat,DDstickyTodo,DDStickyText,DDinstallStickyStyles}from"./stickies.js";
-import { DDSectionDrawer, DDdrawerBus, DDinstallDrawerStyles } from "./drawer.js";
-import { DDsectionTint, DDSectionChip } from "./life-board.js";
+import { DDSectionsList, DDsectionsBus, DDinstallSectionsStyles } from "./sections-list.js";
+import { DDsectionTint, DDSectionChip, DDsetSectionColor } from "./life-board.js";
 const life = { DDinstallLifeStyles, DDlifeAbs, DDlifeAdd, DDlifeBounds, DDlifeHead, DDlifeItems, DDlifeParentAt };
 // Board interaction engine. Legacy planner adapters are injected once by the app.
 export function DDcreateBoard(deps) {
@@ -48,7 +48,7 @@ export function DDcreateBoard(deps) {
   DDinstallRailStyles();
   DDinstallStickyStyles();
   DDinstallEngineStyles();
-  DDinstallDrawerStyles();
+  DDinstallSectionsStyles();
   let stepTextContext;
   return function BoardWorkspace({
     day: day,
@@ -147,9 +147,8 @@ export function DDcreateBoard(deps) {
       [appearance, setAppearance] = useState(() => core.appearance()),
       [viewPanel, setViewPanel] = useState(false),
       [properties, setProperties] = useState(false),
-      [lifeNav, setLifeNav] = useState(false),
-      // The Section Drawer (Sections, D or Ctrl+Space): a card file of every section.
-      [drawer, setDrawer] = useState(() => DDdrawerBus.take()),
+      // The Sections list (Sections, D or Ctrl+Space), with the Life area tools.
+      [lifeNav, setLifeNav] = useState(() => DDsectionsBus.take()),
       // The Engine brought over the board (E, the toolbar or Ctrl+Space).
       [engine, setEngine] = useState(() => DDengineBus.take()),
       // A section's record shows its last 7 days unless this is on.
@@ -1137,7 +1136,7 @@ export function DDcreateBoard(deps) {
         if (lf) for (const it of items.filter((i) => roomItem ? roomSet.has(i.id) && roomVisible(i) : DDlifeVisible(items, i))) {
           const a = DDlifeAbs(items, it.id), color = it.type === "section" ? DDsectionTint(items, it.id).fill : DDlifeColor(items, it);
           Y.push({ id: "life:" + it.id, lifeId: it.id, lifeSection: it.type === "section", kind: it.type === "section" ? "life-section" : "sticky", room: roomItem?.id === it.id || undefined,
-            title: it.text || (it.type === "section" ? t("Section","سکشن") : ""), color, textColor: core.contrast(color), collapsed: it.collapsed, parentId: it.parent ? "life:" + it.parent : null,
+            title: it.text || (it.type === "section" ? t("Section","سکشن") : ""), color, textColor: core.contrast(color), ownColor: (it.type === "section" && !!it.parent && !!it.ownColor && !!it.color) || undefined, collapsed: it.collapsed, parentId: it.parent ? "life:" + it.parent : null,
             x: lf.x + a.x, y: lf.y + DDlifeHead + a.y, w: it.w, h: it.collapsed ? 38 : it.h,
             at: it.at, baseW:it.baseW || 240,
             ...it.style, opacity: it.style?.opacity ?? 1, stack: it.type === "section" ? 2 + items.filter((i) => DDlifeDescendants(items,i.id).has(it.id)).length : 20 });
@@ -2825,7 +2824,7 @@ export function DDcreateBoard(deps) {
       if (id && mode !== "mindmap") setMode("mindmap");
       setRoom(id || null);
       try { id ? sessionStorage.setItem("debug-day:board-room", id) : sessionStorage.removeItem("debug-day:board-room"); } catch {}
-      setSelected(new Set()); setWireId(null); setConnecting(null); setLifeNav(false); setMenu(null);
+      setSelected(new Set()); setWireId(null); setConnecting(null); setMenu(null);
       setStatus(it ? t("Inside ", "داخل ") + (it.text || t("Section", "سکشن")) + t(" · Esc goes back", " · Esc برای برگشت") : t("Main board", "برد اصلی"));
       const back = roomCams.current[id || ""];
       setTimeout(() => {
@@ -2854,7 +2853,7 @@ export function DDcreateBoard(deps) {
       while(p){parents.add(p);p=items.find((i)=>i.id===p)?.parent;}
       if (parents.size) lifeChange((list)=>list.map((i)=>parents.has(i.id)?{...i,collapsed:false}:i));
       cam.current={x:32-(frame.x+a.x)*z,y:180-(frame.y+DDlifeHead+a.y)*z,z};
-      setSelected(new Set(["life:"+id])); setLifeNav(false); queueCamera(); scheduleCamera();
+      setSelected(new Set(["life:"+id])); queueCamera(); scheduleCamera();
     }
     function resizeLifeArea(patch) {
       commit((d)=>{
@@ -3353,7 +3352,7 @@ export function DDcreateBoard(deps) {
             if(ot.target.closest("button") && ["Enter"," "].includes(ot.key) && !ot.ctrlKey && !ot.metaKey)return;
             if (
               ot.target.closest(
-                "input,textarea,select,[contenteditable=true],.b6-context,.b6-properties,.b6-camera,.b6-view-panel,.dd-sticker-dialog,.dd-board-timer,.dd-board-search,.b4-help-backdrop,.dd-engine-backdrop,.dd-drawer-backdrop,.dd-board-rails",
+                "input,textarea,select,[contenteditable=true],.b6-context,.b6-properties,.b6-camera,.b6-view-panel,.dd-sticker-dialog,.dd-board-timer,.dd-board-search,.b4-help-backdrop,.dd-engine-backdrop,.dd-sections,.dd-board-rails",
               ) ||
               (ot.target.closest("[role=dialog]") &&
                 !root.current?.contains(ot.target))
@@ -3389,10 +3388,10 @@ export function DDcreateBoard(deps) {
               (ot.preventDefault(), ot.stopImmediatePropagation(), undo(!0));
               return;
             }
-            if (ot.key === "Escape" && drawer) {
+            if (ot.key === "Escape" && lifeNav) {
               ot.preventDefault();
               ot.stopImmediatePropagation();
-              setDrawer(false);
+              setLifeNav(false);
               return;
             }
             if (ot.key === "Escape" && engine) {
@@ -3577,7 +3576,7 @@ export function DDcreateBoard(deps) {
             else if (Tt === "s") setTool("sticky");
             else if (Tt === "e" && ot.shiftKey) { finishEdit(); setStickerPicker({}); }
             else if (Tt === "e") { finishEdit(); cancelGesture(); setMenu(null); setEngine((v) => !v); }
-            else if (Tt === "d" && !ot.shiftKey) { finishEdit(); cancelGesture(); setMenu(null); setLifeNav(false); setDrawer((v) => !v); }
+            else if (Tt === "d" && !ot.shiftKey) { ot.preventDefault(); finishEdit(); cancelGesture(); setMenu(null); setLifeNav((v) => !v); }
             else if (Tt === "f") (ot.preventDefault(), fit(ot.shiftKey));
             else if (Tt === "0") (ot.preventDefault(), setZoom(1));
             else if (Tt === "+" || Tt === "=")
@@ -3617,7 +3616,7 @@ export function DDcreateBoard(deps) {
         mode,
         selectedNode,
         wireSelection,
-        menu, focus, search, help, engine, drawer,
+        menu, focus, search, help, engine, lifeNav,
       ]),
       useEffect(() => {
         if (!DDreadBoardView(day.date, day.canvas?.board4).camera) {
@@ -5487,7 +5486,7 @@ export function DDcreateBoard(deps) {
 
     // Ctrl+Space can ask for the Engine while this board is already open.
     useEffect(() => DDengineBus.on(() => DDengineBus.take() && setEngine(true)), []);
-    useEffect(() => DDdrawerBus.on(() => DDdrawerBus.take() && setDrawer(true)), []);
+    useEffect(() => DDsectionsBus.on(() => DDsectionsBus.take() && setLifeNav(true)), []);
     const selectedNodes = [...selected]
         .map((Y) => layout.map.get(Y))
         .filter(Boolean),
@@ -5633,7 +5632,7 @@ export function DDcreateBoard(deps) {
           toolButton("Board help", "?", () => setHelp((Y) => !Y)),
           toolButton(t("Go to the Engine (E brings it over the board)", "رفتن به انجین (E آن را روی برد می‌آورد)"),"settings",()=>{finishEdit();setEngine(false);fit(false,"day");},{"data-engine-jump":true},t("Engine","انجین")),
           toolButton(t("Go to Life section", "رفتن به بخش زندگی"),"fitAll",()=>{const first=DDlifeItems(setup).find((i)=>i.type==="section"&&!i.parent);if(first)jumpLife(first.id);else addLifeItem("section");},{"data-life-jump":true},t("Life","زندگی")),
-          toolButton(t("Sections drawer (D)","کشوی سکشن‌ها (D)"),"list",()=>{finishEdit();setLifeNav(false);setDrawer((v)=>!v);},{"aria-expanded":drawer,"data-drawer-button":true},t("Sections","سکشن‌ها")),
+          toolButton(t("Sections (D)","سکشن‌ها (D)"),"list",()=>{finishEdit();setLifeNav((v)=>!v);},{"aria-expanded":lifeNav,"data-sections-button":true},t("Sections","سکشن‌ها")),
         ),
         // Where you are: the main board, then each section down to the open one.
         layout.room && _.createElement("div",{className:"dd-room-break","aria-hidden":true}),
@@ -5655,14 +5654,16 @@ export function DDcreateBoard(deps) {
           else onUpdateDayOnDate?.(date, update);
         },
       }),
-      lifeNav && _.createElement("nav",{className:"dd-life-nav","aria-label":t("Life sections","سکشن‌های زندگی"),onPointerDown:(e)=>e.stopPropagation()},
-        _.createElement("strong",null,t("Life sections","سکشن‌های زندگی")),
-        _.createElement("button",{type:"button",onClick:()=>{const area=layout.map.get("section:life");if(area)resizeLifeArea({w:area.w*1.25,h:area.h*1.25});}},t("Enlarge Life area +25%","بزرگ‌تر کردن محدودهٔ زندگی +۲۵٪")),
-        _.createElement("div",{className:"dd-life-dimensions"},["w","h"].map((key)=>_.createElement("label",{key},t(key==="w"?"Width":"Height",key==="w"?"عرض":"ارتفاع"),_.createElement("input",{key:layout.map.get("section:life")?.[key],type:"number",min:240,max:100000,step:100,defaultValue:Math.round(layout.map.get("section:life")?.[key]||240),"aria-label":t(key==="w"?"Life area width":"Life area height",key==="w"?"عرض محدودهٔ زندگی":"ارتفاع محدودهٔ زندگی"),onBlur:(e)=>{const value=Number(e.target.value);if(e.target.value&&Number.isFinite(value)&&value>=240&&value<=100000)resizeLifeArea({[key]:value});else e.target.value=Math.round(layout.map.get("section:life")?.[key]||240);},onKeyDown:(e)=>{e.stopPropagation();if(e.key==="Enter")e.currentTarget.blur();}})))),
-        _.createElement("button",{type:"button",onClick:()=>commit((d)=>{d.__life.items=DDlifeCompact(d.__life.items);delete d.__life.frame.w;delete d.__life.frame.h;return d;})},t("Compact layout","جمع‌وجور کن")),
-        DDlifeItems(setup).filter((i)=>i.type==="section").map((i)=>_.createElement("div",{key:i.id,className:"dd-life-nav-row"},
-          _.createElement("button",{type:"button",onClick:()=>jumpLife(i.id),style:{paddingInlineStart:i.parent?24:8}},(i.collapsed?"▸ ":"▾ ")+(i.text||t("Section","سکشن"))),
-          _.createElement("button",{type:"button",className:"dd-room-enter","data-enter-section":i.id,title:t("Open this section as its own board","باز کردن این سکشن در برد خودش"),"aria-label":t("Enter section","ورود به سکشن"),onClick:()=>enterRoom(i.id)},"↗")))),
+      lifeNav && _.createElement(DDSectionsList, {
+        React: _, items: DDlifeItems(setup), room: layout.room, language: DDlanguage, frame: layout.map.get("section:life"),
+        onShow: (id) => jumpLife(id),
+        onEnter: (id) => enterRoom(id),
+        onColor: (id, color) => lifeChange((list) => DDsetSectionColor(list, id, color)),
+        onEnlarge: () => { const area = layout.map.get("section:life"); if (area) resizeLifeArea({ w: area.w * 1.25, h: area.h * 1.25 }); },
+        onSize: (patch) => resizeLifeArea(patch),
+        onCompact: () => commit((d) => { d.__life.items = DDlifeCompact(d.__life.items); delete d.__life.frame.w; delete d.__life.frame.h; return d; }),
+        onClose: () => { setLifeNav(false); viewport.current?.focus({ preventScroll: true }); },
+      }),
       (selected.size > 0 || selectedWire || selectedWires.size > 0) &&
         _.createElement(
           "div",
@@ -6421,14 +6422,6 @@ export function DDcreateBoard(deps) {
             ),
           ),
         ),
-      drawer &&
-        _.createElement(DDSectionDrawer, {
-          React: _, items: DDlifeItems(setup), day, history: sourceHistory, room: layout.room, language: DDlanguage,
-          onEnter: (id) => { setDrawer(false); enterRoom(id); },
-          onColor: (id, color) => lifeChange((list) => list.map((i) => (i.id === id && !i.parent ? { ...i, color } : i))),
-          onList: () => { setDrawer(false); setLifeNav(true); },
-          onClose: () => { setDrawer(false); viewport.current?.focus({ preventScroll: true }); },
-        }),
       engine &&
         _.createElement(DDEngineOverlay, {
           React: _,

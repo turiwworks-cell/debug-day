@@ -116,7 +116,7 @@ export function DDnormalizeLife(life) {
       ...(!section && Number.isFinite(r.baseW) ? {baseW:Math.max(160,r.baseW)} : {}),
       ...(!section && ["goal", "note"].includes(r.role) ? { role: r.role } : {}),
       ...(r.style && typeof r.style === "object" ? { style: Object.fromEntries(Object.entries(r.style).filter(([k,v]) => (["textSize","opacity"].includes(k) && Number.isFinite(v)) || (k==="textAlign"&&["start","center","end"].includes(v)) || (k==="textColor"&&typeof v==="string"&&/^#[0-9a-f]{6}$/i.test(v)))) } : {}),
-      ...(typeof r.color === "string" && /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(r.color) ? { color: r.color } : {}),
+      ...(typeof r.color === "string" && /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(r.color) ? { color: r.color, ...(section && r.ownColor === true ? { ownColor: true } : {}) } : {}),
     });
   }
   const sections = new Map(items.filter((i) => i.type === "section").map((i) => [i.id, i]));
@@ -291,6 +291,7 @@ export function DDlifeAdd(items, spec) {
       ...(!section && ["goal", "note"].includes(spec.role) ? { role: spec.role } : {}),
       ...(spec.style ? { style: { ...spec.style } } : {}),
       color: spec.color || (section ? "#A8DAFF" : "#FFE299"),
+      ...(section && spec.ownColor && spec.color ? { ownColor: true } : {}),
     };
   // Like FigJam, something placed by hand may hang over its section's edge;
   // only an automatically chosen spot grows the section around it.
@@ -390,9 +391,11 @@ export function DDlifePath(items, id) {
 }
 
 // One color rule for every place a section shows: the board frame and its name,
-// the drawer tabs, task chips, the Engine, the record and Plan. Only a top-level
-// section has its own color; a section inside it takes that color, a little
-// lighter for each level down. Any old color saved on a child stays in the data.
+// the Sections list, task chips, the Engine, the record and Plan. A top section
+// has its color. A section inside it gets its own shade of that color: the hue
+// turned a little and a touch lighter, so it belongs to the family without
+// looking the same as its parent. Anyone can give a subsection a color of its
+// own (saved as `ownColor`); its children then take shades of that color.
 const hex6 = (hex) => {
   let v = String(hex || "").slice(1);
   if (v.length <= 4) v = [...v.slice(0, 3)].map((c) => c + c).join("");
@@ -405,13 +408,54 @@ export function DDmixColor(a, b, amount) {
 }
 // Eight soft colors, then ink black and paper white.
 export const DDsectionPalette = ["#FFE08A", "#FFC48A", "#FFA799", "#FFA6D9", "#D3B8FF", "#9DD6FF", "#A8E6D5", "#C8E6A0", "#121211", "#FFFFFF"];
+function toHSL(hex) {
+  const v = hex6(hex), [r, g, b] = [0, 2, 4].map((i) => parseInt(v.slice(i, i + 2), 16) / 255),
+    max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min;
+  if (!d) return { h: 0, s: 0, l };
+  const s = d / (1 - Math.abs(2 * l - 1)),
+    h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return { h: (h * 60 + 360) % 360, s, l };
+}
+function fromHSL({ h, s, l }) {
+  const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = l - c / 2,
+    [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  return "#" + [r, g, b].map((v) => Math.round(Math.max(0, Math.min(1, v + m)) * 255).toString(16).padStart(2, "0")).join("").toUpperCase();
+}
+// A subsection's shade of its parent's color. The turn comes from the section's
+// id, so moving or renaming it never changes its color. Greys only get lighter
+// or darker, because they have no hue to turn.
+const SHADE_TURNS = [12, -12, 20, -20];
+export function DDsectionShade(color, id = "") {
+  const { h, s, l } = toHSL(color);
+  if (s < 0.12) return fromHSL({ h, s, l: l > 0.5 ? l - 0.07 : l + 0.16 });
+  let hash = [...String(id)].reduce((n, c) => Math.imul(n ^ c.charCodeAt(0), 16777619), 2166136261);
+  hash = Math.imul(hash ^ (hash >>> 16), 73244475);
+  hash = (hash ^ (hash >>> 16)) >>> 0;
+  return fromHSL({ h: (h + SHADE_TURNS[hash % SHADE_TURNS.length] + 360) % 360, s, l: l < 0.3 ? l + 0.12 : l + (1 - l) * 0.25 });
+}
 export function DDsectionTint(items, id) {
   const path = DDlifePath(items, id);
   if (!path.length || path.at(-1).type !== "section") return null;
-  const sections = path.filter((i) => i.type === "section"), root = sections[0], depth = sections.length - 1,
-    fill = DDmixColor(DDlifeColor(items, root), "#FFFFFF", Math.min(0.72, depth * 0.2)),
-    ink = DDlifeContrast(fill);
-  return { fill, ink, line: DDmixColor(fill, ink === "#FFFFFF" ? "#FFFFFF" : "#121211", 0.4), root: root.id, depth };
+  const sections = path.filter((i) => i.type === "section"), root = sections[0], depth = sections.length - 1;
+  let fill = DDlifeColor(items, root), own = !!root.color;
+  for (const s of sections.slice(1)) {
+    own = !!(s.ownColor && s.color);
+    fill = own ? s.color : DDsectionShade(fill, s.id);
+  }
+  const ink = DDlifeContrast(fill);
+  return { fill, ink, line: DDmixColor(fill, ink === "#FFFFFF" ? "#FFFFFF" : "#121211", 0.4), root: root.id, depth, own };
+}
+// Give a section a color, or (with no color) give a subsection back its family
+// shade. An old color saved on a subsection before it had its own stays unused.
+export function DDsetSectionColor(items, id, color) {
+  return items.map((i) => {
+    if (i.id !== id || i.type !== "section") return i;
+    const { ownColor, ...rest } = i;
+    if (color) return { ...rest, color, ...(i.parent ? { ownColor: true } : {}) };
+    if (!i.parent) return i;
+    const { color: old, ...plain } = rest;
+    return plain;
+  });
 }
 
 // A section's name with everything above it: "Growth › Learning". When it is
@@ -519,12 +563,6 @@ export const DDlifeCSS = `
 .b4-node[aria-selected=true]{outline:3px solid #3478F6!important;outline-offset:4px;box-shadow:0 0 0 7px #3478f625!important}
 .dd-native-colors{position:absolute;top:35px;left:0;display:flex;gap:6px;padding:8px;background:var(--panel);border:1px solid var(--rule-2);border-radius:10px;box-shadow:0 4px 16px #0003;z-index:100}
 .dd-native-colors button{width:28px;height:28px;border:1px solid #2225;border-radius:50%;padding:0;cursor:pointer}
-.dd-life-nav{position:absolute;top:70px;right:16px;z-index:100;display:flex;flex-direction:column;gap:4px;max-height:65%;width:240px;overflow:auto;background:var(--paper,#fff);color:var(--ink,#121211);padding:12px;border:1px solid var(--rule-2);border-radius:12px;box-shadow:0 8px 28px #0002}
-.dd-life-nav button{text-align:start;min-height:36px;padding:6px 8px;border-radius:6px}
-.dd-life-nav button:hover{background:var(--wash)}
-.dd-life-nav-row{display:flex;align-items:stretch;gap:2px}
-.dd-life-nav-row>button:first-child{flex:1;min-width:0}
-.dd-life-nav .dd-room-enter{flex:none;width:36px;padding:0;text-align:center;color:var(--ink-2,#555)}
 .b4-life-section .b4-node-title .dd-room-enter{flex:none;display:inline-flex;align-items:center;justify-content:center;margin-inline-start:.45em;padding:0 .4em;min-width:1.6em;height:1.4em;border-radius:.3em;border:0;background:color-mix(in srgb,var(--node-text,#121211) 12%,transparent);color:inherit;font:inherit;font-size:.85em;line-height:1;cursor:pointer;vertical-align:middle}
 .b4-life-section .b4-node-title .dd-room-enter:hover{background:color-mix(in srgb,var(--node-text,#121211) 22%,transparent)}
 .dd-room-break{flex-basis:100%;height:0;order:8}
@@ -552,7 +590,7 @@ export const DDlifeCSS = `
 .dd-plan-life-note{width:220px;padding:8px;border-radius:3px 3px 10px 3px;box-shadow:0 10px 24px -14px #0008;margin:8px 0}
 .dd-plan-life-note textarea{display:block;min-height:120px;width:100%;border:0;resize:vertical;background:transparent;color:inherit;font:inherit}
 .dd-plan-life button{min-height:36px;padding:4px 8px}
-@media(pointer:coarse){.b4-sticky-head{height:44px!important;gap:2px;padding:0 4px!important}.b4-sticky-head button,.b4-life-section>.b4-node-actions button{min-width:44px!important;min-height:44px!important}.b4-life-section>.b4-node-body,.b4-life-section>.b4-node-actions{height:44px;top:-50px}.dd-native-colors button{width:36px;height:36px}.dd-plan-life button{min-height:44px}.dd-life-nav button{min-height:44px}}
+@media(pointer:coarse){.b4-sticky-head{height:44px!important;gap:2px;padding:0 4px!important}.b4-sticky-head button,.b4-life-section>.b4-node-actions button{min-width:44px!important;min-height:44px!important}.b4-life-section>.b4-node-body,.b4-life-section>.b4-node-actions{height:44px;top:-50px}.dd-native-colors button{width:36px;height:36px}.dd-plan-life button{min-height:44px}}
 .b2-viewport[data-tool=select]:not(.b4-panning),.b2-viewport[data-tool=select]:not(.b4-panning) .b4-node,.b2-viewport[data-tool=select]:not(.b4-panning) .dd-note-preview{cursor:default}
 @media (prefers-reduced-motion:reduce){.dd-life-tools{transition:none}}
 `;

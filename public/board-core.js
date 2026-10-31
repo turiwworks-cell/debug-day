@@ -265,8 +265,10 @@ export const DDboardCore = {
       if (node.lifeId && next.__life) {
         const it = next.__life.items.find((i) => i.id === node.lifeId);
         if (!it) continue;
-        // Only a top-level section has its own color; a child takes its root's.
-        if (Object.hasOwn(patch,"fill") && !(it.type === "section" && it.parent)) it.color = patch.fill || "#FFE299";
+        // A subsection's color is its own choice; no fill (null) gives it back its family shade.
+        if (Object.hasOwn(patch,"fill") && it.type === "section" && it.parent) {
+          if (patch.fill) { it.color = patch.fill; it.ownColor = true; } else { delete it.color; delete it.ownColor; }
+        } else if (Object.hasOwn(patch,"fill")) it.color = patch.fill || "#FFE299";
         if (Number.isFinite(patch.width)) it.w = clamp(patch.width,64,20000);
         if (Number.isFinite(patch.height)) it.h = clamp(patch.height,64,20000);
         it.style = { ...it.style, ...this.style(patch) };

@@ -1,3 +1,13 @@
+## 5.24.0 — 2026-10-31
+Branch: claude/project-thread-bgfqx1
+- Sections opens a clear list again, instead of the card-file drawer (removed): Main board first, then every section in board order, right under its parent, with a guide line per level.
+- Each family sits on its top section's color; rows show note counts, "You're here" marks the board you are in, and folding (list only, remembered) shows how many are folded away.
+- Click a name to show it on the board, ↗ to go into its board; on a desktop the list stays open, on a phone it is a bottom sheet that closes after you pick.
+- Find searches every level, keeps parents dimmed and marks the letters. Full keyboard, Persian right to left. The Life area size tools moved to the list's footer.
+- Subsections now get their own shade of the family color (hue turned a little, a touch lighter, fixed by id) instead of the same color as their parent.
+- Pick any color yourself from the list (palette, custom picker, or back to the family shade) or the board's color panel, for top sections and subsections. A subsection's own color is saved with `ownColor`; Claude's colors for subsections count too.
+- Tests: new unit and browser tests for the list and colors; other browser tests now use the list.
+
 ## 5.23.0 — 2026-10-31
 Branch: claude/project-thread-xu3qj6
 - Browser zoom never resizes the app: Ctrl/Cmd with + = - 0 and Ctrl/Cmd+wheel are taken over everywhere. On the Board they zoom in, zoom out and fit all; Safari's pinch zooms the Board too.
