@@ -1835,6 +1835,14 @@ export function DDcreateBoard(deps) {
       );
       return ct.filter((ot) => ot.kind !== "frame").at(-1) || ct.at(-1);
     }
+    // Where a line being drawn lands. Over a section's empty inside it lands on
+    // nothing (a new note is made there), so lines never stick to the frame.
+    function linkTarget(p, from) {
+      const n = nodeAt(p, from);
+      if (!n || !(n.lifeSection || n.kind === "frame")) return n;
+      const e = 14 / cam.current.z;
+      return p.x > n.x + e && p.x < n.x + n.w - e && p.y > n.y + e && p.y < n.y + n.h - e ? null : n;
+    }
     function nearestPort(Y, G) {
       return [
         ["left", Math.abs(G.x - Y.x)],
@@ -1981,13 +1989,13 @@ export function DDcreateBoard(deps) {
           paintWires(),
           showPreview(
             G.kind === "rewire"
-              ? nodeAt(Tt, G.link[G.end === "from" ? "to" : "from"])?.id
+              ? linkTarget(Tt, G.link[G.end === "from" ? "to" : "from"])?.id
               : null,
           ));
         return;
       }
       if (G.kind === "newlink") {
-        const target = nodeAt(Tt, G.from), from = layout.map.get(G.from);
+        const target = linkTarget(Tt, G.from), from = layout.map.get(G.from);
         ((draftPath.current.style.display = "block"),
           draftPath.current.setAttribute(
             "d",
@@ -2476,7 +2484,7 @@ export function DDcreateBoard(deps) {
           );
         else if (ct.kind === "rewire" && ct.moved) {
           const ot = toWorld(Y.clientX, Y.clientY),
-            St = nodeAt(ot, ct.link[ct.end === "from" ? "to" : "from"]);
+            St = linkTarget(ot, ct.link[ct.end === "from" ? "to" : "from"]);
           St
             ? patchWire(
                 ct.link.id,
@@ -2492,7 +2500,7 @@ export function DDcreateBoard(deps) {
               );
         } else if (ct.kind === "newlink") {
           const point = toWorld(Y.clientX, Y.clientY),
-            target = nodeAt(point, ct.from),
+            target = linkTarget(point, ct.from),
             from = layout.map.get(ct.from);
           hideGhost();
           // FigJam's "+": a click adds the next note, a drag draws a connector.

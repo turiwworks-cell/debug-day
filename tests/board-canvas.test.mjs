@@ -76,3 +76,17 @@ test("an elbow's handle sits on its middle run and moves it only along the free 
   assert.equal(lined.axis, "x");
   assert.match(lined.d, /300/, "the line goes round through the handle");
 });
+
+test("an elbow line between two notes inside sections stays inside them", () => {
+  const outer = { id: "o", kind: "life-section", x: 0, y: 0, w: 1400, h: 1100 },
+    studio = { id: "s", kind: "life-section", x: 100, y: 200, w: 700, h: 500 },
+    one = { id: "n", kind: "sticky", x: 400, y: 260, w: 120, h: 110 },
+    two = { id: "m", kind: "sticky", x: 200, y: 400, w: 120, h: 110 };
+  const g = DDconnectionGeometry(one, two, { style: "elbow" }, [outer, studio, one, two]);
+  for (const p of g.points) {
+    assert.ok(p.x >= studio.x && p.x <= studio.x + studio.w && p.y >= studio.y && p.y <= studio.y + studio.h, "inside the section: " + JSON.stringify(p));
+  }
+  // Even if the frames came in with another kind, a frame that holds a note is never in the way.
+  const plain = DDconnectionGeometry(one, two, { style: "elbow" }, [{ ...outer, kind: "box" }, { ...studio, kind: "box" }, one, two]);
+  assert.equal(plain.d, g.d);
+});

@@ -1,3 +1,10 @@
+## 5.38.1 — 2026-11-03
+Branch: claude/project-thread-d5d9gg
+- Lines inside a section: dragging a note's + (or connection point) into the section's empty inside now makes the new note there with a line to it. Before, the line got stuck to the section's frame and no note appeared.
+- Elbow lines between notes inside a section stay inside it. Before, they went around the outer frame (down to its bottom) and jumped at the smallest move.
+- Dropping a line end on a section's edge still connects to the section.
+- New unit test in `tests/board-canvas.test.mjs` and browser test `tests/browser/section-lines.cjs`.
+
 ## 5.38.0 — 2026-11-03
 Branch: claude/project-thread-00fdop
 - Photos straight on the Board, like a mood board: drop image or video files on the canvas, or paste one (Ctrl/Cmd+V), and a photo card lands where you dropped it. Several at once sit side by side.
