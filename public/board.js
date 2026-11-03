@@ -2,7 +2,8 @@ import { DDcompletion, DDTaskMetadata, DDTaskTags, DDpriorityLabel, DDprogressLa
 import { DDreconcileDay, DDrelation, DDconnectRelation, DDdisconnectRelation, DDrewireRelation } from "./relations.js";
 import { DDconnectionGeometry } from "./connections.js";
 import { DDundoRevert } from "./board-history.js";
-import { DDEngineOverlay, DDengineBus, DDengineTask, DDengineTaskFromNote, DDengineSources, DDengineSourceHistory, DDengineStrip, DDinstallEngineStyles } from "./engine.js";
+import { DDEngineOverlay, DDengineBus, DDengineTask, DDengineTaskFromNote, DDengineSources, DDengineSourceHistory, DDengineStrip, DDinstallEngineStyles, DDengineCarry } from "./engine.js";
+import { DDengineSectionIds, DDinstallEngineQuietStyles } from "./engine-quiet.js";
 import { DDboardShortcuts, DDboardSearchRows, DDrootSelection, DDmarqueeSelection, DDselectionToolbar, DDBoardSearch, DDBoardTimer, DDBoardTimerButton, DDinstallBoardExperience, DDinstallZoomLock } from "./board-experience.js";
 import {
   DDinstallLifeStyles,
@@ -64,6 +65,7 @@ export function DDcreateBoard(deps) {
   DDinstallRailStyles();
   DDinstallStickyStyles();
   DDinstallEngineStyles();
+  DDinstallEngineQuietStyles();
   DDinstallSectionsFlowStyles();
   // Comments, pen, note tags and parent notes (5.36).
   if (typeof document !== "undefined" && !document.getElementById("dd-board-tools-css"))
@@ -1275,6 +1277,14 @@ export function DDcreateBoard(deps) {
       layoutRef = useRef(layout),
       labelPlace = useRef({ z: 0, layout: null });
     layoutRef.current = layout;
+    // Sections drawn inside the Engine are its own quiet parts (5.37): softer on
+    // the board, last in Tab. Read from the main board; kept while it is away.
+    const engineSectionsRef = useRef(new Set()),
+      engineSections = useMemo(() => {
+        const area = layout.map.get("section:engine"), feed = layout.map.get("section:life");
+        if (area && feed && !layout.room) engineSectionsRef.current = DDengineSectionIds(DDlifeItems(setup), feed, area);
+        return engineSectionsRef.current;
+      }, [layout]);
     // Comments, the pen, note tags and parent notes (5.36) live in their own
     // modules; the board hands them its data, its camera and its commit.
     const markCtx = {
@@ -4390,7 +4400,9 @@ export function DDcreateBoard(deps) {
           title: t("Drag to move the Engine", "برای جابه‌جایی انجین بکشید"),
           onPointerDown: (e) => { if (e.button || e.target.closest("button")) return; e.stopPropagation(); e.preventDefault(); finishEdit(); setMenu(null); startEngineMove(e); } },
         "⚙ ", Y.title, _.createElement("small", null, Y.subtitle),
-        _.createElement("button", { type: "button", "data-engine-open": true, title: t("Bring the Engine over the board (E)", "آوردن انجین روی برد (E)"), onPointerDown: (e) => { if (e.button) return; e.stopPropagation(); e.preventDefault(); finishEdit(); setEngine(true); }, onClick: () => { finishEdit(); setEngine(true); } }, t("Open · E", "باز کن · E"))),
+        _.createElement("button", { type: "button", "data-engine-open": true, title: t("Bring the Engine over the board (E)", "آوردن انجین روی برد (E)"), onPointerDown: (e) => { if (e.button) return; e.stopPropagation(); e.preventDefault(); finishEdit(); setEngine(true); }, onClick: () => { finishEdit(); setEngine(true); } }, t("Open · E", "باز کن · E")),
+        // An empty Engine offers what is still open, softly (5.37).
+        ((carry) => carry && carry.count > 0 && _.createElement("button", { type: "button", "data-engine-carry": true, title: t("Still open: ", "هنوز باز: ") + [...carry.open, ...carry.waiting].map((b) => b.name).join(" · "), onPointerDown: (e) => { if (e.button) return; e.stopPropagation(); e.preventDefault(); finishEdit(); setEngine(true); }, onClick: () => { finishEdit(); setEngine(true); } }, "↺ " + t(carry.count + " still open", carry.count.toLocaleString("fa-IR") + " باز")))(!day.blocks.length && allDays ? DDengineCarry(allDays, day) : null)),
         mode === "mindmap" && !layout.room && _.createElement("button", { type: "button", className: "dd-area-resize", "data-resize": true, "data-edge": "se",
           "aria-label": t("Resize Engine", "تغییر اندازهٔ انجین"), title: t("Drag to resize the Engine", "برای تغییر اندازهٔ انجین بکشید"),
           onPointerDown: (e) => startAreaResize(e, Y) }));
@@ -4449,6 +4461,7 @@ export function DDcreateBoard(deps) {
           "data-node-kind": Y.kind,
           "data-life-id": Y.lifeId,
           "data-life-type": Y.lifeId ? (Y.lifeSection ? "section" : "sticky") : undefined,
+          "data-engine-section": Y.lifeSection && engineSections.has(Y.lifeId) ? true : undefined,
           "data-collapsed": Y.collapsed,
           "aria-selected": G,
           "data-section": Y.section || Y.sectionId,
@@ -6148,7 +6161,7 @@ export function DDcreateBoard(deps) {
         },
       }),
       lifeNav && _.createElement(DDSectionsFlowchart, {
-        React: _, items: DDlifeItems(setup), room: layout.room, language: DDlanguage, frame: layout.map.get("section:life"),
+        React: _, items: DDlifeItems(setup), room: layout.room, language: DDlanguage, frame: layout.map.get("section:life"), quiet: [...engineSections],
         onShow: (id) => jumpLife(id),
         onEnter: (id) => enterRoom(id),
         onColor: (id, color) => lifeChange((list) => DDsetSectionColor(list, id, color)),

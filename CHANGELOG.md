@@ -1,3 +1,14 @@
+## 5.37.0 — 2026-11-03
+Branch: claude/project-thread-b1dsgs
+- Engine sections: sections you draw inside the Engine's frame (outside the Feed) now count as the Engine's own. Nothing new is saved; it is read from where they sit.
+- In the Tab flowchart they leave the main tree and sit last, in one quiet folded row: "⚙ Engine · 3", with their names. Click it (or ↓ from Main board, then Enter) to open; the choice is remembered. A search that finds one, or being inside one, opens it.
+- On the board they are a light dashed outline with a small grey name, so today's tasks stand out. Notes inside them look the same as before.
+- Drag a section out of the Engine and it is an ordinary section again, in Tab and on the board.
+- An empty Engine shows "↺ N still open" on its title. In the Engine a soft line offers yesterday's open tasks and waiting tasks left on older days: Bring them (one undo takes it back), Choose… (Earlier Engine), or × Not today.
+- A waiting task brought in keeps waiting since the same day, so it no longer stays behind on the day you started waiting.
+- Calmer Engine rows: the name, minutes or score, and where it came from stay in sight; kind, lane and "show on the board" appear on hover, on focus or with ⋯ (always there on a phone).
+- New unit test `tests/engine-quiet.test.mjs` and browser test `tests/browser/engine-quiet.cjs`.
+
 ## 5.36.0 — 2026-11-03
 Branch: claude/project-thread-yo360t
 - Comments on the Board: press M (or the Comment tool) and click a card or an empty spot to leave a short note. Write, reply, edit, resolve (hides it) or delete.
