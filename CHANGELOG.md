@@ -1,3 +1,15 @@
+## 5.30.0 — 2026-11-03
+Branch: claude/project-thread-88x2ih
+- The timer keeps going after a page refresh. A paused timer keeps its time too, and a second open tab shows the same clock.
+- New timer look, the same in Board and Plan: a big clock, the time it ends, and calmer buttons.
+- When time is up you notice it, even in another app: a system notice (the browser asks once, the first time you start), a soft chime, a blinking tab title, and a banner that stays until you press Done or +5 min.
+- If the timer ended while Debug Day was closed, the banner says when it ended, without a late sound.
+- Bar mode: the clock becomes a bar with no numbers, for when you only want a feel for how much time is left. The Board button, the Plan chip and the Today view follow it.
+- Presets on the timer itself: 15, 25, 45, 60 and 90 minutes start with one click. In Plan, the small arrow next to Stillness opens the full timer.
+- +5 min instead of +1 min. Start after the end starts the same length again.
+- Sound can be turned off on the timer. Changing the default length in Settings no longer resets a timer you are using.
+- New browser test `tests/browser/timer.cjs` and unit tests `tests/timer.test.mjs`.
+
 ## 5.29.1 — 2026-11-03
 Branch: claude/project-thread-88x2ih
 - Folded sections: a note dropped in the empty space under a folded section stays there. Only a drop on the folded section's name bar puts it inside, and the board then says which section it went into.
