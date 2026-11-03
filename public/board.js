@@ -20,6 +20,10 @@ import{DDstickyDateLabel,DDstickyToday,DDstickyHeight,DDstickySnap,DDstickyForma
 import { DDSectionsFlowchart, DDsectionsBus, DDinstallSectionsFlowStyles } from "./sections-flow.js";
 import { DDsectionTint, DDSectionChip, DDsetSectionColor, DDsectionPath, DDsectionPalette, DDlifeSendTo, DDlifeTakeOut } from "./life-board.js";
 import { DDplaces, DDPlacesBack } from "./places.js";
+import { DDusePen, DDnormalizeStrokes, DDmarksRebase, DDpenCSS } from "./pen.js";
+import { DDuseComments, DDnormalizeComments, DDcommentsTransfer, DDcommentsCSS } from "./comments.js";
+import { DDnoteTagsCSS } from "./note-tags.js";
+import { DDuseNoteTools, DDnoteBranch, DDparentLooks, DDnoteFamilyCSS } from "./note-family.js";
 import { DDsyncCopies, DDsyncNewId, DDsyncValid, DDsyncForget, DDsyncMarkLife, DDsyncJoin, DDsyncPlaces, DDsyncSameNotes, DDinstallLinkedStyles } from "./linked.js";
 const life = { DDinstallLifeStyles, DDlifeAbs, DDlifeAdd, DDlifeBounds, DDlifeHead, DDlifeItems, DDlifeParentAt };
 // Board interaction engine. Legacy planner adapters are injected once by the app.
@@ -63,6 +67,9 @@ export function DDcreateBoard(deps) {
   DDinstallEngineStyles();
   DDinstallEngineQuietStyles();
   DDinstallSectionsFlowStyles();
+  // Comments, pen, note tags and parent notes (5.36).
+  if (typeof document !== "undefined" && !document.getElementById("dd-board-tools-css"))
+    document.head.append(Object.assign(document.createElement("style"), { id: "dd-board-tools-css", textContent: DDpenCSS + DDcommentsCSS + DDnoteTagsCSS + DDnoteFamilyCSS }));
   DDinstallLinkedStyles();
   let stepTextContext;
   return function BoardWorkspace({
@@ -124,6 +131,9 @@ export function DDcreateBoard(deps) {
           stack: Array.isArray(Y.stack)
             ? Y.stack.filter((ref) => typeof ref === "string").slice(0, 5000)
             : [],
+          // The day's own comments and drawings (5.36).
+          ...(DDnormalizeComments(Y.comments).length ? { comments: DDnormalizeComments(Y.comments) } : {}),
+          ...(DDnormalizeStrokes(Y.strokes).length ? { strokes: DDnormalizeStrokes(Y.strokes) } : {}),
           camera:
             Y.camera && Number.isFinite(Y.camera.z)
               ? {
@@ -314,6 +324,8 @@ export function DDcreateBoard(deps) {
         if((note.kind === "sticky" || note.type === "sticky") && !oldNotes.has(note.id)) note.at = DDstickyToday();
       }
       if (layoutRef.current?.room && result.__life?.items) keepInRoom(result, ot, shared, layoutRef.current.room);
+      // A section that went away keeps its drawings and comments in place, or takes them along.
+      if (result.__life) result.__life = DDmarksRebase(shared, result.__life);
       let nextLife = result.__life || shared;
       delete result.__life;
       delete result.__lifeFrame;
@@ -1273,6 +1285,19 @@ export function DDcreateBoard(deps) {
         if (area && feed && !layout.room) engineSectionsRef.current = DDengineSectionIds(DDlifeItems(setup), feed, area);
         return engineSectionsRef.current;
       }, [layout]);
+    // Comments, the pen, note tags and parent notes (5.36) live in their own
+    // modules; the board hands them its data, its camera and its commit.
+    const markCtx = {
+      React: _, day, days: allDays, setup, mode, layout, tool, setTool, selected, items: DDlifeItems(setup), lifeHead: DDlifeHead,
+      clearBoardSelection: () => { setSelected(new Set()); setWireId(null); setWireSelection(null); },
+      commit: (change, message) => commit(change, message), toWorld, getCamera: () => cam.current, viewport, setStatus,
+      pinching: () => !!pinch.current || touches.current.size > 1, panKey: () => space.current,
+      reveal: (row) => revealSearchResult(row), enterRoom, setMode, mark: () => DDplaces.mark(), lifeHome: DDlifeHome,
+      unfold: (id) => lifeChange((list) => list.map((i) => (i.id === id ? { ...i, collapsed: false } : i))),
+      glide: (p) => { const el = viewport.current, z = Math.max(cam.current.z, 0.7); if (el) glideCamera({ x: el.clientWidth / 2 - (p.x + (el.clientWidth < 700 ? 0 : 140 / z)) * z, y: el.clientHeight / 2 - (p.y - (el.clientWidth < 700 ? 120 / z : 60 / z)) * z, z }); },
+      finishEdit: () => finishEdit(), setMenu, search: (q) => { finishEdit(); setSearch(q); },
+    };
+    const pen = DDusePen(markCtx), comments = DDuseComments(markCtx), noteTools = DDuseNoteTools(markCtx);
     useLayoutEffect(() => { placeSectionLabels(true); }, [layout]);
     // A section that grew around a long note keeps that size, so what sits in the
     // grown part belongs to it and moves with it (one rule for drawing and for drops).
@@ -1416,6 +1441,9 @@ export function DDcreateBoard(deps) {
         if (g) nodes.push({ x:Math.min(g.p.x,g.q.x), y:Math.min(g.p.y,g.q.y), w:Math.abs(g.p.x-g.q.x), h:Math.abs(g.p.y-g.q.y) });
       }
       if (!nodes.length) return;
+      // A picked note's tags and family sit under it (5.36): keep the bar off them too.
+      { const v = view.getBoundingClientRect(), c = cam.current;
+        for (const e of host.querySelectorAll("[data-note-under]")) { if (!state.selected.has(e.dataset.noteUnder)) continue; const r = e.getBoundingClientRect(); if (r.height) nodes.push({ x:(r.left-v.left-c.x)/c.z, y:(r.top-v.top-c.y)/c.z, w:r.width/c.z, h:r.height/c.z }); } }
       // The top row and its actions (Undo, Search…) can wrap on phones; stay below both.
       const vr = view.getBoundingClientRect(), tops = [...host.querySelectorAll(".b2-top,.b2-top-actions")].map((e) => e.getBoundingClientRect()).filter((r) => r.height && r.top < vr.top + vr.height / 2);
       const br = tops.length ? { bottom: Math.max(...tops.map((r) => r.bottom)) } : null;
@@ -2031,6 +2059,8 @@ export function DDcreateBoard(deps) {
       const board=d.canvas.board4, moved=(d.__life.links||[]).filter((l)=>l.from===from||l.to===from);
       board.links=[...(board.links||[]),...moved].map((l)=>({...l,from:l.from===from?to:l.from,to:l.to===from?to:l.to}));
       d.__life.links=(d.__life.links||[]).filter((l)=>!moved.includes(l));
+      // Its comments follow the card to its new home.
+      DDcommentsTransfer(d,from,to);
       core.cleanRefs(d,[from]);
     }
     // Two quick taps on the same thing, close together on screen.
@@ -3540,6 +3570,8 @@ export function DDcreateBoard(deps) {
       for (; Y.size !== G; ) {
         G = Y.size;
         for (const ct of layout.automatic) Y.has(ct.from) && Y.add(ct.to);
+        // A note's branch is its sub-notes, theirs, and so on (5.36).
+        for (const ref of [...Y]) for (const sub of DDnoteBranch(noteTools.family, ref)) Y.add(sub);
       }
       setSelected(Y);
     }
@@ -4052,6 +4084,10 @@ export function DDcreateBoard(deps) {
             else if (Tt === "s" && ot.shiftKey) setTool("section");
             else if (Tt === "s") setTool("sticky");
             else if (Tt === "t") setTool("text");
+            // Pen and comments (5.36): P draws, M comments, Shift+M lists the comments.
+            else if (Tt === "p" && !ot.shiftKey) { finishEdit(); setTool((v) => (v === "pen" ? "select" : "pen")); }
+            else if (Tt === "m" && ot.shiftKey) { ot.preventDefault(); finishEdit(); comments.toggleList(); }
+            else if (Tt === "m") { finishEdit(); setTool((v) => (v === "comment" ? "select" : "comment")); }
             else if (Tt === "e" && ot.shiftKey) { finishEdit(); setStickerPicker({}); }
             else if (Tt === "e") { finishEdit(); cancelGesture(); setMenu(null); setEngine((v) => !v); }
             else if (Tt === "d" && !ot.shiftKey) { ot.preventDefault(); finishEdit(); cancelGesture(); setMenu(null); setLifeNav((v) => !v); }
@@ -4432,6 +4468,8 @@ export function DDcreateBoard(deps) {
           "data-member": Y.memberOf ? true : undefined,
           "data-node-done": !!Y.done,
           "data-level": Y.kind === "habit" ? Y.level : undefined,
+          // A parent note gets its look around the paper (5.36).
+          ...(Tt ? noteTools.attrs(Y) : {}),
           role: "group",
           "aria-label": Y.title + (Y.min ? ", " + w(Y.min) : ""),
           tabIndex: Y.lifeId ? 0 : St ? -1 : 0,
@@ -4483,6 +4521,8 @@ export function DDcreateBoard(deps) {
         // Where the task came from: the section's name, on the card's corner.
         Y.kind === "block" && Y.from && sectionNames.has(Y.from) && _.createElement(DDSectionChip, { React: _, items: DDlifeItems(setup), id: Y.from, language: DDlanguage }),
         Tt && Y.at && _.createElement("time",{className:"dd-sticky-footer",dateTime:Y.at},DDstickyDateLabel(Y.at,DDlanguage)),
+        // Under the paper: tags, sub-notes and, when picked, its family (5.36).
+        Tt && !ot && noteTools.under(Y, G),
         quickColor === Y.id && _.createElement("div",{className:"dd-native-colors",onPointerDown:(e)=>e.stopPropagation()},
           core.stickyColors.map((color)=>_.createElement("button",{type:"button",key:color,style:{background:color},"aria-label":t("Use color ","انتخاب رنگ ")+color,onClick:(e)=>{e.stopPropagation();commit((d)=>core.setStyle(d,[Y],{fill:color}));setQuickColor(null);}},""))),
         Pt
@@ -5685,6 +5725,7 @@ export function DDcreateBoard(deps) {
       if (menu.dock === "top")
         return [
           item("redo", "Redo", "انجام مجدد", "redo", () => undo(true), { disabled: !history.current.future.length, shortcut: "Ctrl/Cmd+Shift+Z" }),
+          item("comments", comments.count ? "Comments · " + comments.count : "Comments", "Comments", "comments", () => comments.openList(), { shortcut: "Shift+M" }),
           sep("top-view-sep"),
           item("fit-all", "Fit all objects", "نمایش همهٔ اشیا", "fitAll", () => fit(false), { shortcut: "Shift+1" }),
           item("theme", "Toggle light / dark", "تغییر روشن / تیره", (setup.look?.theme === "dark" || (setup.look?.theme !== "light" && matchMedia("(prefers-color-scheme:dark)").matches)) ? "sun" : "moon", toggleBoardTheme),
@@ -5697,6 +5738,10 @@ export function DDcreateBoard(deps) {
           item("snap", "Snap to grid", "چسبیدن به شبکه", "snap", () => toggleView("snap"), { checked: snap }),
           item("grid", "Dot grid", "شبکهٔ نقطه‌ای", "grid", () => toggleView("grid"), { checked: grid }),
           item("minimap", "Minimap", "نقشهٔ کوچک", "map", () => toggleView("map"), { checked: showMap }),
+          // How a note that holds sub-notes stands out (5.36). Always outside its paper.
+          item("parent-look", "Parent note look", "Parent note look", "parentLook", null, {
+            children: DDparentLooks.map(([id, name]) => item("parent-look-" + id, name, name, "parentLook", () => noteTools.setLook(id), { checked: noteTools.look === id })),
+          }),
           sep("tools-view-sep"),
           item("view", "Canvas settings…", "تنظیمات بوم…", "settings", () => { setViewPanel(true); setProperties(false); setInspector(false); }),
         ];
@@ -5843,6 +5888,8 @@ export function DDcreateBoard(deps) {
             ].map(([op, en, fa]) => item(op, en, fa, "layers", () => reorder(op))),
           }),
           selectedNode && item("connect", "Connect from here", "اتصال از اینجا", "connector", () => { setConnecting(selectedNode.id); setTool("connector"); }, { disabled: allLocked }),
+          sticky && item("tags", "Tags…", "Tags…", "tag", () => noteTools.editTags(selectedNode.id), { disabled: allLocked }),
+          selectedNode && item("comment", "Add comment", "Add comment", "comment", () => comments.addOn(selectedNode.id), { shortcut: "M" }),
           item("fit-selection", "Zoom to selection", "زوم روی انتخاب", "fit", () => fit(true), { shortcut: "Shift+2" }),
           selectedNode && mode === "mindmap" && item("branch", "Select branch", "انتخاب شاخه", "branch", selectBranch),
           item("cut", "Cut", "برش", "cut", () => copySelection(null, true), { disabled: !copyable || !editable, shortcut: "Ctrl/Cmd+X" }),
@@ -5894,6 +5941,7 @@ export function DDcreateBoard(deps) {
         item("add-text", "Add text here", "افزودن متن اینجا", "text", () => addText(menu.point), { shortcut: "T" }),
         item("add-task", "Add task here", "افزودن کار اینجا", "task", () => addBlock(null, menu.point)),
         item("add-symbol","Add sticker / emoji here","افزودن استیکر / ایموجی اینجا","sticker",()=>{finishEdit();setStickerPicker({point:menu.point});}),
+        item("add-comment", "Add comment here", "Add comment here", "comment", () => comments.addAt(menu.point), { shortcut: "M" }),
         sep("paste-sep"),
         item("paste", "Paste here", "چسباندن اینجا", "paste", () => pasteClipboard(menu.point), { shortcut: "Ctrl/Cmd+V" }),
         item(
@@ -6216,6 +6264,8 @@ export function DDcreateBoard(deps) {
                     { "data-text-align": now, disabled: selectedNodes.every((n) => n.kind !== "sticky" || locked.has(n.id)) },
                   );
                 })(),
+                // Tags on a note: they show under it, outside the paper (5.36).
+                selectedNode?.kind === "sticky" && toolButton("Tags", "tag", () => (noteTools.editing === selectedNode.id ? noteTools.stopTags() : noteTools.editTags(selectedNode.id)), { "aria-pressed": noteTools.editing === selectedNode.id, "data-note-tags": true, disabled: locked.has(selectedNode.id) }),
                 // Line things up, space them evenly, match sizes (like a design app).
                 selectedNodes.length > 1 && toolButton(
                   t("Align & space", "تراز و فاصله"),
@@ -6479,6 +6529,8 @@ export function DDcreateBoard(deps) {
             "aria-hidden": true,
           }),
           paintOrder.map(renderNode),
+          pen.world(),
+          comments.world(),
           roomHistory(),
           _.createElement("div", { className: "dd-ghost-note", ref: ghostNote, "aria-hidden": true, style: { display: "none" } }),
           _.createElement("div", {
@@ -6487,6 +6539,9 @@ export function DDcreateBoard(deps) {
             style: { display: "none" },
           }),
         ),
+        // While the pen or the comment tool is on, it takes the pointer (5.36).
+        pen.capture(),
+        comments.capture(),
       ),
       connecting &&
         _.createElement(
@@ -6589,6 +6644,9 @@ export function DDcreateBoard(deps) {
         React:_,language:DDlanguage,rows:DDboardSearchRows(day,DDlifeItems(setup),layout.nodes),items:DDlifeItems(setup),query:search,onQuery:setSearch,
         onReveal:revealSearchResult,onClose:()=>{setSearch(null);viewport.current?.focus({preventScroll:true});}
       }),
+      pen.bar(),
+      comments.screen(),
+      noteTools.screen(),
       child &&
         _.createElement(
           "form",
@@ -6712,6 +6770,9 @@ export function DDcreateBoard(deps) {
           ],
           ["text", t("Text", "متن"), "text"],
           ["section", t("Section", "سکشن"), "section"],
+          // Draw freehand (P) and leave a comment (M), 5.36.
+          ["pen", "Pen", "draw"],
+          ["comment", "Comment", "comment"],
         ].map(([Y, G, ct]) =>
           _.createElement(
             "button",
@@ -6719,7 +6780,7 @@ export function DDcreateBoard(deps) {
               type: "button",
               key: Y,
               className: "b2-icon",
-              "aria-label": DDUI(
+              "aria-label": Y === "pen" ? "Pen tool" : Y === "comment" ? "Comment tool" : DDUI(
                 Y === "connector"
                   ? "Connect nodes"
                   : Y === "hand"

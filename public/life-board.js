@@ -6,6 +6,9 @@
 // text, color }. x and y are relative to the parent section (or to the Life area).
 
 import { DDstickyColors } from "./board-core.js";
+import { DDtagList } from "./note-tags.js";
+import { DDnormalizeComments } from "./comments.js";
+import { DDnormalizeStrokes } from "./pen.js";
 export const DDlifeHead = 90;
 export const DDlifeColors = DDstickyColors;
 const legacyFamilyColors = ["#FFE08A", "#9DD6FF", "#D3B8FF", "#FFA799", "#FFA6D9", "#E6E6E6", "#A8E6B8"];
@@ -115,6 +118,8 @@ export function DDnormalizeLife(life) {
       ...(!section && /^\d{4}-\d{2}-\d{2}$/.test(r.at||"") ? {at:r.at} : {}),
       ...(!section && Number.isFinite(r.baseW) ? {baseW:Math.max(160,r.baseW)} : {}),
       ...(!section && ["goal", "note"].includes(r.role) ? { role: r.role } : {}),
+      // Tags on a Feed note: the same tags as tasks (note-tags.js).
+      ...(!section && DDtagList(r.tags).length ? { tags: DDtagList(r.tags) } : {}),
       ...(r.style && typeof r.style === "object" ? { style: Object.fromEntries(Object.entries(r.style).filter(([k,v]) => (["textSize","opacity"].includes(k) && Number.isFinite(v)) || (k==="textAlign"&&["start","center","end"].includes(v)) || (k==="plain"&&v===true) || (k==="textColor"&&typeof v==="string"&&/^#[0-9a-f]{6}$/i.test(v)))) } : {}),
       ...(typeof r.color === "string" && /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(r.color) ? { color: r.color, ...(section && r.ownColor === true ? { ownColor: true } : {}) } : {}),
       // A top section placed on the board outside the Feed.
@@ -138,7 +143,14 @@ export function DDnormalizeLife(life) {
   const links = (Array.isArray(life?.links) ? life.links : []).filter((l) => l && typeof l.id === "string" && refs.has(l.from) && refs.has(l.to) && l.from !== l.to).slice(0, 2000);
   const frame = {};
   for (const k of ["x", "y", "w", "h"]) if (Number.isFinite(life?.frame?.[k])) frame[k] = limit(life.frame[k], k === "w" || k === "h" ? 240 : -1e5, 1e5, 0);
-  return { v: 2, items, links, frame };
+  // Comments and drawings that belong to the Feed (5.36): a comment on a Feed
+  // note follows the note; a free comment or a stroke belongs to its section.
+  const ids = new Set(items.map((i) => i.id));
+  const comments = DDnormalizeComments(life?.comments, { life: true })
+    .filter((c) => !c.on || ids.has(c.on.slice(5)))
+    .map((c) => (c.on || !c.parent || sections.has(c.parent) ? c : { ...c, parent: "" }));
+  const strokes = DDnormalizeStrokes(life?.strokes, { life: true }).map((s) => (!s.parent || sections.has(s.parent) ? s : { ...s, parent: "" }));
+  return { v: 2, items, links, frame, ...(comments.length ? { comments } : {}), ...(strokes.length ? { strokes } : {}) };
 }
 
 // Session history is shared by Plan and all day boards. It never enters backups.

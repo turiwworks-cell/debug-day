@@ -2,6 +2,7 @@ import{DDBoardIcon}from"./board-icons.js";
 import{DDlifePath}from"./life-board.js";
 import{DDboardSearchRows}from"./board-experience.js";
 import{DDHabitControls,DDHabitStats,DDhabitEntry,DDhabitLevels,DDhabitLevelsFor}from"./habits.js";
+import { DDtagText } from "./note-tags.js";
 
 export const DDrailRole = (value) => value === "goal" || value === "note" ? value : undefined;
 
@@ -107,6 +108,7 @@ export function DDBoardRails({ React: R, day, items, room, sharedLinks, nodes, p
       groups[key].map((group) => h("section", { key: group.id, className: "dd-rail-group", "data-rail-group": group.id },
         h("small", null, group.scopeTitle || t("Main board", "برد اصلی")),
         h("button", { type: "button", className: "dd-rail-heading", dir: "auto", onClick: () => reveal({ ...group, rail: key }), "data-rail-ref": group.id }, group.title || t("Untitled note", "یادداشت بی‌عنوان")),
+        group.tags?.length > 0 && h("small", { className: "dd-rail-tags", dir: "auto" }, DDtagText(group.tags)),
         group.rows.length ? h("ul", null, group.rows.map((row) => h("li", { key: row.id }, h("button", { type: "button", dir: "auto", "data-rail-ref": row.id, onClick: () => reveal({ ...row, rail: key }) }, row.title || t("Untitled", "بی‌عنوان"))))) :
           h("p", { className: "dd-rail-empty" }, t("Connect something to this note on the board.", "روی برد چیزی به این یادداشت وصل کن.")))));
   return h("div", { ref: root, className: "dd-board-rails", "data-mobile": mobile,
