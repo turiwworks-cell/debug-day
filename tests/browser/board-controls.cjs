@@ -282,6 +282,8 @@ const { start, fixture } = require("./harness.cjs");
         );
         await menuItem("Unlock", "بازکردن قفل").click();
         await nodeMenu();
+        // Layers wait in More since 5.32 (the menu shows what fits first).
+        await menuItem("More", "بیشتر").click();
         await menuItem("Layer order", "ترتیب لایه‌ها").click();
         await menuItem("Bring to front", "آوردن به جلو").click();
         assert.equal((await read()).canvas.board4.stack.at(-1), "sticky:note");
@@ -305,8 +307,12 @@ const { start, fixture } = require("./harness.cjs");
             .count(),
           2,
         );
-        await menuItem("Align & distribute", "تراز و فاصله‌گذاری").click();
-        await menuItem("Align top", "تراز بالا").click();
+        // Align opens the align panel (5.32).
+        await menuItem("Align & space…", "تراز و فاصله…").click();
+        await page
+          .getByRole("complementary", { name: t("Align and space", "تراز و فاصله") })
+          .getByRole("button", { name: t("Align top", "تراز بالا"), exact: true })
+          .click();
         d = await read();
         assert.equal(d.notes[0].y, d.notes[1].y);
         await page.screenshot({

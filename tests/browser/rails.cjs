@@ -48,6 +48,7 @@ const { start, fixture } = require("./harness.cjs");
       // Roles are edits to the real note, undoable and usable from touch More actions too.
       await page.locator('[data-board-id="sticky:scratch"]').focus();
       await page.keyboard.press("Shift+F10");
+      await page.getByRole("menuitem", { name: t("More", "بیشتر"), exact: true }).click();
       await page.getByRole("menuitem", { name: t("Make it a note", "نوت کن"), exact: true }).click();
       assert.equal((await read()).days[f.date].notes.find((n) => n.id === "scratch").role, "note");
       await key("Control+z");

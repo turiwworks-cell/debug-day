@@ -203,6 +203,9 @@ export const DDboardCore = {
       guides: p.guides !== false,
       rightDragPan: !!p.rightDragPan,
       stickyColor: this.color(p.stickyColor)?.hex || "#FFE299",
+      // New lines take the last color and weight you picked for a line.
+      lineColor: this.color(p.lineColor)?.hex || "",
+      lineWidth: [2, 3, 5].includes(p.lineWidth) ? p.lineWidth : 0,
     };
   },
   recent(color) {
@@ -230,6 +233,8 @@ export const DDboardCore = {
     if (Number.isFinite(p.textSize)) next.textSize = clamp(p.textSize, 4, 400);
     if (["start", "center", "end"].includes(p.textAlign))
       next.textAlign = p.textAlign;
+    // A text object is a note without its paper: same note, shown as plain words.
+    if (p.plain === true) next.plain = true;
     return next;
   },
   styles(raw) {
@@ -258,7 +263,7 @@ export const DDboardCore = {
     for (const node of nodes) {
       let patch={...requestedPatch};
       if (locked.has(node.id)) continue;
-      if(node.kind === "sticky" && Number.isFinite(patch.width)) {
+      if(node.kind === "sticky" && !node.plain && Number.isFinite(patch.width)) {
         const item=node.lifeId?next.__life?.items.find(i=>i.id===node.lifeId):next.notes.find(i=>i.id===node.noteId);
         patch.width=DDstickySnap(patch.width,item?.baseW||240);
       }
@@ -387,6 +392,11 @@ export const DDboardCore = {
       positions[n.id] = { x, y };
     }
     return positions;
+  },
+  // Align panel: give every object the size of the largest one.
+  matchSize(nodes, axis) {
+    const key = axis === "height" ? "h" : "w";
+    return nodes.length < 2 ? null : Math.max(...nodes.map((n) => n[key]));
   },
   guides(nodes, moving, starts, delta, zoom) {
     const selected = new Set(moving),

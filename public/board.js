@@ -17,7 +17,7 @@ import {
 import{DDBoardRails,DDinstallRailStyles,DDsetRailRole,DDrailPreferences,DDrailScope}from"./rails.js";
 import{DDstickyDateLabel,DDstickyToday,DDstickyHeight,DDstickySnap,DDstickyFormat,DDstickyTodo,DDStickyText,DDinstallStickyStyles}from"./stickies.js";
 import { DDSectionsFlowchart, DDsectionsBus, DDinstallSectionsFlowStyles } from "./sections-flow.js";
-import { DDsectionTint, DDSectionChip, DDsetSectionColor } from "./life-board.js";
+import { DDsectionTint, DDSectionChip, DDsetSectionColor, DDsectionPath, DDsectionPalette, DDlifeSendTo, DDlifeTakeOut } from "./life-board.js";
 const life = { DDinstallLifeStyles, DDlifeAbs, DDlifeAdd, DDlifeBounds, DDlifeHead, DDlifeItems, DDlifeParentAt };
 // Board interaction engine. Legacy planner adapters are injected once by the app.
 export function DDcreateBoard(deps) {
@@ -157,6 +157,7 @@ export function DDcreateBoard(deps) {
       [appearance, setAppearance] = useState(() => core.appearance()),
       [viewPanel, setViewPanel] = useState(false),
       [properties, setProperties] = useState(false),
+      [alignPanel, setAlignPanel] = useState(false),
       // The Sections flowchart (Tab, D, the Sections button or Ctrl+Space), with the Life area tools.
       [lifeNav, setLifeNav] = useState(() => DDsectionsBus.take()),
       // The Engine brought over the board (E, the toolbar or Ctrl+Space).
@@ -226,8 +227,11 @@ export function DDcreateBoard(deps) {
       lastNudge = useRef(0),
       noteSession = useRef(null);
     const selectionbar = useRef(null), selectionState = useRef(null), pendingReveal = useRef(null), connectionStyle = useRef("elbow"), wireCache = useRef(new Map());
+    // Writing zoomed out: where the board was before it came closer, and the glide.
+    const editReturn = useRef(null), glide = useRef(0), glideTo = useRef(null);
     selectionState.current = { selected, wireId, selectedWires: wireSelection?.ids || [] };
     useEffect(() => { if (tool !== "sticky") hideGhost(); }, [tool]);
+    useEffect(() => { if (selected.size < 2) setAlignPanel(false); }, [selected]);
     useEffect(() => {
       const enter = () => { try { sessionStorage.removeItem("debug-day:board-open-fullscreen"); } catch {} setFocus(true); };
       window.addEventListener("debug-day-board-fullscreen", enter);
@@ -374,11 +378,7 @@ export function DDcreateBoard(deps) {
         setWireId(null),
         setConnecting(null),
         setTick((Pt) => Pt + 1),
-        setStatus(
-          Y
-            ? "\u0627\u0646\u062C\u0627\u0645 \u0645\u062C\u062F\u062F"
-            : "\u0628\u0627\u0632\u06AF\u0634\u062A \u062A\u063A\u06CC\u06CC\u0631",
-        ));
+        setStatus(Y ? t("Redone", "انجام مجدد") : t("Undone", "بازگشت تغییر")));
       }
       setTick((n) => n + 1);
     }
@@ -1169,7 +1169,7 @@ export function DDcreateBoard(deps) {
         if (lf) for (const it of items.filter((i) => roomItem ? roomSet.has(i.id) && roomVisible(i) && DDlifeShown(items, i, roomItem.id) : DDlifeVisible(items, i) && (ddNodeMatches || DDlifeShown(items, i)))) {
           const a = DDlifeAbs(items, it.id), color = it.type === "section" ? DDsectionTint(items, it.id).fill : DDlifeColor(items, it);
           Y.push({ id: "life:" + it.id, lifeId: it.id, lifeSection: it.type === "section", kind: it.type === "section" ? "life-section" : "sticky", room: roomItem?.id === it.id || undefined, boardOnly: (roomItem && it.parent === roomItem.id && !DDlifeInFrame(items, it)) || undefined,
-            title: it.text || (it.type === "section" ? t("Section","سکشن") : ""), color, textColor: core.contrast(color), ownColor: (it.type === "section" && !!it.parent && !!it.ownColor && !!it.color) || undefined, collapsed: it.collapsed, parentId: it.parent ? "life:" + it.parent : null,
+            title: it.text || (it.type === "section" ? t("Section","سکشن") : ""), color, textColor: it.style?.plain ? "var(--ink)" : core.contrast(color), ownColor: (it.type === "section" && !!it.parent && !!it.ownColor && !!it.color) || undefined, collapsed: it.collapsed, parentId: it.parent ? "life:" + it.parent : null,
             x: lf.x + a.x, y: lf.y + DDlifeHead + a.y, w: it.w, h: it.collapsed ? 38 : it.h,
             at: it.at, baseW:it.baseW || 240,
             ...it.style, opacity: it.style?.opacity ?? 1, stack: it.type === "section" ? 2 + items.filter((i) => DDlifeDescendants(items,i.id).has(it.id)).length : 20 });
@@ -1187,6 +1187,8 @@ export function DDcreateBoard(deps) {
           }
           if (n.kind === "sticky" || n.kind === "frame") n.textColor = core.contrast(n.color);
           if (style.textColor) n.textColor = style.textColor;
+          // A text object has no paper, so its words take the board's ink.
+          else if (n.plain) n.textColor = "var(--ink)";
           if (n.noteId && !n.memberOf) {
             n.w = style.width ?? n.w;
             n.h = style.height ?? n.h;
@@ -1195,7 +1197,9 @@ export function DDcreateBoard(deps) {
         }
         for(const n of Y) if(n.kind === "sticky") {
           const measured=stickyHeights.current.get(n.id);
-          n.h=DDstickyHeight(n.w, measured && measured.w===n.w && measured.text===n.title && measured.size===(n.textSize||16) ? measured.h : (n.title.split("\n").length*24+72));
+          const fresh=measured && measured.w===n.w && measured.text===n.title && measured.size===(n.textSize||16);
+          // A text object is as tall as its words; a note stays at least square.
+          n.h=n.plain ? Math.max(32, fresh ? measured.h : n.title.split("\n").length*(n.textSize||16)*1.5+12) : DDstickyHeight(n.w, fresh ? measured.h : (n.title.split("\n").length*24+72));
         }
         for(let pass=0;pass<20;pass++) { let changed=false; for(const n of Y) if(n.parentId && !n.boardOnly) { const parent=Y.find(p=>p.id===n.parentId);if(parent?.lifeSection&&!parent.collapsed&&n.y+n.h+24>parent.y+parent.h){parent.h=n.y+n.h+24-parent.y;changed=true;} } if(!changed)break; }
         const An = new Map(Y.map((Jt) => [Jt.id, Jt])),
@@ -1597,7 +1601,7 @@ export function DDcreateBoard(deps) {
       finishEdit();
       setMenu(null);
       // The section and sticky tools work on top of anything, sections included.
-      if (tool === "section" || tool === "sticky") return backgroundDown(Y, true);
+      if (tool === "section" || tool === "sticky" || tool === "text") return backgroundDown(Y, true);
       if (space.current || (tool === "hand" && !ddMove) || Y.button === 1)
         return startPan(Y);
       // A section's name always drags it. Its empty area: a click selects it, a
@@ -2572,6 +2576,7 @@ export function DDcreateBoard(deps) {
       (Y.preventDefault(), finishEdit(), setMenu(null));
       const G = toWorld(Y.clientX, Y.clientY);
       if (tool === "sticky") return addSticky(G);
+      if (tool === "text") return addText(G);
       if (tool === "section") {
         gesture.current = {kind:"section-create",start:G,sx:Y.clientX,sy:Y.clientY,pointerId:Y.pointerId,moved:false};
         viewport.current.setPointerCapture(Y.pointerId); return;
@@ -2614,19 +2619,36 @@ export function DDcreateBoard(deps) {
     function wireButton(label, content, onClick, pressed) {
       return _.createElement("button", { type: "button", key: label, className: "b2-icon dd-wire-button", "aria-label": label, title: label, ...(pressed === undefined ? {} : { "aria-pressed": pressed }), onClick }, content);
     }
-    function wireToolbar(wire) {
-      const ends = wireEnds(wire), style = wire.style || "curve", weight = wire.width || 3;
-      const set = (patch, message) => patchWire(wire.id, patch, message);
-      const toggle = (name) => setWirePop((v) => (v === name ? null : name));
+    // Color and weight for one line or many. What you pick last is what new lines get.
+    function lineLook(wires, set) {
+      const first = wires[0] || {},
+        color = wires.every((w) => (w.color || "") === (first.color || "")) ? first.color : "",
+        weight = wires.every((w) => (w.width || 3) === (first.width || 3)) ? first.width || 3 : 0,
+        toggle = (name) => setWirePop((v) => (v === name ? null : name)),
+        note = _.createElement("small", { className: "dd-wire-pop-note" }, t("New lines use this too", "خط‌های تازه هم همین می‌شن"));
       return _.createElement(_.Fragment, null,
         _.createElement("span", { style: { position: "relative", display: "inline-flex" } },
-          wireButton(t("Line color", "رنگ خط"), _.createElement("span", { className: "dd-wire-color", style: { background: wire.color || "var(--dd-wire,#4A4843)" } }), () => toggle("color"), wirePop === "color"),
+          wireButton(t("Line color", "رنگ خط"), _.createElement("span", { className: "dd-wire-color", style: { background: color || "var(--dd-wire,#4A4843)" } }), () => toggle("color"), wirePop === "color"),
           wirePop === "color" && _.createElement("div", { className: "dd-wire-pop", role: "group", "aria-label": t("Line colors", "رنگ‌های خط") },
-            wireColors.map((color) => _.createElement("button", { type: "button", key: color, className: "dd-swatch", style: { background: color }, "aria-label": t("Line color ", "رنگ خط ") + color, "aria-pressed": (wire.color || "#757575").toUpperCase() === color, onClick: () => { set({ color }, t("Line color changed", "رنگ خط تغییر کرد")); setWirePop(null); } })))),
+            wireColors.map((c) => _.createElement("button", { type: "button", key: c, className: "dd-swatch", style: { background: c }, "aria-label": t("Line color ", "رنگ خط ") + c, "aria-pressed": (color || "#757575").toUpperCase() === c, onClick: () => { set({ color: c }, t("Line color changed", "رنگ خط تغییر کرد")); changeAppearance({ lineColor: c }); setWirePop(null); } })), note)),
         _.createElement("span", { style: { position: "relative", display: "inline-flex" } },
           wireButton(t("Line weight", "ضخامت خط"), _.createElement(controls.Icon,{React:_,name:"weight"}), () => toggle("weight"), wirePop === "weight"),
           wirePop === "weight" && _.createElement("div", { className: "dd-wire-pop", role: "group", "aria-label": t("Line weights", "ضخامت‌های خط") },
-            [[2, t("Thin", "نازک")], [3, t("Medium", "متوسط")], [5, t("Thick", "ضخیم")]].map(([w, name]) => _.createElement("button", { type: "button", key: w, "aria-pressed": weight === w, onClick: () => { set({ width: w }, t("Line weight changed", "ضخامت خط تغییر کرد")); setWirePop(null); } }, name)))),
+            [[2, t("Thin", "نازک")], [3, t("Medium", "متوسط")], [5, t("Thick", "ضخیم")]].map(([w, name]) => _.createElement("button", { type: "button", key: w, "aria-pressed": weight === w, onClick: () => { set({ width: w }, t("Line weight changed", "ضخامت خط تغییر کرد")); changeAppearance({ lineWidth: w }); setWirePop(null); } }, name)), note)));
+    }
+    function patchWires(ids, patch, message) {
+      const list = new Set(ids);
+      boardChange((b) => {
+        for (const id of list) if (id.startsWith("auto:")) b.overrides = { ...b.overrides, [id]: { ...(b.overrides?.[id] || {}), ...patch } };
+        b.links = b.links.map((l) => (list.has(l.id) ? { ...l, ...patch } : l));
+        return b;
+      }, message);
+    }
+    function wireToolbar(wire) {
+      const ends = wireEnds(wire), style = wire.style || "curve";
+      const set = (patch, message) => patchWire(wire.id, patch, message);
+      return _.createElement(_.Fragment, null,
+        lineLook([wire], set),
         // Text, dashes, the start arrow, details and delete: ⋯ or a right-click.
         _.createElement("span", { className: "b2-sep" }),
         wireButton(t("Straight line", "خط صاف"), _.createElement(controls.Icon,{React:_,name:"straight"}), () => set({ style: "straight", bend: null }, t("Line type changed", "نوع خط تغییر کرد")), style === "straight"),
@@ -2723,7 +2745,8 @@ export function DDcreateBoard(deps) {
               style: connectionStyle.current,
               arrow: !0,
               label: "",
-              color: /^bug:/.test(Y) || /^bug:/.test(G) ? "#D9434A" : "#7A5FF5",
+              color: /^bug:/.test(Y) || /^bug:/.test(G) ? "#D9434A" : appearanceRef.current.lineColor || "#7A5FF5",
+              ...(appearanceRef.current.lineWidth ? { width: appearanceRef.current.lineWidth } : {}),
               ...ct,
             },
           ],
@@ -2821,23 +2844,63 @@ export function DDcreateBoard(deps) {
           y: payload.origin.y,
         });
     }
+    // The board glides (it never jumps) and stops the moment you move it yourself.
+    function glideCamera(target) {
+      cancelAnimationFrame(glide.current);
+      const el = viewport.current;
+      if (!el) return;
+      const from = { ...cam.current };
+      if (prefs.reducedMotion || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        cam.current = { ...target }; queueCamera(); scheduleCamera(); return;
+      }
+      glideTo.current = target;
+      const w = el.clientWidth / 2, h = el.clientHeight / 2,
+        a = { x: (w - from.x) / from.z, y: (h - from.y) / from.z },
+        b = { x: (w - target.x) / target.z, y: (h - target.y) / target.z },
+        start = performance.now();
+      let last = cam.current;
+      const step = (now) => {
+        if (cam.current !== last) { glide.current = 0; return; }
+        const p = Math.min(1, (now - start) / 280), e = 1 - Math.pow(1 - p, 3),
+          z = from.z * Math.pow(target.z / from.z, e);
+        cam.current = last = p >= 1 ? { ...target } : { x: w - (a.x + (b.x - a.x) * e) * z, y: h - (a.y + (b.y - a.y) * e) * z, z };
+        queueCamera();
+        if (p < 1) glide.current = requestAnimationFrame(step);
+        else { glide.current = 0; scheduleCamera(); }
+      };
+      glide.current = requestAnimationFrame(step);
+    }
+    // Writing when zoomed out: the board comes close enough to read what you
+    // type, then goes back to where you were when you finish.
     function revealEdit(Y) {
-      if (
-        Y.kind === "sticky" ||
-        !prefs.boardAutoZoom ||
-        cam.current.z >= 0.75 ||
-        !viewport.current
-      )
-        return;
-      const G = viewport.current,
-        ct = Math.min(1.2, (G.clientWidth - 80) / Y.w);
-      ((cam.current = {
-        x: G.clientWidth / 2 - (Y.x + Y.w / 2) * ct,
-        y: G.clientHeight / 2 - (Y.y + Y.h / 2) * ct,
-        z: ct,
-      }),
-        queueCamera(),
-        scheduleCamera());
+      const el = viewport.current;
+      if (!Y || !prefs.boardAutoZoom || Y.lifeSection || Y.kind === "frame" || !el) return;
+      const z = cam.current.z, size = Y.kind === "sticky" ? (Y.textSize || 16) * 1.15 : 14;
+      if (size * z >= 11) return;
+      // A round zoom (90%, not 86.96%), still small enough for the card to fit across.
+      const nz = core.zoom(Math.min(Math.ceil((16 / size) * 20) / 20, (el.clientWidth - 48) / Math.max(1, Y.w), 2));
+      if (nz <= z * 1.05) return;
+      const top = el.clientWidth < 700 ? 150 : 110, fits = Y.h * nz <= el.clientHeight - top - 120,
+        target = {
+          x: el.clientWidth / 2 - (Y.x + Y.w / 2) * nz,
+          y: fits ? el.clientHeight / 2 - (Y.y + Y.h / 2) * nz : top - Y.y * nz,
+          z: nz,
+        };
+      editReturn.current = { back: editReturn.current?.back || { ...cam.current }, at: target };
+      glideCamera(target);
+    }
+    function returnFromEdit() {
+      const ret = editReturn.current;
+      if (!ret) return;
+      requestAnimationFrame(() => {
+        // Typing on in the next card keeps the way back for later.
+        if (editReturn.current !== ret || editingRef.current) return;
+        editReturn.current = null;
+        const c = cam.current, a = ret.at, gliding = glide.current && glideTo.current === a;
+        // Moved the board while writing, or already working on something else: stay.
+        if (gesture.current || (!gliding && (Math.abs(c.x - a.x) > 2 || Math.abs(c.y - a.y) > 2 || Math.abs(c.z - a.z) > 0.001))) return;
+        glideCamera(ret.back);
+      });
     }
     function openEdit(Y) {
       const G = layout.map.get(Y);
@@ -2861,8 +2924,19 @@ export function DDcreateBoard(deps) {
       if (!G) return;
       ((editingRef.current = null), setEditing(null));
       noteSession.current = null;
+      returnFromEdit();
       const ct = layout.map.get(G.ref),
         ot = (Y ?? G.value).trim();
+      // An empty text object leaves nothing behind (an empty note stays, as a note).
+      if (ct?.kind === "sticky" && ct.plain && !ot) {
+        commit((d) => {
+          if (ct.lifeId) d.__life.items = d.__life.items.filter((i) => i.id !== ct.lifeId);
+          else d.notes = d.notes.filter((n) => n.id !== ct.noteId);
+          return d;
+        }, null, { history: !1 });
+        setSelected(new Set());
+        return;
+      }
       if (ct?.kind === "sticky") return;
       if (ct?.lifeId) { lifeChange((list) => list.map((i) => i.id === ct.lifeId ? { ...i,text:ot } : i)); return; }
       if (ct?.kind === "habit") {
@@ -3072,10 +3146,14 @@ export function DDcreateBoard(deps) {
         return d;
       },t("Feed resized on every day","اندازهٔ فید در همهٔ روزها تغییر کرد"));
     }
+    // Text / title: words straight on the board, no note paper (T).
+    function addText(point) {
+      return addSticky(point, { w: 320, h: 48, textSize: 24, plain: true });
+    }
     function addSticky(point, template = {}) {
       const view = viewport.current, rect = view.getBoundingClientRect();
       const at = point || toWorld(rect.left+view.clientWidth/2, rect.top+view.clientHeight/2);
-      const id = C(), width=template.w || 240, height=template.h || 240, color=template.color || appearanceRef.current.stickyColor;
+      const id = C(), width=template.w || 240, height=template.h || 240, color=template.color || appearanceRef.current.stickyColor, plain=template.plain?{plain:true}:{};
       const frame=layout.map.get("section:life"), items=DDlifeItems(setup), roomNode=layout.room&&layout.map.get("life:"+layout.room);
       const rel=frame?{x:at.x-frame.x,y:at.y-frame.y-DDlifeHead}:null;
       const parent=rel&&DDlifeParentAt(items,rel.x,rel.y,roomNode?outsideRoom(items):undefined,layout.room||"");
@@ -3086,21 +3164,22 @@ export function DDcreateBoard(deps) {
         // to the section and stays where it was made (outside the frame it lives
         // on this board only).
         ref="life:"+id;const base=DDlifeAbs(items,layout.room);
-        commit(d=>{d.__life.items=DDlifeAdd(d.__life.items,{id,type:"sticky",parent:layout.room,x:Math.round(rel.x-base.x-width/2),y:Math.round(rel.y-base.y-height/2),w:width,h:height,text:"",color,style:{textSize:template.textSize||16}});return d;});
+        commit(d=>{d.__life.items=DDlifeAdd(d.__life.items,{id,type:"sticky",parent:layout.room,x:Math.round(rel.x-base.x-width/2),y:Math.round(rel.y-base.y-height/2),w:width,h:height,text:"",color,style:{textSize:template.textSize||16,...plain}});return d;});
       }else if(inLife){
         const base=parent?DDlifeAbs(items,parent.id):{x:0,y:0};ref="life:"+id;
-        commit(d=>{d.__life.items=DDlifeAdd(d.__life.items,{id,type:"sticky",parent:parent?.id || "",x:rel.x-base.x-width/2,y:rel.y-base.y-height/2,w:width,h:height,text:"",color,style:{textSize:template.textSize||16}});return d;});
+        commit(d=>{d.__life.items=DDlifeAdd(d.__life.items,{id,type:"sticky",parent:parent?.id || "",x:rel.x-base.x-width/2,y:rel.y-base.y-height/2,w:width,h:height,text:"",color,style:{textSize:template.textSize||16,...plain}});return d;});
       }else{
         ref="sticky:"+id;
         commit(d=>{
           d.notes.push({id,kind:"sticky",x:at.x-width/2,y:at.y-height/2,text:"",color});
           const b=clean(d.canvas?.board4);
-          b.styles={...b.styles,[ref]:{width,height,textSize:template.textSize||16}};
+          b.styles={...b.styles,[ref]:{width,height,textSize:template.textSize||16,...plain}};
           if(mode==="lanes")b.layouts={...b.layouts,lanes:{...b.layouts.lanes,[ref]:{x:at.x-width/2,y:at.y-height/2}}};
           d.canvas={...d.canvas,board4:b};return d;
         });
       }
       setSelected(new Set([ref]));setTool("select");setEditing({ref,value:""});
+      revealEdit({kind:"sticky",x:at.x-width/2,y:at.y-height/2,w:width,h:height,textSize:template.textSize||16});
       return ref;
     }
     // FigJam previews where a note will land: under the sticky tool, over a "+"
@@ -3242,7 +3321,7 @@ export function DDcreateBoard(deps) {
         if (
           (St.blocks.push({
             id: ct,
-            name: "\u0628\u0644\u0627\u06A9 \u062C\u062F\u06CC\u062F",
+            name: t("New task", "بلاک جدید"),
             type: setup.types[0]?.id || "work",
             lane: ot,
             min: prefs.defaultMinutes,
@@ -3432,18 +3511,18 @@ export function DDcreateBoard(deps) {
           continue;
         }
         const size = node.textSize || (node.kind === "sticky" ? 16 : 14),
-          color = ["sticky", "day", "lane"].includes(node.kind)
+          color = node.plain ? "none" : ["sticky", "day", "lane"].includes(node.kind)
             ? node.color
             : node.kind === "frame" || node.kind === "emoji"
               ? "none"
               : "#FFFFFF";
-        const textColor = ["sticky", "day", "lane"].includes(node.kind)
+        const textColor = node.plain && String(node.textColor).startsWith("var(") ? "#121211" : ["sticky", "day", "lane"].includes(node.kind)
           ? node.textColor
           : "#121211";
         const lines = ((node.emoji ? node.emoji + " " : "") + node.title)
           .split("\n")
           .slice(0, Math.max(1, Math.floor((node.h - 20) / (size * 1.5))));
-        Tt += `<g opacity="${node.opacity ?? 1}"><rect x="${node.x}" y="${node.y}" width="${node.w}" height="${node.h}" rx="7" fill="${ot(color)}" stroke="#aaa"/>`;
+        Tt += `<g opacity="${node.opacity ?? 1}"><rect x="${node.x}" y="${node.y}" width="${node.w}" height="${node.h}" rx="7" fill="${ot(color)}" stroke="${node.plain ? "none" : "#aaa"}"/>`;
         lines.forEach((line, i) => {
           Tt += `<text x="${node.x + 12}" y="${node.y + size + 10 + i * size * 1.5}" font-family="Arial,sans-serif" font-size="${size}" fill="${ot(textColor)}">${ot(line.slice(0, Math.max(1, Math.floor((node.w - 24) / (size * 0.55)))))}</text>`;
         });
@@ -3805,6 +3884,7 @@ export function DDcreateBoard(deps) {
             else if (Tt === "b") setTool("block");
             else if (Tt === "s" && ot.shiftKey) setTool("section");
             else if (Tt === "s") setTool("sticky");
+            else if (Tt === "t") setTool("text");
             else if (Tt === "e" && ot.shiftKey) { finishEdit(); setStickerPicker({}); }
             else if (Tt === "e") { finishEdit(); cancelGesture(); setMenu(null); setEngine((v) => !v); }
             else if (Tt === "d" && !ot.shiftKey) { ot.preventDefault(); finishEdit(); cancelGesture(); setMenu(null); setLifeNav((v) => !v); }
@@ -4187,7 +4267,7 @@ export function DDcreateBoard(deps) {
           tabIndex: Y.lifeId ? 0 : St ? -1 : 0,
           className:
             "b4-node b4-" +
-            Y.kind + (Y.lifeSection ? " b4-frame" : "") +
+            Y.kind + (Y.lifeSection ? " b4-frame" : "") + (Y.plain ? " b4-plain" : "") +
             (G ? " selected" : "") +
             (ct ? " locked" : "") +
             (connecting === Y.id ? " connecting" : ""),
@@ -4205,7 +4285,7 @@ export function DDcreateBoard(deps) {
             background: St
               ? "var(--wash)"
               : Tt || Pt || yn
-                ? Pt
+                ? Pt || Y.plain
                   ? "transparent"
                   : core.rgba(Y.color, Y.opacity)
                 : `color-mix(in srgb, var(--panel) ${Y.opacity * 100}%, transparent)`,
@@ -4274,7 +4354,10 @@ export function DDcreateBoard(deps) {
                         dir: "auto",
                         value: editing.value,
                         maxLength: Y.kind === "sticky" ? 4e3 : 300,
-                        "aria-label": DDUI("Node title"),
+                        // A section's name is edited at a readable size at any zoom.
+                        className: Y.lifeSection ? "dd-section-rename" : undefined,
+                        onFocus: Y.lifeSection ? (Kt) => Kt.target.select() : undefined,
+                        "aria-label": Y.lifeSection ? t("Section name", "نام سکشن") : DDUI("Node title"),
                         onChange: (Kt) =>
                           setEditing({ ...editing, value: Kt.target.value }),
                         onPointerDown: (Kt) => Kt.stopPropagation(),
@@ -4286,7 +4369,7 @@ export function DDcreateBoard(deps) {
                               (Y.kind === "bug" && !Y.title
                                 ? finishEdit("")
                                 : ((editingRef.current = null),
-                                  setEditing(null)),
+                                  setEditing(null), returnFromEdit()),
                               Kt.stopPropagation()));
                         },
                       })
@@ -5183,6 +5266,40 @@ export function DDcreateBoard(deps) {
         t("Position updated", "موقعیت تغییر کرد"),
       );
     }
+    function matchSelectionSize(axis) {
+      const nodes = selectedNodes.filter((n) => !locked.has(n.id) && (axis === "height" ? n.lifeSection : (n.kind === "sticky" && !n.memberOf) || n.lifeSection)),
+        paper = nodes.find((n) => n.kind === "sticky" && !n.plain);
+      let size = core.matchSize(nodes, axis);
+      if (!size) return;
+      // Notes keep their two widths, so everything takes the note's width.
+      if (axis === "width" && paper) size = DDstickySnap(size, paper.baseW || 240);
+      commit((d) => core.setStyle(d, nodes, axis === "height" ? { height: size } : { width: size }), axis === "height" ? t("Same height", "هم‌ارتفاع شد") : t("Same width", "هم‌عرض شد"));
+    }
+    // "Send to section…": notes and sections go inside another section (a note
+    // from this day joins the section, so it shows on every day like the rest).
+    function sendToSection(targetId) {
+      const nodes = selectedNodes.filter((n) => !locked.has(n.id) && (n.lifeId || (n.kind === "sticky" && n.noteId && !n.memberOf)));
+      if (!nodes.length) return;
+      const items = DDlifeItems(setup), name = targetId ? items.find((i) => i.id === targetId)?.text || t("Section", "سکشن") : "",
+        // A section carries what is inside it; do not move those twice.
+        life = nodes.filter((n) => n.lifeId && !nodes.some((p) => p.lifeSection && p.lifeId !== n.lifeId && DDlifeDescendants(items, p.lifeId).has(n.lifeId))).map((n) => n.lifeId),
+        refs = [];
+      commit((d) => {
+        d.__life.items = targetId ? DDlifeSendTo(d.__life.items, life, targetId) : DDlifeTakeOut(d.__life.items, life);
+        refs.push(...life.map((id) => "life:" + id));
+        if (targetId) for (const n of nodes) if (!n.lifeId) {
+          const old = d.notes.find((i) => i.id === n.noteId);
+          if (!old) continue;
+          const id = d.__life.items.some((i) => i.id === old.id) ? "lf-" + C() : old.id;
+          d.__life.items = DDlifeAdd(d.__life.items, { id, type: "sticky", parent: targetId, text: old.text, role: old.role, at: old.at, baseW: old.baseW, color: old.color, w: n.w, h: n.h, style: model.styles[n.id] });
+          d.notes = d.notes.filter((i) => i.id !== old.id);
+          transferRef(d, n.id, "life:" + id);
+          refs.push("life:" + id);
+        }
+        return d;
+      }, targetId ? t("Sent to ", "فرستاده شد به ") + name : t("Taken out of its section", "از سکشن بیرون اومد"));
+      setSelected(new Set(refs));
+    }
     function arrangeSelection(operation) {
       const nodes = selectedNodes.filter(
         (n) => !locked.has(n.id) && n.kind !== "frame",
@@ -5457,6 +5574,7 @@ export function DDcreateBoard(deps) {
       ];
       if (menu.wire)
         return [
+          { id: "line-colors", label: t("Line color", "رنگ خط"), swatches: wireColors, current: String(selectedWire?.color || "").toUpperCase(), onPick: (color) => { patchWire(wireId, { color }, t("Line color changed", "رنگ خط تغییر کرد")); changeAppearance({ lineColor: color }); } },
           ...styleItems,
           sep("route-sep"),
           item("route", "Connection route", "مسیر اتصال", "connector", null, {
@@ -5506,17 +5624,50 @@ export function DDcreateBoard(deps) {
         const allLocked =
           selectedNodes.length > 0 &&
           selectedNodes.every((n) => locked.has(n.id));
-        const align = [
-          ["left", "Align left", "تراز چپ"],
-          ["center-x", "Align horizontal centers", "تراز مرکز افقی"],
-          ["right", "Align right", "تراز راست"],
-          ["top", "Align top", "تراز بالا"],
-          ["center-y", "Align vertical centers", "تراز مرکز عمودی"],
-          ["bottom", "Align bottom", "تراز پایین"],
-          ["distribute-x", "Distribute horizontally", "فاصلهٔ افقی برابر"],
-          ["distribute-y", "Distribute vertically", "فاصلهٔ عمودی برابر"],
-        ];
+        // Only what fits what you right-clicked; the rest waits in More.
+        const lifeList = DDlifeItems(setup), sticky = selectedNode?.kind === "sticky",
+          colorable = selectedNodes.filter((n) => !locked.has(n.id) && ["sticky", "life-section", "block", "subtask", "bug"].includes(n.kind)),
+          palette = colorable.length && colorable.every((n) => n.lifeSection) ? DDsectionPalette : core.stickyColors,
+          sameColor = colorable.length && colorable.every((n) => String(n.color).toUpperCase() === String(colorable[0].color).toUpperCase()) ? String(colorable[0].color).toUpperCase() : null,
+          movable = selectedNodes.filter((n) => !locked.has(n.id) && (n.lifeId || (n.kind === "sticky" && n.noteId && !n.memberOf))),
+          skip = new Set(movable.filter((n) => n.lifeSection).flatMap((n) => [...DDlifeDescendants(lifeList, n.lifeId)])),
+          targets = lifeList.filter((i) => i.type === "section" && !skip.has(i.id))
+            .map((i) => ({ id: i.id, path: DDsectionPath(lifeList, i.id, 36, t("Section", "سکشن")) }))
+            .sort((a, b) => a.path.full.localeCompare(b.path.full)),
+          inSection = movable.some((n) => n.lifeId && lifeList.find((i) => i.id === n.lifeId)?.parent),
+          movableLife = movable.filter((n) => n.lifeId),
+          grouped = Object.values(model.groups).some((refs) => refs.some((ref) => selected.has(ref))),
+          plainNow = sticky && !!selectedNode.plain;
+        const more = [
+          sticky && item("text-style", "Text style", "سبک متن", "bold", null, {
+            disabled: allLocked,
+            children: [["bold", "Bold", "پررنگ", "Ctrl/Cmd+B"], ["strike", "Strikethrough", "خط‌خورده", "Ctrl/Cmd+Shift+X"], ["todo", "To-do", "کار", "Ctrl/Cmd+Shift+9"]].map(([kind, en, fa, shortcut]) => item("format-" + kind, en, fa, kind, () => formatSticky(kind), { shortcut })),
+          }),
+          sticky && item("plain", plainNow ? "Show as a note" : "Show as text (no paper)", plainNow ? "نمایش به شکل نوت" : "نمایش به شکل متن", plainNow ? "note" : "text", () => applyStyle({ plain: plainNow ? null : true }), { disabled: allLocked }),
+          ...(sticky ? ["goal", "note"].map((role) => {
+            const note = selectedNode.lifeId ? lifeList.find((n) => n.id === selectedNode.lifeId) : day.notes.find((n) => n.id === selectedNode.noteId), active = note?.role === role;
+            return item("rail-" + role, active ? (role === "goal" ? "Remove goal role" : "Remove note role") : (role === "goal" ? "Make it the goal" : "Make it a note"), active ? (role === "goal" ? "برداشتن هدف" : "برداشتن نوت") : (role === "goal" ? "هدف کن" : "نوت کن"), role === "goal" ? "goal" : "lines", () => commit((d) => DDsetRailRole(d, selectedNode.id, active ? undefined : role)), { checked: active, disabled: allLocked });
+          }) : []),
+          selectedNode?.kind === "block" && item("task-symbol","Change task sticker / emoji","تغییر استیکر / ایموجی کار","sticker",()=>{finishEdit();setStickerPicker({target:selectedNode.blockId,current:selectedNode.emoji});},{disabled:allLocked}),
+          ...styleItems.slice(1),
+          item("layers", "Layer order", "ترتیب لایه‌ها", "layers", null, {
+            disabled: !editable,
+            children: [
+              ["front", "Bring to front", "آوردن به جلو"],
+              ["forward", "Bring forward", "یک لایه جلو"],
+              ["backward", "Send backward", "یک لایه عقب"],
+              ["back", "Send to back", "فرستادن به پشت"],
+            ].map(([op, en, fa]) => item(op, en, fa, "layers", () => reorder(op))),
+          }),
+          selectedNode && item("connect", "Connect from here", "اتصال از اینجا", "connector", () => { setConnecting(selectedNode.id); setTool("connector"); }, { disabled: allLocked }),
+          item("fit-selection", "Zoom to selection", "زوم روی انتخاب", "fit", () => fit(true), { shortcut: "Shift+2" }),
+          selectedNode && mode === "mindmap" && item("branch", "Select branch", "انتخاب شاخه", "branch", selectBranch),
+          item("cut", "Cut", "برش", "cut", () => copySelection(null, true), { disabled: !copyable || !editable, shortcut: "Ctrl/Cmd+X" }),
+        ].filter(Boolean);
         return [
+          colorable.length > 0 && { id: "quick-colors", label: t("Color", "رنگ"), swatches: palette, current: sameColor, onPick: (color) => applyStyle({ fill: color }) },
+          colorable.length > 0 && item("properties", "Color & properties…", "رنگ و ویژگی‌ها…", "palette", showProperties),
+          colorable.length > 0 && sep("color-sep"),
           selectedNode &&
             item(
               "edit",
@@ -5529,163 +5680,38 @@ export function DDcreateBoard(deps) {
                 shortcut: "Enter",
               },
             ),
-          ...(selectedNode?.kind === "sticky" ? ["goal", "note"].map((role) => {
-            const note = selectedNode.lifeId ? DDlifeItems(setup).find((n) => n.id === selectedNode.lifeId) : day.notes.find((n) => n.id === selectedNode.noteId), active = note?.role === role;
-            return item("rail-" + role, active ? (role === "goal" ? "Remove goal role" : "Remove note role") : (role === "goal" ? "Make it the goal" : "Make it a note"), active ? (role === "goal" ? "برداشتن هدف" : "برداشتن نوت") : (role === "goal" ? "هدف کن" : "نوت کن"), role === "goal" ? "goal" : "lines", () => commit((d) => DDsetRailRole(d, selectedNode.id, active ? undefined : role)), { checked: active, disabled: allLocked });
-          }) : []),
-          // From the selection bar: note styling outside typing, and a section's add / remove.
-          selectedNode?.kind === "sticky" && item("text-style", "Text style", "سبک متن", "bold", null, {
-            disabled: allLocked,
-            children: [["bold", "Bold", "پررنگ", "Ctrl/Cmd+B"], ["strike", "Strikethrough", "خط‌خورده", "Ctrl/Cmd+Shift+X"], ["todo", "To-do", "کار", "Ctrl/Cmd+Shift+9"]].map(([kind, en, fa, shortcut]) => item("format-" + kind, en, fa, kind, () => formatSticky(kind), { shortcut })),
+          movable.length > 0 && targets.length > 0 && item("send", "Send to section…", "فرستادن به سکشن…", "sendTo", null, {
+            children: [
+              ...targets.map((s) => item("send-" + s.id, s.path.short, s.path.short, "section", () => sendToSection(s.id), { checked: movableLife.length === movable.length && movableLife.every((n) => lifeList.find((i) => i.id === n.lifeId)?.parent === s.id) })),
+              inSection && sep("send-out-sep"),
+              inSection && item("send-out", "Out of its section", "بیرون از سکشن", "unframe", () => sendToSection("")),
+            ].filter(Boolean),
           }),
+          sticky && item("convert", "Convert note to task", "تبدیل نوت به کار", "task", () => convertSticky(selectedNode), { disabled: allLocked }),
           ...(selectedNode?.lifeSection ? [
             item("section-note", "Add sticky note inside", "افزودن یادداشت داخل", "noteAdd", () => addLifeItem("sticky", selectedNode.lifeId)),
             item("section-inside", "Add section inside", "افزودن سکشن داخل", "sectionAdd", () => addLifeItem("section", selectedNode.lifeId)),
             item("section-remove", "Remove section, keep contents", "برداشتن سکشن با حفظ محتوا", "unframe", () => groupSelection(true), { shortcut: "Ctrl/Cmd+Shift+G" }),
           ] : []),
-          ...styleItems,
-          selectedNode?.kind === "block" && item("task-symbol","Change task sticker / emoji","تغییر استیکر / ایموجی کار","sticker",()=>{finishEdit();setStickerPicker({target:selectedNode.blockId,current:selectedNode.emoji});},{disabled:allLocked}),
-          item("fit-selection","Zoom to selection","زوم روی انتخاب","fit",()=>fit(true)),
-          item("select-branch","Select branch","انتخاب شاخه","tree",selectBranch,{disabled:!selectedNode}),
+          selectedNodes.length > 1 && item("align", "Align & space…", "تراز و فاصله…", "align", () => { setAlignPanel(true); setProperties(false); setViewPanel(false); }, { disabled: selectedNodes.filter((n) => !locked.has(n.id)).length < 2 }),
+          selected.size > 1 && !grouped && item("group", "Group", "گروه‌کردن", "group", () => groupSelection(), { shortcut: "Ctrl/Cmd+G" }),
+          grouped && item("ungroup", "Ungroup", "بازکردن گروه", "ungroup", () => groupSelection(true), { shortcut: "Ctrl/Cmd+Shift+G" }),
           sep("clipboard-sep"),
-          item("copy", "Copy", "کپی", "copy", () => copySelection(), {
-            disabled: !copyable,
-            shortcut: "Ctrl/Cmd+C",
-          }),
-          item("cut", "Cut", "برش", "cut", () => copySelection(null, true), {
-            disabled: !copyable || !editable,
-            shortcut: "Ctrl/Cmd+X",
-          }),
-          item(
-            "duplicate",
-            "Duplicate",
-            "ساخت کپی مستقل",
-            "duplicate",
-            duplicate,
-            { disabled: !copyable, shortcut: "Ctrl/Cmd+D" },
-          ),
-          sep("position-sep"),
-          item(
-            "align",
-            "Align & distribute",
-            "تراز و فاصله‌گذاری",
-            "align",
-            null,
-            {
-              disabled: selectedNodes.filter((n) => !n.locked).length < 2,
-              children: align.map(([op, en, fa]) =>
-                item(op, en, fa, "align", () => arrangeSelection(op), {
-                  disabled:
-                    op.startsWith("distribute") &&
-                    selectedNodes.filter((n) => !n.locked).length < 3,
-                }),
-              ),
-            },
-          ),
-          item("layers", "Layer order", "ترتیب لایه‌ها", "layers", null, {
-            disabled: !editable,
-            children: [
-              ["front", "Bring to front", "آوردن به جلو"],
-              ["forward", "Bring forward", "یک لایه جلو"],
-              ["backward", "Send backward", "یک لایه عقب"],
-              ["back", "Send to back", "فرستادن به پشت"],
-            ].map(([op, en, fa]) =>
-              item(op, en, fa, "layers", () => reorder(op)),
-            ),
-          }),
-          item("group", "Group", "گروه‌کردن", "group", () => groupSelection(), {
-            disabled: selected.size < 2,
-            shortcut: "Ctrl/Cmd+G",
-          }),
-          Object.values(model.groups).some((refs) =>
-            refs.some((ref) => selected.has(ref)),
-          ) &&
-            item(
-              "ungroup",
-              "Ungroup",
-              "بازکردن گروه",
-              "ungroup",
-              () => groupSelection(true),
-              { shortcut: "Ctrl/Cmd+Shift+G" },
-            ),
-          item(
-            "lock",
-            allLocked ? "Unlock" : "Lock",
-            allLocked ? "بازکردن قفل" : "قفل‌کردن",
-            allLocked ? "unlock" : "lock",
-            toggleLock,
-          ),
-          sep("link-sep"),
-          selectedNode &&
-            item(
-              "connect",
-              "Connect from here",
-              "اتصال از اینجا",
-              "connector",
-              () => {
-                setConnecting(selectedNode.id);
-                setTool("connector");
-              },
-              { disabled: allLocked },
-            ),
-          selectedNode?.kind === "sticky" &&
-            item(
-              "convert",
-              "Convert note to task",
-              "تبدیل نوت به کار",
-              "task",
-              () => convertSticky(selectedNode),
-              { disabled: allLocked },
-            ),
-          selectedNode &&
-            mode === "mindmap" &&
-            item(
-              "branch",
-              "Select branch",
-              "انتخاب شاخه",
-              "branch",
-              selectBranch,
-            ),
-          item(
-            "fit-selection",
-            "Zoom to selection",
-            "نمایش انتخاب",
-            "fit",
-            () => fit(true),
-            { shortcut: "Shift+2" },
-          ),
+          item("copy", "Copy", "کپی", "copy", () => copySelection(), { disabled: !copyable, shortcut: "Ctrl/Cmd+C" }),
+          item("duplicate", "Duplicate", "ساخت کپی مستقل", "duplicate", duplicate, { disabled: !copyable, shortcut: "Ctrl/Cmd+D" }),
+          item("lock", allLocked ? "Unlock" : "Lock", allLocked ? "بازکردن قفل" : "قفل‌کردن", allLocked ? "unlock" : "lock", toggleLock),
+          item("more", "More", "بیشتر", "more", null, { children: more }),
           sep("delete-sep"),
-          item(
-            "delete",
-            "Delete selection",
-            "حذف انتخاب",
-            "trash",
-            deleteNodes,
-            {
-              danger: true,
-              disabled: !editable || !copyable,
-              shortcut: "Delete",
-            },
-          ),
+          item("delete", "Delete selection", "حذف انتخاب", "trash", deleteNodes, { danger: true, disabled: !editable || !copyable, shortcut: "Delete" }),
         ];
       }
       return [
-        item("add-note", "Add note here", "افزودن نوت اینجا", "note", () =>
-          addSticky(menu.point),
-        ),
+        item("add-note", "Add note here", "افزودن نوت اینجا", "note", () => addSticky(menu.point)),
+        item("add-text", "Add text here", "افزودن متن اینجا", "text", () => addText(menu.point), { shortcut: "T" }),
+        item("add-task", "Add task here", "افزودن کار اینجا", "task", () => addBlock(null, menu.point)),
         item("add-symbol","Add sticker / emoji here","افزودن استیکر / ایموجی اینجا","sticker",()=>{finishEdit();setStickerPicker({point:menu.point});}),
-        item("add-task", "Add task here", "افزودن کار اینجا", "task", () =>
-          addBlock(null, menu.point),
-        ),
         sep("paste-sep"),
-        item(
-          "paste",
-          "Paste here",
-          "چسباندن اینجا",
-          "paste",
-          () => pasteClipboard(menu.point),
-          { shortcut: "Ctrl/Cmd+V" },
-        ),
+        item("paste", "Paste here", "چسباندن اینجا", "paste", () => pasteClipboard(menu.point), { shortcut: "Ctrl/Cmd+V" }),
         item(
           "select-all",
           "Select all objects",
@@ -5704,64 +5730,44 @@ export function DDcreateBoard(deps) {
           { shortcut: "Ctrl/Cmd+A" },
         ),
         sep("view-sep"),
-        item(
-          "fit-all",
-          "Fit all objects",
-          "نمایش همهٔ اشیا",
-          "fitAll",
-          () => fit(false),
-          { shortcut: "Shift+1" },
-        ),
-        item("zoom-100", "Zoom to 100%", "زوم ۱۰۰٪", "zoom", () => setZoom(1), {
-          shortcut: "0",
-        }),
-        item("fit-day","Fit current day","نمای روز جاری","fitDay",()=>fit(false,"day"),{shortcut:"Shift+3"}),
+        item("fit-all", "Fit all objects", "نمایش همهٔ اشیا", "fitAll", () => fit(false), { shortcut: "Shift+1" }),
         item("view", "Canvas settings…", "تنظیمات بوم…", "settings", () => {
           setViewPanel(true);
           setProperties(false);
           setInspector(false);
         }),
-        item(
-          "grid",
-          "Dot grid",
-          "شبکهٔ نقطه‌ای",
-          "grid",
-          () => toggleView("grid"),
-          { checked: grid },
-        ),
-        sep("history-sep"),
-        item("undo", "Undo", "واگرد", "undo", () => undo(), {
-          disabled: !history.current.past.length,
-          shortcut: "Ctrl/Cmd+Z",
-        }),
-        item("redo", "Redo", "انجام مجدد", "redo", () => undo(true), {
-          disabled: !history.current.future.length,
-          shortcut: "Ctrl/Cmd+Shift+Z",
-        }),
-        item("help", "Board help", "راهنمای برد", "help", () => setHelp(true), { shortcut: "?" }),
+        item("more", "More", "بیشتر", "more", null, { children: [
+          item("zoom-100", "Zoom to 100%", "زوم ۱۰۰٪", "zoom", () => setZoom(1), { shortcut: "0" }),
+          item("fit-day","Fit current day","نمای روز جاری","fitDay",()=>fit(false,"day"),{shortcut:"Shift+3"}),
+          item("grid", "Dot grid", "شبکهٔ نقطه‌ای", "grid", () => toggleView("grid"), { checked: grid }),
+          item("undo", "Undo", "واگرد", "undo", () => undo(), { disabled: !history.current.past.length, shortcut: "Ctrl/Cmd+Z" }),
+          item("redo", "Redo", "انجام مجدد", "redo", () => undo(true), { disabled: !history.current.future.length, shortcut: "Ctrl/Cmd+Shift+Z" }),
+          item("help", "Board help", "راهنمای برد", "help", () => setHelp(true), { shortcut: "?" }),
         item("layout", "Layout options", "گزینه‌های چیدمان", "align", null, {
-          children: [
-            item(
-              "reset-layout",
-              "Reset task positions",
-              "بازنشانی جای کارها",
-              "undo",
-              autoArrange,
-            ),
-            model.hidden.length > 0 &&
+            children: [
               item(
-                "restore-links",
-                "Restore hidden connections",
-                "برگرداندن اتصال‌های پنهان",
-                "connector",
-                () =>
-                  boardChange(
-                    (b) => ({ ...b, hidden: [] }),
-                    t("Connections restored", "اتصال‌ها برگشتند"),
-                  ),
+                "reset-layout",
+                "Reset task positions",
+                "بازنشانی جای کارها",
+                "undo",
+                autoArrange,
               ),
-          ].filter(Boolean),
-        }),
+              model.hidden.length > 0 &&
+                item(
+                  "restore-links",
+                  "Restore hidden connections",
+                  "برگرداندن اتصال‌های پنهان",
+                  "connector",
+                  () =>
+                    boardChange(
+                      (b) => ({ ...b, hidden: [] }),
+                      t("Connections restored", "اتصال‌ها برگشتند"),
+                    ),
+                ),
+            ].filter(Boolean),
+          }),
+
+        ] }),
       ];
     }
 
@@ -6001,16 +6007,40 @@ export function DDcreateBoard(deps) {
                     { "data-add-step": true },
                     t("Step", "قدم"),
                   ),
-                toolButton(
+                selected.size > 0 && toolButton(
                   t("Color & properties", "رنگ و ویژگی‌ها"),
                   "palette",
                   () => {
                     restoreStylePreview();
                     setProperties(!properties);
+                    setAlignPanel(false);
                     setViewPanel(false);
                   },
                   { "aria-pressed": properties },
                 ),
+                // Left / center / right for the words in a note or a text object.
+                selectedNodes.some((n) => n.kind === "sticky") && (() => {
+                  const now = selectedNodes.find((n) => n.kind === "sticky").textAlign || "start",
+                    order = ["start", "center", "end"], names = { start: "left", center: "center", end: "right" },
+                    next = order[(order.indexOf(now) + 1) % 3];
+                  return toolButton(
+                    t("Text align " + names[now] + " · click for " + names[next], "تراز متن"),
+                    now === "center" ? "textCenter" : now === "end" ? "textRight" : "textLeft",
+                    () => applyStyle({ textAlign: next }),
+                    { "data-text-align": now, disabled: selectedNodes.every((n) => n.kind !== "sticky" || locked.has(n.id)) },
+                  );
+                })(),
+                // Line things up, space them evenly, match sizes (like a design app).
+                selectedNodes.length > 1 && toolButton(
+                  t("Align & space", "تراز و فاصله"),
+                  "align",
+                  () => { restoreStylePreview(); setAlignPanel(!alignPanel); setProperties(false); setViewPanel(false); },
+                  { "aria-pressed": alignPanel, "data-align-panel": true },
+                ),
+                // Lines picked up with the selection: one color and weight for all of them.
+                selectedWires.size > 0 && _.createElement(_.Fragment, null,
+                  _.createElement("span", { className: "b2-sep" }),
+                  lineLook(layout.edges.filter((e) => selectedWires.has(e.id)), (patch, message) => patchWires([...selectedWires], patch, message))),
                 // The note's own bar stays out of sight on desktop (FigJam), so its
                 // "to plan" action lives here.
                 selectedNode?.kind === "sticky" && toolButton(DDUI("Convert note to plan"), "toPlan", () => convertSticky(selectedNode), {}, DDUI("→ پلن")),
@@ -6292,6 +6322,15 @@ export function DDcreateBoard(deps) {
             DDUI("\u0644\u063A\u0648"),
           ),
         ),
+      alignPanel && !properties && selectedNodes.length > 1 &&
+        _.createElement(controls.AlignPanel, {
+          React: _,
+          language: DDlanguage,
+          nodes: selectedNodes.map((n) => ({ ...n, locked: locked.has(n.id) })),
+          onArrange: arrangeSelection,
+          onSize: matchSelectionSize,
+          onClose: () => { setAlignPanel(false); viewport.current?.focus({ preventScroll: true }); },
+        }),
       ((selectedWire && inspector) ||
         (properties && selectedNodes.length > 0)) &&
         _.createElement(controls.PropertiesPanel, {
@@ -6485,6 +6524,7 @@ export function DDcreateBoard(deps) {
             DDUI("\u06CC\u0627\u062F\u062F\u0627\u0634\u062A"),
             "sticky",
           ],
+          ["text", t("Text", "متن"), "text"],
           ["section", t("Section", "سکشن"), "section"],
         ].map(([Y, G, ct]) =>
           _.createElement(
@@ -6506,7 +6546,9 @@ export function DDcreateBoard(deps) {
                           ? "Feeling or mistake tool"
                           : Y === "section"
                             ? "Section tool"
-                            : "Sticky note tool",
+                            : Y === "text"
+                              ? "Text tool"
+                              : "Sticky note tool",
               ),
               "aria-pressed": tool === Y,
               onClick: () => {

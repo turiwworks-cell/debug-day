@@ -13,9 +13,9 @@ const {start,fixture}=require('./harness.cjs');
  assert.equal(await note.locator('[data-edge="n"],[data-edge="s"]').count(),0);
  assert.match(await note.locator('time').getAttribute('datetime'),/^\d{4}-\d{2}-\d{2}$/);
  assert.equal(await long.locator('time').count(),0,'old Life notes have no invented date');
- // Outside typing, note styling is in ⋯ › Text style; while typing it sits in the bar.
+ // Outside typing, note styling is in ⋯ › More › Text style; while typing it sits in the bar.
  assert.equal(await page.locator('.b4-selectionbar [data-note-format]').count(),0);
- const textStyle=async(en,fa)=>{await page.locator('.b4-selectionbar').getByRole('button',{name:language==='fa'?'گزینه‌های بیشتر':'More actions',exact:true}).click();await page.getByRole('menuitem',{name:language==='fa'?'سبک متن':'Text style',exact:true}).click();await page.getByRole('menuitem',{name:language==='fa'?fa:en,exact:true}).click();};
+ const textStyle=async(en,fa)=>{await page.locator('.b4-selectionbar').getByRole('button',{name:language==='fa'?'گزینه‌های بیشتر':'More actions',exact:true}).click();await page.getByRole('menuitem',{name:language==='fa'?'بیشتر':'More',exact:true}).click();await page.getByRole('menuitem',{name:language==='fa'?'سبک متن':'Text style',exact:true}).click();await page.getByRole('menuitem',{name:language==='fa'?fa:en,exact:true}).click();};
  await textStyle('Bold','پررنگ');assert.equal((await read()).days[f.date].notes[0].text,'**Draw**');await note.locator('strong').waitFor();
  await textStyle('Strikethrough','خط‌خورده');await note.locator('s').waitFor();
  await textStyle('To-do','کار');await note.locator('input[type=checkbox]').check();assert.match((await read()).days[f.date].notes[0].text,/- \[x\]/);assert.equal(await note.locator('textarea').count(),0);

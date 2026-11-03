@@ -95,6 +95,12 @@ export const DDboardIcons = {
   bottom: "M3 17h14M6 4h3v10H6zM12 7h3v7h-3z",
   distributeX: "M3 3v14M17 3v14M6 6h2v8H6zM12 6h2v8h-2z",
   distributeY: "M3 3h14M3 17h14M6 6h8v2H6zM6 12h8v2H6z",
+  sameWidth: "M5 5h10v3H5zM5 12h10v3H5zM2.5 3v14M17.5 3v14",
+  sameHeight: "M5 5h3v10H5zM12 5h3v10h-3zM3 2.5h14M3 17.5h14",
+  textLeft: "M3 4.5h14M3 8.5h9M3 12.5h14M3 16.5h9",
+  textCenter: "M3 4.5h14M5.5 8.5h9M3 12.5h14M5.5 16.5h9",
+  textRight: "M3 4.5h14M8 8.5h9M3 12.5h14M8 16.5h9",
+  sendTo: "M2.5 5.5h9v9h-9zM11.5 10h6M15 7.5l2.5 2.5-2.5 2.5",
   // Small marks
   check: "M4 10l4 4 8-9",
   close: "M5 5l10 10M15 5L5 15",

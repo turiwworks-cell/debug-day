@@ -115,7 +115,7 @@ export function DDnormalizeLife(life) {
       ...(!section && /^\d{4}-\d{2}-\d{2}$/.test(r.at||"") ? {at:r.at} : {}),
       ...(!section && Number.isFinite(r.baseW) ? {baseW:Math.max(160,r.baseW)} : {}),
       ...(!section && ["goal", "note"].includes(r.role) ? { role: r.role } : {}),
-      ...(r.style && typeof r.style === "object" ? { style: Object.fromEntries(Object.entries(r.style).filter(([k,v]) => (["textSize","opacity"].includes(k) && Number.isFinite(v)) || (k==="textAlign"&&["start","center","end"].includes(v)) || (k==="textColor"&&typeof v==="string"&&/^#[0-9a-f]{6}$/i.test(v)))) } : {}),
+      ...(r.style && typeof r.style === "object" ? { style: Object.fromEntries(Object.entries(r.style).filter(([k,v]) => (["textSize","opacity"].includes(k) && Number.isFinite(v)) || (k==="textAlign"&&["start","center","end"].includes(v)) || (k==="plain"&&v===true) || (k==="textColor"&&typeof v==="string"&&/^#[0-9a-f]{6}$/i.test(v)))) } : {}),
       ...(typeof r.color === "string" && /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(r.color) ? { color: r.color, ...(section && r.ownColor === true ? { ownColor: true } : {}) } : {}),
       // A top section placed on the board outside the Feed.
       ...(section && r.out === true ? { out: true } : {}),
@@ -341,6 +341,36 @@ export function DDlifeAdd(items, spec) {
   return placed ? [...items, item] : DDlifeFit([...items, item], item.parent);
 }
 
+// "Send to section…": things go into a section at a free spot inside it, with
+// their size and look, and the section grows to fit. A section never goes into
+// itself or into a section inside it.
+export function DDlifeSendTo(items, ids, targetId) {
+  const target = find(items, targetId);
+  if (!target || target.type !== "section") return items;
+  let next = items;
+  for (const id of ids) {
+    const it = find(next, id);
+    if (!it || it.parent === targetId || DDlifeDescendants(next, id).has(targetId)) continue;
+    const rest = next.filter((i) => i.id !== id), { out, ...moved } = it,
+      pos = freeSpot(rest, targetId, it.w, it.collapsed ? 38 : it.h);
+    next = DDlifeFit([...rest, { ...moved, parent: targetId, x: pos.x, y: pos.y }], targetId);
+  }
+  return next;
+}
+// Out of its section: one level up, at a free spot there, so it never looks
+// like it is still inside.
+export function DDlifeTakeOut(items, ids) {
+  let next = items;
+  for (const id of ids) {
+    const it = find(next, id), sec = it?.parent && find(next, it.parent);
+    if (!sec) continue;
+    const up = sec.parent || "", rest = next.filter((i) => i.id !== id),
+      pos = freeSpot(rest, up, it.w, it.collapsed ? 38 : it.h);
+    next = [...rest, { ...it, parent: up, x: pos.x, y: pos.y, ...(!up && sec.out ? { out: true } : {}) }];
+    if (up) next = DDlifeFit(next, up);
+  }
+  return next;
+}
 // FigJam: a section drawn or resized around things takes them in. Only siblings
 // that sit wholly inside it join; nothing already inside is pushed out.
 export function DDlifeAdopt(items, sectionId) {
