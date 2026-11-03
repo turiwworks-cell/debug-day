@@ -386,7 +386,22 @@ export function DDlifeRemove(items, id) {
 // Move by a screen offset (already divided by zoom). Dropping on a section joins it;
 // dropping on empty space leaves the section it was in.
 // `moving` lists other items dragged together; they never become the target.
-export function DDlifeDropTarget(items, id, dx, dy, moving = []) {
+// Where a section takes a drop. A folded section is only its name bar, and a
+// section inside a folded one is hidden, so it takes nothing: empty space stays
+// empty. The open section board (`room`) always counts as open.
+function dropArea(items, s, room = "") {
+  const folded = (it) => it.collapsed && it.id !== room;
+  let p = s.parent, hops = 0;
+  while (p && p !== room && hops++ < 60) {
+    const it = find(items, p);
+    if (!it) break;
+    if (folded(it)) return null;
+    p = it.parent;
+  }
+  const a = DDlifeAbs(items, s.id);
+  return { x: a.x, y: a.y, w: s.w, h: folded(s) ? 38 : s.h, folded: folded(s) };
+}
+export function DDlifeDropTarget(items, id, dx, dy, moving = [], room = "") {
   const it = find(items, id);
   if (!it) return null;
   const abs = DDlifeAbs(items, id),
@@ -399,21 +414,23 @@ export function DDlifeDropTarget(items, id, dx, dy, moving = []) {
     area = Infinity;
   for (const s of items) {
     if (s.type !== "section" || skip.has(s.id)) continue;
-    const a = DDlifeAbs(items, s.id);
+    const a = dropArea(items, s, room);
+    if (!a) continue;
     // Sections join only when fully inside. Merely overlapping a neighbour must
     // not silently reparent it or grow that neighbour into a huge white box.
-    const inside = it.type === "section"
-      ? ax >= a.x && ay >= a.y && ax + it.w <= a.x + s.w && ay + it.h <= a.y + s.h
-      : cx >= a.x && cx <= a.x + s.w && cy >= a.y && cy <= a.y + s.h;
-    if (inside && s.w * s.h < area) ((target = s), (area = s.w * s.h));
+    // A folded section takes a section only when its name bar is under the middle.
+    const inside = it.type === "section" && !a.folded
+      ? ax >= a.x && ay >= a.y && ax + it.w <= a.x + a.w && ay + it.h <= a.y + a.h
+      : cx >= a.x && cx <= a.x + a.w && cy >= a.y && cy <= a.y + a.h;
+    if (inside && a.w * a.h < area) ((target = s), (area = a.w * a.h));
   }
   return target;
 }
-export function DDlifeMoveBy(items, id, dx, dy, moving = []) {
+export function DDlifeMoveBy(items, id, dx, dy, moving = [], room = "") {
   const it = find(items, id);
   if (!it || (!dx && !dy)) return items;
   const abs = DDlifeAbs(items, id), ax = abs.x + dx, ay = abs.y + dy,
-    target = DDlifeDropTarget(items, id, dx, dy, moving);
+    target = DDlifeDropTarget(items, id, dx, dy, moving, room);
   const base = target ? DDlifeAbs(items, target.id) : { x: 0, y: 0 },
     moved = { ...it, parent: target ? target.id : "", x: Math.round(ax - base.x), y: Math.round(ay - base.y) };
   if (target) delete moved.out;
@@ -550,13 +567,13 @@ export function DDlifeKeepIn(items, roomId, before = []) {
 
 // Where a new top-level section goes when the click was at (x, y) in Life coordinates:
 // inside the section under the click if there is one.
-export function DDlifeParentAt(items, x, y, skip = new Set()) {
+export function DDlifeParentAt(items, x, y, skip = new Set(), room = "") {
   let target = null,
     area = Infinity;
   for (const s of items) {
     if (s.type !== "section" || skip.has(s.id)) continue;
-    const a = DDlifeAbs(items, s.id);
-    if (x >= a.x && x <= a.x + s.w && y >= a.y && y <= a.y + s.h && s.w * s.h < area) ((target = s), (area = s.w * s.h));
+    const a = dropArea(items, s, room);
+    if (a && x >= a.x && x <= a.x + a.w && y >= a.y && y <= a.y + a.h && a.w * a.h < area) ((target = s), (area = a.w * a.h));
   }
   return target;
 }

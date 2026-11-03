@@ -63,3 +63,16 @@ test("elbow connectors have rounded corners and stay finite", () => {
     assert.ok(!/NaN|Infinity/.test(g2.d), "finite at " + i);
   }
 });
+
+test("an elbow's handle sits on its middle run and moves it only along the free way", () => {
+  const a = { id: "a", x: 0, y: 0, w: 100, h: 100 }, b = { id: "b", x: 400, y: 300, w: 100, h: 100 };
+  const g = DDconnectionGeometry(a, b, { style: "elbow", bend: { x: 250, y: -500 } });
+  assert.equal(g.axis, "x", "left/right ends: the middle run moves sideways");
+  assert.deepEqual(g.mid, { x: 250, y: (g.p.y + g.q.y) / 2 }, "the handle is on the run, not where the pointer let go");
+  const same = DDconnectionGeometry(a, b, { style: "elbow", bend: { x: 250, y: 900 } });
+  assert.equal(same.d, g.d, "dragging across the run changes nothing");
+  // Ends lined up one above the other: the run would have no length, so it moves sideways.
+  const lined = DDconnectionGeometry(a, { ...b, x: 0 }, { style: "elbow", bend: { x: 300, y: 200 } });
+  assert.equal(lined.axis, "x");
+  assert.match(lined.d, /300/, "the line goes round through the handle");
+});

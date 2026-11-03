@@ -1,6 +1,7 @@
 import { DDcompletion, DDTaskMetadata, DDTaskTags, DDpriorityLabel, DDprogressLabel } from "./planner.js";
 import { DDreconcileDay, DDrelation, DDconnectRelation, DDdisconnectRelation, DDrewireRelation } from "./relations.js";
 import { DDconnectionGeometry } from "./connections.js";
+import { DDundoRevert } from "./board-history.js";
 import { DDEngineOverlay, DDengineBus, DDengineTask, DDengineTaskFromNote, DDengineSources, DDengineSourceHistory, DDengineStrip, DDinstallEngineStyles } from "./engine.js";
 import { DDboardShortcuts, DDboardSearchRows, DDrootSelection, DDmarqueeSelection, DDselectionToolbar, DDBoardSearch, DDBoardTimer, DDBoardTimerButton, DDinstallBoardExperience, DDinstallZoomLock } from "./board-experience.js";
 import {
@@ -42,6 +43,15 @@ export function DDcreateBoard(deps) {
   const { core, controls, playful } = deps;
   const measure = deps.measure;
   let sharedClipboard = null;
+  // The board's own copy is the latest copy until something else may have been
+  // copied: the window lost focus (another app) or text was copied on the page.
+  let sharedFresh = false;
+  if (typeof window !== "undefined") {
+    window.addEventListener("blur", () => { sharedFresh = false; });
+    const elsewhere = (e) => { const el = e.target?.closest ? e.target : document.activeElement; if (!el?.closest?.(".b2") || el.closest("input,textarea,select,[contenteditable=true]")) sharedFresh = false; };
+    document.addEventListener("copy", elsewhere, true);
+    document.addEventListener("cut", elsewhere, true);
+  }
   life.DDinstallLifeStyles();
   DDinstallBoardExperience();
   DDinstallZoomLock();
@@ -258,9 +268,11 @@ export function DDcreateBoard(deps) {
         .filter((Y) => !matchesFilter || matchesFilter(Y))
         .map((Y) => Y.id)
         .join("|");
-    function remember(Y, shared = DDlifeState(propsRef.current.setup)) {
+    // An undo step keeps the state before and right after the action, so undo
+    // takes back only that action (see board-history.js).
+    function remember(Y, shared = DDlifeState(propsRef.current.setup), afterDay = null, afterLife = null) {
       const G = history.current;
-      (G.past.push({ day: copy(Y), life: copy(shared), bytes: JSON.stringify([Y,shared]).length }),
+      (G.past.push({ day: copy(Y), life: copy(shared), ...(afterDay ? { after: { day: copy(afterDay), life: copy(afterLife || shared) } } : {}), bytes: JSON.stringify([Y,shared,afterDay,afterLife]).length }),
         (G.future = []));
       let ct = G.past.reduce((ot, St) => ot + St.bytes, 0);
       for (; G.past.length > 50 || (ct > 24e6 && G.past.length > 1); )
@@ -273,7 +285,7 @@ export function DDcreateBoard(deps) {
       if (frame) for (const note of (d.notes || []).filter((n) => !known.has(n.id) && n.kind !== "emoji")) {
         const ref = "sticky:" + note.id, { width, height, ...style } = d.canvas?.board4?.styles?.[ref] || {},
           w = width || 240, h = height || 240, items = d.__life.items, inside = DDlifeDescendants(items, roomId),
-          target = DDlifeParentAt(items, note.x - frame.x + w / 2, note.y - frame.y - DDlifeHead + h / 2, new Set(items.filter((i) => !inside.has(i.id)).map((i) => i.id))) || items.find((i) => i.id === roomId),
+          target = DDlifeParentAt(items, note.x - frame.x + w / 2, note.y - frame.y - DDlifeHead + h / 2, new Set(items.filter((i) => !inside.has(i.id)).map((i) => i.id)), roomId) || items.find((i) => i.id === roomId),
           base = DDlifeAbs(items, target.id), id = items.some((i) => i.id === note.id) ? "lf-" + C() : note.id;
         d.__life.items = DDlifeAdd(items, { id, type: "sticky", parent: target.id, text: note.text, color: note.color, x: Math.round(note.x - frame.x - base.x), y: Math.round(note.y - frame.y - DDlifeHead - base.y), w, h, style });
         d.notes = d.notes.filter((n) => n !== note);
@@ -308,7 +320,7 @@ export function DDcreateBoard(deps) {
       const St = DDreconcileDay(result, ot, { ...propsRef.current.setup, life: nextLife });
       !St ||
         (!lifeChanged && JSON.stringify(St) === JSON.stringify(ot)) ||
-        (ct.history !== !1 && remember(ot, shared),
+        (ct.history !== !1 && remember(ot, shared, St, nextLife),
         lifeChanged && (propsRef.current.setup = { ...propsRef.current.setup, life: nextLife }, propsRef.current.onUpdateSetup?.((s) => ({ ...s, life: nextLife }))),
         (dayRef.current = St),
         (ownUpdate.current = St),
@@ -343,15 +355,19 @@ export function DDcreateBoard(deps) {
         St = ct.pop();
       if (!St) return;
       const Tt = copy((St.day?.date && propsRef.current.allDays?.[St.day.date]) || dayRef.current), shared = DDlifeState(propsRef.current.setup);
-      ot.push({ day: St.day ? Tt : null, life: copy(shared), bytes: JSON.stringify([Tt,shared]).length });
-      if (St.life) {
-        const restored = Array.isArray(St.life) ? { ...shared, items: St.life } : St.life;
-        propsRef.current.setup = { ...propsRef.current.setup, life: copy(restored) };
-        propsRef.current.onUpdateSetup?.((s) => ({ ...s, life: copy(restored) }));
+      // Take back only what this step changed; later changes (a note from the
+      // phone, an edit in another view) stay. Old steps without `after` restore whole.
+      const beforeLife = St.life && (Array.isArray(St.life) ? { ...shared, items: St.life } : St.life);
+      const nextDay = St.day && (St.after?.day ? DDundoRevert(Tt, St.after.day, St.day) : copy(St.day));
+      const nextLife = beforeLife && (St.after?.life ? DDundoRevert(shared, St.after.life, beforeLife) : copy(beforeLife));
+      ot.push({ day: St.day ? Tt : null, life: copy(shared), ...(St.after ? { after: { day: nextDay ? copy(nextDay) : null, life: copy(nextLife || shared) } } : {}), bytes: JSON.stringify([Tt,shared,nextDay,nextLife]).length });
+      if (nextLife) {
+        propsRef.current.setup = { ...propsRef.current.setup, life: copy(nextLife) };
+        propsRef.current.onUpdateSetup?.((s) => ({ ...s, life: copy(nextLife) }));
       }
-      if (St.day && St.day.date !== dayRef.current.date) propsRef.current.onUpdateDayOnDate?.(St.day.date, () => copy(St.day));
-      else if (St.day) {
-      ((dayRef.current = copy(St.day)),
+      if (nextDay && nextDay.date !== dayRef.current.date) propsRef.current.onUpdateDayOnDate?.(nextDay.date, () => copy(nextDay));
+      else if (nextDay) {
+      ((dayRef.current = copy(nextDay)),
         (ownUpdate.current = dayRef.current),
         propsRef.current.onUpdateDay(() => dayRef.current),
         setSelected(new Set()),
@@ -366,11 +382,17 @@ export function DDcreateBoard(deps) {
       }
       setTick((n) => n + 1);
     }
+    // A change made in another view on this device is one undo step here. A change
+    // that came in from sync (the phone, another tab) is not: undo never removes it.
+    const seenRemote = useRef(window.__ddRemoteApply || 0);
     useLayoutEffect(() => {
+      const remote = (window.__ddRemoteApply || 0) !== seenRemote.current;
+      seenRemote.current = window.__ddRemoteApply || 0;
       (day !== dayRef.current &&
         (day !== ownUpdate.current &&
+          !remote &&
           JSON.stringify(day) !== JSON.stringify(dayRef.current) &&
-          remember(dayRef.current),
+          remember(dayRef.current, undefined, day),
         (dayRef.current = day)),
         (ownUpdate.current = null));
     }, [day]);
@@ -1110,12 +1132,15 @@ export function DDcreateBoard(deps) {
             }
             return true;
           };
+        let roomShift = null;
         if (roomItem) {
           // Beside the Engine on a wide screen, under it on a phone.
           const engineArea = Y.find((n) => n.section === "engine"), a = DDlifeAbs(items, roomItem.id),
-            narrow = globalThis.matchMedia?.("(max-width: 700px)").matches;
+            narrow = globalThis.matchMedia?.("(max-width: 700px)").matches, was = { x: lf.x, y: lf.y };
           lf.x = (engineArea ? (narrow ? engineArea.x : engineArea.x + engineArea.w + 160) : 60) - a.x;
           lf.y = (engineArea ? (narrow ? engineArea.y + engineArea.h + 160 : engineArea.y) : 60) - DDlifeHead - a.y;
+          // Lines between Feed things keep their shape here: their bends move with them.
+          roomShift = { x: lf.x - was.x, y: lf.y - was.y };
           for (let i = Y.length - 1; i >= 0; i--)
             if (Y[i] === lf || ["habits", "feelings", "notes"].includes(Y[i].section || Y[i].sectionId)) Y.splice(i, 1);
         }
@@ -1199,7 +1224,7 @@ export function DDcreateBoard(deps) {
         // The Life area itself is not drawn in a section's board, but its corner
         // is still where Life coordinates start.
         if (roomItem) An.set(lf.id, lf);
-        return { nodes: Y, map: An, edges: Dn, automatic: G, room: roomItem ? roomItem.id : null };
+        return { nodes: Y, map: An, edges: Dn, automatic: G, room: roomItem ? roomItem.id : null, roomShift };
       }, [
         day.blocks,
         day.bugs,
@@ -1225,6 +1250,17 @@ export function DDcreateBoard(deps) {
       labelPlace = useRef({ z: 0, layout: null });
     layoutRef.current = layout;
     useLayoutEffect(() => { placeSectionLabels(true); }, [layout]);
+    // A section that grew around a long note keeps that size, so what sits in the
+    // grown part belongs to it and moves with it (one rule for drawing and for drops).
+    useEffect(() => {
+      if (editing || gesture.current) return;
+      const items = DDlifeItems(setup), grow = new Map();
+      for (const n of layout.nodes) if (n.lifeSection && !n.collapsed) {
+        const it = items.find((i) => i.id === n.lifeId);
+        if (it && n.h > it.h + 1) grow.set(it.id, Math.ceil(n.h));
+      }
+      if (grow.size) commit((d) => { d.__life.items = d.__life.items.map((i) => (grow.has(i.id) ? { ...i, h: grow.get(i.id) } : i)); return d; }, null, { history: !1 });
+    }, [layout, editing]);
     // How many things each section keeps on its own board, outside its frame.
     const offFrame = useMemo(() => {
       const items = DDlifeItems(setup), m = new Map();
@@ -1289,11 +1325,18 @@ export function DDcreateBoard(deps) {
             ? { x: Y.x, y: Y.y + Y.h / 2 }
             : { x: Y.x + Y.w, y: Y.y + Y.h / 2 };
     }
+    // A line's bend is saved where it sits on the main board. On a section's own
+    // board the Feed things are drawn elsewhere, so their bends move with them.
+    function bendShift(wire) {
+      const shift = layoutRef.current?.roomShift;
+      return shift && wire.from?.startsWith("life:") && wire.to?.startsWith("life:") ? shift : null;
+    }
     function wireGeometry(wire, obstacles) {
       const a = nodeFor(wire.from), b = nodeFor(wire.to);
       if (!a || !b) return null;
-      const drag = pointerWire.current;
-      const geometry = DDconnectionGeometry(a, b, drag?.id === wire.id && drag.end === "bend" ? { ...wire, bend: drag.point } : wire, obstacles || layoutRef.current.nodes.map((n) => nodeFor(n.id)));
+      const drag = pointerWire.current, shift = bendShift(wire);
+      const shown = shift && wire.bend ? { ...wire, bend: { x: wire.bend.x + shift.x, y: wire.bend.y + shift.y } } : wire;
+      const geometry = DDconnectionGeometry(a, b, drag?.id === wire.id && drag.end === "bend" ? { ...wire, bend: drag.point } : shown, obstacles || layoutRef.current.nodes.map((n) => nodeFor(n.id)));
       if (geometry && drag?.id === wire.id && ["from", "to"].includes(drag.end)) {
         if (drag.end === "from") geometry.p = drag.point; else geometry.q = drag.point;
         geometry.d = `M${geometry.p.x} ${geometry.p.y}L${geometry.q.x} ${geometry.q.y}`;
@@ -1396,6 +1439,8 @@ export function DDcreateBoard(deps) {
       if (!Y || !world.current) return;
       ((world.current.style.transform = `translate3d(${G.x}px,${G.y}px,0) scale(${G.z})`),
         Y.style.setProperty("--b4-inverse", 1 / G.z),
+        // Lines thin out a little as you zoom out, so they never outweigh the notes.
+        Y.style.setProperty("--b4-line-inverse", Math.pow(1 / G.z, 0.75)),
         Y.classList.toggle("b4-overview", G.z < 0.7),
         Y.classList.toggle("b4-small", G.z < 0.95),
         Y.classList.toggle("b4-far", G.z < 0.35));
@@ -1529,12 +1574,16 @@ export function DDcreateBoard(deps) {
       const G = layout.map.get(Y);
       G?.blockId && onSelectBlock?.(G.blockId);
     }
+    // A thing belongs to one group: grabbing any member takes the whole group.
+    // Older boards may hold overlapping groups; they count as one.
     function groupFor(Y) {
-      return (
-        Object.values(model.groups).find(
-          (ct) => Array.isArray(ct) && ct.includes(Y),
-        ) || [Y]
-      );
+      const all = Object.values(model.groups).filter(Array.isArray), out = new Set([Y]);
+      let grew = true;
+      while (grew) {
+        grew = false;
+        for (const g of all) if (g.some((r) => out.has(r)) && g.some((r) => !out.has(r))) { g.forEach((r) => out.add(r)); grew = true; }
+      }
+      return [...out];
     }
     function nodeDown(Y, G, ddMove = false) {
       if (
@@ -1623,6 +1672,8 @@ export function DDcreateBoard(deps) {
         // A double-click on a section's name renames it; on its empty area it adds a note.
         onName: !!Y.target.closest(".b4-node-body"),
         shift: Y.shiftKey,
+        // Alt (Option) drag drops a copy and leaves the original in place.
+        alt: Y.altKey && !ddConnect,
         connect: ddConnect,
         connectFrom: connecting,
       };
@@ -2082,7 +2133,15 @@ export function DDcreateBoard(deps) {
               return d;
             }, t("Engine moved", "انجین جابه‌جا شد"));
           }
+        } else if (ct.kind === "move" && ct.moved && ct.alt) {
+          const first = ct.refs.find((r) => preview.current.has(r)), end = first && preview.current.get(first), begin = first && ct.starts[first];
+          clearPreview();
+          if (end && begin) {
+            const payload = core.copy(boardDocument(), layout.nodes, layout.edges, new Set(ct.refs), mode);
+            if (payload) pastePayload(payload, { x: payload.origin.x + end.x - begin.x, y: payload.origin.y + end.y - begin.y });
+          }
         } else if (ct.kind === "move" && ct.moved) {
+          let foldedInto = "";
           setConnecting(null);
           if (ct.connect) setTool("select");
           const ot = Object.fromEntries(preview.current),
@@ -2136,13 +2195,15 @@ export function DDcreateBoard(deps) {
             const frame = layout.map.get("section:life");
             // Items moved together keep their places relative to each other.
             const movingLife = ct.refs.map((r) => layout.map.get(r)?.lifeId).filter(Boolean);
+            // Dropped on a folded section's name on purpose: say where it went.
+            const intoFolded = (id) => { const it = Tt.__life.items.find((i) => i.id === id), p = it && Tt.__life.items.find((i) => i.id === it.parent); if (p?.collapsed && p.id !== layout.room) foldedInto = p.text || t("Section", "سکشن"); };
             for (const ref of ct.refs) {
               const node = layout.map.get(ref), pos = ot[ref];
               if (!node || !pos) continue;
               if (node.lifeId) {
                 // A parent section carries descendants; do not move them twice.
                 if (ct.refs.includes(node.parentId)) continue;
-                const target = DDlifeParentAt(Tt.__life.items, pos.x - frame.x + node.w/2, pos.y - frame.y - DDlifeHead + node.h/2, DDlifeDescendants(Tt.__life.items,node.lifeId));
+                const target = DDlifeParentAt(Tt.__life.items, pos.x - frame.x + node.w/2, pos.y - frame.y - DDlifeHead + node.h/2, DDlifeDescendants(Tt.__life.items,node.lifeId), layout.room || "");
                 const inside = pos.x + node.w/2 >= frame.x && pos.x + node.w/2 <= frame.x + frame.w && pos.y + node.h/2 >= frame.y + DDlifeHead && pos.y + node.h/2 <= frame.y + frame.h;
                 if (!inside && !target && !node.lifeSection) {
                   const old = Tt.__life.items.find((i) => i.id === node.lifeId), id=Tt.notes.some((i)=>i.id===old.id)?C():old.id;
@@ -2151,15 +2212,15 @@ export function DDcreateBoard(deps) {
                   Tt.canvas.board4.styles ||= {}; Tt.canvas.board4.styles["sticky:" + id] = { width: old.w, height: old.h, ...old.style };
                   Tt.__life.items = Tt.__life.items.filter((i) => i.id !== old.id);
                   transferRef(Tt,ref,"sticky:"+id);
-                } else Tt.__life.items = DDlifeMoveBy(Tt.__life.items,node.lifeId,pos.x-node.x,pos.y-node.y,movingLife);
+                } else { Tt.__life.items = DDlifeMoveBy(Tt.__life.items,node.lifeId,pos.x-node.x,pos.y-node.y,movingLife,layout.room || ""); intoFolded(node.lifeId); }
                 delete ot[ref];
               } else if (frame && node.noteId && node.kind === "sticky" && !ct.frame) {
-                const target = DDlifeParentAt(Tt.__life.items, pos.x - frame.x + node.w/2, pos.y - frame.y - DDlifeHead + node.h/2);
+                const target = DDlifeParentAt(Tt.__life.items, pos.x - frame.x + node.w/2, pos.y - frame.y - DDlifeHead + node.h/2, undefined, layout.room || "");
                 if (target) {
                   const old = Tt.notes.find((i) => i.id === node.noteId), base = DDlifeAbs(Tt.__life.items,target.id),id=Tt.__life.items.some((i)=>i.id===old.id)?"lf-"+C():old.id;
                   Tt.__life.items = DDlifeAdd(Tt.__life.items,{id,type:"sticky",parent:target.id,text:old.text,role:old.role,at:old.at,baseW:old.baseW,color:old.color,x:pos.x-frame.x-base.x,y:pos.y-frame.y-DDlifeHead-base.y,w:node.w,h:node.h,style:model.styles[node.id]});
                   Tt.notes = Tt.notes.filter((i) => i.id !== old.id);
-                  transferRef(Tt,node.id,"life:"+id); delete ot[ref];
+                  transferRef(Tt,node.id,"life:"+id); delete ot[ref]; intoFolded(id);
                 }
               }
             }
@@ -2302,6 +2363,7 @@ export function DDcreateBoard(deps) {
             );
           }, madeTasks.length ? t("The note is now a task in the Engine", "یادداشت حالا یک کار در انجین است") : DDUI("\u062C\u0627\u06CC \u0646\u0648\u062F\u0647\u0627 \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F"));
           if (madeTasks.length) (setSelected(new Set(madeTasks.map((id) => "b:" + id))), onSelectBlock?.(madeTasks[0]));
+          else if (foldedInto) setStatus(t("Moved into the folded section “" + foldedInto + "” · unfold it to see it", "به سکشن بسته «" + foldedInto + "» رفت؛ برای دیدنش بازش کن"));
           makeHabits(toHabits);
         } else if (ct.kind === "resize" && ct.moved && ct.min !== ct.startMin)
           commit(
@@ -2319,7 +2381,7 @@ export function DDcreateBoard(deps) {
           patchWire(
             ct.link.id,
             {
-              bend: { ...pointerWire.current.point },
+              bend: (() => { const point = pointerWire.current.point, shift = bendShift(ct.link); return shift ? { x: point.x - shift.x, y: point.y - shift.y } : { ...point }; })(),
               style:
                 ct.link.style === "straight"
                   ? "curve"
@@ -2590,8 +2652,10 @@ export function DDcreateBoard(deps) {
     function patchWire(Y, G, ct) {
       const current = layoutRef.current.edges.find((e) => e.id === Y);
       // Visual arrow direction is independent of the task's real parent.
+      // Reversing swaps the two ends: a two-way line stays two-way.
       if (current && G.from === current.to && G.to === current.from) {
-        G = { ...G, arrowReverse: !current.arrowReverse };
+        const ends = wireEnds(current);
+        G = { ...G, arrow: ends.start, arrowStart: ends.end, arrowReverse: false };
         for (const key of ["from", "to", "fromPort", "toPort"]) delete G[key];
       }
       if (current && (Object.hasOwn(G, "from") || Object.hasOwn(G, "to"))) {
@@ -2913,7 +2977,7 @@ export function DDcreateBoard(deps) {
         // A section's own board is all of it: a section drawn anywhere there,
         // even outside the frame, belongs to that section and stays where it was drawn.
         let rel=frame&&point?{x:point.x-frame.x,y:point.y-frame.y-DDlifeHead}:null;
-        let parent=rel&&DDlifeParentAt(d.__life.items,rel.x,rel.y,roomNode?outsideRoom(d.__life.items):undefined);
+        let parent=rel&&DDlifeParentAt(d.__life.items,rel.x,rel.y,roomNode?outsideRoom(d.__life.items):undefined,layout.room||"");
         if(roomNode&&!parent)parent=d.__life.items.find((i)=>i.id===layout.room);
         if(parent){const base=DDlifeAbs(d.__life.items,parent.id);rel={x:rel.x-base.x,y:rel.y-base.y};}
         const spec={id,type:"section",parent:parent?.id||"",text:sectionName(d.__life.items),
@@ -3014,7 +3078,7 @@ export function DDcreateBoard(deps) {
       const id = C(), width=template.w || 240, height=template.h || 240, color=template.color || appearanceRef.current.stickyColor;
       const frame=layout.map.get("section:life"), items=DDlifeItems(setup), roomNode=layout.room&&layout.map.get("life:"+layout.room);
       const rel=frame?{x:at.x-frame.x,y:at.y-frame.y-DDlifeHead}:null;
-      const parent=rel&&DDlifeParentAt(items,rel.x,rel.y,roomNode?outsideRoom(items):undefined);
+      const parent=rel&&DDlifeParentAt(items,rel.x,rel.y,roomNode?outsideRoom(items):undefined,layout.room||"");
       const inLife=frame && (parent || (rel.x>=0 && rel.y>=0 && rel.x<=frame.w && rel.y<=frame.h-DDlifeHead));
       let ref;
       if(roomNode&&!parent){
@@ -3276,9 +3340,17 @@ export function DDcreateBoard(deps) {
           if (Y)
             for (const [ct, ot] of Object.entries(G.groups))
               ot.some((St) => selected.has(St)) && delete G.groups[ct];
-          else
-            selected.size > 1 &&
-              (G.groups = { ...G.groups, [C()]: [...selected] });
+          else if (selected.size > 1) {
+            // Adding to a group makes one bigger group, never a second one beside it.
+            const members = new Set(selected), groups = { ...G.groups };
+            let grew = true;
+            while (grew) {
+              grew = false;
+              for (const [id, g] of Object.entries(groups))
+                if (Array.isArray(g) && g.some((r) => members.has(r))) { g.forEach((r) => members.add(r)); delete groups[id]; grew = true; }
+            }
+            G.groups = { ...groups, [C()]: [...members] };
+          }
           return G;
         },
         DDUI(
@@ -5161,6 +5233,7 @@ export function DDcreateBoard(deps) {
       );
       if (!payload) return;
       clipboard.current = sharedClipboard = payload;
+      sharedFresh = true;
       if (event?.clipboardData) {
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -5195,7 +5268,7 @@ export function DDcreateBoard(deps) {
         toWorld(rect.left + rect.width / 2, rect.top + rect.height / 2);
       const result = core.paste(boardDocument(), payload, at, mode, C);
       if (!result.refs.length) return;
-      const frame=layout.map.get("section:life"), target=frame&&(DDlifeParentAt(result.day.__life.items,at.x-frame.x,at.y-frame.y-DDlifeHead,layout.room?outsideRoom(result.day.__life.items):undefined)||(layout.room?result.day.__life.items.find((i)=>i.id===layout.room):null));
+      const frame=layout.map.get("section:life"), target=frame&&(DDlifeParentAt(result.day.__life.items,at.x-frame.x,at.y-frame.y-DDlifeHead,layout.room?outsideRoom(result.day.__life.items):undefined,layout.room||"")||(layout.room?result.day.__life.items.find((i)=>i.id===layout.room):null));
       if (target) {
         const base=DDlifeAbs(result.day.__life.items,target.id);
         for(const ref of result.refs.filter((r)=>r.startsWith("life:"))){
@@ -5205,9 +5278,11 @@ export function DDcreateBoard(deps) {
         for (const ref of [...result.refs]) if(ref.startsWith("sticky:")) {
           const old=result.day.notes.find((i)=>"sticky:"+i.id===ref), style=result.day.canvas?.board4?.styles?.[ref]||{};
           if(!old)continue;
-          result.day.__life.items=DDlifeAdd(result.day.__life.items,{id:old.id,type:"sticky",parent:target.id,text:old.text,role:old.role,at:old.at,baseW:old.baseW,color:old.color,x:old.x-frame.x-base.x,y:old.y-frame.y-DDlifeHead-base.y,w:style.width||220,h:style.height||160});
+          // Same words and look in the section, and its lines come along.
+          const {width,height,...look}=style;
+          result.day.__life.items=DDlifeAdd(result.day.__life.items,{id:old.id,type:"sticky",parent:target.id,text:old.text,role:old.role,at:old.at,baseW:old.baseW,color:old.color,x:old.x-frame.x-base.x,y:old.y-frame.y-DDlifeHead-base.y,w:width||240,h:height||240,style:look});
           result.day.notes=result.day.notes.filter((i)=>i!==old);
-          core.cleanRefs(result.day,[ref]);result.refs[result.refs.indexOf(ref)]="life:"+old.id;
+          transferRef(result.day,ref,"life:"+old.id);result.refs[result.refs.indexOf(ref)]="life:"+old.id;
         }
       }
       commit(() => result.day, t("Pasted", "چسبانده شد"));
@@ -5242,8 +5317,11 @@ export function DDcreateBoard(deps) {
     async function pasteClipboard(point, event) {
       let text = "",
         payload;
-      clipboard.current ||= sharedClipboard;
-      if (!event && clipboard.current) {
+      clipboard.current = sharedClipboard || clipboard.current;
+      // Paste from the menu or a non-Latin keyboard: what was copied last wins.
+      // The board's own copy goes straight in while it is still the latest one;
+      // otherwise read the system clipboard.
+      if (!event && clipboard.current && sharedFresh) {
         pastePayload(clipboard.current, point);
         return;
       }
@@ -5262,7 +5340,10 @@ export function DDcreateBoard(deps) {
       } else {
         try {
           text = await navigator.clipboard.readText();
-        } catch {}
+        } catch {
+          // The browser would not share the clipboard: the board's own copy is all we have.
+          if (clipboard.current) { pastePayload(clipboard.current, point); return; }
+        }
       }
       if (
         !payload &&

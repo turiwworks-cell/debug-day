@@ -298,8 +298,8 @@ export const DDboardExperienceCSS = `
 .b6 .b4-node>.b6-note-resize[data-edge]{z-index:9}.b6 .b4-node>.b4-port{z-index:7;transform:scale(clamp(.6,var(--b4-inverse,1),1.6))}
 /* Connectors read clearly: dark ink, full strength, never thinner than about 2.4px on screen. Under the pointer they thicken in blue. */
 .b6{--dd-wire:var(--ink-2,#4a4843)}
-.b6 .b4-wire-line{stroke-width:max(calc(var(--w,3) * 1px),calc(var(--w,3) * .8px * var(--b4-inverse,1)));transition:stroke .12s}
-.b6 .b4-wire:hover .b4-wire-line{stroke:var(--board-selection);stroke-width:max(calc(var(--w,3) * 1.6px),calc(var(--w,3) * 1.3px * var(--b4-inverse,1)))}
+.b6 .b4-wire-line{stroke-width:max(calc(var(--w,3) * 1px),calc(var(--w,3) * .8px * var(--b4-line-inverse,1)));transition:stroke .12s}
+.b6 .b4-wire:hover .b4-wire-line{stroke:var(--board-selection);stroke-width:max(calc(var(--w,3) * 1.6px),calc(var(--w,3) * 1.3px * var(--b4-line-inverse,1)))}
 .b6 .dd-wire-pop{display:inline-flex;align-items:center;gap:3px;margin-inline:2px;padding:2px 4px;background:#ffffff14;border-radius:8px;flex:none}
 .b6 .dd-wire-pop button{min-width:26px;height:26px;border-radius:6px;padding:0 6px;color:#fff;background:transparent;font-size:11px}
 .b6 .dd-wire-pop button[aria-pressed=true],.b6 .dd-wire-pop button:hover{background:#ffffff22}

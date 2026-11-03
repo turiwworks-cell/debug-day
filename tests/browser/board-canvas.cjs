@@ -60,7 +60,8 @@ const {start,fixture}=require('./harness.cjs');
    const wireStyle=()=>line.evaluate((e)=>{const s=getComputedStyle(e);return {w:parseFloat(s.strokeWidth),o:Number(s.opacity),c:s.stroke};});
    assert.equal((await wireStyle()).o,1,'no faded lines');
    await key('0');await key('-');await key('-');assert.equal(await zoom(),0.5);
-   assert.ok((await wireStyle()).w>=4.7,'zoomed out the line never gets thin on screen: '+(await wireStyle()).w);
+   // Zoomed out a line thins a little (5.29.1) but stays about 2px on screen.
+   {const w=(await wireStyle()).w;assert.ok(w>=3.9&&w<4.7,'zoomed out the line is readable, not heavy: '+w);}
    await key('0');
    if(!mobile){
     // Under the pointer it thickens in blue.

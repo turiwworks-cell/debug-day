@@ -162,12 +162,23 @@ export function DDconnectionGeometry(a, b, wire = {}, obstacles = []) {
       to,
     };
   if (wire.bend) {
+    if (wire.style === "elbow") {
+      // An elbow's middle run moves one way only: sideways when the line leaves
+      // from a left or right side, up and down when it leaves from the top or
+      // bottom. The handle stays on that run, so it never leaves the line.
+      // When the ends line up, that run would have no length: use the other way.
+      let across = from === "top" || from === "bottom";
+      if (across && Math.abs(p.x - q.x) < 1) across = false;
+      else if (!across && Math.abs(p.y - q.y) < 1) across = true;
+      const points = across
+          ? [p, { x: p.x, y: wire.bend.y }, { x: q.x, y: wire.bend.y }, q]
+          : [p, { x: wire.bend.x, y: p.y }, { x: wire.bend.x, y: q.y }, q];
+      const mid = across ? { x: (p.x + q.x) / 2, y: wire.bend.y } : { x: wire.bend.x, y: (p.y + q.y) / 2 };
+      return { d: rounded(tidy(points), 12), p, q, mid, from, to, axis: across ? "y" : "x" };
+    }
     const mid = wire.bend;
     return {
-      d:
-        wire.style === "elbow"
-          ? rounded(tidy([p, { x: mid.x, y: p.y }, { x: mid.x, y: q.y }, q]), 12)
-          : `M${p.x} ${p.y}Q${2 * mid.x - (p.x + q.x) / 2} ${2 * mid.y - (p.y + q.y) / 2} ${q.x} ${q.y}`,
+      d: `M${p.x} ${p.y}Q${2 * mid.x - (p.x + q.x) / 2} ${2 * mid.y - (p.y + q.y) / 2} ${q.x} ${q.y}`,
       p,
       q,
       mid,
