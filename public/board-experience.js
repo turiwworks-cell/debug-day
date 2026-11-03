@@ -27,6 +27,8 @@ export const DDboardShortcuts = [
   ["Alt+H / V", "Align horizontal / vertical centers", "تراز مرکز افقی / عمودی"],
   ["Ctrl/Cmd+Alt+L / T / R", "Text left / center / right", "تراز متن چپ / وسط / راست"],
   ["Arrows / Shift+Arrows", "Nudge by 1 / 10", "جابه‌جایی ۱ / ۱۰ واحد"],
+  ["Alt+← / →", "Back / forward to where you were", "برگشت / جلو به جایی که بودی"],
+  ["Alt+↑ / ↓", "Previous / next tab", "تب قبلی / بعدی"],
   ["Shift+F10", "Context menu", "منوی زمینه‌ای"],
   ["Ctrl/Cmd+Shift+F", "Board full screen", "تمام‌صفحهٔ برد"], ["?", "Keyboard shortcuts", "میان‌برهای کیبورد"],
 ];

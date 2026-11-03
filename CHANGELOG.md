@@ -1,3 +1,13 @@
+## 5.33.0 — 2026-11-03
+Branch: claude/project-thread-88x2ih
+- Back to where you were: the app remembers each place you visit (the tab, the section board that was open, and where the board was looking) and takes you back with one click.
+- A Back button sits next to the tabs (on a phone, at the start of the tabs row). It says where it goes, for example “Back to Board · Creative life”. In full-screen Board it sits at the top left of the board.
+- Keyboard: Alt+← goes back, Alt+→ goes forward again, Alt+↑ / Alt+↓ go to the previous / next tab. Inside a text field these keys stay with the text. Plain arrows keep their old jobs (days in Plan, nudging on the Board).
+- The browser's own back / forward (and the mouse's side buttons in Chrome, Edge and Firefox) walk the same trail.
+- A new place starts on a jump: another tab, into or out of a section, a search result, the Sections list or Go to Feed. Panning and zooming only update the place you are in, so the trail stays short. Going back never changes the day you are looking at.
+- Board search finds things on other boards too: a day note seen from inside a section, or a Feed note in another section, opens that board and shows it.
+- New browser test `tests/browser/places.cjs` and unit test `tests/places.test.mjs`.
+
 ## 5.32.0 — 2026-11-03
 Branch: claude/project-thread-88x2ih
 - Renaming a section: double-click its name and it opens at a readable size (16px or more on screen) at any zoom, with the old name selected so you can just type.

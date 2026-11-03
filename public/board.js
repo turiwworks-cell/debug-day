@@ -18,6 +18,7 @@ import{DDBoardRails,DDinstallRailStyles,DDsetRailRole,DDrailPreferences,DDrailSc
 import{DDstickyDateLabel,DDstickyToday,DDstickyHeight,DDstickySnap,DDstickyFormat,DDstickyTodo,DDStickyText,DDinstallStickyStyles}from"./stickies.js";
 import { DDSectionsFlowchart, DDsectionsBus, DDinstallSectionsFlowStyles } from "./sections-flow.js";
 import { DDsectionTint, DDSectionChip, DDsetSectionColor, DDsectionPath, DDsectionPalette, DDlifeSendTo, DDlifeTakeOut } from "./life-board.js";
+import { DDplaces, DDPlacesBack } from "./places.js";
 const life = { DDinstallLifeStyles, DDlifeAbs, DDlifeAdd, DDlifeBounds, DDlifeHead, DDlifeItems, DDlifeParentAt };
 // Board interaction engine. Legacy planner adapters are injected once by the app.
 export function DDcreateBoard(deps) {
@@ -1483,6 +1484,8 @@ export function DDcreateBoard(deps) {
     function saveCamera() {
       clearTimeout(cameraTimer.current);
       DDsaveBoardView(dayRef.current.date, { ...cam.current }, mode);
+      // The place you are in remembers where the camera is (Back, 5.33).
+      DDplaces.note({ cam: { ...cam.current }, date: dayRef.current.date });
     }
     function scheduleCamera() {
       (clearTimeout(cameraTimer.current),
@@ -1518,6 +1521,7 @@ export function DDcreateBoard(deps) {
       });
     }
     function revealRail(row) {
+      DDplaces.mark();
       if (!layout.map.has(row.id)) {
         const item = row.lifeId && DDlifeItems(setup).find((i) => i.id === row.lifeId);
         enterRoom(item ? DDrailScope(item, DDlifeItems(setup)) : null);
@@ -1526,7 +1530,18 @@ export function DDcreateBoard(deps) {
       }
       revealBoardResult(row);
     }
+    // A search result on another board (a day note seen from inside a section,
+    // or a Feed note that lives in another section) opens that board first.
+    function revealSearchResult(row) {
+      const items = DDlifeItems(setup), item = row.lifeId && items.find((i) => i.id === row.lifeId), room = layout.room || null;
+      const home = layout.map.has(row.id) ? room : item ? DDlifeHome(items, item.id) || null : row.id.startsWith("sticky:") ? null : room;
+      if (home === room) return revealBoardResult(row);
+      DDplaces.mark(); setSearch(null);
+      enterRoom(home, true);
+      setTimeout(() => revealBoardResult(row), 0);
+    }
     function revealBoardResult(row) {
+      DDplaces.mark();
       finishEdit(); cancelGesture(); setProperties(false); setInspector(false); setSearch(null);
       pendingReveal.current = row; onRevealObject?.();
       if(row.lifeId) {
@@ -3098,6 +3113,8 @@ export function DDcreateBoard(deps) {
       finishEdit();
       const items = DDlifeItems(setup), it = id && items.find((i) => i.id === id && i.type === "section");
       if (id && !it) return;
+      // Another section's board is another place: Back comes here again.
+      DDplaces.mark();
       roomCams.current[layout.room || ""] = { ...cam.current };
       if (it?.collapsed) lifeChange((list) => list.map((i) => (i.id === id ? { ...i, collapsed: false } : i)));
       if (id && mode !== "mindmap") setMode("mindmap");
@@ -3124,6 +3141,7 @@ export function DDcreateBoard(deps) {
     function jumpLife(id, again = false) {
       // Go to the board the thing lives on: the main board, or the section whose
       // own board holds it (outside that section's frame).
+      if (!again) DDplaces.mark();
       const all = DDlifeItems(setup), target = all.find((i) => i.id === id), home = target ? DDlifeHome(all, id) : "";
       const here = !target || (layout.room ? DDlifeDescendants(all, layout.room).has(id) && DDlifeShown(all, target, layout.room) : DDlifeShown(all, target));
       if (!here && !again) {
@@ -3536,7 +3554,19 @@ export function DDcreateBoard(deps) {
         "image/svg+xml",
       );
     }
+    // Back to a place on this board: its section, and its camera when it was this day.
+    function restorePlace(p) {
+      const items = DDlifeItems(setup), room = p.room && items.some((i) => i.id === p.room && i.type === "section") ? p.room : null,
+        view = p.cam && p.date === dayRef.current.date ? p.cam : null;
+      if ((layout.room || null) !== room) {
+        enterRoom(room, !!view);
+        if (view) setTimeout(() => { cam.current = { ...view }; api.current.paintCamera(); api.current.saveCamera(); }, 0);
+      } else if (view) { setMenu(null); glideCamera(view); }
+    }
     ((api.current = {
+      // Mid-glide, the place is where the board is going.
+      place: () => ({ room: layout.room || null, roomName: (layout.room && DDlifeItems(setup).find((i) => i.id === layout.room)?.text) || "", cam: { ...(glide.current && glideTo.current ? glideTo.current : cam.current) }, date: dayRef.current.date }),
+      restorePlace: restorePlace,
       fit: fit,
       jumpLife: jumpLife,
       setZoom: setZoom,
@@ -3566,6 +3596,7 @@ export function DDcreateBoard(deps) {
           return;
         }
         if (!n || !viewport.current) return;
+        DDplaces.mark();
         setSelected(new Set([n.id]));
         const z = Math.min(1.2, (viewport.current.clientWidth - 80) / n.w);
         cam.current = {
@@ -3580,6 +3611,12 @@ export function DDcreateBoard(deps) {
       useEffect(() => {
         if (room && !layout.room && !ddNodeMatches) dropRoom();
       }, [room, layout.room, ddNodeMatches]),
+      // Back to where you were (5.33): the board tells the trail which section is
+      // open and where the camera is, and goes back to a place when asked.
+      useEffect(() => DDplaces.connect({ place: () => api.current.place(), restore: (p) => api.current.restorePlace(p) }), []),
+      useEffect(() => {
+        DDplaces.note({ room: layout.room || null, roomName: (layout.room && DDlifeItems(setup).find((i) => i.id === layout.room)?.text) || "", cam: { ...cam.current }, date: day.date });
+      }, [layout.room, layout.room && DDlifeItems(setup).find((i) => i.id === layout.room)?.text]),
       useLayoutEffect(() => {
         paintCamera();
       }, [layout, mode, wireId, showMap, tick, focus, appearance]),
@@ -5810,6 +5847,8 @@ export function DDcreateBoard(deps) {
         _.createElement(
           "div",
           { className: "b2-brandbar" },
+          // Full screen hides the tabs, so Back comes along (5.33).
+          focus && _.createElement(DDPlacesBack, { React: _ }),
           _.createElement(
             "div",
             null,
@@ -6401,7 +6440,7 @@ export function DDcreateBoard(deps) {
       onTimerChange && _.createElement(DDBoardTimer,{React:_,Icon:controls.Icon,language:DDlanguage,timer,onChange:onTimerChange,defaultMinutes:prefs.timerMinutes,open:timerOpen,onOpenChange:setTimerOpen,buttonRef:timerButton}),
       search !== null && _.createElement(DDBoardSearch,{
         React:_,language:DDlanguage,rows:DDboardSearchRows(day,DDlifeItems(setup),layout.nodes),items:DDlifeItems(setup),query:search,onQuery:setSearch,
-        onReveal:revealBoardResult,onClose:()=>{setSearch(null);viewport.current?.focus({preventScroll:true});}
+        onReveal:revealSearchResult,onClose:()=>{setSearch(null);viewport.current?.focus({preventScroll:true});}
       }),
       child &&
         _.createElement(
