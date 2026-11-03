@@ -122,7 +122,8 @@ const {start,fixture}=require('./harness.cjs');
    const kc=await center('life:k');
    if(mobile){await pick('life:k');await bar.locator('[data-dock-more="selection"]').click();}
    else await page.mouse.click(kc.x,kc.y,{button:'right'});
-   await menuItem('Tags…').click();
+   // The note menu stays short: Tags… waits in More, next to Add comment.
+   await menuItem('More').click();await menuItem('Tags…').click();
    await tagInput.fill('#Idea');await tagInput.press('Enter');
    assert.deepEqual((await life()).items.find((i)=>i.id==='k').tags,['Idea']);
    await tagInput.press('Escape');await settle();

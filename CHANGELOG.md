@@ -7,7 +7,7 @@ Branch: claude/project-thread-yo360t
 - Pen: press P (or the Pen tool) to draw with a mouse, pen or finger. Six colours, three widths, smooth and sharp at any zoom. Two fingers still move the board.
 - The eraser removes a whole stroke with one touch. With the pen off, click a drawing to pick it, drag to move it, Delete to remove it. Undo and redo work for drawings and comments.
 - A drawing inside a section belongs to the section; anywhere else it belongs to the day. Points are saved simplified and compact.
-- Tags on day notes and Feed notes, the same tags as tasks: add or remove them from the note's toolbar (tag button) or right-click → Tags…. They show under the note, in the side rails, in the day review and in search results.
+- Tags on day notes and Feed notes, the same tags as tasks: add or remove them from the note's toolbar (tag button) or right-click → More → Tags…. They show under the note, in the side rails, in the day review and in search results.
 - "#tag" in Board search (Ctrl+F) and app search (Ctrl+Space) finds notes and tasks with that tag.
 - Parent notes and sub-notes come from the arrows you already draw: A → B makes B a sub-note of A. A parent note gets a soft stack of sheets behind it and a small count of its sub-notes under it; the note itself is unchanged.
 - A picked note shows its parent and sub-notes under it; a click goes there and Back returns. Select branch (right-click → More) takes the sub-notes along.

@@ -5875,6 +5875,7 @@ export function DDcreateBoard(deps) {
             ].map(([op, en, fa]) => item(op, en, fa, "layers", () => reorder(op))),
           }),
           selectedNode && item("connect", "Connect from here", "اتصال از اینجا", "connector", () => { setConnecting(selectedNode.id); setTool("connector"); }, { disabled: allLocked }),
+          sticky && item("tags", "Tags…", "Tags…", "tag", () => noteTools.editTags(selectedNode.id), { disabled: allLocked }),
           selectedNode && item("comment", "Add comment", "Add comment", "comment", () => comments.addOn(selectedNode.id), { shortcut: "M" }),
           item("fit-selection", "Zoom to selection", "زوم روی انتخاب", "fit", () => fit(true), { shortcut: "Shift+2" }),
           selectedNode && mode === "mindmap" && item("branch", "Select branch", "انتخاب شاخه", "branch", selectBranch),
@@ -5896,7 +5897,6 @@ export function DDcreateBoard(deps) {
                 shortcut: "Enter",
               },
             ),
-          sticky && item("tags", "Tags…", "Tags…", "tag", () => noteTools.editTags(selectedNode.id), { disabled: allLocked }),
           movable.length > 0 && targets.length > 0 && item("send", "Send to section…", "فرستادن به سکشن…", "sendTo", null, {
             children: [
               ...targets.map((s) => item("send-" + s.id, s.path.short, s.path.short, "section", () => sendToSection(s.id), { checked: movableLife.length === movable.length && movableLife.every((n) => lifeList.find((i) => i.id === n.lifeId)?.parent === s.id) })),
