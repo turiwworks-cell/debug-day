@@ -1,3 +1,22 @@
+## 5.36.0 — 2026-11-03
+Branch: claude/project-thread-yo360t
+- Comments on the Board: press M (or the Comment tool) and click a card or an empty spot to leave a short note. Write, reply, edit, resolve (hides it) or delete.
+- A comment on a card follows the card. A free comment inside a section belongs to the section (Feed, the same every day). Any other free comment belongs to that day's board.
+- The Comments list (Shift+M, or Comments in the top ⋯ menu) shows open and resolved comments for this day and the Feed. A click goes there; Back (Alt+←) returns.
+- On a phone a thread opens as a sheet at the bottom.
+- Pen: press P (or the Pen tool) to draw with a mouse, pen or finger. Six colours, three widths, smooth and sharp at any zoom. Two fingers still move the board.
+- The eraser removes a whole stroke with one touch. With the pen off, click a drawing to pick it, drag to move it, Delete to remove it. Undo and redo work for drawings and comments.
+- A drawing inside a section belongs to the section; anywhere else it belongs to the day. Points are saved simplified and compact.
+- Tags on day notes and Feed notes, the same tags as tasks: add or remove them from the note's toolbar (tag button) or right-click → More → Tags…. They show under the note, in the side rails, in the day review and in search results.
+- "#tag" in Board search (Ctrl+F) and app search (Ctrl+Space) finds notes and tasks with that tag.
+- Parent notes and sub-notes come from the arrows you already draw: A → B makes B a sub-note of A. A parent note gets a soft stack of sheets behind it and a small count of its sub-notes under it; the note itself is unchanged.
+- A picked note shows its parent and sub-notes under it; a click goes there and Back returns. Select branch (right-click → More) takes the sub-notes along.
+- Three calm parent looks to choose from: Soft stack (default), Page edges, Soft ring. Tools dock ⋯ → Parent note look.
+- Comments, drawings and note tags are saved with the planner, sync between devices and survive every clean-up. MCP edits keep them, and removing a Feed section keeps its drawings and free comments where they were.
+- The tools dock fits on a phone with the two new tools; the selection toolbar keeps clear of a note's tags and family.
+- Synced notes (5.35) keep their tags in every copy: linked copies now read and write tags through the same tag functions, and day notes keep their tags when saved.
+- New browser test `tests/browser/board-tools.cjs` (desktop and phone) and unit test `tests/board-tools.test.mjs`.
+
 ## 5.35.0 — 2026-11-03
 Branch: claude/project-thread-88x2ih
 - Synced notes: a note can have synced copies on any day and in the Feed. Change the words, color or text look of one, and every copy changes. Each copy keeps its own place and size.

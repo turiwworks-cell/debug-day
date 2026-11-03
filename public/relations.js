@@ -236,6 +236,9 @@ export function DDreconcileDay(
   }
   for (const bug of day.bugs || [])
     if (bug.blockId && !blocks.has(bug.blockId)) bug.blockId = "";
+  // A comment on a card follows the card: a deleted card takes its comments along.
+  if (Array.isArray(board.comments))
+    board.comments = board.comments.filter((c) => !c?.on || valid.has(c.on));
   return day;
 }
 export function DDmoveTask(day, blockId, lane, setup) {

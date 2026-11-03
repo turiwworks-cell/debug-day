@@ -10,6 +10,7 @@
 // it as it is. DDsyncCopies runs after each change and makes the other copies
 // match the one that changed. Nothing here touches how a note looks.
 import { DDlifeFit } from "./life-board.js";
+import { DDnoteTags, DDsetNoteTags } from "./note-tags.js";
 
 const ID = /^[\w-]{1,64}$/;
 // What a note's copies share. Size and text size stay with each copy (a resized
@@ -50,10 +51,10 @@ function dayStyle(day, id) {
 }
 function noteContent(day, note) {
   const style = dayStyle(day, note.id);
-  return { text: note.text || "", color: style.fill || note.color || "", look: pickLook(style), tags: Array.isArray(note.tags) ? note.tags : [] };
+  return { text: note.text || "", color: style.fill || note.color || "", look: pickLook(style), tags: DDnoteTags(note) };
 }
 function lifeContent(item) {
-  return { text: item.text || "", color: item.color || "", look: pickLook(item.style), tags: Array.isArray(item.tags) ? item.tags : [] };
+  return { text: item.text || "", color: item.color || "", look: pickLook(item.style), tags: DDnoteTags(item) };
 }
 function withLook(style, look) {
   const next = { ...(style || {}) };
@@ -64,9 +65,7 @@ function writeDayNote(day, id, content) {
   const notes = day.notes.map((n) => {
     if (n.id !== id) return n;
     const next = { ...n, text: content.text, color: content.color || n.color };
-    if (content.tags.length) next.tags = [...content.tags];
-    else delete next.tags;
-    return next;
+    return DDsetNoteTags(next, content.tags);
   });
   const board = day.canvas?.board4, ref = "sticky:" + id, old = board?.styles?.[ref] || {};
   let style = withLook(old, content.look);
@@ -79,9 +78,7 @@ function writeLifeNote(item, content) {
   const style = withLook(item.style, content.look);
   if (Object.keys(style).length) next.style = style;
   else delete next.style;
-  if (content.tags.length) next.tags = [...content.tags];
-  else delete next.tags;
-  return next;
+  return DDsetNoteTags(next, content.tags);
 }
 
 // Which synced notes changed in this step, and what they say now. A copy that

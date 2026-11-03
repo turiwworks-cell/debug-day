@@ -1,30 +1,11 @@
 import { DDSectionChip, DDlifeItems } from "./life-board.js";
+import { DDtagList } from "./note-tags.js";
 import { DDTaskMedia, DDmediaList, DDinstallMediaStyles } from "./media.js";
 // The shared meaning of a task: tags, importance and daily progress.
 // Time totals remain time totals. Progress measures completed work by importance.
+// One tag system for tasks and notes: the clean-up lives in note-tags.js.
 export function DDtags(value) {
-  const values = Array.isArray(value)
-    ? value
-    : typeof value === "string"
-      ? value.split(/[,،\n]+/)
-      : [];
-  const seen = new Set();
-  return values.flatMap((raw) => {
-    if (typeof raw !== "string") return [];
-    const tag = raw
-      .normalize("NFKC")
-      .trim()
-      .replace(/^#+/, "")
-      .replace(/\s+/g, "_")
-      .slice(0, 40);
-    const key = tag
-      .toLocaleLowerCase()
-      .replace(/[يى]/g, "ی")
-      .replace(/ك/g, "ک");
-    if (!tag || seen.has(key) || seen.size >= 12) return [];
-    seen.add(key);
-    return [tag];
-  });
+  return DDtagList(value);
 }
 export function DDpriorityWeight(task) {
   return { 1: 4, 2: 3, 3: 2 }[task?.pri] || 1;
