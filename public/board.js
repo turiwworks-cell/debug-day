@@ -24,6 +24,7 @@ import { DDusePen, DDnormalizeStrokes, DDmarksRebase, DDpenCSS } from "./pen.js"
 import { DDuseComments, DDnormalizeComments, DDcommentsTransfer, DDcommentsCSS } from "./comments.js";
 import { DDnoteTagsCSS } from "./note-tags.js";
 import { DDuseNoteTools, DDnoteBranch, DDparentLooks, DDnoteFamilyCSS } from "./note-family.js";
+import { DDuseBoardPhotos, DDnotePhoto, DDphotoHeight, DDboardPhotosCSS } from "./board-photos.js";
 import { DDsyncCopies, DDsyncNewId, DDsyncValid, DDsyncForget, DDsyncMarkLife, DDsyncJoin, DDsyncPlaces, DDsyncSameNotes, DDinstallLinkedStyles } from "./linked.js";
 const life = { DDinstallLifeStyles, DDlifeAbs, DDlifeAdd, DDlifeBounds, DDlifeHead, DDlifeItems, DDlifeParentAt };
 // Board interaction engine. Legacy planner adapters are injected once by the app.
@@ -69,7 +70,7 @@ export function DDcreateBoard(deps) {
   DDinstallSectionsFlowStyles();
   // Comments, pen, note tags and parent notes (5.36).
   if (typeof document !== "undefined" && !document.getElementById("dd-board-tools-css"))
-    document.head.append(Object.assign(document.createElement("style"), { id: "dd-board-tools-css", textContent: DDpenCSS + DDcommentsCSS + DDnoteTagsCSS + DDnoteFamilyCSS }));
+    document.head.append(Object.assign(document.createElement("style"), { id: "dd-board-tools-css", textContent: DDpenCSS + DDcommentsCSS + DDnoteTagsCSS + DDnoteFamilyCSS + DDboardPhotosCSS }));
   DDinstallLinkedStyles();
   let stepTextContext;
   return function BoardWorkspace({
@@ -1219,7 +1220,12 @@ export function DDcreateBoard(deps) {
           }
           n.stack = 15 + Math.max(0, model.stack.indexOf(n.id) + 1);
         }
+        // A photo note is as tall as its picture plus its caption (5.38).
+        const photoOf = new Map();
+        for (const x of day.notes || []) { const ph = DDnotePhoto(x); if (ph) photoOf.set("sticky:" + x.id, ph); }
+        for (const x of items) { const ph = x.type === "sticky" && DDnotePhoto(x); if (ph) photoOf.set("life:" + x.id, ph); }
         for(const n of Y) if(n.kind === "sticky") {
+          if (photoOf.has(n.id)) { n.photo = photoOf.get(n.id); n.h = DDphotoHeight(n.w, n.photo, n.title); continue; }
           const measured=stickyHeights.current.get(n.id);
           const fresh=measured && measured.w===n.w && measured.text===n.title && measured.size===(n.textSize||16);
           // A text object is as tall as its words; a note stays at least square.
@@ -1298,6 +1304,8 @@ export function DDcreateBoard(deps) {
       finishEdit: () => finishEdit(), setMenu, search: (q) => { finishEdit(); setSearch(q); },
     };
     const pen = DDusePen(markCtx), comments = DDuseComments(markCtx), noteTools = DDuseNoteTools(markCtx);
+    // Photos dropped, pasted or picked onto the board (5.38): a note holding a Drive link.
+    const photos = DDuseBoardPhotos({ ...markCtx, root, language: DDlanguage, addPhoto: (point, template) => addSticky(point, template) });
     useLayoutEffect(() => { placeSectionLabels(true); }, [layout]);
     // A section that grew around a long note keeps that size, so what sits in the
     // grown part belongs to it and moves with it (one rule for drawing and for drops).
@@ -2282,7 +2290,7 @@ export function DDcreateBoard(deps) {
                 const inside = pos.x + node.w/2 >= frame.x && pos.x + node.w/2 <= frame.x + frame.w && pos.y + node.h/2 >= frame.y + DDlifeHead && pos.y + node.h/2 <= frame.y + frame.h;
                 if (!inside && !target && !node.lifeSection) {
                   const old = Tt.__life.items.find((i) => i.id === node.lifeId), id=Tt.notes.some((i)=>i.id===old.id)?C():old.id;
-                  Tt.notes.push({ id, kind: "sticky", text: old.text, role: old.role, at:old.at, baseW:old.baseW, color: old.color || node.color, x: pos.x, y: pos.y, ...(old.syncId ? { syncId: old.syncId } : {}) });
+                  Tt.notes.push({ id, kind: "sticky", text: old.text, role: old.role, at:old.at, baseW:old.baseW, color: old.color || node.color, x: pos.x, y: pos.y, ...(old.syncId ? { syncId: old.syncId } : {}), ...(old.media ? { media: old.media } : {}) });
                   Tt.canvas ||= {}; Tt.canvas.board4 ||= {};
                   Tt.canvas.board4.styles ||= {}; Tt.canvas.board4.styles["sticky:" + id] = { width: old.w, height: old.h, ...old.style };
                   Tt.__life.items = Tt.__life.items.filter((i) => i.id !== old.id);
@@ -2293,7 +2301,7 @@ export function DDcreateBoard(deps) {
                 const target = DDlifeParentAt(Tt.__life.items, pos.x - frame.x + node.w/2, pos.y - frame.y - DDlifeHead + node.h/2, undefined, layout.room || "");
                 if (target) {
                   const old = Tt.notes.find((i) => i.id === node.noteId), base = DDlifeAbs(Tt.__life.items,target.id),id=Tt.__life.items.some((i)=>i.id===old.id)?"lf-"+C():old.id;
-                  Tt.__life.items = DDlifeAdd(Tt.__life.items,{id,type:"sticky",parent:target.id,text:old.text,role:old.role,at:old.at,baseW:old.baseW,color:old.color,x:pos.x-frame.x-base.x,y:pos.y-frame.y-DDlifeHead-base.y,w:node.w,h:node.h,style:model.styles[node.id],syncId:old.syncId});
+                  Tt.__life.items = DDlifeAdd(Tt.__life.items,{id,type:"sticky",parent:target.id,text:old.text,role:old.role,at:old.at,baseW:old.baseW,color:old.color,x:pos.x-frame.x-base.x,y:pos.y-frame.y-DDlifeHead-base.y,w:node.w,h:node.h,style:model.styles[node.id],syncId:old.syncId,media:old.media});
                   Tt.notes = Tt.notes.filter((i) => i.id !== old.id);
                   transferRef(Tt,node.id,"life:"+id); delete ot[ref]; intoFolded(id);
                 }
@@ -3324,7 +3332,7 @@ export function DDcreateBoard(deps) {
     function addSticky(point, template = {}) {
       const view = viewport.current, rect = view.getBoundingClientRect();
       const at = point || toWorld(rect.left+view.clientWidth/2, rect.top+view.clientHeight/2);
-      const id = C(), width=template.w || 240, height=template.h || 240, color=template.color || appearanceRef.current.stickyColor, plain=template.plain?{plain:true}:{};
+      const id = C(), width=template.w || 240, height=template.h || 240, color=template.color || appearanceRef.current.stickyColor, plain=template.plain?{plain:true}:{}, media=template.media?{media:template.media}:{};
       const frame=layout.map.get("section:life"), items=DDlifeItems(setup), roomNode=layout.room&&layout.map.get("life:"+layout.room);
       const rel=frame?{x:at.x-frame.x,y:at.y-frame.y-DDlifeHead}:null;
       const parent=rel&&DDlifeParentAt(items,rel.x,rel.y,roomNode?outsideRoom(items):undefined,layout.room||"");
@@ -3335,20 +3343,22 @@ export function DDcreateBoard(deps) {
         // to the section and stays where it was made (outside the frame it lives
         // on this board only).
         ref="life:"+id;const base=DDlifeAbs(items,layout.room);
-        commit(d=>{d.__life.items=DDlifeAdd(d.__life.items,{id,type:"sticky",parent:layout.room,x:Math.round(rel.x-base.x-width/2),y:Math.round(rel.y-base.y-height/2),w:width,h:height,text:"",color,style:{textSize:template.textSize||16,...plain}});return d;});
+        commit(d=>{d.__life.items=DDlifeAdd(d.__life.items,{id,type:"sticky",parent:layout.room,x:Math.round(rel.x-base.x-width/2),y:Math.round(rel.y-base.y-height/2),w:width,h:height,text:"",color,...media,style:{textSize:template.textSize||16,...plain}});return d;});
       }else if(inLife){
         const base=parent?DDlifeAbs(items,parent.id):{x:0,y:0};ref="life:"+id;
-        commit(d=>{d.__life.items=DDlifeAdd(d.__life.items,{id,type:"sticky",parent:parent?.id || "",x:rel.x-base.x-width/2,y:rel.y-base.y-height/2,w:width,h:height,text:"",color,style:{textSize:template.textSize||16,...plain}});return d;});
+        commit(d=>{d.__life.items=DDlifeAdd(d.__life.items,{id,type:"sticky",parent:parent?.id || "",x:rel.x-base.x-width/2,y:rel.y-base.y-height/2,w:width,h:height,text:"",color,...media,style:{textSize:template.textSize||16,...plain}});return d;});
       }else{
         ref="sticky:"+id;
         commit(d=>{
-          d.notes.push({id,kind:"sticky",x:at.x-width/2,y:at.y-height/2,text:"",color});
+          d.notes.push({id,kind:"sticky",x:at.x-width/2,y:at.y-height/2,text:"",color,...media});
           const b=clean(d.canvas?.board4);
           b.styles={...b.styles,[ref]:{width,height,textSize:template.textSize||16,...plain}};
           if(mode==="lanes")b.layouts={...b.layouts,lanes:{...b.layouts.lanes,[ref]:{x:at.x-width/2,y:at.y-height/2}}};
           d.canvas={...d.canvas,board4:b};return d;
         });
       }
+      // A photo lands picked, not open for typing (double-click adds a caption).
+      if(template.media){setSelected(new Set([ref]));setTool("select");return ref;}
       setSelected(new Set([ref]));setTool("select");setEditing({ref,value:""});
       revealEdit({kind:"sticky",x:at.x-width/2,y:at.y-height/2,w:width,h:height,textSize:template.textSize||16});
       return ref;
@@ -4470,6 +4480,7 @@ export function DDcreateBoard(deps) {
           "data-level": Y.kind === "habit" ? Y.level : undefined,
           // A parent note gets its look around the paper (5.36).
           ...(Tt ? noteTools.attrs(Y) : {}),
+          ...(Tt ? photos.attrs(Y) : {}),
           role: "group",
           "aria-label": Y.title + (Y.min ? ", " + w(Y.min) : ""),
           tabIndex: Y.lifeId ? 0 : St ? -1 : 0,
@@ -4523,6 +4534,8 @@ export function DDcreateBoard(deps) {
         Tt && Y.at && _.createElement("time",{className:"dd-sticky-footer",dateTime:Y.at},DDstickyDateLabel(Y.at,DDlanguage)),
         // Under the paper: tags, sub-notes and, when picked, its family (5.36).
         Tt && !ot && noteTools.under(Y, G),
+        // A photo note: the picture first, its words under it (5.38).
+        Tt && photos.layer(Y),
         quickColor === Y.id && _.createElement("div",{className:"dd-native-colors",onPointerDown:(e)=>e.stopPropagation()},
           core.stickyColors.map((color)=>_.createElement("button",{type:"button",key:color,style:{background:color},"aria-label":t("Use color ","انتخاب رنگ ")+color,onClick:(e)=>{e.stopPropagation();commit((d)=>core.setStyle(d,[Y],{fill:color}));setQuickColor(null);}},""))),
         Pt
@@ -5608,7 +5621,7 @@ export function DDcreateBoard(deps) {
           if(!old)continue;
           // Same words and look in the section, and its lines come along.
           const {width,height,...look}=style;
-          result.day.__life.items=DDlifeAdd(result.day.__life.items,{id:old.id,type:"sticky",parent:target.id,text:old.text,role:old.role,at:old.at,baseW:old.baseW,color:old.color,x:old.x-frame.x-base.x,y:old.y-frame.y-DDlifeHead-base.y,w:width||240,h:height||240,style:look,syncId:old.syncId});
+          result.day.__life.items=DDlifeAdd(result.day.__life.items,{id:old.id,type:"sticky",parent:target.id,text:old.text,role:old.role,at:old.at,baseW:old.baseW,color:old.color,x:old.x-frame.x-base.x,y:old.y-frame.y-DDlifeHead-base.y,w:width||240,h:height||240,style:look,syncId:old.syncId,media:old.media});
           result.day.notes=result.day.notes.filter((i)=>i!==old);
           transferRef(result.day,ref,"life:"+old.id);result.refs[result.refs.indexOf(ref)]="life:"+old.id;
         }
@@ -5742,6 +5755,7 @@ export function DDcreateBoard(deps) {
           item("parent-look", "Parent note look", "Parent note look", "parentLook", null, {
             children: DDparentLooks.map(([id, name]) => item("parent-look-" + id, name, name, "parentLook", () => noteTools.setLook(id), { checked: noteTools.look === id })),
           }),
+          item("photo", "Photo or video…", "عکس یا ویدیو…", "photo", () => photos.pick()),
           sep("tools-view-sep"),
           item("view", "Canvas settings…", "تنظیمات بوم…", "settings", () => { setViewPanel(true); setProperties(false); setInspector(false); }),
         ];
@@ -5969,6 +5983,8 @@ export function DDcreateBoard(deps) {
           setInspector(false);
         }),
         item("more", "More", "بیشتر", "more", null, { children: [
+          // Photos also drop or paste straight onto the board (5.38).
+          item("add-photo", "Add photo here", "افزودن عکس اینجا", "photo", () => photos.pick(menu.point)),
           item("zoom-100", "Zoom to 100%", "زوم ۱۰۰٪", "zoom", () => setZoom(1), { shortcut: "0" }),
           item("fit-day","Fit current day","نمای روز جاری","fitDay",()=>fit(false,"day"),{shortcut:"Shift+3"}),
           item("grid", "Dot grid", "شبکهٔ نقطه‌ای", "grid", () => toggleView("grid"), { checked: grid }),
@@ -6531,6 +6547,7 @@ export function DDcreateBoard(deps) {
           paintOrder.map(renderNode),
           pen.world(),
           comments.world(),
+          photos.world(),
           roomHistory(),
           _.createElement("div", { className: "dd-ghost-note", ref: ghostNote, "aria-hidden": true, style: { display: "none" } }),
           _.createElement("div", {
@@ -6647,6 +6664,7 @@ export function DDcreateBoard(deps) {
       pen.bar(),
       comments.screen(),
       noteTools.screen(),
+      photos.screen(),
       child &&
         _.createElement(
           "form",

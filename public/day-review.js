@@ -1,5 +1,6 @@
 import { DDcompletion, DDprogressLabel } from "./planner.js";
 import { DDnoteTags, DDtagText } from "./note-tags.js";
+import { DDmediaTitle } from "./media.js";
 // Calendar and feelings share one selected day. Reading a day never creates it.
 export function DDreviewValidDate(date) {
   if (
@@ -1865,7 +1866,7 @@ function DDReviewDay({
                 n(day.notes.length),
               ),
               day.notes.map((note) =>
-                h("p", { key: note.id, dir: "auto" }, note.kind === "emoji" && playful ? h(playful.Emoji, { emoji: note.text, size: 42 }) : note.label || note.text, DDnoteTags(note).length > 0 && h("small", { className: "dd-review-note-tags" }, DDtagText(DDnoteTags(note)))),
+                h("p", { key: note.id, dir: "auto" }, note.kind === "emoji" && playful ? h(playful.Emoji, { emoji: note.text, size: 42 }) : note.label || note.text || DDmediaTitle(note), DDnoteTags(note).length > 0 && h("small", { className: "dd-review-note-tags" }, DDtagText(DDnoteTags(note)))),
               ),
             ),
         )
@@ -1888,7 +1889,7 @@ function DDReviewDay({
                 n(day.notes.length),
               ),
               day.notes.map((note) =>
-                h("p", { key: note.id, dir: "auto" }, note.kind === "emoji" && playful ? h(playful.Emoji, { emoji: note.text, size: 42 }) : note.label || note.text, DDnoteTags(note).length > 0 && h("small", { className: "dd-review-note-tags" }, DDtagText(DDnoteTags(note)))),
+                h("p", { key: note.id, dir: "auto" }, note.kind === "emoji" && playful ? h(playful.Emoji, { emoji: note.text, size: 42 }) : note.label || note.text || DDmediaTitle(note), DDnoteTags(note).length > 0 && h("small", { className: "dd-review-note-tags" }, DDtagText(DDnoteTags(note)))),
               ),
             ),
         ),

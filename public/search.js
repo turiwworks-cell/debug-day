@@ -1,5 +1,6 @@
 import { DDlifeItems, DDlifeRemoveTree, DDlifeHistory, DDlifeState, DDSectionChip } from "./life-board.js";
 import { DDnoteTags, DDtagText } from "./note-tags.js";
+import { DDmediaTitle } from "./media.js";
 // Readable, additive search and command palette. React is supplied by the app.
 export function DDsearchDigits(value = "") {
   return String(value).replace(/[۰-۹٠-٩]/g, (c) =>
@@ -239,7 +240,7 @@ export function DDbuildSearchIndex(data, today) {
         itemId: note.id,
         kind: "note",
         date,
-        title: note.label || note.text,
+        title: note.label || note.text || DDmediaTitle(note),
         extra: note.kind === "emoji" ? note.text : undefined,
         // A note's tags: "#tag" finds notes and tasks alike (5.36).
         tags: note.kind === "emoji" ? [] : DDnoteTags(note),
@@ -289,7 +290,7 @@ export function DDbuildSearchIndex(data, today) {
       extra: DDsubText(block.subtasks),
       group: "notes",
     });
-  for (const it of DDlifeItems(setup)) add({ id:"life:"+it.id,kind:"life",itemId:it.id,title:it.text || "Section",detail:"Feed · فید",category:"life",group:"life",extra:it.type,tags:it.type==="sticky"?DDnoteTags(it):[] });
+  for (const it of DDlifeItems(setup)) add({ id:"life:"+it.id,kind:"life",itemId:it.id,title:it.text || DDmediaTitle(it) || "Section",detail:"Feed · فید",category:"life",group:"life",extra:it.type,tags:it.type==="sticky"?DDnoteTags(it):[] });
   return index;
 }
 export function DDmatchSearch(row, query) {

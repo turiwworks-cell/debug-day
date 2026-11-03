@@ -2,6 +2,7 @@
 import { DDSectionChip, DDsectionPath } from "./life-board.js";
 import { DDTimerMini, DDTimerPanel } from "./timer.js";
 import { DDtagList, DDtagText, DDnoteTags } from "./note-tags.js";
+import { DDmediaTitle } from "./media.js";
 export const DDboardShortcuts = [
   ["V", "Select", "انتخاب"], ["H / Space+drag", "Pan", "حرکت بوم"],
   ["S", "Sticky note", "یادداشت"], ["T", "Text / title", "متن / تایتل"], ["Shift+S", "Section", "سکشن"],
@@ -55,8 +56,8 @@ export function DDboardSearchRows(day, lifeItems, visibleNodes = []) {
     } };
     visit(b.subtasks, []);
   }
-  for (const n of day.notes || []) put({ id: "sticky:" + n.id, title: n.kind==="emoji"?(n.label||rows.get("sticky:"+n.id)?.title||n.text):n.text, detail: n.kind==="emoji"?n.text:DDtagText(DDnoteTags(n)), tags: DDnoteTags(n), kind: n.kind === "emoji" ? "emoji" : "sticky" });
-  for (const i of lifeItems) put({ id: "life:" + i.id, title: i.text, detail: "Feed " + DDtagText(DDnoteTags(i)), tags: DDnoteTags(i), lifeId: i.id, kind: i.type === "section" ? "life-section" : "sticky" });
+  for (const n of day.notes || []) put({ id: "sticky:" + n.id, title: n.kind==="emoji"?(n.label||rows.get("sticky:"+n.id)?.title||n.text):n.text||DDmediaTitle(n), detail: n.kind==="emoji"?n.text:DDtagText(DDnoteTags(n)), tags: DDnoteTags(n), kind: n.kind === "emoji" ? "emoji" : "sticky" });
+  for (const i of lifeItems) put({ id: "life:" + i.id, title: i.text || DDmediaTitle(i), detail: "Feed " + DDtagText(DDnoteTags(i)), tags: DDnoteTags(i), lifeId: i.id, kind: i.type === "section" ? "life-section" : "sticky" });
   return [...rows.values()];
 }
 
