@@ -609,7 +609,7 @@ export function DDcreateBoard(deps) {
           kind: "frame",
           section: "life",
           title: t("Feed", "فید"),
-          subtitle: t("Same on every day", "روی همهٔ روزها یکسان است"),
+          subtitle: "",
           color: "#4A4843",
           textColor: "#fff",
           x: finite(saved?.x, 24),
@@ -841,9 +841,8 @@ export function DDcreateBoard(deps) {
             kind: "block",
             title: block.name || DDUI("Untitled"),
             subtitle:
+              // The card's icon and color already say the kind of work (5.43).
               measure.DDmeasureText(block, DDlanguage, w) +
-              " \xB7 " +
-              DDUI(type.name) +
               (stats.total
                 ? ` \xB7 ${stats.done}/${stats.total} ${t("steps", "قدم")}`
                 : ""),
@@ -4474,7 +4473,7 @@ export function DDcreateBoard(deps) {
           style:((area) => area && area.x < Y.x + 460 && area.x + area.w > Y.x && Math.abs(area.y - Y.y) < 90 ? { left: Math.max(18, area.x + area.w - Y.x + 24) } : undefined)(layout.map.get("section:engine")),
           title:t("Drag to move the Feed","برای جابه‌جایی فید بکشید"),
           onPointerDown:(e) => { if (e.button || e.target.closest("button")) return; e.stopPropagation(); e.preventDefault(); finishEdit(); setMenu(null); startFeedMove(e); } },
-        Y.title, _.createElement("small",null,t("Same on every day","روی همهٔ روزها یکسان"))),
+        Y.title),
       _.createElement("button",{type:"button",className:"dd-area-resize","data-resize":true,"data-edge":"se","aria-label":t("Resize Feed","تغییر اندازهٔ فید"),
         title:t("Drag to resize the Feed","برای تغییر اندازهٔ فید بکشید"),onPointerDown:(e) => startAreaResize(e, Y)}));
       if (Y.kind === "section")
@@ -6115,16 +6114,11 @@ export function DDcreateBoard(deps) {
           _.createElement(
             "div",
             null,
-            _.createElement(
-              "strong",
-              null,
-              DDUI("\u0628\u0631\u062F \u062E\u0644\u0627\u0642\u06CC\u062A"),
-            ),
+            // The board's name is its day (5.43).
+            _.createElement("strong", null, ie.format(E(day.date))),
             _.createElement(
               "small",
               null,
-              ie.format(E(day.date)),
-              " \xB7 ",
               completion,
               DDUI("% \u0627\u0646\u062C\u0627\u0645\u200C\u0634\u062F\u0647"),
             ),

@@ -260,6 +260,8 @@ if (typeof document !== "undefined")
 const DDdefaultNames = new Set([
   "New block",
   "بلاک جدید",
+  "New task",
+  "کار جدید",
   "New idea…",
   "ایده جدید…",
   "Untitled",

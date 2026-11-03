@@ -15,7 +15,7 @@ export const DDpanelList = [
     icon: "📋",
     color: "#3F8CFF",
     name: ["Plan", "پلن"],
-    about: ["Today's cards in lanes, with steps and time", "کارهای امروز در لاین‌ها، با قدم‌ها و زمان"],
+    about: ["Today's tasks in lanes, with steps and time", "کارهای امروز در لاین‌ها، با قدم‌ها و زمان"],
     words: "today tasks cards lanes blocks امروز کار کارت لاین",
     isolate: true,
   },
@@ -115,10 +115,29 @@ export function DDpanelCommands(language, open) {
   }));
 }
 
+// Line icons for the panels (5.43): the app draws its own icons with lines;
+// emoji belong to the person's own content. The emoji in DDpanelList stay as
+// a fallback for any panel without a line icon.
+const DDpanelLines = {
+  engine: '<circle cx="8" cy="8" r="2.4"/><path d="M8 1.8v1.8M8 12.4v1.8M1.8 8h1.8M12.4 8h1.8M3.6 3.6l1.3 1.3M11.1 11.1l1.3 1.3M3.6 12.4l1.3-1.3M11.1 4.9l1.3-1.3"/>',
+  plan: '<path d="M2.8 4.2l.9.9 1.6-1.8M2.8 8.7l.9.9 1.6-1.8M7.5 4.5h5.7M7.5 9h5.7M7.5 13h5.7M3 13h1.5"/>',
+  board: '<circle cx="4" cy="8" r="1.9"/><circle cx="12" cy="3.8" r="1.7"/><circle cx="12" cy="12.2" r="1.7"/><path d="M5.7 7.1l4.6-2.4M5.7 8.9l4.6 2.4"/>',
+  habits: '<path d="M3.2 12.8C3.2 7 6.8 3.6 12.8 3.2c-.4 6-3.8 9.6-9.6 9.6z"/><path d="M3.2 12.8 8.2 7.8"/>',
+  calendar: '<rect x="2.5" y="3.3" width="11" height="10.2" rx="2"/><path d="M2.5 6.8h11M5.4 1.9v2.6M10.6 1.9v2.6"/>',
+  stats: '<path d="M3 13.2V8.6M8 13.2V3M13 13.2V6.2"/>',
+  sections: '<rect x="2.3" y="2.3" width="4.6" height="4.6" rx="1.2"/><rect x="9.1" y="2.3" width="4.6" height="4.6" rx="1.2"/><rect x="2.3" y="9.1" width="4.6" height="4.6" rx="1.2"/><rect x="9.1" y="9.1" width="4.6" height="4.6" rx="1.2"/>',
+};
+export function DDpanelGlyph(R, id) {
+  const lines = DDpanelLines[id];
+  return lines
+    ? R.createElement("svg", { viewBox: "0 0 16 16", width: "1em", height: "1em", fill: "none", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true, dangerouslySetInnerHTML: { __html: lines } })
+    : (DDpanelOf(id)?.icon || null);
+}
+
 // A colored icon chip.
 export function DDPanelIcon({ React: R, id }) {
   const panel = DDpanelOf(id);
-  return panel ? R.createElement("span", { className: "dd-panel-icon", "data-panel": id, "aria-hidden": true }, panel.icon) : null;
+  return panel ? R.createElement("span", { className: "dd-panel-icon", "data-panel": id, "aria-hidden": true }, DDpanelGlyph(R, id)) : null;
 }
 
 // The app map: one card per panel, open or isolate it. Stats lives inside
@@ -136,7 +155,7 @@ export function DDPanelMap({ React: R, language, counts = {}, onPick }) {
         R.createElement(
           "div",
           { className: "dd-panel-map-head" },
-          R.createElement("span", { className: "dd-panel-icon", "aria-hidden": true }, panel.icon),
+          R.createElement("span", { className: "dd-panel-icon", "data-panel": panel.id, "aria-hidden": true }, DDpanelGlyph(R, panel.id)),
           R.createElement("b", null, panel.name[fa ? 1 : 0]),
           counts[panel.id] && R.createElement("small", null, counts[panel.id]),
         ),

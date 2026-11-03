@@ -1,0 +1,81 @@
+# Design rules for Debug Day
+
+Read this before you change anything a person sees. Many agents work on this
+app; these rules keep it one app with one voice. They come from the app's two
+goals in `CLAUDE.md`: everything stays in sync, and it is a planner for
+artists, not a rigid hour-by-hour scheduler.
+
+## 1. Words
+
+One word for each thing. Use these in labels, tooltips, toasts and tests.
+
+| Say | Never say |
+|---|---|
+| **Task**: one piece of work on a day | block, time block, card, node |
+| **Step**: a part of a task (steps can nest) | sub-node, sub-step, node |
+| **Section**: a group in the Feed | room, folder |
+| **Note**: a sticky note | sticky (in labels) |
+| **Feed**: the board area that is the same on every day | Life (that was its old name) |
+| **Engine**: today's tasks frame on the Board | today box |
+| **Focus**: the timer | Stillness |
+| **Pause the day**: the "life happened" pause | Life happened |
+| **Lane**: a row in Plan and Board Lanes (Work, Life…, the person's own names) | track |
+
+- "Life" is only ever a lane name the person chose. Do not use it for app features.
+- Old labels that still pass through `DDUI` are rewritten in `public/words.js`.
+  Add a new rename there (English and Persian) instead of editing every call.
+- Short, calm, plain. "Add task", not "Create a new time block". No exclamation marks.
+- Time is written one way everywhere: `45m`, `3h`, `1h 30m` (`DDduration` in `measure.js`).
+
+## 2. Calm by default
+
+- One main action per area. Everything else is quieter (ghost button, text button, or behind "…").
+- A tool with nothing in it hides until it has something, or until "…" is open (`dd-quiet` class).
+- No hour grids, Gantt bars or red "late" states. Time is a small number next to the name, and optional.
+- No guilt: no red, no streak-loss warnings, no "you failed". Use neutral words ("not yet", "left").
+- Help text fades away: show a hint once, then rely on `?` and tooltips.
+- A task in Plan is one line. Details open on click, steps open when asked.
+
+## 3. Color
+
+- The UI itself is gray (Graphite): use the tokens in `public/graphite.js`
+  (`--paper`, `--panel`, `--wash`, `--ink` to `--ink-4`, `--rule`, `--rule-2`).
+- One accent: `--now`. Green `--ok` only for done.
+- Color belongs to the person's content: sections, notes, lanes, tags.
+- Every color works in light and dark. Never hard-code a hex for UI chrome.
+- **Never change the sticky notes' look** (shape, colors, fold, font).
+
+## 4. Icons
+
+- App icons are line icons: 16×16 viewBox, `stroke="currentColor"`, stroke 1.5, round caps.
+  Panel icons live in `public/panels.js` (`DDpanelGlyph`), others in the bundle's icon set and `board-icons.js`.
+- Emoji are only for the person's own content (task emoji, stickers, notes).
+
+## 5. Buttons and controls
+
+- Heights: 28px quiet controls, 32–36px chips, 44px minimum on touch (`pointer:coarse`).
+- Pills (`dchip`, `dd-pill`) for tools; `btn solid` for the one main action; `textbtn` for small links.
+- Destructive actions ask once or offer Undo; prefer Undo.
+
+## 6. Panels and dialogs
+
+- Popovers open next to their button and close on Esc and on a click outside.
+- Dialogs have a title (`aria-label`), Esc closes, focus returns to the button that opened them.
+- On a phone, sheets come from the bottom; the view tabs stay at the bottom.
+
+## 7. Phone
+
+- The tabs live at the bottom. Capture floats above them and never covers content.
+- The Board opens full screen and ends above the tabs.
+- Every tap target is at least 44px.
+
+## 8. Persian and right-to-left
+
+- Every text a person types uses `dir="auto"`, so Persian starts from the right.
+- Every new label has a Persian version (`t(en, fa)` or the Persian dictionary).
+- Numbers in Persian UI use Persian digits where the rest of the line does.
+
+## 9. Sync
+
+- No view keeps its own copy of the truth. If Board can change it, Plan, Lanes,
+  Calendar and the Feed show the change at once (see `CLAUDE.md` › 0).

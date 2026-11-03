@@ -39,10 +39,10 @@ const { start, fixture } = require("./harness.cjs");
     const tools = page.locator("main > .dayline");
     assert.equal(await tools.getByRole("button", { name: "Worry parking" }).isVisible(), false);
     assert.equal(await tools.getByRole("button", { name: "Later tray" }).isVisible(), false);
-    assert.equal(await tools.getByRole("button", { name: "Life happened" }).isVisible(), false);
+    assert.equal(await tools.getByRole("button", { name: "Pause the day" }).isVisible(), false);
     assert.equal(await tools.locator(".dchip", { hasText: "Template" }).isVisible(), false, "one template needs no chip");
     await tools.getByRole("button", { name: "More day tools" }).click();
-    for (const name of ["Worry parking", "Later tray", "Life happened"])
+    for (const name of ["Worry parking", "Later tray", "Pause the day"])
       assert.equal(await tools.getByRole("button", { name }).isVisible(), true, name + " shows after …");
     assert.equal(await tools.locator(".dchip", { hasText: "Template" }).isVisible(), true);
     await tools.getByRole("button", { name: "Fewer day tools" }).click();
