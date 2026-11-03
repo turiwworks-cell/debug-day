@@ -74,8 +74,8 @@ test("legacy day-note and preference normalizers preserve only supported roles a
   assert.equal(p.boardRailGoal, false); assert.equal(p.boardRailNote, true);
   assert.equal(p.boardRailHabits, undefined);
   assert.deepEqual(DDrailPreferences({}, true), { goal: false, note: false, habits: false });
-  assert.deepEqual(DDrailPreferences({}), { goal: false, note: false, habits: true });
-  assert.deepEqual(DDrailPreferences(p), { goal: false, note: true, habits: true });
+  assert.deepEqual(DDrailPreferences({}), { goal: false, note: false, habits: false });
+  assert.deepEqual(DDrailPreferences(p), { goal: false, note: true, habits: false });
   assert.equal(Object.values(DDrailPreferences({ boardRailGoal: true, boardRailNote: true, boardRailHabits: true }, true)).filter(Boolean).length, 1);
 });
 

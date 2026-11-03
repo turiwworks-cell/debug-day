@@ -1,5 +1,6 @@
 // Quick capture, permanent worry parking and the phone's quiet Today view.
 import { DDTimerMini } from "./timer.js";
+import { DDduration } from "./measure.js";
 function DDcaptureDate(date) {
   if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date))
     return false;
@@ -400,8 +401,7 @@ export function DDCaptureTools({
               "p",
               null,
               block.at && h("time", null, block.at + " · "),
-              block.min,
-              t(" min", " دقیقه"),
+              DDduration(block.min, language),
             ),
             label === t("Current", "کار فعلی") &&
               h(
@@ -520,7 +520,7 @@ export function DDCaptureTools({
             },
             h("small", null, t("Next", "کار بعدی")),
             h("span", { dir: "auto" }, next.name),
-            h("em", null, next.min, t(" min", " دقیقه")),
+            h("em", null, DDduration(next.min, language)),
           ),
         playful && coarse && !details && h(playful.DayStickers, {day,date,onChange:fn=>setData(old=>({...old,days:{...old.days,[date]:fn(old.days[date]||day)}}))}),
         timer.running &&

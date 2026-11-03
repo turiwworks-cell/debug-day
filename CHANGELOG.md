@@ -1,3 +1,18 @@
+## 5.40.0 — 2026-11-03
+Branch: claude/project-thread-pbgoz7
+- Clean-up from the full app review (part 1 of 6).
+- Add block no longer leaves a "New block" behind: it opens the quick-add line already set to that lane ("@Work "). Type a name and press Enter; close it and nothing is made.
+- Tasks can be as short as 5 minutes (was 15). The − and + buttons move by 5 minutes up to half an hour, then by 15. Dragging a card's edge snaps to 5 minutes.
+- Time reads the same everywhere: "45m", "3h", "1h 30m" (new DDduration in measure.js). Phone Today, Later, the Calendar day and its task list used "180 min" before.
+- A done task is the tick, the line through the name and the dim text. The extra "Done" pill on Plan rows and Board cards is gone.
+- Persian steps in Plan start next to their tick instead of the far right.
+- The step field's hint is short: "Add a step… (a > b nests it)".
+- Board: "Today's habits" starts closed (its button still opens it; a saved choice is kept).
+- Board: when the Engine sits on the Feed's corner, the Feed's name moves past the Engine so the two names never cover each other.
+- Left over from removed features: the "Alt+M App Map" hint under Plan, the pinned "Open app map" in Search, "Feelings page" and "Day feelings & events" in Settings › Show, and the Calendar's "Feelings & events 0" and "how they felt" text. Old feelings still show in the Calendar if a day has some.
+- Phone: pages leave room at the bottom so the Capture button never covers dates or settings. The calendar picker shows "Gregorian" in full.
+- Test: rails unit test expects habits closed by default.
+
 ## 5.39.1 — 2026-11-03
 Branch: claude/project-thread-d5d9gg
 - Alt-drag to copy now looks like a copy: the original stays where it was and the copy-to-be follows the pointer half see-through with a dashed outline, and the cursor shows "copy". Drop it and the copy lands there, as before.

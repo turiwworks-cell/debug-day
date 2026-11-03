@@ -1975,7 +1975,7 @@ export function DDcreateBoard(deps) {
       }
       if (G.kind === "resize") {
         G.min = Math.max(
-          15,
+          5,
           Math.min(720, S(G.startMin + ct / (3 * cam.current.z))),
         );
         const Pt = elementRefs.current.get(G.ref);
@@ -4463,6 +4463,9 @@ export function DDcreateBoard(deps) {
         onPointerDown:(e) => { if (!e.target.closest("button")) { e.stopPropagation(); backgroundDown(e, true); } },
         onContextMenu:(e) => openContext(e,{}),
       }, _.createElement("div",{className:"dd-life-area-title","data-feed-handle":true,
+          // When the Engine sits on the Feed's top-left corner, the two names
+          // would cover each other: move the Feed's name past the Engine.
+          style:((area) => area && area.x < Y.x + 460 && area.x + area.w > Y.x && Math.abs(area.y - Y.y) < 90 ? { left: Math.max(18, area.x + area.w - Y.x + 24) } : undefined)(layout.map.get("section:engine")),
           title:t("Drag to move the Feed","برای جابه‌جایی فید بکشید"),
           onPointerDown:(e) => { if (e.button || e.target.closest("button")) return; e.stopPropagation(); e.preventDefault(); finishEdit(); setMenu(null); startFeedMove(e); } },
         Y.title, _.createElement("small",null,t("Same on every day","روی همهٔ روزها یکسان"))),
@@ -4884,7 +4887,7 @@ export function DDcreateBoard(deps) {
             role: "slider",
             tabIndex: 0,
             "aria-label": "Duration of " + Y.title,
-            "aria-valuemin": 15,
+            "aria-valuemin": 5,
             "aria-valuemax": 720,
             "aria-valuenow": Y.min,
             onPointerDown: (Kt) => {
@@ -4908,14 +4911,14 @@ export function DDcreateBoard(deps) {
                 (Kt.preventDefault(), Kt.stopPropagation());
                 const Dn =
                   Kt.key === "Home"
-                    ? 15
+                    ? 5
                     : Kt.key === "End"
                       ? 720
                       : Math.max(
-                          15,
+                          5,
                           Math.min(
                             720,
-                            Y.min + (Kt.key === "ArrowRight" ? 15 : -15),
+                            Y.min + (Kt.key === "ArrowRight" ? (Y.min >= 30 ? 15 : 5) : -(Y.min > 30 ? 15 : 5)),
                           ),
                         );
                 commit((Jt) => ({
