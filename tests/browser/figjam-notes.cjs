@@ -7,7 +7,7 @@ const {start,fixture}=require('./harness.cjs');
 (async()=>{
  const h=await start();
  try {
-  for(const language of ['en','fa']){
+  for(const language of ['en']){
    const {page,errors}=await h.context(false),f=await fixture(page,h.origin),t=(en,fa)=>language==='fa'?fa:en;
    f.data.setup.preferences.language=language;
    f.data.days[f.date].notes=[{id:'a',kind:'sticky',text:'First idea',color:'#FFE299',x:900,y:900}];

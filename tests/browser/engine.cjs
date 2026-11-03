@@ -6,7 +6,7 @@ const {start,fixture}=require('./harness.cjs');
 (async()=>{
  const h=await start();
  try {
-  for(const [language,mobile] of [['en',false],['fa',false],['fa',true]]){
+  for(const [language,mobile] of [['en',false],['en',true]]){
    const {page,errors}=await h.context(mobile),f=await fixture(page,h.origin),t=(en,fa)=>language==='fa'?fa:en;
    f.data.setup.preferences.language=language;
    await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),f.data);

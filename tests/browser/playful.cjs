@@ -215,5 +215,5 @@ async function scenario(h,mobile,language){
     throw error;
   }finally{await context.close();}
 }
-(async()=>{const h=await start();try{for(const language of ["en","fa"])for(const mobile of [false,true])await scenario(h,mobile,language);}finally{await h.stop();}})().catch(error=>{console.error(error);process.exitCode=1;});
+(async()=>{const h=await start();try{for(const language of ["en"])for(const mobile of [false,true])await scenario(h,mobile,language);}finally{await h.stop();}})().catch(error=>{console.error(error);process.exitCode=1;});
 

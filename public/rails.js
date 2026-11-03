@@ -1,7 +1,7 @@
 import{DDBoardIcon}from"./board-icons.js";
 import{DDlifePath}from"./life-board.js";
 import{DDboardSearchRows}from"./board-experience.js";
-import{DDHabitControls,DDHabitStats,DDhabitEntry,DDhabitLevels}from"./habits.js";
+import{DDHabitControls,DDHabitStats,DDhabitEntry,DDhabitLevels,DDhabitLevelsFor}from"./habits.js";
 
 export const DDrailRole = (value) => value === "goal" || value === "note" ? value : undefined;
 
@@ -123,8 +123,8 @@ export function DDBoardRails({ React: R, day, items, room, sharedLinks, nodes, p
         !habits.length && h("p", { className: "dd-rail-empty" }, t("Add a habit in Habits when you feel like it.", "هر وقت خواستی، در بخش عادت‌ها یک عادت اضافه کن.")),
         habits.map((habit) => h("section", { key: habit.id, className: "dd-rail-habit", "data-rail-habit": habit.id, style: { "--hc": habit.color } },
           h("button", { type: "button", className: "dd-rail-heading", dir: "auto", "aria-expanded": stats === habit.id, onClick: () => setStats(stats === habit.id ? null : habit.id) }, habit.name),
-          h(DDHabitControls, { React: R, habit, entry: DDhabitEntry(habitDay, habit.id), levels, language, onChange: (patch) => onHabitChange(habit.id, patch) }),
-          stats === habit.id && h(DDHabitStats, { React: R, habit, days: { ...days, [habitDay.date]: habitDay }, date: habitDay.date, levels, language }))))));
+          h(DDHabitControls, { React: R, habit, entry: DDhabitEntry(habitDay, habit.id), levels: DDhabitLevelsFor(habit, levels), language, onChange: (patch) => onHabitChange(habit.id, patch) }),
+          stats === habit.id && h(DDHabitStats, { React: R, habit, days: { ...days, [habitDay.date]: habitDay }, date: habitDay.date, levels: DDhabitLevelsFor(habit, levels), language }))))));
 }
 
 export function DDinstallRailStyles() {

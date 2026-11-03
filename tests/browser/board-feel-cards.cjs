@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict');
 const {start,fixture}=require('./harness.cjs');
-(async()=>{const h=await start();try{for(const [language,mobile] of [['en',false],['fa',false],['en',true],['fa',true]]){
+(async()=>{const h=await start();try{for(const [language,mobile] of [['en',false],['en',true]]){
  const {page,errors}=await h.context(mobile),f=await fixture(page,h.origin);page.setDefaultTimeout(8000);
  f.data.setup.preferences={...f.data.setup.preferences,language,boardRailGoal:false,boardRailNote:false,boardRailHabits:false};
  f.data.days[f.date].notes[0].text='Draw';f.data.days[f.date].canvas={board4:{camera:{x:200,y:260,z:1},styles:{}}};

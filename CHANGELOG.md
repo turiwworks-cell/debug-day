@@ -1,3 +1,12 @@
+## 5.31.0 — 2026-11-03
+Branch: claude/project-thread-88x2ih
+- Each habit has its own daily goal, for example sport 60 minutes and writing 30. A day is “Good” at half the goal, “Enough” at the goal and “Too much” at twice the goal, so 60 minutes of sport is enough while 60 minutes of writing is too much. A habit without its own goal keeps the old shared levels.
+- “Manage habits” sits next to the habit list in Plan: rename, change the color, set the goal and remove (it asks once first), all in one place. The goal can also be set from a habit's details on the Board.
+- The Habits section is gone from Settings.
+- Settings start with plain options: Basics (block length, focus timer, reduce motion), Board, and “Where your data is saved” with Download a backup and Save a recovery copy. Server, keys, MCP and storage details are under Advanced, closed by default.
+- The app is in English only. A saved Persian UI choice now shows English. Your own notes, titles and Persian text stay as they are.
+- Browser tests now run in English only. New unit test for habit goals; `tests/browser/habits.cjs` covers Manage habits, goals, Settings and the English-only UI.
+
 ## 5.30.0 — 2026-11-03
 Branch: claude/project-thread-88x2ih
 - The timer keeps going after a page refresh. A paused timer keeps its time too, and a second open tab shows the same clock.

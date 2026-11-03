@@ -65,3 +65,22 @@ test("a card becomes a habit, reusing one with the same name", () => {
   assert.deepEqual(made.habit, { id: "s", name: "Sketch", emo: "✏️", color: "#123456" });
   assert.equal(made.habits.length, 2);
 });
+
+test("each habit has its own goal and its labels follow it", async () => {
+  const { DDhabitGoal, DDhabitLevelsFor, DDhabitLevel, DDhabitLevelName, DDnormalizeHabits } = await import("../public/habits.js");
+  const sport = { id: "s", name: "Sport", color: "#3F8CFF", goal: 60 }, writing = { id: "w", name: "Writing", color: "#E2683C", goal: 30 };
+  const name = (habit, min) => DDhabitLevelName(DDhabitLevel({ done: true, min }, DDhabitLevelsFor(habit)), "en");
+  assert.equal(name(sport, 60), "Enough");
+  assert.equal(name(writing, 60), "Too much");
+  assert.equal(name(sport, 30), "Good");
+  assert.equal(name(sport, 120), "Too much");
+  // Without its own goal a habit keeps the older shared levels.
+  assert.equal(DDhabitGoal({ id: "x" }), 30);
+  assert.equal(DDhabitGoal({ id: "x" }, { good: 20, enough: 45, much: 90 }), 45);
+  assert.deepEqual(DDhabitLevelsFor({ id: "x" }, { good: 20, enough: 45, much: 90 }), { good: 20, enough: 45, much: 90 });
+  // The goal survives loading and bad goals are dropped.
+  const list = DDnormalizeHabits([sport, { id: "b", name: "Bad", goal: 2 }, { id: "c", name: "Big", goal: "45" }]);
+  assert.equal(list[0].goal, 60);
+  assert.equal("goal" in list[1], false);
+  assert.equal(list[2].goal, 45);
+});
