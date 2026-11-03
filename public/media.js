@@ -37,6 +37,7 @@ function writeStore(kind, key, value) {
   } catch {}
 }
 
+const dim = (v) => (Number.isSafeInteger(v) && v > 0 && v <= 100000 ? v : 0);
 // Keeps only well-formed links. Unknown or broken entries are dropped.
 export function DDmediaList(value) {
   if (!Array.isArray(value)) return [];
@@ -54,10 +55,17 @@ export function DDmediaList(value) {
       name: text(item.name, 200) || "file",
       mime: /^[\w.+-]+\/[\w.+-]+$/.test(mime) ? mime : "",
       size: Number.isSafeInteger(size) && size >= 0 ? size : 0,
+      // A picture's own width and height in pixels, when known (photo cards on the Board).
+      ...(dim(item.w) && dim(item.h) ? { w: dim(item.w), h: dim(item.h) } : {}),
     });
     if (out.length >= MAX_ITEMS) break;
   }
   return out;
+}
+// How a photo note reads where only words fit (search, the Day review): its file name.
+export function DDmediaTitle(note) {
+  const first = DDmediaList(note?.media)[0];
+  return first ? (first.mime.startsWith("video/") ? "🎬 " : first.mime.startsWith("image/") ? "🖼️ " : "📄 ") + first.name : "";
 }
 export function DDmediaKind(item) {
   const mime = item?.mime || "";
@@ -230,18 +238,24 @@ async function upload(file, onProgress) {
     { id: result.id, name: result.name || file.name, mime: result.mimeType || file.type, size: Number(result.size) || file.size },
   ])[0];
 }
-async function thumbnail(id) {
-  if (metaCache.has(id)) return metaCache.get(id);
+async function thumbnail(id, px = 320) {
+  const key = id + "@" + px;
+  if (metaCache.has(key)) return metaCache.get(key);
   const p = drive(DRIVE + "/" + encodeURIComponent(id) + "?fields=thumbnailLink")
     .then((r) => r.json())
-    .then((m) => (m && typeof m.thumbnailLink === "string" ? m.thumbnailLink.replace(/=s\d+$/, "=s320") : ""))
+    .then((m) => (m && typeof m.thumbnailLink === "string" ? m.thumbnailLink.replace(/=s\d+$/, "=s" + px) : ""))
     .catch(() => {
-      metaCache.delete(id);
+      metaCache.delete(key);
       return "";
     });
-  metaCache.set(id, p);
+  metaCache.set(key, p);
   return p;
 }
+// For the Board's photo cards (board-photos.js): the same connection and upload.
+export const DDmediaConnect = () => connect();
+export const DDmediaUpload = (file, onProgress = () => {}) => upload(file, onProgress);
+export const DDmediaThumb = (id, px) => thumbnail(id, px);
+export const DDmediaMessage = (code, language) => message(code, language);
 
 function message(code, language) {
   const fa = language === "fa";

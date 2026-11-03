@@ -118,6 +118,7 @@ export const DDboardIcons = {
   comment: "M4.5 3.5h11a2 2 0 012 2v7a2 2 0 01-2 2H9l-4.5 3v-3a2 2 0 01-2-2v-7a2 2 0 012-2zM7 8h6M7 11h3.5",
   comments: "M3 3h9.5a1.5 1.5 0 011.5 1.5v5a1.5 1.5 0 01-1.5 1.5H7l-3 2.5V11a1.5 1.5 0 01-1.5-1.5v-5A1.5 1.5 0 013 3zM16.5 7.5a1.5 1.5 0 011.5 1.5v5a1.5 1.5 0 01-1.5 1.5v2.5l-3-2.5H10",
   tag: "M3 3.5h6.2l7.8 7.8-5.7 5.7L3.5 9.2V3.5z" + dot(7, 7.5, 0.9),
+  photo: "M3 4.5h14v11H3zM3 13l4-4 3.5 3.5 2-2L17 15" + dot(13.5, 7.5, 1.1),
   parentLook: "M6 3h10v10H6zM4 5v10h10" + "M2 7v10h10",
 };
 // Older names still used across the Board, and what each now draws.

@@ -1,3 +1,12 @@
+## 5.38.0 — 2026-11-03
+Branch: claude/project-thread-00fdop
+- Photos straight on the Board, like a mood board: drop image or video files on the canvas, or paste one (Ctrl/Cmd+V), and a photo card lands where you dropped it. Several at once sit side by side.
+- The file goes to your Google Drive "Debug Day" folder (same as task photos); the card is a normal note that keeps only the Drive link (`media`), so it saves with the day, moves in and out of the Feed, survives reloads and shows in search and the Day review by its file name.
+- Card shape follows the picture (wide pictures get a wider card). Double-click adds a caption under the photo. ↗ opens it in Drive.
+- While uploading, a preview shows the progress and nothing is saved yet, so a failed upload never leaves a blank note. Not signed in to Drive yet: the preview asks for one tap on "Save to Drive" (a drop can't open Google's window by itself); × leaves it out.
+- Also from the Tools dock ⋯ → "Photo or video…" (works on phone) and the canvas right-click → More → "Add photo here". New photo icon.
+- New module `public/board-photos.js`; board.js only hooks it in. media.js exposes connect/upload/thumbnail for it and keeps a picture's width and height.
+
 ## 5.37.0 — 2026-11-03
 Branch: claude/project-thread-b1dsgs
 - Engine sections: sections you draw inside the Engine's frame (outside the Feed) now count as the Engine's own. Nothing new is saved; it is read from where they sit.

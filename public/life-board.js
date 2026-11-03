@@ -7,6 +7,7 @@
 
 import { DDstickyColors } from "./board-core.js";
 import { DDtagList } from "./note-tags.js";
+import { DDmediaList } from "./media.js";
 import { DDnormalizeComments } from "./comments.js";
 import { DDnormalizeStrokes } from "./pen.js";
 export const DDlifeHead = 90;
@@ -120,6 +121,8 @@ export function DDnormalizeLife(life) {
       ...(!section && ["goal", "note"].includes(r.role) ? { role: r.role } : {}),
       // Tags on a Feed note: the same tags as tasks (note-tags.js).
       ...(!section && DDtagList(r.tags).length ? { tags: DDtagList(r.tags) } : {}),
+      // A photo note keeps only links to files in the person's Drive (board-photos.js).
+      ...(!section && DDmediaList(r.media).length ? { media: DDmediaList(r.media) } : {}),
       ...(r.style && typeof r.style === "object" ? { style: Object.fromEntries(Object.entries(r.style).filter(([k,v]) => (["textSize","opacity"].includes(k) && Number.isFinite(v)) || (k==="textAlign"&&["start","center","end"].includes(v)) || (k==="plain"&&v===true) || (k==="textColor"&&typeof v==="string"&&/^#[0-9a-f]{6}$/i.test(v)))) } : {}),
       ...(typeof r.color === "string" && /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(r.color) ? { color: r.color, ...(section && r.ownColor === true ? { ownColor: true } : {}) } : {}),
       // A top section placed on the board outside the Feed.
@@ -348,6 +351,7 @@ export function DDlifeAdd(items, spec) {
       text: spec.text || "",
       ...(!section ? {at:spec.at || new Date().toLocaleDateString("en-CA"),...(spec.baseW?{baseW:spec.baseW}:{})} : {}),
       ...(!section && ["goal", "note"].includes(spec.role) ? { role: spec.role } : {}),
+      ...(!section && DDmediaList(spec.media).length ? { media: DDmediaList(spec.media) } : {}),
       ...(spec.style ? { style: { ...spec.style } } : {}),
       color: spec.color || (section ? "#A8DAFF" : "#FFE299"),
       ...(section && spec.ownColor && spec.color ? { ownColor: true } : {}),
