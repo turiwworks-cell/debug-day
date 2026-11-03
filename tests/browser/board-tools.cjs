@@ -28,7 +28,7 @@ const {start,fixture}=require('./harness.cjs');
     // Arrows at both ends say nothing about family.
     {id:'c12',from:'sticky:c1',to:'sticky:c2',arrow:true,arrowStart:true},
    ]}};
-   await page.evaluate((d)=>{localStorage.setItem('debug-day:v2',JSON.stringify(d.data));localStorage.setItem('debug-day:ui',JSON.stringify({view:'board'}));localStorage.setItem('debug-day:board-view:'+d.date,JSON.stringify({camera:d.mobile?{x:-440,y:40,z:0.35}:{x:-720,y:0,z:0.6},mode:'mindmap'}));},{data:f.data,date:f.date,mobile});
+   await page.evaluate((d)=>{localStorage.setItem('debug-day:v2',JSON.stringify(d.data));localStorage.setItem('debug-day:ui',JSON.stringify({view:'board'}));localStorage.setItem('debug-day:board-view:'+d.date,JSON.stringify({camera:d.mobile?{x:-440,y:40,z:0.35}:{x:-720,y:120,z:0.6},mode:'mindmap'}));},{data:f.data,date:f.date,mobile});
    await page.reload();await page.waitForSelector('.b2-viewport');
    const read=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2'))),
     today=async()=>(await read()).days[f.date],
@@ -61,27 +61,33 @@ const {start,fixture}=require('./harness.cjs');
    await settle(500);
 
    // 1. Parent notes: arrows make the family; the parent stands out outside its paper.
-   assert.equal(await node('sticky:p').getAttribute('data-parent-look'),'stack','a parent note gets the calm stack');
-   assert.equal(await node('sticky:c1').getAttribute('data-parent-look'),null,'a two-way line makes no parent');
-   assert.equal(await node('life:n').getAttribute('data-parent-look'),'stack','a Feed note with an arrow is a parent too');
-   assert.equal((await node('sticky:p').locator('.dd-subnote-count').innerText()).trim(),'2');
+   // 5.39: a badge with the count on the note's corner, nothing under it.
+   assert.equal(await node('sticky:p').getAttribute('data-parent-look'),null,'the badge is the default look');
+   assert.equal((await node('sticky:p').locator('.dd-family-badge').innerText()).trim(),'2');
+   assert.equal(await node('sticky:c1').locator('.dd-family-badge').count(),0,'a two-way line makes no parent');
+   assert.equal((await node('life:n').locator('.dd-family-badge').innerText()).trim(),'1','a Feed note with an arrow is a parent too');
    const paper=await node('sticky:p').evaluate((el)=>{const s=getComputedStyle(el);return [s.backgroundColor,s.borderRadius,el.offsetWidth,el.offsetHeight].join('|');});
    const plain=await node('sticky:c2').evaluate((el)=>{const s=getComputedStyle(el);return [s.borderRadius].join('|');});
    assert.equal(paper.split('|')[1],plain,'the paper itself keeps its shape');
-   const under=await node('sticky:p').locator('.dd-note-under').boundingBox(),pbox=await node('sticky:p').boundingBox();
-   assert.ok(under.y>=pbox.y+pbox.height,'the count sits under the paper, not on it');
+   const badge=await node('sticky:p').locator('.dd-family-badge').boundingBox(),pbox=await node('sticky:p').boundingBox();
+   assert.ok(badge.y<pbox.y+12&&badge.y+badge.height>pbox.y,'the badge sits on the top edge of the note');
+   assert.equal(await page.locator('.dd-note-family').count(),0,'no family text under any note');
    await shot('parent-note');
    // Picked, a note shows its family; a click goes there and Back returns.
    await pick('sticky:p');
+   assert.equal(await page.locator('.dd-note-family').count(),0,'picking alone shows nothing more');
+   await node('sticky:p').locator('.dd-family-badge').evaluate((el)=>el.click()); // the note sits under the top bar in this camera
    const family=node('sticky:p').locator('.dd-note-family');
    await family.waitFor();
    assert.deepEqual(await family.locator('[data-family-ref]').evaluateAll((els)=>els.map((e)=>e.dataset.familyRef)),['sticky:c1','sticky:c2']);
    await shot('family');
-   await tap(family.locator('[data-family-ref="sticky:c1"]'));
+   await family.locator('[data-family-ref="sticky:c1"]').evaluate((el)=>el.click());
    await settle(600);
    assert.equal(await node('sticky:c1').evaluate((el)=>el.classList.contains('selected')),true,'the sub-note is picked');
    const back=page.locator('.b2-brandbar [data-places-back]');
    assert.equal(await back.isDisabled(),false,'Back returns to where you were');
+   assert.equal((await node('sticky:c1').locator('.dd-family-badge').innerText()).trim(),'↑','a picked sub-note shows a small ↑ badge');
+   await node('sticky:c1').locator('.dd-family-badge').evaluate((el)=>el.click());
    assert.deepEqual(await node('sticky:c1').locator('.dd-note-family [data-family-ref]').evaluateAll((els)=>els.map((e)=>e.dataset.familyRef)),['sticky:p'],'a sub-note shows its parent');
    const zoomed=(await camera()).z;
    await tap(back);await settle(700);
@@ -99,7 +105,8 @@ const {start,fixture}=require('./harness.cjs');
    await menuItem('Parent note look').click();await menuItem('Page edges').click();await settle();
    assert.equal(await node('sticky:p').getAttribute('data-parent-look'),'pages');
    await page.locator('[data-dock-more="tools"]').click();
-   await menuItem('Parent note look').click();await menuItem('Soft stack').click();await settle();
+   await menuItem('Parent note look').click();await menuItem('Badge only').click();await settle();
+   assert.equal(await node('sticky:p').getAttribute('data-parent-look'),null);
 
    // 2. Tags: from the note's bar and from right-click; one tag system with tasks.
    await pick('sticky:p');
@@ -109,14 +116,49 @@ const {start,fixture}=require('./harness.cjs');
    await tagInput.fill('Sketch book');await tagInput.press('Enter');
    assert.deepEqual((await today()).notes.find((n)=>n.id==='p').tags,['idea','Sketch_book']);
    if(mobile)assert.equal(await page.locator('.dd-note-tag-sheet').count(),1,'on a phone tags open in a sheet');
-   else assert.equal(await node('sticky:p').locator('.dd-note-tag-editor').count(),1,'tags are edited under the note');
+   else assert.equal(await node('sticky:p').locator('.dd-note-tag-editor').count(),1,'tags are edited on the note');
    await shot('tags-edit');
    await page.locator('.dd-note-tag-editor').getByRole('button',{name:'Remove tag Sketch_book'}).click();
    assert.deepEqual((await today()).notes.find((n)=>n.id==='p').tags,['idea']);
    await tagInput.press('Escape');await settle();
    const chip=node('sticky:p').locator('.dd-note-tags .dd-tag');
    assert.equal((await chip.innerText()).trim(),'#idea');
-   assert.ok((await chip.boundingBox()).y>=pbox.y+pbox.height-1,'tags sit under the paper');
+   const cb=await chip.boundingBox(),nb=await node('sticky:p').boundingBox();
+   assert.ok(cb.y+cb.height<=nb.y+1,'tags sit above the note');
+   // Tags have a colour with readable words, and you can change it (right-click a tag, or its dot in the editor).
+   const tagLook=()=>chip.evaluate((el)=>{const s=getComputedStyle(el);return [s.backgroundColor,s.color];});
+   const [bg,ink]=await tagLook();
+   assert.notEqual(bg,'rgba(0, 0, 0, 0)','a tag has its own colour');
+   if(!mobile){
+    await chip.click({button:'right'});
+    await node('sticky:p').locator('.dd-tag-colors').getByRole('button',{name:'Tag colour #5C7CFA'}).click();await settle();
+    assert.equal((await life()).tagColors?.idea,'#5C7CFA','saved once for the planner');
+    assert.equal((await tagLook())[0],'rgb(92, 124, 250)');
+    assert.equal((await tagLook())[1],'rgb(255, 255, 255)','light words on a dark colour');
+    await undo();
+    assert.equal((await life()).tagColors?.idea,undefined,'undo takes the colour back');
+   }
+   // Several notes at once: one Tags panel adds a tag to all of them, one undo takes it back.
+   if(!mobile){
+    await pick('sticky:p');await page.keyboard.down('Shift');await pick('sticky:c2');await page.keyboard.up('Shift');
+    assert.equal(await page.locator('.b4-node.selected').count(),2);
+    await bar.locator('[data-note-tags="many"]').click();
+    const group=page.getByRole('dialog',{name:'Tags for 2 notes'});await group.waitFor();
+    await group.getByRole('textbox',{name:'Add a tag',exact:true}).fill('batch');await group.getByRole('textbox',{name:'Add a tag',exact:true}).press('Enter');
+    let notes=(await today()).notes;
+    assert.deepEqual(notes.find((n)=>n.id==='p').tags,['idea','batch']);
+    assert.deepEqual(notes.find((n)=>n.id==='c2').tags,['batch']);
+    await group.getByRole('button',{name:'Remove tag idea'}).click();
+    notes=(await today()).notes;
+    assert.deepEqual(notes.find((n)=>n.id==='p').tags,['batch'],'removing takes it off every picked note');
+    await shot('tags-many');
+    await group.getByRole('button',{name:'Done'}).click();await settle();
+    assert.equal(await group.count(),0);
+    await undo();await undo();
+    notes=(await today()).notes;
+    assert.deepEqual(notes.find((n)=>n.id==='p').tags,['idea']);
+    assert.equal(notes.find((n)=>n.id==='c2').tags,undefined);
+   }
    // Right-click a Feed note: Tags…
    await page.evaluate(()=>{const v=document.querySelector('.b2-viewport');v.dispatchEvent(new CustomEvent('x'));});
    const kc=await center('life:k');

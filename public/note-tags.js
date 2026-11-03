@@ -68,19 +68,59 @@ export function DDallTags(days = {}, setup = {}) {
   return [...count.values()].sort((a, b) => b.n - a.n || a.tag.localeCompare(b.tag)).map((t) => t.tag);
 }
 
-export function DDTagChips({ React: R, tags, className = "dd-note-tags", onRemove, onPick }) {
-  const list = DDtagList(tags);
+// Tag colours (5.39). Each tag has a colour, the same everywhere; you can
+// change it. Saved once for the whole planner in the Feed (`life.tagColors`,
+// keyed by DDtagKey). A tag nobody coloured gets one from its name.
+export const DDtagPalette = ["#FFD43B", "#FF922B", "#FF6B6B", "#F06595", "#CC5DE8", "#845EF7", "#5C7CFA", "#339AF0", "#22B8CF", "#20C997", "#51CF66", "#495057"];
+const HEX = /^#[0-9a-f]{6}$/i;
+export function DDtagColors(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const out = {};
+  for (const [k, v] of Object.entries(value).slice(0, 300)) {
+    const key = DDtagKey(DDtagList([k])[0] || "");
+    if (key && typeof v === "string" && HEX.test(v)) out[key] = v.toUpperCase();
+  }
+  return out;
+}
+export function DDtagColor(colors, tag) {
+  const key = DDtagKey(tag), own = colors?.[key];
+  if (own && HEX.test(own)) return own;
+  let n = 0;
+  for (const ch of key) n = (n * 31 + ch.codePointAt(0)) >>> 0;
+  return DDtagPalette[n % DDtagPalette.length];
+}
+// Dark or light words, whichever reads better on the tag's colour.
+export function DDtagInk(color) {
+  const c = HEX.test(color || "") ? color : "#FFD43B";
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.3 ? "#121211" : "#FFFFFF";
+}
+// A small row of colours for one tag (right-click a tag, or its dot in the editor).
+export function DDTagColorPicker({ React: R, tag, colors, onColor, onClose }) {
+  const h = R.createElement, now = DDtagColor(colors, tag), own = !!colors?.[DDtagKey(tag)];
+  return h("span", { className: "dd-tag-colors", role: "group", "aria-label": "Colour of #" + tag, onPointerDown: (e) => e.stopPropagation(), onClick: (e) => e.stopPropagation() },
+    DDtagPalette.map((c) => h("button", { type: "button", key: c, className: "dd-tag-swatch", style: { background: c }, "aria-label": "Tag colour " + c, "aria-pressed": c === now,
+      onClick: () => { onColor(tag, c); onClose?.(); } })),
+    own && h("button", { type: "button", className: "dd-tag-swatch-reset", title: "Back to its own colour", "aria-label": "Reset tag colour", onClick: () => { onColor(tag, null); onClose?.(); } }, "↺"));
+}
+
+export function DDTagChips({ React: R, tags, className = "dd-note-tags", onRemove, onPick, colors, onColor }) {
+  const list = DDtagList(tags), [open, setOpen] = R.useState(null);
   if (!list.length) return null;
   const h = R.createElement;
   return h("span", { className, "aria-label": "Tags" },
-    list.map((tag) => h("span", { key: tag, className: "dd-tag", dir: "auto" },
+    list.map((tag) => h("span", { key: tag, className: "dd-tag", dir: "auto", "data-tag": tag,
+      style: colors ? { "--tag": DDtagColor(colors, tag), "--tag-ink": DDtagInk(DDtagColor(colors, tag)) } : undefined,
+      onContextMenu: onColor ? (e) => { e.preventDefault(); e.stopPropagation(); setOpen(open === tag ? null : tag); } : undefined },
+      onColor && onRemove && h("button", { type: "button", className: "dd-tag-dot", "aria-label": "Change colour of " + tag, title: "Colour", onClick: (e) => { e.stopPropagation(); setOpen(open === tag ? null : tag); } }),
       onPick ? h("button", { type: "button", className: "dd-tag-name", title: "Find #" + tag, onClick: (e) => { e.stopPropagation(); onPick(tag); } }, "#" + tag) : "#" + tag,
-      onRemove && h("button", { type: "button", className: "dd-tag-remove", "aria-label": "Remove tag " + tag, title: "Remove", onClick: (e) => { e.stopPropagation(); onRemove(tag); } }, "×"))));
+      onRemove && h("button", { type: "button", className: "dd-tag-remove", "aria-label": "Remove tag " + tag, title: "Remove", onClick: (e) => { e.stopPropagation(); onRemove(tag); } }, "×"))),
+    open && onColor && h(DDTagColorPicker, { React: R, tag: open, colors, onColor, onClose: () => setOpen(null) }));
 }
 
 // Add and remove tags: the chips with ×, and a field that suggests tags you
 // already use (tasks and notes), so one tag keeps one spelling.
-export function DDTagEditor({ React: R, tags, suggestions = [], onChange, onClose, autoFocus = true }) {
+export function DDTagEditor({ React: R, tags, suggestions = [], onChange, onClose, autoFocus = true, colors, onColor, label = "Note tags" }) {
   const h = R.createElement, [draft, setDraft] = R.useState(""), input = R.useRef(null), list = DDtagList(tags);
   const have = new Set(list.map(DDtagKey)), typed = DDtagKey(draft.trim().replace(/^#+/, "").replace(/\s+/g, "_"));
   const offer = suggestions.filter((tag) => !have.has(DDtagKey(tag)) && (!typed || DDtagKey(tag).includes(typed))).slice(0, 6);
@@ -91,9 +131,9 @@ export function DDTagEditor({ React: R, tags, suggestions = [], onChange, onClos
     setDraft("");
     input.current?.focus({ preventScroll: true });
   };
-  return h("div", { className: "dd-note-tag-editor", role: "group", "aria-label": "Note tags",
+  return h("div", { className: "dd-note-tag-editor", role: "group", "aria-label": label,
     onPointerDown: (e) => e.stopPropagation(), onDoubleClick: (e) => e.stopPropagation(), onContextMenu: (e) => e.stopPropagation() },
-    h(DDTagChips, { React: R, tags: list, onRemove: (tag) => onChange(list.filter((t) => DDtagKey(t) !== DDtagKey(tag))) }),
+    h(DDTagChips, { React: R, tags: list, colors, onColor, onRemove: (tag) => onChange(list.filter((t) => DDtagKey(t) !== DDtagKey(tag))) }),
     h("input", {
       ref: input, value: draft, dir: "auto", maxLength: 41,
       placeholder: list.length ? "Add a tag" : "Add a tag, like #idea",
@@ -117,7 +157,15 @@ export function DDTagEditor({ React: R, tags, suggestions = [], onChange, onClos
 }
 
 export const DDnoteTagsCSS = `
-.dd-note-tags{display:inline-flex;flex-wrap:wrap;gap:4px;min-width:0}
+.dd-note-tags{display:inline-flex;flex-wrap:wrap;gap:4px;min-width:0;position:relative}
+.dd-tag[style*="--tag"]{background:var(--tag);color:var(--tag-ink);font-weight:600;box-shadow:0 1px 2px #0003,inset 0 0 0 1px #0000001f}
+.dd-tag .dd-tag-dot{width:10px;height:10px;border-radius:50%;margin-inline-end:4px;background:var(--tag-ink);opacity:.35;flex:none}
+.dd-tag .dd-tag-dot:hover,.dd-tag .dd-tag-dot:focus-visible{opacity:.8}
+.dd-tag-colors{display:flex;flex-wrap:wrap;gap:4px;padding:6px;border-radius:10px;background:var(--wash,var(--paper));border:1px solid var(--rule-2,#0002);box-shadow:0 8px 20px -10px #0006;width:max-content;max-width:220px;pointer-events:auto;z-index:6}
+.dd-tag-colors button{all:unset;cursor:pointer;box-sizing:border-box;width:20px;height:20px;border-radius:50%;box-shadow:inset 0 0 0 1px #0003}
+.dd-tag-colors button[aria-pressed=true]{outline:2px solid var(--ink);outline-offset:1px}
+.dd-tag-colors .dd-tag-swatch-reset{display:grid;place-items:center;color:var(--ink);font-size:13px}
+@media(pointer:coarse){.dd-tag-colors button{width:28px;height:28px}}
 .dd-tag{display:inline-flex;align-items:center;gap:1px;max-width:100%;padding:1px 7px;border-radius:999px;background:color-mix(in srgb,var(--ink) 7%,transparent);color:var(--ink-2,var(--ink));font:500 11px/18px var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dd-tag button{all:unset;cursor:pointer;color:inherit}
 .dd-tag .dd-tag-remove{margin-inline-start:3px;padding:0 2px;opacity:.6;font-size:13px;line-height:1}

@@ -1,3 +1,13 @@
+## 5.39.0 — 2026-11-03
+Branch: claude/project-thread-d5d9gg
+- Parent notes: a small dark badge on the note's top corner with the number of its sub-notes ("↳ 2"). Nothing shows under the note any more. Click the badge to see its sub-notes (and parent) and jump to one. A picked sub-note shows a small "↑" badge that does the same.
+- "Badge only" is the new default parent look; Soft stack, Page edges and Soft ring stay in Tools ⋯ → Parent note look.
+- Note tags sit above the note now, as solid coloured chips with readable words (dark or light, picked from the colour).
+- Tag colours can be changed: right-click a tag on the board, or click its dot in the tag field. Twelve colours, ↺ gives the tag back its own colour. One colour per tag for the whole planner (any spelling), saved with the Feed (`life.tagColors`), synced, undoable.
+- Tag several notes at once: pick them, then Tags in the selection bar (or right-click → More → Tags…). Adding a tag adds it to all of them, removing takes it off all of them. One undo per change.
+- The tag field still opens just under the note while you type, so it never hides behind the top bar.
+- Tests: board-tools browser test updated for the badge, tags above, tag colours and tagging many notes; new unit tests for tag colours (normalizer, sync merge, Worker).
+
 ## 5.38.2 — 2026-11-03
 Branch: claude/project-thread-d5d9gg
 - Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y now work while the Align panel is open (after clicking one of its buttons). Before, you had to leave the panel first.
