@@ -8,7 +8,7 @@ const {start,fixture}=require('./harness.cjs');
 (async()=>{
  const h=await start();
  try{
-  for(const [language,mobile] of [['en',false],['fa',false]]){
+  for(const [language,mobile] of [['en',false]]){
    const {page,errors}=await h.context(mobile),f=await fixture(page,h.origin),t=(en,fa)=>language==='fa'?fa:en;
    page.setDefaultTimeout(10000);
    f.data.setup.preferences.language=language;

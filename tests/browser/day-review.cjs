@@ -398,7 +398,7 @@ async function scenario(h, mobile, language) {
 (async () => {
   const h = await start();
   try {
-    for (const language of ["en", "fa"])
+    for (const language of ["en"])
       for (const mobile of [false, true]) await scenario(h, mobile, language);
   } finally {
     await h.stop();

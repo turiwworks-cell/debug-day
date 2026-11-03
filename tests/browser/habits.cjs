@@ -62,19 +62,58 @@ const { start, fixture } = require("./harness.cjs");
     await panel.waitFor();
     assert.equal(await panel.locator(`[data-habit-id="${stretch.id}"]`).count(), 1);
 
-    // Settings: the minutes for each level can change.
-    await page.locator("button", { hasText: "Settings" }).last().click();
-    const good = page.locator("#dd-habits-prefs .dd-habit-levels input").first();
-    await good.fill("10");
-    assert.equal((await read()).setup.preferences.habitLevels.good, 10);
+    // Manage habits sits beside the list: rename, color, goal and remove, right there.
+    await panel.getByRole("button", { name: "Manage habits", exact: true }).click();
+    const manage = panel.locator(".dd-habit-manage");
+    await manage.getByRole("textbox", { name: "Name of Writing", exact: true }).fill("Writing pages");
+    assert.equal((await read()).setup.habits[0].name, "Writing pages");
+    const goal = manage.getByRole("spinbutton", { name: "Daily goal in minutes for Writing pages", exact: true });
+    assert.equal(await goal.inputValue(), "30", "without its own goal a habit starts at 30 minutes");
+    await goal.fill("60");
+    await goal.press("Enter");
+    assert.equal((await read()).setup.habits[0].goal, 60);
+    await manage.getByRole("button", { name: "Remove Stretch", exact: true }).click();
+    assert.equal((await read()).setup.habits.length, 2, "the first click only asks");
+    await manage.getByRole("button", { name: "Confirm removing Stretch", exact: true }).click();
+    assert.equal((await read()).setup.habits.length, 1);
+    await panel.getByRole("button", { name: "Done", exact: true }).click();
 
-    // A reload keeps habits, logs and levels.
+    // Labels follow each habit's goal: with a 60 minute goal, 40 minutes is "good", not "enough".
+    const pages = panel.locator('[data-habit-id="write"]');
+    assert.ok((await pages.locator(".dd-habit-name").innerText()).includes("goal 1h"));
+    assert.equal(await pages.locator('.dd-habit-strip i[data-level="3"]').count(), 0);
+    assert.equal(await pages.locator('.dd-habit-strip i[data-level="2"]').count(), 1);
+    await pages.locator(".dd-habit-min input").fill("60");
+    assert.equal(await pages.locator(".dd-habit-level").innerText(), "Enough");
+    await pages.locator(".dd-habit-min input").fill("120");
+    assert.equal(await pages.locator(".dd-habit-level").innerText(), "Too much");
+    await pages.locator(".dd-habit-min input").fill("20");
+
+    // Settings: no habits section and no language choice; the technical parts wait under Advanced.
+    await page.locator("button", { hasText: "Settings" }).last().click();
+    assert.equal(await page.locator("#dd-habits-prefs").count(), 0);
+    assert.equal(await page.getByRole("combobox", { name: "UI language", exact: true }).count(), 0);
+    await page.locator("#dd-data").waitFor();
+    assert.ok((await page.locator("#dd-data").innerText()).includes("On this device"));
+    assert.equal(await page.getByRole("textbox", { name: "Server URL", exact: true }).isVisible(), false);
+    await page.locator("#dd-advanced > summary").click();
+    assert.equal(await page.getByRole("textbox", { name: "Server URL", exact: true }).isVisible(), true);
+    assert.equal(await page.getByRole("textbox", { name: "MCP endpoint", exact: true }).isVisible(), true);
+
+    // A reload keeps habits, logs and goals. A saved Persian UI choice now shows English.
+    await page.evaluate(() => {
+      const data = JSON.parse(localStorage.getItem("debug-day:v2"));
+      data.setup.preferences.language = "fa";
+      localStorage.setItem("debug-day:v2", JSON.stringify(data));
+    });
     await page.reload();
     await page.waitForSelector(".app", { state: "attached" });
     const after = await read();
-    assert.equal(after.setup.habits.length, 2);
+    assert.equal(after.setup.habits.length, 1);
+    assert.equal(after.setup.habits[0].goal, 60);
     assert.equal(after.days[f.date].habits.write.min, 20);
-    assert.equal(after.setup.preferences.habitLevels.good, 10);
+    assert.equal(await page.evaluate(() => [document.documentElement.lang, document.documentElement.dir].join()), "en,ltr");
+    assert.ok((await page.locator(".views").innerText()).includes("Plan"));
 
     assert.deepEqual(errors, []);
     console.log("Habits section passed");

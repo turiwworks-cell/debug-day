@@ -4,7 +4,7 @@ const { start, fixture } = require("./harness.cjs");
 (async () => {
   const h = await start();
   try {
-    for (const language of ["en", "fa"]) for (const mobile of [false, true]) {
+    for (const language of ["en"]) for (const mobile of [false, true]) {
       const { page, context, errors } = await h.context(mobile), f = await fixture(page, h.origin),
         t = (en, fa) => language === "fa" ? fa : en;
       page.setDefaultTimeout(7000);

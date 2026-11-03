@@ -10,7 +10,7 @@ const {start,fixture}=require('./harness.cjs');
 (async()=>{
  const h=await start(),{DDsectionTint,DDsectionShade}=await import('../../public/life-board.js');
  try {
-  for(const [language,mobile] of [['en',false],['fa',false],['fa',true]]){
+  for(const [language,mobile] of [['en',false],['en',true]]){
    console.log('sections flowchart:',language,mobile?'phone':'desktop');
    const {page,errors}=await h.context(mobile),f=await fixture(page,h.origin),t=(en,fa)=>language==='fa'?fa:en,rtl=language==='fa';
    page.setDefaultTimeout(10000);
