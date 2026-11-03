@@ -95,6 +95,39 @@ export function DDengineHas(day, block) {
   return (day?.blocks || []).some((b) => sameName(b.name, block.name));
 }
 
+// What is still open to bring into today (5.37), read from the days, nothing
+// stored. `open`: the tasks of the latest earlier day with tasks that are not
+// done and not already here. `waiting`: waiting tasks left on an older day
+// (never arrived, never carried on to a later day), newest first, so a reply
+// you are waiting for does not stay behind on the day you started waiting.
+export function DDengineCarry(days = {}, day = {}, lookback = 60) {
+  const date = day?.date || "",
+    named = (b) => String(b?.name || "").trim() !== "",
+    earlier = DDengineEarlierDay(days, date),
+    open = earlier ? (earlier.day.blocks || []).filter((b) => named(b) && !b.done && !DDengineHas(day, b)) : [],
+    taken = new Set(open.map((b) => String(b.name).trim().toLowerCase())),
+    dates = Object.keys(days).filter((key) => key < date).sort().reverse().slice(0, lookback),
+    waiting = [];
+  for (const key of dates)
+    for (const block of days[key]?.blocks || []) {
+      const name = String(block.name || "").trim().toLowerCase();
+      if (block.measure !== "wait" || block.done || !named(block) || taken.has(name) || DDengineHas(day, block)) continue;
+      if (dates.some((later) => later > key && DDengineHas(days[later], block))) continue;
+      taken.add(name);
+      waiting.push(block);
+    }
+  return { date: earlier?.date || "", open, waiting, count: open.length + waiting.length };
+}
+
+// "Not today" on the carry line is remembered for that day on this device only.
+const CARRY_KEY = "debug-day:engine-carry-hidden";
+export function DDengineCarryHidden(date) {
+  try { return localStorage.getItem(CARRY_KEY) === date; } catch { return false; }
+}
+export function DDhideEngineCarry(date) {
+  try { localStorage.setItem(CARRY_KEY, date); } catch {}
+}
+
 // The Life sections a task can come from, top down, for the "from" picker.
 // Each one carries its whole path and its root's tint, read live from Life.
 export function DDengineSources(items = []) {
@@ -233,6 +266,31 @@ function EarlierEngine({ React: R, days, day, lanes, language, dateFormat, onCop
   );
 }
 
+// The soft line at the top of the Engine: what is still open from the last day
+// and what you are still waiting for, brought in with one tap. No counts of days
+// missed, no red: just an offer, and "Not today" puts it away.
+function CarryLine({ React: R, carry, language, dateFormat, onBring, onChoose, onHide }) {
+  const h = R.createElement,
+    fa = language === "fa",
+    t = (en, f) => (fa ? f : en),
+    num = (n) => Number(n).toLocaleString(fa ? "fa-IR" : "en-US"),
+    when = carry.date ? (dateFormat ? dateFormat(carry.date) : carry.date) : "",
+    parts = [
+      carry.open.length && t(`${carry.open.length} still open from ${when}`, `${num(carry.open.length)} کار باز از ${when}`),
+      carry.waiting.length && t(`${carry.waiting.length} still waiting`, `${num(carry.waiting.length)} در انتظار`),
+    ].filter(Boolean),
+    names = [...carry.open, ...carry.waiting].map((b) => b.name).join(" · ");
+  return h(
+    "div",
+    { className: "dd-engine-carry", role: "group", "aria-label": t("Still open", "هنوز باز"), "data-carry-date": carry.date },
+    h("span", { className: "dd-engine-carry-icon", "aria-hidden": true }, "↺"),
+    h("div", { className: "dd-engine-carry-text" }, h("b", null, parts.join(" · ")), h("small", { dir: "auto", title: names }, names)),
+    h("button", { type: "button", className: "dd-engine-carry-all", onClick: onBring }, carry.count === 1 ? t("Bring it", "بیارش") : t("Bring them", "بیارشون")),
+    carry.open.length > 0 && h("button", { type: "button", className: "dd-engine-carry-pick", onClick: onChoose }, t("Choose…", "انتخاب…")),
+    h("button", { type: "button", className: "dd-engine-carry-hide", "aria-label": t("Not today", "امروز نه"), title: t("Not today", "امروز نه"), onClick: onHide }, "×"),
+  );
+}
+
 const KINDS = [
   ["time", "✓", "Tick", "تیکی"],
   ["score", "★", "Score", "نمره‌ای"],
@@ -244,13 +302,16 @@ function EngineRow({ React: R, block, lanes, sources = [], language, measure, se
     t = (en, f) => (fa ? f : en),
     h = R.createElement,
     [editing, setEditing] = R.useState(false),
+    // The kind, lane and "show" controls stay out of sight until the row is
+    // hovered or focused, or ⋯ is tapped (5.37): a calm list of names first.
+    [tools, setTools] = R.useState(false),
     kind = measure.DDmeasureOf(block),
     from = sources.find((s) => s.id === block.from),
     sourcePath = (s) => DDshortPath((s.parts || [s.name]).map((p) => p.trim() || t("Section", "سکشن")), 34),
     update = (fn) => change((day) => ({ ...day, blocks: day.blocks.map((b) => (b.id === block.id ? fn(b) : b)) }));
   return h(
     "li",
-    { className: "dd-engine-task", "data-done": !!block.done, "data-kind": kind, "data-engine-task": block.id },
+    { className: "dd-engine-task", "data-done": !!block.done, "data-kind": kind, "data-engine-task": block.id, "data-tools": tools ? "open" : undefined },
     kind === "time" || kind === "count"
       ? h(
           "button",
@@ -308,7 +369,7 @@ function EngineRow({ React: R, block, lanes, sources = [], language, measure, se
         kind === "time" && Number(block.min) > 0 && h("span", { className: "dd-engine-min" }, measure.DDmeasureText(block, language)),
         h(
           "span",
-          { className: "dd-engine-kinds", role: "group", "aria-label": t("Kind", "نوع") },
+          { className: "dd-engine-kinds dd-engine-tool", role: "group", "aria-label": t("Kind", "نوع") },
           KINDS.map(([id, icon, en, f]) =>
             h(
               "button",
@@ -328,7 +389,7 @@ function EngineRow({ React: R, block, lanes, sources = [], language, measure, se
         h(
           "select",
           {
-            className: "dd-engine-lane",
+            className: "dd-engine-lane dd-engine-tool",
             value: lanes.some((lane) => lane.id === block.lane) ? block.lane : "",
             "aria-label": t("Lane", "لاین"),
             onChange: (event) => {
@@ -343,7 +404,8 @@ function EngineRow({ React: R, block, lanes, sources = [], language, measure, se
         h(
           "select",
           {
-            className: "dd-engine-from",
+            // A task's source stays in sight (it is read often); "Main board" only with the tools.
+            className: "dd-engine-from" + (from ? "" : " dd-engine-tool"),
             "data-from": block.from || "",
             value: from ? block.from : "",
             "aria-label": t("Came from", "از کجا آمده") + (from ? ": " + sourcePath(from).full : ""),
@@ -366,7 +428,7 @@ function EngineRow({ React: R, block, lanes, sources = [], language, measure, se
             "button",
             {
               type: "button",
-              className: "dd-engine-reveal",
+              className: "dd-engine-reveal dd-engine-tool",
               title: t("Show on the board", "نشان دادن روی برد"),
               "aria-label": t("Show on the board: ", "نشان دادن روی برد: ") + (block.name || ""),
               onClick: () => onReveal(block.id),
@@ -374,6 +436,18 @@ function EngineRow({ React: R, block, lanes, sources = [], language, measure, se
             "◎",
           ),
       ),
+    ),
+    h(
+      "button",
+      {
+        type: "button",
+        className: "dd-engine-more",
+        "aria-expanded": tools,
+        "aria-label": t("More for: ", "بیشتر برای: ") + (block.name || ""),
+        title: t("Kind, lane and more", "نوع، لاین و بیشتر"),
+        onClick: () => setTools(!tools),
+      },
+      "⋯",
     ),
   );
 }
@@ -430,6 +504,8 @@ export function DDEngineOverlay({
     groups = DDengineGroups(day, lanes),
     progress = DDcompletion(day, lanes.map((lane) => lane.id)),
     [earlierOpen, setEarlierOpen] = R.useState(false),
+    [carryHidden, setCarryHidden] = R.useState(() => DDengineCarryHidden(day.date)),
+    carry = days ? DDengineCarry(days, day) : null,
     panel = R.useRef(null);
   R.useEffect(() => {
     const previous = document.activeElement;
@@ -500,6 +576,16 @@ export function DDEngineOverlay({
           t("Close", "بستن"),
         ),
       ),
+      carry && carry.count > 0 && !carryHidden && !earlierOpen &&
+        h(CarryLine, {
+          React: R,
+          carry,
+          language,
+          dateFormat,
+          onBring: () => onChange((d) => ({ ...d, blocks: [...d.blocks, ...[...carry.open, ...carry.waiting].map((b) => DDengineCopy(b, makeId))] })),
+          onChoose: () => setEarlierOpen(true),
+          onHide: () => { DDhideEngineCarry(day.date); setCarryHidden(true); },
+        }),
       earlierOpen &&
         h(EarlierEngine, {
           React: R,
@@ -636,8 +722,23 @@ export const DDengineCSS = `
 .dd-engine-area-title{position:absolute;left:18px;bottom:calc(100% - 16px);transform:scale(clamp(1,var(--b4-inverse,1),4));display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:var(--panel-engine,#F05A28);color:#fff;font:600 15px/1.2 var(--sans,system-ui);white-space:nowrap;transform-origin:0 100%;box-shadow:0 2px 8px #0002}
 .dd-engine-area-title small{font-weight:500;opacity:.85}
 .dd-engine-area-title button{padding:2px 8px;border-radius:999px;background:#fff3;color:#fff;font-size:12px}
+.dd-engine-carry{display:flex;align-items:center;gap:10px;margin:12px 18px 0;padding:8px 8px 8px 12px;border-radius:12px;background:color-mix(in srgb,var(--panel-engine,#F05A28) 7%,var(--wash,#f1efe9));flex:none;min-width:0}
+.dd-engine-carry-icon{font-size:16px;color:color-mix(in srgb,var(--panel-engine,#F05A28) 75%,var(--ink,#121211))}
+.dd-engine-carry-text{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.dd-engine-carry-text b{font-size:13px;font-weight:600}
+.dd-engine-carry-text small{font-size:12px;color:var(--ink-2,#555);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dd-engine-carry-all{flex:none;padding:6px 12px;border-radius:8px;background:var(--panel-engine,#F05A28);color:#fff;font-size:12px;font-weight:600}
+.dd-engine-carry-pick{flex:none;padding:6px 10px;border-radius:8px;background:var(--paper,#fff);color:var(--ink,#121211);font-size:12px;box-shadow:inset 0 0 0 1px var(--rule-2,#0002)}
+.dd-engine-carry-hide{flex:none;width:28px;height:28px;border-radius:8px;background:none;color:var(--ink-3,#666);font-size:16px;line-height:1}
+.dd-engine-carry-hide:hover{background:var(--wash,#eee);color:var(--ink,#121211)}
+.dd-engine-task{position:relative}
+.dd-engine-task:not(:hover):not(:focus-within):not([data-tools=open]) .dd-engine-tool{display:none}
+.dd-engine-more{flex:none;width:24px;height:22px;margin-inline-start:-2px;border-radius:6px;background:none;color:var(--ink-3,#666);font-size:15px;line-height:1;opacity:0}
+.dd-engine-task:hover .dd-engine-more,.dd-engine-more:focus-visible,.dd-engine-more[aria-expanded=true]{opacity:1}
+.dd-engine-more:hover,.dd-engine-more[aria-expanded=true]{background:var(--wash,#eee);color:var(--ink,#121211)}
+@media (hover:none){.dd-engine-more{opacity:1;width:32px;height:32px}}
 .dd-engine-foot{padding:10px 18px;font-size:12px;color:var(--ink-3,#666);border-top:1px solid var(--rule-2,#0001)}
-@media (max-width:640px){.dd-engine-backdrop{padding:10px;align-items:stretch}.dd-engine{max-height:none}.dd-engine-lanes{grid-template-columns:1fr;padding:12px}.dd-engine-bar{width:64px}.dd-engine-check,.dd-engine-kinds button,.dd-engine-reveal{min-width:28px;min-height:28px}}
+@media (max-width:640px){.dd-engine-carry{flex-wrap:wrap;margin:10px 12px 0}.dd-engine-carry-text{flex-basis:calc(100% - 40px)}.dd-engine-carry-all,.dd-engine-carry-pick{min-height:36px}.dd-engine-backdrop{padding:10px;align-items:stretch}.dd-engine{max-height:none}.dd-engine-lanes{grid-template-columns:1fr;padding:12px}.dd-engine-bar{width:64px}.dd-engine-check,.dd-engine-kinds button,.dd-engine-reveal{min-width:28px;min-height:28px}}
 @media (prefers-reduced-motion:reduce){.dd-engine-backdrop{animation:none}}
 `;
 
