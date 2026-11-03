@@ -1,3 +1,13 @@
+## 5.34.0 — 2026-11-03
+Branch: claude/project-thread-6lgo93
+- Photos and videos on a task: “＋ Photo or video” in the task edit panel (Plan and Board card details) saves files to a “Debug Day” folder in your own Google Drive.
+- The planner keeps only a small link per file (`block.media`), so the 1.5 MB sync limit stays free for text, and Plan, Board and every other view show the same files.
+- Tiles show a preview (once Drive is connected in this tab) or a photo / video icon; a tap opens the file in Drive. Videos upload in one resumable stream with a progress line.
+- × on a tile only takes the file off the task; it stays in Drive. Plan cards show a 📎 count.
+- The app asks only for Google's `drive.file` permission, so it sees just the files it made.
+- Google Client ID is set in `wrangler.jsonc` vars. New `/api/media-config` gives the page the Google Client ID from the Worker variable `GOOGLE_CLIENT_ID`. Without it, the button says Drive isn't set up yet.
+- Setup steps in README (English and Persian). New tests `tests/media.test.mjs` and `tests/browser/media.cjs`.
+
 ## 5.33.0 — 2026-11-03
 Branch: claude/project-thread-88x2ih
 - Back to where you were: the app remembers each place you visit (the tab, the section board that was open, and where the board was looking) and takes you back with one click.

@@ -4,7 +4,7 @@ import { DDlifeState, DDlifeAdd, DDlifeUpdate, DDlifeRemove, DDnormalizeLife } f
 import { oauth, oauthRoute, oauthAccess } from "./oauth.js";
 const MAX_BYTES = 1500000;
 const VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"];
-const INFO = { name: "debug-day", title: "Debug Day", version: "5.33.0" };
+const INFO = { name: "debug-day", title: "Debug Day", version: "5.34.0" };
 class HttpError extends Error {
   constructor(status, message) {
     super(message);
@@ -977,6 +977,10 @@ export default {
       api = url.pathname === "/api/sync",
       isMcp = url.pathname === "/mcp";
     if (oauthRoute(url.pathname)) return oauth(request, env);
+    if (url.pathname === "/api/media-config" && request.method === "GET")
+      return json({ googleClientId: env.GOOGLE_CLIENT_ID || "" }, 200, {
+        "Cache-Control": "no-store",
+      });
     if (!api && !isMcp) return env.ASSETS.fetch(request);
     const origin = request.headers.get("Origin"),
       allowed = new Set([

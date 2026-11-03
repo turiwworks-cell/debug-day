@@ -15,5 +15,8 @@
     "database_name": "debug-day-data",
     "database_id": "633cfa06-e22e-4d86-85b0-211310a946ba"
   }],
+  "vars": {
+    "GOOGLE_CLIENT_ID": "64141664759-2o46vhi139ci8ksoed02gpl2rf91u7h5.apps.googleusercontent.com"
+  },
   "observability": {"enabled": false}
 }
