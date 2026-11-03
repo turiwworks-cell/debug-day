@@ -77,6 +77,9 @@ export const DDboardIcons = {
   cut: "M7 7.5l9.5 9M7 12.5L16.5 3.5M5.5 3a2.5 2.5 0 110 5 2.5 2.5 0 010-5zM5.5 12a2.5 2.5 0 110 5 2.5 2.5 0 010-5z",
   paste: "M7 4.5H4.5v13h11v-13H13M7 3h6v3H7z",
   duplicate: "M7 7h10v10H7zM3.5 12.5V3.5h9M12 9.5v5M9.5 12h5",
+  // Linked copies: two arrows that keep each other in step.
+  sync: "M15.4 7.8A5.8 5.8 0 004.7 7M4.6 12.2A5.8 5.8 0 0015.3 13M15.8 3.6v4.2h-4.2M4.2 16.4v-4.2h4.2",
+  unsync: "M15.4 7.8A5.8 5.8 0 004.7 7M4.6 12.2A5.8 5.8 0 0015.3 13M15.8 3.6v4.2h-4.2M4.2 16.4v-4.2h4.2M3 3l14 14",
   trash: "M3.5 5.5h13M8 5.5V3h4v2.5M5.5 5.5l1 12h7l1-12M8.7 9v5.5M11.3 9v5.5",
   opacity: "M10 2.5c-2.5 3.3-5.8 6.6-5.8 9.7a5.8 5.8 0 0011.6 0c0-3.1-3.3-6.4-5.8-9.7zM10 7v10",
   eyedropper: "M13 3l4 4-2 2-4-4zM12 7l-8 8v2h2l8-8",
