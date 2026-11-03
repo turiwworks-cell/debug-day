@@ -1,6 +1,7 @@
 // Quick capture, permanent worry parking and the phone's quiet Today view.
 import { DDTimerMini } from "./timer.js";
 import { DDduration } from "./measure.js";
+import { DDlifeState, DDlifeAdd } from "./life-board.js";
 function DDcaptureDate(date) {
   if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date))
     return false;
@@ -21,6 +22,29 @@ export function DDworry(text, date, tag = "general-friction") {
     convertedTo: "",
   };
 }
+// An idea goes to the Feed, into one "Inbox" section that is made the first
+// time it is needed. Renaming or moving the section keeps it the Inbox.
+export const DDinboxId = "lf-inbox";
+export function DDcaptureIdea(snapshot, text, date) {
+  const words = String(text || "").trim();
+  if (!words || !DDcaptureDate(date)) return snapshot;
+  const data = structuredClone(snapshot),
+    state = DDlifeState(data.setup);
+  let items = state.items;
+  if (!items.some((i) => i.id === DDinboxId && i.type === "section"))
+    items = DDlifeAdd(items, { id: DDinboxId, type: "section", text: "Inbox", color: "#FFFFFF" });
+  items = DDlifeAdd(items, {
+    id: "lf-" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-3),
+    type: "sticky",
+    parent: DDinboxId,
+    text: words.slice(0, 4000),
+    at: date,
+    color: "#FFE299",
+  });
+  data.setup.life = { ...state, items };
+  return data;
+}
+
 export function DDcaptureItem(
   snapshot,
   { kind, text, date, tag = "general-friction" },
@@ -215,7 +239,10 @@ export function DDCaptureTools({
     reviewingDay = view === "calendar" || view === "stats" || view === "insights",
     defaultCaptureDay = reviewingDay ? date : today;
   const [panel, setPanel] = R.useState(null),
-    [kind, setKind] = R.useState("task"),
+    [kind, setKind] = R.useState(() => {
+      const saved = DDcaptureLocal("debug-day:capture-kind", "task");
+      return ["task", "idea", "worry"].includes(saved) ? saved : "task";
+    }),
     [text, setText] = R.useState(""),
     [target, setTarget] = R.useState(today),
     [error, setError] = R.useState(""),
@@ -301,6 +328,14 @@ export function DDCaptureTools({
   function save(event) {
     event.preventDefault();
     if (!text.trim()) return;
+    if (kind === "idea") {
+      setData((old) => DDcaptureIdea(old, text, today));
+      setText("");
+      setError("");
+      setPanel(null);
+      onToast(t("Saved to Inbox in the Feed", "در صندوق ورودی فید ذخیره شد"));
+      return;
+    }
     const captureDate = kind === "worry" ? today : target;
     const scope =
         target === "later"
@@ -563,8 +598,8 @@ export function DDCaptureTools({
           "dd-floating-capture" + (view === "board" ? " dd-on-board" : ""),
         "aria-label": t("Quick capture", "ثبت سریع"),
         title: t(
-          "Quick capture: a task, a worry or a feeling",
-          "ثبت سریع: کار، نگرانی یا حس",
+          "Quick capture: a task, an idea or a worry",
+          "ثبت سریع: کار، ایده یا نگرانی",
         ),
         onClick: () => {
           setTarget(defaultCaptureDay);
@@ -625,6 +660,7 @@ export function DDCaptureTools({
                   },
                   [
                     ["task", t("Task", "کار")],
+                    ["idea", t("Idea", "ایده")],
                     ["worry", t("Worry", "نگرانی")],
                   ].map(([id, label]) =>
                     h(
@@ -635,6 +671,7 @@ export function DDCaptureTools({
                         "aria-pressed": kind === id,
                         onClick: () => {
                           setKind(id);
+                          DDcaptureRemember("debug-day:capture-kind", id);
                           if (id !== "task" && target === "later")
                             setTarget(defaultCaptureDay);
                           entry.current?.focus();
@@ -657,7 +694,9 @@ export function DDCaptureTools({
                   placeholder:
                     kind === "task"
                       ? t("One thing to do…", "یک کار برای انجام دادن…")
-                      : kind === "worry"
+                      : kind === "idea"
+                        ? t("An idea, a thought, a reference…", "یک ایده، یک فکر، یک رفرنس…")
+                        : kind === "worry"
                         ? t("Leave the thought here…", "فکرت را همین‌جا بگذار…")
                         : t("What are you feeling?", "الان چه حسی داری؟"),
                 }),
@@ -692,7 +731,16 @@ export function DDCaptureTools({
                       ),
                     ),
                   ),
-                kind !== "worry" &&
+                kind === "idea" &&
+                  h(
+                    "p",
+                    null,
+                    t(
+                      "It lands as a note in the Feed's Inbox section. Sort it into a section later.",
+                      "به شکل یک نوت در سکشن Inbox فید می‌نشیند. بعداً هر وقت خواستی جابه‌جاش کن.",
+                    ),
+                  ),
+                kind === "task" &&
                   h(
                     "label",
                     { className: "dd-capture-date" },
@@ -714,8 +762,7 @@ export function DDCaptureTools({
                         { value: DDcaptureTomorrow(today) },
                         t("Tomorrow", "فردا"),
                       ),
-                      kind === "task" &&
-                        h(
+                      h(
                           "option",
                           { value: "later" },
                           t("Later / no day", "بعداً / بدون روز"),

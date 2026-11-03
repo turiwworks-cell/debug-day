@@ -1,3 +1,15 @@
+## 5.41.0 — 2026-11-03
+Branch: claude/project-thread-pbgoz7
+- Phone and Board room from the full app review (part 2 of 6).
+- Board view gives the board the whole window: the Plan's rows (template, timer, worry, later, pause, day note, find, quick add) step aside there, since the board has its own tools. The Plan view keeps them all.
+- Phone: the Board opens full screen by default, and the tabs stay at the bottom under it, so Plan is one tap away. Canvas settings › Open full screen still turns it off, and a saved choice is kept.
+- Phone: the Board inside the page ends above the tabs, so its tools are never under them.
+- Phone: the view tabs (Plan, Board, Lanes, Calendar…) sit at the bottom under the thumb. Capture floats just above them.
+- Capture has a third kind, Idea: it lands as a note in an "Inbox" section of the Feed (made the first time). Rename or move the section and it stays the Inbox. The kind you used last is remembered.
+- Capture's date picker shows only for a task, and "Later / no day" is always one of its choices.
+- Test: capture unit test checks an idea goes to the Inbox, the section is made once and keeps its new name.
+- Test: new phone-board browser test (board room on a computer, phone full screen with tabs, idea to Inbox). Phone browser tests keep the board in the page unless they ask for full screen; the Sections sheet test measures from the board's bottom edge.
+
 ## 5.40.0 — 2026-11-03
 Branch: claude/project-thread-pbgoz7
 - Clean-up from the full app review (part 1 of 6).

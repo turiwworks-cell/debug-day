@@ -28,6 +28,12 @@ import { DDuseBoardPhotos, DDnotePhoto, DDphotoHeight, DDboardPhotosCSS } from "
 import { DDsyncCopies, DDsyncNewId, DDsyncValid, DDsyncForget, DDsyncMarkLife, DDsyncJoin, DDsyncPlaces, DDsyncSameNotes, DDinstallLinkedStyles } from "./linked.js";
 const life = { DDinstallLifeStyles, DDlifeAbs, DDlifeAdd, DDlifeBounds, DDlifeHead, DDlifeItems, DDlifeParentAt };
 // Board interaction engine. Legacy planner adapters are injected once by the app.
+// On a phone the Board opens full screen unless the person chose otherwise
+// (Canvas settings › Open full screen); a computer keeps it in the page.
+function phoneBoard() {
+  try { return matchMedia("(max-width:700px)").matches; } catch { return false; }
+}
+
 export function DDcreateBoard(deps) {
   const {
     B,
@@ -158,9 +164,9 @@ export function DDcreateBoard(deps) {
       [focus, setFocus] = useState(() => {
         let once = false;
         try { once = sessionStorage.getItem("debug-day:board-open-fullscreen") === "1"; sessionStorage.removeItem("debug-day:board-open-fullscreen"); } catch {}
-        return once || core.local("debug-day:board-start-fullscreen", false);
+        return once || core.local("debug-day:board-start-fullscreen", phoneBoard());
       }),
-      [startFullscreen, setStartFullscreen] = useState(() => core.local("debug-day:board-start-fullscreen", false)),
+      [startFullscreen, setStartFullscreen] = useState(() => core.local("debug-day:board-start-fullscreen", phoneBoard())),
       [grid, setGrid] = useState(() =>
         core.local("debug-day:board-grid", prefs.boardGrid),
       ),
