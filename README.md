@@ -51,6 +51,18 @@ Use OAuth in ChatGPT with the existing `/mcp` endpoint. On the consent page host
 
 OAuth tests (Node.js 24): `node --test tests/oauth.test.mjs`.
 
+## Photos and videos in Google Drive (5.34)
+
+A task's edit panel (in Plan and in the Board card details) has **＋ Photo or video**. Files go to a “Debug Day” folder in your own Google Drive; the planner keeps only a small link (`block.media`: id, name, type, size), so the 1.5 MB sync limit is not touched and every view shows the same list. The app asks only for `drive.file`, so it sees the files it made and nothing else in your Drive. Removing a file from a task leaves it in Drive.
+
+One-time setup:
+1. In Google Cloud, create a project and enable the Google Drive API.
+2. OAuth consent screen: External, add yourself as a test user.
+3. Create an OAuth client of type *Web application*. Add your app's address (for example `https://debug-day.YOUR-ACCOUNT.workers.dev`) to *Authorized JavaScript origins*.
+4. Put the Client ID in the Worker variable `GOOGLE_CLIENT_ID` (Cloudflare dashboard › Workers › debug-day › Settings › Variables, or `vars` in `wrangler.jsonc`). It is not a secret. No client secret is needed.
+
+Uploads need the internet; a file that is already linked opens in Drive from any device.
+
 ## Planner tools
 
 Search (`Ctrl+Space` / `Cmd+K`) covers all days, nested subtasks, feelings, sticky notes, journals and feedback threads. Chips expose `>`, `#category`, `@lane`, `!priority`, `date:` (Gregorian or Jalali) and `is:done/open`. Use Tab for item actions or Shift+Enter to isolate matching results; Show all/Escape releases isolation. Empty search shows recent items and pinned commands.

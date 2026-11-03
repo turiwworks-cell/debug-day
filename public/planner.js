@@ -1,5 +1,6 @@
 import { DDSectionChip, DDlifeItems } from "./life-board.js";
 import { DDtagList } from "./note-tags.js";
+import { DDTaskMedia, DDmediaList, DDinstallMediaStyles } from "./media.js";
 // The shared meaning of a task: tags, importance and daily progress.
 // Time totals remain time totals. Progress measures completed work by importance.
 // One tag system for tasks and notes: the clean-up lives in note-tags.js.
@@ -54,16 +55,29 @@ export function DDTaskTags({ React: R, task, language, setup }) {
   const tags = DDtags(task?.tags),
     from = setup && task?.from ? R.createElement(DDSectionChip, { React: R, items: DDlifeItems(setup), id: task.from, language, className: "dd-plan-from" }) : null;
   if (from) return R.createElement(R.Fragment, null, from, DDTaskTags({ React: R, task, language }));
-  return tags.length
+  const media = DDmediaList(task?.media).length,
+    fa = language === "fa";
+  return tags.length || media
     ? R.createElement(
         "span",
         {
           className: "dd-task-tags",
-          "aria-label": language === "fa" ? "تگ‌ها" : "Tags",
+          "aria-label": fa ? "تگ‌ها" : "Tags",
         },
         tags.map((tag) =>
           R.createElement("span", { key: tag, dir: "auto" }, "#" + tag),
         ),
+        media
+          ? R.createElement(
+              "span",
+              {
+                key: "dd-media",
+                className: "dd-media-count",
+                title: fa ? media + " عکس یا ویدیو" : media + (media === 1 ? " photo or video" : " photos or videos"),
+              },
+              "📎 " + media,
+            )
+          : null,
       )
     : null;
 }
@@ -80,6 +94,7 @@ export function DDTaskMetadata({
     tags = DDtags(task.tags),
     canceled = R.useRef(false);
   R.useEffect(() => setDraft(""), [task.id]);
+  R.useEffect(DDinstallMediaStyles, []);
   const add = () => {
     if (!draft.trim() || disabled) return;
     onChange({ tags: DDtags([...tags, ...DDtags(draft)]) });
@@ -198,5 +213,6 @@ export function DDTaskMetadata({
         ),
       ),
     ),
+    h(DDTaskMedia, { React: R, task, language, disabled, onChange }),
   );
 }
