@@ -1,4 +1,5 @@
 // Quick capture, permanent worry parking and the phone's quiet Today view.
+import { DDTimerMini } from "./timer.js";
 function DDcaptureDate(date) {
   if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date))
     return false;
@@ -530,9 +531,7 @@ export function DDCaptureTools({
               role: "timer",
               "aria-label": t("Focus time remaining", "زمان باقی‌ماندهٔ تمرکز"),
             },
-            Math.floor(timer.seconds / 60) +
-              ":" +
-              String(timer.seconds % 60).padStart(2, "0"),
+            h(DDTimerMini, { React: R }),
           ),
       ),
     h(

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DDboardSearchRows, DDboardSearch, DDrootSelection, DDmarqueeSelection, DDselectionToolbar, DDtimerRemaining } from "../public/board-experience.js";
+import { DDboardSearchRows, DDboardSearch, DDrootSelection, DDmarqueeSelection, DDselectionToolbar } from "../public/board-experience.js";
+import { DDtimerRemaining } from "../public/timer.js";
 
 test("board search reads collapsed descendants and normalizes Persian, Arabic and digits", () => {
   const day={blocks:[{id:"b",name:"Writing",expanded:false,tags:["idea"],subtasks:[{id:"s",text:"Nested",expanded:false,children:[{id:"deep",text:"Deep idea"}]}]}],notes:[{id:"n",text:"کار 123"},{id:"emoji",kind:"emoji",text:"sticker:spark",label:"Little spark · جرقهٔ کوچولو"}]};

@@ -1,5 +1,6 @@
 // Shared presentation and interaction helpers. No planner data is stored here.
 import { DDSectionChip, DDsectionPath } from "./life-board.js";
+import { DDTimerMini, DDTimerPanel } from "./timer.js";
 export const DDboardShortcuts = [
   ["V", "Select", "انتخاب"], ["H / Space+drag", "Pan", "حرکت بوم"],
   ["S", "Sticky note", "یادداشت"], ["Shift+S", "Section", "سکشن"],
@@ -86,76 +87,23 @@ export function DDselectionToolbar(bounds, camera, viewport, size, top = 72, bot
     y: Math.max(top, Math.min(viewport.h - bottom - size.h, above >= top ? above : below)) };
 }
 
-export function DDtimerRemaining(deadline, now = Date.now()) {
-  return Math.max(0, Math.ceil((deadline - now) / 1000));
+// The clock itself lives in timer.js: one clock for Plan, Board and Today.
+export function DDBoardTimerButton({ React: R, Icon, timer, open, onOpenChange, buttonRef }) {
+  return R.createElement("button", { type:"button",ref:buttonRef,className:"b2-icon dd-board-timer-button","aria-label":"Board timer","aria-expanded":open,"aria-controls":"dd-board-timer", "data-running":timer.running,onClick:()=>onOpenChange(!open) },
+    R.createElement(Icon,{React:R,name:"timer"}),R.createElement("span",null,R.createElement(DDTimerMini,{React:R})));
 }
 
-// One clock for Plan, Board and focus actions. Wall time survives a throttled tab.
-export function DDuseCountdown(R, initial) {
-  const [seconds, renderSeconds] = R.useState(initial), [running, renderRunning] = R.useState(false);
-  const value = R.useRef(seconds), active = R.useRef(false), deadline = R.useRef(0);
-  function setSeconds(next) {
-    const current = active.current ? DDtimerRemaining(deadline.current) : value.current;
-    const n = typeof next === "function" ? next(current) : next;
-    value.current = Math.max(0, Math.min(5999, Number(n) || 0));
-    if (active.current) deadline.current = Date.now() + value.current * 1000;
-    renderSeconds(value.current);
-  }
-  function setRunning(next) {
-    const n = typeof next === "function" ? next(active.current) : !!next;
-    if (active.current && !n) { value.current = DDtimerRemaining(deadline.current); renderSeconds(value.current); }
-    if (!active.current && n) deadline.current = Date.now() + value.current * 1000;
-    active.current = n; renderRunning(n);
-  }
-  R.useEffect(() => {
-    if (!running) return;
-    const tick = () => {
-      if (!active.current) return;
-      value.current = DDtimerRemaining(deadline.current); renderSeconds(value.current);
-      if (!value.current) { active.current = false; renderRunning(false); }
-    };
-    const timer = setInterval(tick, 250); document.addEventListener("visibilitychange", tick);
-    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", tick); };
-  }, [running]);
-  return [seconds, setSeconds, running, setRunning];
-}
-
-export function DDBoardTimerButton({ React: R, Icon, language, timer, open, onOpenChange, buttonRef }) {
-  const formatted = `${String(Math.floor(timer.seconds / 60)).padStart(2,"0")}:${String(timer.seconds % 60).padStart(2,"0")}`;
-  return R.createElement("button", { type:"button",ref:buttonRef,className:"b2-icon dd-board-timer-button","aria-label":language==="fa"?"تایمر برد":"Board timer","aria-expanded":open,"aria-controls":"dd-board-timer", "data-running":timer.running,onClick:()=>onOpenChange(!open) },
-    R.createElement(Icon,{React:R,name:"timer"}),R.createElement("span",{dir:"ltr"},formatted));
-}
-
-export function DDBoardTimer({ React: R, Icon, language, timer, onChange, defaultMinutes = 25, open, onOpenChange, buttonRef }) {
-  const h = R.createElement, t = (en, fa) => language === "fa" ? fa : en;
-  const [draft, setDraft] = R.useState("");
-  const input = R.useRef(null), panel = R.useRef(null), editing = R.useRef(false);
-  const seconds = timer.seconds, formatted = `${String(Math.floor(seconds / 60)).padStart(2,"0")}:${String(seconds % 60).padStart(2,"0")}`;
-  R.useEffect(() => { if (!editing.current) setDraft(formatted); }, [formatted]);
+export function DDBoardTimer({ React: R, open, onOpenChange, buttonRef }) {
+  const h = R.createElement, panel = R.useRef(null);
   R.useEffect(() => {
     if (!open) return;
-    input.current?.focus();
     const close = (e) => { if (!panel.current?.contains(e.target) && !buttonRef.current?.contains(e.target)) onOpenChange(false); };
     document.addEventListener("pointerdown", close);
     return () => document.removeEventListener("pointerdown", close);
   }, [open]);
-  function save() {
-    editing.current = false;
-    const text = draft.replace(/[۰-۹٠-٩]/g, (c) => String(c.charCodeAt(0)%16));
-    const m = /^(\d{1,2})(?::([0-5]?\d))?$/.exec(text.trim());
-    if (!timer.running && m) onChange({ seconds: Math.min(5999, +m[1]*60 + +(m[2] || 0)) });
-    else setDraft(formatted);
-  }
   const close = () => { onOpenChange(false); buttonRef.current?.focus(); };
-  return open && h("aside",{id:"dd-board-timer",ref:panel,className:"dd-board-timer",role:"dialog","aria-label":t("Timer","تایمر"),dir:language==="fa"?"rtl":"ltr",onPointerDown:e=>e.stopPropagation(),onKeyDown:e=>{e.stopPropagation();if(e.key==="Escape"){e.preventDefault();close();}}},
-      h("div",{className:"b4-panel-head"},h("strong",null,t("Timer","تایمر")),h("button",{type:"button","aria-label":t("Close timer","بستن تایمر"),onClick:close},h(Icon,{React:R,name:"close"}))),
-      h("label",{className:"dd-timer-clock"},h("span",{className:"dd-sr-only"},t("Minutes and seconds","دقیقه و ثانیه")),h("input",{ref:input,dir:"ltr",value:!timer.running&&editing.current?draft:formatted,readOnly:timer.running,inputMode:"decimal","aria-label":t("Timer duration (mm:ss)","مدت تایمر (دقیقه:ثانیه)"),onFocus:()=>{editing.current=!timer.running;setDraft(formatted);},onChange:e=>setDraft(e.target.value),onBlur:save,onKeyDown:e=>{if(e.key==="Enter"){e.preventDefault();save();e.currentTarget.blur();}}})),
-      h("p",{className:"dd-timer-status",role:"status"},timer.running?t("Counting down","در حال شمارش"):seconds===0?t("Time is up","زمان تمام شد"):t("Ready when you are","هر وقت آماده‌ای شروع کن")),
-      h("div",{className:"dd-timer-actions"},
-        h("button",{type:"button",onClick:()=>onChange({seconds:Math.min(5999,seconds+60)}),disabled:seconds>=5999},t("+1 min","۱ دقیقه بیشتر")),
-        h("button",{type:"button","aria-label":t("Reset timer","بازنشانی تایمر"),onClick:()=>onChange({seconds:defaultMinutes*60,running:false})},h(Icon,{React:R,name:"reset"})),
-        h("button",{type:"button",className:"dd-timer-play","aria-label":timer.running?t("Pause timer","مکث تایمر"):t("Start timer","شروع تایمر"),disabled:seconds===0,onClick:()=>{editing.current=false;onChange({running:!timer.running});}},h(Icon,{React:R,name:timer.running?"pause":"play"}))),
-      h("small",null,t("Shared with the focus timer in Plan.","همان تایمر تمرکز پلن است.")));
+  return open && h("aside",{id:"dd-board-timer",ref:panel,className:"dd-board-timer",role:"dialog","aria-label":"Timer",onPointerDown:e=>e.stopPropagation(),onKeyDown:e=>{e.stopPropagation();if(e.key==="Escape"){e.preventDefault();close();}}},
+    h(DDTimerPanel,{React:R,onClose:close}));
 }
 
 export function DDBoardSearch({ React:R,language,rows,query,onQuery,onReveal,onClose,items=[] }) {
@@ -263,10 +211,8 @@ export const DDboardExperienceCSS = `
 .dd-board-search [role=listbox]{overflow:auto;display:flex;flex-direction:column;gap:3px}.dd-board-search [role=option]{display:flex;text-align:start;align-items:center;justify-content:space-between;gap:10px;border:0;background:transparent;padding:9px 10px;border-radius:7px;min-height:40px;flex:none;color:var(--ink)}
 .dd-board-search [role=option]>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dd-board-search [role=option]>small{color:var(--ink-3);font-size:10px;flex:none}.dd-board-search [role=option][aria-selected=true]{background:color-mix(in srgb,var(--board-accent) 12%,var(--paper))}
 .dd-board-search>small{font-size:11px;color:var(--ink-3)}
-.b6 .dd-board-timer{position:absolute;z-index:106;top:72px;right:16px;width:292px;max-width:calc(100% - 32px);padding:16px;display:flex;flex-direction:column;gap:12px;font:12px/1.6 var(--sans)}
-.b6 .b2-top-actions .dd-board-timer-button{width:auto;flex:none;min-width:78px;padding:0 8px;gap:6px}.dd-board-timer-button>svg{flex:none}.dd-board-timer-button>span{font-variant-numeric:tabular-nums;min-width:38px;font-size:12px}.dd-board-timer-button[data-running=true]{background:color-mix(in srgb,var(--board-accent) 15%,var(--paper));color:var(--ink)}
-.dd-timer-clock input{direction:ltr;text-align:center;font:500 48px/1.5 var(--mono);font-variant-numeric:tabular-nums;width:100%;background:var(--wash);border:1px solid transparent;color:var(--ink);border-radius:10px;padding:12px 4px}
-.dd-timer-clock input:focus{border-color:var(--board-accent);outline:none}.dd-timer-status{margin:0;text-align:center;color:var(--ink-3);font-size:12px}.dd-timer-actions{display:flex;gap:8px;align-items:center}.dd-timer-actions>button{min-height:36px;min-width:36px;padding:6px 10px;border:1px solid var(--rule-2);border-radius:8px;color:var(--ink);display:grid;place-items:center}.dd-timer-actions .dd-timer-play{margin-inline-start:auto;color:#fff;background:var(--board-accent);border:0;border-radius:50%;width:40px;height:40px}.dd-board-timer .b4-panel-head{display:flex;align-items:center;justify-content:space-between}.dd-board-timer .b4-panel-head>button{display:grid;place-items:center;width:28px;height:28px}.dd-board-timer>small{color:var(--ink-3);font-size:11px}
+.b6 .dd-board-timer{position:absolute;z-index:106;top:72px;right:16px;width:300px;max-width:calc(100% - 32px);box-sizing:border-box;padding:16px;border-radius:16px;box-shadow:0 18px 48px -18px #00000059;overflow:auto}
+.b6 .b2-top-actions .dd-board-timer-button{width:auto;flex:none;min-width:78px;padding:0 8px;gap:6px}.dd-board-timer-button>svg{flex:none}.dd-board-timer-button>span{font-variant-numeric:tabular-nums;min-width:38px;font-size:12px;display:inline-flex;justify-content:center}.dd-board-timer-button[data-running=true]{background:color-mix(in srgb,var(--board-accent) 15%,var(--paper));color:var(--ink)}
 .dd-board-direct{display:inline-grid;place-items:center;width:34px;height:34px;border:1px solid var(--rule-2);border-radius:7px;color:var(--ink-2);background:var(--paper)}
 .b6 .dd-board-theme{min-width:32px}.dd-sr-only{position:absolute;width:1px;height:1px;clip-path:inset(50%);overflow:hidden}
 .b6 .dd-shortcut-list{display:grid;grid-template-columns:minmax(160px,.8fr) minmax(180px,1.2fr);gap:0;max-height:50vh;overflow:auto;direction:ltr}.dd-shortcut-list dt,.dd-shortcut-list dd{margin:0;padding:8px;border-bottom:1px solid var(--rule-2);font-size:12px}.dd-shortcut-list dd{direction:auto;text-align:start}.dd-shortcut-list dt{font-family:var(--mono);color:var(--ink)}
