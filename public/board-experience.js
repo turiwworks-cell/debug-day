@@ -258,6 +258,7 @@ export const DDboardExperienceCSS = `
 .b6 .dd-wire-pop .dd-swatch{width:22px;min-width:22px;height:22px;padding:0;border-radius:50%;border:1px solid #ffffff55}
 .b6 .dd-wire-color{display:inline-block;width:14px;height:14px;border-radius:50%;border:1.5px solid #fff8}
 @media(prefers-reduced-motion:reduce){.b6 *{transition:none!important}}
+.b6 .b6-align{z-index:63}
 @media(max-width:700px){.b6 .b6-properties{top:182px}.b6 .b4-sticky .dd-note-preview{padding:20px 20px 60px}}
 /* A section too small on screen to hold its name lets it step aside; selecting it shows the name again. */
 .b6 .b4-life-section[data-label-hidden=true]:not(.selected):not(:focus-within)>:is(.b4-node-body,.dd-sec-history){opacity:0;visibility:hidden;pointer-events:none}

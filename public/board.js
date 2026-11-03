@@ -248,7 +248,14 @@ export function DDcreateBoard(deps) {
     const editReturn = useRef(null), glide = useRef(0), glideTo = useRef(null);
     selectionState.current = { selected, wireId, selectedWires: wireSelection?.ids || [] };
     useEffect(() => { if (tool !== "sticky") hideGhost(); }, [tool]);
-    useEffect(() => { if (selected.size < 2) setAlignPanel(false); }, [selected]);
+    // Align opens by itself when several things are picked; once closed it
+    // stays closed until the selection drops below two again.
+    const alignClosed = useRef(false);
+    useEffect(() => {
+      if (selected.size < 2) { setAlignPanel(false); alignClosed.current = false; }
+      // On a phone it would cover the board: the bar's Align button opens it there.
+      else if (!alignClosed.current && !window.matchMedia?.("(max-width:700px)").matches) setAlignPanel(true);
+    }, [selected]);
     useEffect(() => {
       const enter = () => { try { sessionStorage.removeItem("debug-day:board-open-fullscreen"); } catch {} setFocus(true); };
       window.addEventListener("debug-day-board-fullscreen", enter);
@@ -3867,7 +3874,10 @@ export function DDcreateBoard(deps) {
               if(kind){ot.preventDefault();ot.stopImmediatePropagation();formatSticky(kind);return;}
             }
             if(ot.target.closest("button") && ["Enter"," "].includes(ot.key) && !ot.ctrlKey && !ot.metaKey)return;
+            // Undo and redo still work while the Align panel has focus.
+            const alignUndo = (ot.ctrlKey || ot.metaKey) && ["z", "y"].includes(core.shortcutKey(ot)) && ot.target.closest(".b6-align");
             if (
+              !alignUndo &&
               ot.target.closest(
                 "input,textarea,select,[contenteditable=true],.b6-context,.b6-properties,.b6-camera,.b6-view-panel,.dd-sticker-dialog,.dd-board-timer,.dd-board-search,.b4-help-backdrop,.dd-engine-backdrop,.dd-flow-backdrop,.dd-board-rails",
               ) ||
@@ -6294,7 +6304,7 @@ export function DDcreateBoard(deps) {
                 selectedNodes.length > 1 && toolButton(
                   t("Align & space", "تراز و فاصله"),
                   "align",
-                  () => { restoreStylePreview(); setAlignPanel(!alignPanel); setProperties(false); setViewPanel(false); },
+                  () => { restoreStylePreview(); alignClosed.current = alignPanel; setAlignPanel(!alignPanel); setProperties(false); setViewPanel(false); },
                   { "aria-pressed": alignPanel, "data-align-panel": true },
                 ),
                 // Lines picked up with the selection: one color and weight for all of them.
@@ -6595,7 +6605,7 @@ export function DDcreateBoard(deps) {
           nodes: selectedNodes.map((n) => ({ ...n, locked: locked.has(n.id) })),
           onArrange: arrangeSelection,
           onSize: matchSelectionSize,
-          onClose: () => { setAlignPanel(false); viewport.current?.focus({ preventScroll: true }); },
+          onClose: () => { alignClosed.current = true; setAlignPanel(false); viewport.current?.focus({ preventScroll: true }); },
         }),
       ((selectedWire && inspector) ||
         (properties && selectedNodes.length > 0)) &&
