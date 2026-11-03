@@ -72,6 +72,8 @@ test('ten MCP additions succeed between simulated board navigation and sync; con
       localStorage:{getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value)},
       window:new EventTarget(),document:Object.assign(new EventTarget(),{hidden:false}),Event,
       navigator:{onLine:true},AbortSignal,
+      // saveCamera also tells the place trail where the camera is (5.33).
+      DDplaces:{note(){}},
       setTimeout:()=>1,clearTimeout:()=>{},setInterval:()=>1,
       DDsameSnapshot,DDvalidateSnapshot:value=>value,DDnormalizeSnapshot:value=>JSON.parse(JSON.stringify(value,(_key,item)=>item&&typeof item==='object'&&!Array.isArray(item)?Object.fromEntries(Object.keys(item).sort().map(key=>[key,item[key]])):item)),
       async fetch(url,options){if(options.method==='PUT')puts++;return worker.fetch(new Request(url,options),env)}
