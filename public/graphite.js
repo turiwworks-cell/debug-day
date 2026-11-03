@@ -207,6 +207,30 @@ html main:has(> #b2) > #b2:not(.focus-mode){height:calc(100dvh - 104px);min-heig
   html body:has(.b4.focus-mode) .top .dd-tabs{z-index:1001}
 }
 
+/* Calm Plan (5.42). A task is one line: name, time, steps. The hour bar is
+   gone, steps open only when asked, and the − / + and "+ Steps" buttons wait
+   for the pointer on a computer. Day tools with nothing in them (one
+   template, no worries, empty Later, a day not paused) wait behind "…". */
+html main:not(.dd-more-open) .dd-quiet{display:none!important}
+html main:not(.dd-more-open) .dd-capture-bar:not(:has(>:not(.dd-quiet))){display:none}
+html .dd-day-more{width:max(var(--ctl),var(--tmin));justify-content:center;padding:0;color:var(--ink-3)}
+html .dd-day-more:hover,html .dd-day-more[aria-expanded=true]{color:var(--ink)}
+@media (pointer:coarse){html .dayline .dd-day-more{display:none}}
+html .list .row .rn .ty{display:none}
+@media (hover:hover){
+  html .list .row .step>button,html .list .row .tree-btn[data-empty]:not([aria-expanded=true]){opacity:0;transition:opacity .12s}
+  html .list .row:is(:hover,:focus-within) .step>button,html .list .row:is(:hover,:focus-within) .tree-btn[data-empty]{opacity:1}
+}
+html .subtree .dd-add-step{align-self:flex-start;min-height:26px;padding:0 4px;font-size:12px;color:var(--ink-3)}
+html .subtree .dd-add-step:hover{color:var(--ink)}
+html .dd-day-stickers.is-empty{border:0;padding:0;background:none;gap:0}
+html .dd-day-stickers.is-empty .dd-day-sticker-heading{justify-content:flex-start}
+html .dd-day-stickers.is-empty .dd-sticker-add{min-height:28px;padding:0 9px;background:none;border-color:transparent;color:var(--ink-3);font:500 12px/1 var(--sans)}
+html .dd-day-stickers.is-empty .dd-sticker-add:hover{border-color:var(--rule-2);color:var(--ink)}
+html .dd-day-stickers.is-empty .dd-sticker-add>span:first-child{font-size:13px}
+html .time-key>.dd-day-stickers.is-empty{margin-inline-start:auto}
+html .time-key>.dd-day-stickers.is-empty+*{margin-left:0!important}
+
 /* Focus stays visible for keyboards */
 html :is(button,a,input,select,textarea):focus-visible{outline:2px solid var(--now);outline-offset:2px}
 

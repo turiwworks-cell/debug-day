@@ -311,7 +311,7 @@ export function DDLifeTools({
         "button",
         {
           type: "button",
-          className: "dd-pill",
+          className: "dd-pill" + (later.length ? "" : " dd-quiet"),
           title: t(
             "Tasks that don't have a day yet",
             "کارهایی که هنوز روز مشخصی ندارند",

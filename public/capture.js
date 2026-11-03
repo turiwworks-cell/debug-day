@@ -576,7 +576,7 @@ export function DDCaptureTools({
         "button",
         {
           type: "button",
-          className: "dd-pill",
+          className: "dd-pill" + (openWorries.length ? "" : " dd-quiet"),
           title: t(
             "Put a worry down without turning it into work",
             "نگرانی را اینجا بگذار، بدون اینکه کار شود",
