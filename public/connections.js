@@ -95,6 +95,11 @@ function crosses(a, b, r) {
   }
   return true;
 }
+const holds = (outer, inner) =>
+  outer.x <= inner.x &&
+  outer.y <= inner.y &&
+  outer.x + outer.w >= inner.x + inner.w &&
+  outer.y + outer.h >= inner.y + inner.h;
 function tidy(points) {
   const out = [];
   for (const p of points) {
@@ -199,7 +204,11 @@ export function DDconnectionGeometry(a, b, wire = {}, obstacles = []) {
       (r) =>
         r.id !== a.id &&
         r.id !== b.id &&
-        !["frame", "section"].includes(r.kind) &&
+        // Sections are places, not things in the way: a line between two notes
+        // inside one stays inside it instead of going around its frame.
+        !["frame", "section", "life-section"].includes(r.kind) &&
+        !holds(r, a) &&
+        !holds(r, b) &&
         r.x + r.w >= Math.min(p.x, q.x) - 150 &&
         r.x <= Math.max(p.x, q.x) + 150 &&
         r.y + r.h >= Math.min(p.y, q.y) - 150 &&
