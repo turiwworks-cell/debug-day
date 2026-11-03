@@ -124,6 +124,10 @@ export function DDnormalizeLife(life) {
       ...(typeof r.color === "string" && /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(r.color) ? { color: r.color, ...(section && r.ownColor === true ? { ownColor: true } : {}) } : {}),
       // A top section placed on the board outside the Feed.
       ...(section && r.out === true ? { out: true } : {}),
+      // Linked copies: the copies of one note or section share a syncId; the
+      // things inside a synced section share a syncKey with their twins.
+      ...(typeof r.syncId === "string" && /^[\w-]{1,64}$/.test(r.syncId) ? { syncId: r.syncId } : {}),
+      ...(typeof r.syncKey === "string" && /^[\w-]{1,64}$/.test(r.syncKey) ? { syncKey: r.syncKey } : {}),
     });
   }
   const sections = new Map(items.filter((i) => i.type === "section").map((i) => [i.id, i]));
@@ -139,7 +143,7 @@ export function DDnormalizeLife(life) {
   const links = (Array.isArray(life?.links) ? life.links : []).filter((l) => l && typeof l.id === "string" && refs.has(l.from) && refs.has(l.to) && l.from !== l.to).slice(0, 2000);
   const frame = {};
   for (const k of ["x", "y", "w", "h"]) if (Number.isFinite(life?.frame?.[k])) frame[k] = limit(life.frame[k], k === "w" || k === "h" ? 240 : -1e5, 1e5, 0);
-  // Comments and drawings that belong to the Feed (5.34): a comment on a Feed
+  // Comments and drawings that belong to the Feed (5.36): a comment on a Feed
   // note follows the note; a free comment or a stroke belongs to its section.
   const ids = new Set(items.map((i) => i.id));
   const comments = DDnormalizeComments(life?.comments, { life: true })
@@ -347,6 +351,8 @@ export function DDlifeAdd(items, spec) {
       ...(spec.style ? { style: { ...spec.style } } : {}),
       color: spec.color || (section ? "#A8DAFF" : "#FFE299"),
       ...(section && spec.ownColor && spec.color ? { ownColor: true } : {}),
+      ...(spec.syncId ? { syncId: spec.syncId } : {}),
+      ...(spec.syncKey ? { syncKey: spec.syncKey } : {}),
     };
   // Like FigJam, something placed by hand may hang over its section's edge;
   // only an automatically chosen spot grows the section around it.

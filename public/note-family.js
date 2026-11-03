@@ -1,4 +1,4 @@
-// Parent notes and sub-notes (5.34). Nothing new is saved: they come from the
+// Parent notes and sub-notes (5.36). Nothing new is saved: they come from the
 // arrows already on the board. An arrow A → B makes B a sub-note of A.
 // A line with no arrowhead, or arrows at both ends, says nothing about family.
 // A parent note looks a little special without touching its paper: a soft stack

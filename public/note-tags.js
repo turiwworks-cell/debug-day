@@ -1,4 +1,4 @@
-// Tags on notes (5.34). Notes and tasks share one tag system: the same clean-up
+// Tags on notes (5.36). Notes and tasks share one tag system: the same clean-up
 // (DDtags in planner.js uses DDtagList), so #writing on a note and #writing on a
 // task are one tag, found together in Board search and app search.
 // Every read and write of a note's tags goes through DDnoteTags and DDsetNoteTags,

@@ -2,6 +2,7 @@ import { DDtags, DDcompletion } from "../public/planner.js";
 import { DDreconcileDay } from "../public/relations.js";
 import { DDlifeState, DDlifeAdd, DDlifeUpdate, DDlifeRemove, DDnormalizeLife } from "../public/life-board.js";
 import { DDmarksRebase } from "../public/pen.js";
+import { DDsyncCopies } from "../public/linked.js";
 import { oauth, oauthRoute, oauthAccess } from "./oauth.js";
 const MAX_BYTES = 1500000;
 const VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"];
@@ -84,7 +85,7 @@ function validate(data) {
     for (const block of d.blocks) unique(block.subtasks || [], true);
     unique(d.notes || []);
     unique(d.bugs || []);
-    // Comments and drawings on the day's board (5.34) are lists with their own ids.
+    // Comments and drawings on the day's board (5.36) are lists with their own ids.
     const board = d.canvas?.board4;
     if (board && typeof board === "object")
       for (const field of ["comments", "strokes"]) if (board[field] !== undefined) unique(board[field]);
@@ -191,7 +192,12 @@ async function read(env) {
       }
     : { data: null, revision: 0, updatedAt: null };
 }
-async function save(env, data, revision) {
+// MCP edits pass `before`, so the linked copies of what they changed follow.
+async function save(env, data, revision, before) {
+  if (before) {
+    const synced = DDsyncCopies(data, before);
+    if (synced !== data) Object.assign(data, synced);
+  }
   const text = validate(data),
     now = new Date().toISOString();
   if (!Number.isSafeInteger(revision) || revision < 0)
@@ -529,7 +535,8 @@ async function callTool(name, args, env, access) {
   if (!state.data)
     throw Error("No cloud data yet. Connect and sync the app first.");
   const data = state.data,
-    revision = state.revision;
+    revision = state.revision,
+    before = JSON.parse(JSON.stringify(state.data));
   if (name === "list_days") {
     if (
       (args.from && !dateValid(args.from)) ||
@@ -586,8 +593,8 @@ async function callTool(name, args, env, access) {
     }
     if (JSON.stringify(state)===previous) return {revision,life:state,item};
     data.setup.life=state;
-    await save(env,data,revision);
-    return {revision:revision+1,life:state,item};
+    await save(env,data,revision,before);
+    return {revision:revision+1,life:data.setup.life,item:data.setup.life.items.find((i)=>i.id===item?.id)||item};
   }
   if (name === "add_worry" || name === "update_worry") {
     if (args.expected_revision !== revision)
@@ -620,7 +627,7 @@ async function callTool(name, args, env, access) {
         return { revision, id: worry.id, changed: false };
     }
     return {
-      ...(await save(env, data, revision)),
+      ...(await save(env, data, revision, before)),
       id: worry.id,
       changed: true,
     };
@@ -668,7 +675,7 @@ async function callTool(name, args, env, access) {
       data.setup.later = data.setup.later.filter((b) => b !== block);
       id = block.id;
     }
-    return { ...(await save(env, data, revision)), id, changed: true };
+    return { ...(await save(env, data, revision, before)), id, changed: true };
   }
   if (name === "search_blocks") {
     const q = args.query.toLocaleLowerCase(),
@@ -700,7 +707,7 @@ async function callTool(name, args, env, access) {
       return { revision, day: args.date, changed: false };
     data.days[args.date] = createDay(data.setup, args.date, args.template);
     return {
-      ...(await save(env, data, revision)),
+      ...(await save(env, data, revision, before)),
       day: args.date,
       changed: true,
     };
@@ -722,7 +729,7 @@ async function callTool(name, args, env, access) {
     if (!changed) return { revision, day: args.date, changed: false };
     for (const field of fields) day[field] = args[field];
     return {
-      ...(await save(env, data, revision)),
+      ...(await save(env, data, revision, before)),
       day: args.date,
       changed: true,
     };
@@ -831,7 +838,7 @@ async function callTool(name, args, env, access) {
     }
   }
   data.days[args.date] = DDreconcileDay(day, previousDay, data.setup);
-  const saved = await save(env, data, revision);
+  const saved = await save(env, data, revision, before);
   return { ...saved, id, day: args.date, changed: true };
 }
 function decodeHeader(value) {

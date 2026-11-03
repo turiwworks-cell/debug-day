@@ -241,7 +241,7 @@ export function DDbuildSearchIndex(data, today) {
         date,
         title: note.label || note.text,
         extra: note.kind === "emoji" ? note.text : undefined,
-        // A note's tags: "#tag" finds notes and tasks alike (5.34).
+        // A note's tags: "#tag" finds notes and tasks alike (5.36).
         tags: note.kind === "emoji" ? [] : DDnoteTags(note),
         detail: date,
         done: false,

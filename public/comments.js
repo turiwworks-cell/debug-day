@@ -1,4 +1,4 @@
-// Comments (5.34): a small pin on the board or on a card that opens a short
+// Comments (5.36): a small pin on the board or on a card that opens a short
 // thread. Write, reply, edit, resolve (hide) or delete.
 // Where a comment lives:
 //   - on a card: it follows the card. A day note, a task, a step or a feeling

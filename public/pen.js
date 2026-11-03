@@ -1,4 +1,4 @@
-// Pen (5.34): draw freehand on the board with a mouse, a pen or a finger.
+// Pen (5.36): draw freehand on the board with a mouse, a pen or a finger.
 // A stroke is a board object: select it, move it, delete it, undo it.
 // Where a stroke lives:
 //   - drawn inside a section, it belongs to that section (setup.life.strokes,

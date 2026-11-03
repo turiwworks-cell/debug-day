@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict');
 const {start,fixture}=require('./harness.cjs');
-// Board tools (5.34): comments (pins, threads, the Comments list), the pen
+// Board tools (5.36): comments (pins, threads, the Comments list), the pen
 // (draw, eraser, pick / move / delete, undo), tags on notes (the note's bar,
 // right-click, Board search and app search) and parent notes with sub-notes
 // (a calm look outside the paper, the family on selection, Select branch).

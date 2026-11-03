@@ -1,4 +1,4 @@
-// Board tools (5.34): note tags, parent notes, the pen and comments.
+// Board tools (5.36): note tags, parent notes, the pen and comments.
 // Every new field must survive each normalizer and a sync round trip.
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
@@ -16,6 +16,7 @@ import {DDnormalizeComments,DDcommentsTransfer,DDcommentTime} from '../public/co
 import {DDarrowFamily,DDnoteFamily,DDnoteBranch} from '../public/note-family.js';
 import {DDboardSearchRows} from '../public/board-experience.js';
 import {DDbuildSearchIndex,DDmatchSearch,DDparseSearch} from '../public/search.js';
+import {DDsyncCopies} from '../public/linked.js';
 
 const html=readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
 const plain=(v)=>JSON.parse(JSON.stringify(v));
@@ -208,4 +209,19 @@ test('sync round trip: two devices add comments, drawings and tags; the Worker k
     const last=(await rpc('get_life',{})).structuredContent.life;
     assert.deepEqual(last.comments,[{id:'c-feed',parent:'',x:100,y:100,thread:msg('feed')}],'the section comment stays where it was');
   }finally{sql.close();}
+});
+
+test('a synced note keeps one set of tags in every copy (5.35 linked copies)',()=>{
+  const n=(id,extra={})=>({id,kind:'sticky',x:0,y:0,text:'Fox',color:'#FFE299',syncId:'s-1',...extra});
+  const before={setup:{life:{v:2,items:[{id:'f',type:'sticky',parent:'',x:0,y:0,w:240,h:240,text:'Fox',color:'#FFE299',syncId:'s-1'}],links:[],frame:{}}},
+    days:{'2026-11-03':{blocks:[],notes:[n('a')],canvas:{board4:{styles:{}}}},'2026-11-05':{blocks:[],notes:[n('b',{tags:['old']})],canvas:{board4:{styles:{}}}}}};
+  before.days['2026-11-03'].notes[0].tags=['old'];before.setup.life.items[0].tags=['old'];
+  const next=structuredClone(before);
+  DDsetNoteTags(next.days['2026-11-03'].notes[0],['#Fox','sketch book']);
+  const out=DDsyncCopies(next,before);
+  assert.deepEqual(DDnoteTags(out.days['2026-11-05'].notes[0]),['Fox','sketch_book']);
+  assert.deepEqual(DDnoteTags(out.setup.life.items[0]),['Fox','sketch_book']);
+  DDsetNoteTags(out.setup.life.items[0],[]);
+  const cleared=DDsyncCopies(out,next);
+  assert.equal('tags' in cleared.days['2026-11-05'].notes[0],false,'no tags left anywhere');
 });

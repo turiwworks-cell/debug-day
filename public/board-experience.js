@@ -18,7 +18,8 @@ export const DDboardShortcuts = [
   ["Esc", "Cancel gesture / clear selection", "لغو حرکت / پاک‌کردن انتخاب"],
   ["↗ / Esc", "Open a section as its own board / step back out", "ورود به برد سکشن / برگشت یک سطح"],
   ["Enter", "Edit selected object", "ویرایش شیء منتخب"], ["Ctrl/Cmd+Enter", "Create adjacent note", "ایجاد نوت مجاور"],
-  ["Ctrl/Cmd+D", "Duplicate", "تکثیر"], ["Ctrl/Cmd+C / X / V", "Copy / cut / paste", "کپی / برش / چسباندن"],
+  ["Ctrl/Cmd+D", "Duplicate (a copy on its own)", "تکثیر (کپی مستقل)"], ["Ctrl/Cmd+Shift+D", "Synced copy: a change in one shows in all", "کپی همگام: تغییر یکی در همه"],
+  ["Ctrl/Cmd+C / X / V", "Copy / cut / paste", "کپی / برش / چسباندن"],
   ["Ctrl/Cmd+Z", "Undo", "بازگشت"], ["Ctrl/Cmd+Shift+Z / Ctrl+Y", "Redo", "انجام مجدد"],
   ["Ctrl/Cmd+G", "Group", "گروه‌کردن"], ["Ctrl/Cmd+Shift+G", "Ungroup / remove section, keep contents", "بازکردن گروه / برداشتن سکشن با حفظ محتوا"],
   ["Ctrl/Cmd+Shift+L", "Lock / unlock", "قفل / بازکردن قفل"],
@@ -46,7 +47,7 @@ export function DDboardSearchRows(day, lifeItems, visibleNodes = []) {
     .map((n) => [n.id, { id: n.id, title: n.title || "", detail: n.subtitle || "", blockId: n.blockId, lifeId: n.lifeId, kind: n.kind }]));
   const put = (row) => rows.set(row.id, { ...rows.get(row.id), ...row });
   for (const b of day.blocks || []) {
-    // "#tag" finds tasks and notes alike (5.34).
+    // "#tag" finds tasks and notes alike (5.36).
     put({ id: "b:" + b.id, title: b.name, detail: [b.note, DDtagText(b.tags)].join(" "), tags: DDtagList(b.tags), blockId: b.id, kind: "block", ...(b.from ? { from: b.from } : {}) });
     const visit = (list, parents) => { for (const s of list || []) {
       put({ id: `sub:${b.id}:${s.id}`, title: s.text, detail: b.name, blockId: b.id, parents, kind: "subtask" });

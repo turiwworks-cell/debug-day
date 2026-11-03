@@ -14,7 +14,22 @@ Branch: claude/project-thread-yo360t
 - Three calm parent looks to choose from: Soft stack (default), Page edges, Soft ring. Tools dock ⋯ → Parent note look.
 - Comments, drawings and note tags are saved with the planner, sync between devices and survive every clean-up. MCP edits keep them, and removing a Feed section keeps its drawings and free comments where they were.
 - The tools dock fits on a phone with the two new tools; the selection toolbar keeps clear of a note's tags and family.
+- Synced notes (5.35) keep their tags in every copy: linked copies now read and write tags through the same tag functions, and day notes keep their tags when saved.
 - New browser test `tests/browser/board-tools.cjs` (desktop and phone) and unit test `tests/board-tools.test.mjs`.
+
+## 5.35.0 — 2026-11-03
+Branch: claude/project-thread-88x2ih
+- Synced notes: a note can have synced copies on any day and in the Feed. Change the words, color or text look of one, and every copy changes. Each copy keeps its own place and size.
+- Synced sections: one section seen in two places. Its name, color, size, the notes and sections inside it and the lines between them match in every copy. Each copy keeps its own place and its own fold.
+- Deleting a note inside one copy of a section deletes it in the other copy too. Deleting a whole copy keeps the others.
+- Right-click a note or section → "Synced copy…": Make a synced copy (Ctrl/Cmd+Shift+D), Copy as synced (paste it on any day or in any section), Sync with notes that already have the same words, a list of the other copies that takes you there, and Unsync this copy.
+- Copy and Paste of a synced note gives another synced copy. Duplicate (Ctrl/Cmd+D) and Alt+drag still make a copy that stands on its own.
+- A small mark with the number of copies sits just above a synced note's top-right corner, outside the paper. The note itself looks the same. Clicking the mark opens its copies.
+- Undo takes an edit back in every copy. Plan, Lanes, search, sync between devices and Claude (MCP) all see the same words, because every copy is saved as a normal note.
+- Edits made by Claude through MCP also reach every copy.
+- Fix: after a search took you to a note, a later change in the Feed no longer pulls the board back to that note.
+- Going to a copy on another day keeps the board full screen.
+- New unit test `tests/linked.test.mjs` and browser test `tests/browser/linked-copies.cjs`.
 
 ## 5.34.0 — 2026-11-03
 Branch: claude/project-thread-6lgo93
