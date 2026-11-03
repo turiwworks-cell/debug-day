@@ -328,7 +328,9 @@ const { start, fixture } = require("./harness.cjs");
         );
         assert.equal(reversed.from, "b:writing");
         assert.equal(reversed.to, "b:long");
-        assert.equal(reversed.arrowReverse, true);
+        // Reversing swaps the arrowheads: the one at the end moves to the start.
+        assert.equal(reversed.arrowStart, true);
+        assert.ok(!reversed.arrow);
         assert.equal(
           await page
             .locator('[data-wire-id="' + line.id + '"] [marker-start]')

@@ -1,3 +1,21 @@
+## 5.29.1 — 2026-11-03
+Branch: claude/project-thread-88x2ih
+- Folded sections: a note dropped in the empty space under a folded section stays there. Only a drop on the folded section's name bar puts it inside, and the board then says which section it went into.
+- A section that grew around a long note keeps that size, so a note placed in the grown part belongs to the section and moves with it.
+- Groups: adding a note to a group makes one bigger group instead of a second group beside it. Grabbing any member picks up the whole group (older boards with overlapping groups count as one).
+- Undo takes back only your last action. A note that came in from the phone or another tab since then stays, and changes from sync are no longer undo steps of their own.
+- Paste brings what you copied last. From the right-click menu (or a Persian keyboard) the board's own copy goes straight in while it is still the latest; if you copied something in another app, that is pasted instead. No more "press Ctrl/Cmd+V" message when the board already has what you copied.
+- Lines between pasted notes no longer get lost when the notes land in a Feed section or on a section's own board.
+- Alt-drag (Option-drag on a Mac) leaves the original where it was and drops a copy.
+- Reset appearance on a Feed note now clears its text size, color, alignment and opacity too.
+- A note pasted into a Feed section keeps its text size, color and alignment.
+- Reversing a two-way line keeps both arrows; the two ends swap.
+- Elbow lines: the middle handle always sits on the line. Dragging it moves the line along the way it can move; dragging across does nothing, so the handle never drifts away from the line.
+- Lines between Feed notes keep their shape on a section's own board.
+- Zoomed out, lines get a little thinner, so they no longer look heavier than the notes.
+- Before your data is replaced (importing a file or taking the cloud version), a recovery copy must be saved. If the browser storage is full, nothing is replaced and the app says why. A recovery copy now drops the oldest copy when there is no room for two.
+- New browser test `tests/browser/board-trust.cjs` and unit tests `tests/board-history.test.mjs`.
+
 ## 5.29.0 — 2026-10-31
 Branch: claude/project-thread-slkpwv
 - Notes: while you type, a note grows with its text. The text field was squeezed to the note's old size and scrolled inside it, so lines were cut in half at the top and bottom and long notes were hard to edit. The text also no longer shifts when you start typing.

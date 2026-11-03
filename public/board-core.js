@@ -272,6 +272,8 @@ export const DDboardCore = {
         if (Number.isFinite(patch.width)) it.w = clamp(patch.width,64,20000);
         if (Number.isFinite(patch.height)) it.h = clamp(patch.height,64,20000);
         it.style = { ...it.style, ...this.style(patch) };
+        // null clears a choice (Reset appearance), as it does for day notes.
+        for (const [key, value] of Object.entries(patch)) if (value === null) delete it.style[key];
         delete it.style.fill; delete it.style.width; delete it.style.height;
         changed = true;
         continue;
