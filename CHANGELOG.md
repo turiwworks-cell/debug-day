@@ -1,3 +1,8 @@
+## 5.39.1 — 2026-11-03
+Branch: claude/project-thread-d5d9gg
+- Alt-drag to copy now looks like a copy: the original stays where it was and the copy-to-be follows the pointer half see-through with a dashed outline, and the cursor shows "copy". Drop it and the copy lands there, as before.
+- board-trust browser test checks the original stays in sight, the see-through copy while dragging, and that both go away after the drop.
+
 ## 5.39.0 — 2026-11-03
 Branch: claude/project-thread-d5d9gg
 - Parent notes: a small dark badge on the note's top corner with the number of its sub-notes ("↳ 2"). Nothing shows under the note any more. Click the badge to see its sub-notes (and parent) and jump to one. A picked sub-note shows a small "↑" badge that does the same.
