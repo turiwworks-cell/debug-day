@@ -5,7 +5,7 @@ Branch: claude/project-thread-6lgo93
 - Tiles show a preview (once Drive is connected in this tab) or a photo / video icon; a tap opens the file in Drive. Videos upload in one resumable stream with a progress line.
 - × on a tile only takes the file off the task; it stays in Drive. Plan cards show a 📎 count.
 - The app asks only for Google's `drive.file` permission, so it sees just the files it made.
-- New `/api/media-config` gives the page the Google Client ID from the Worker variable `GOOGLE_CLIENT_ID`. Without it, the button says Drive isn't set up yet.
+- Google Client ID is set in `wrangler.jsonc` vars. New `/api/media-config` gives the page the Google Client ID from the Worker variable `GOOGLE_CLIENT_ID`. Without it, the button says Drive isn't set up yet.
 - Setup steps in README (English and Persian). New tests `tests/media.test.mjs` and `tests/browser/media.cjs`.
 
 ## 5.33.0 — 2026-11-03
