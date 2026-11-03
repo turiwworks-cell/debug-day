@@ -69,6 +69,8 @@ const {start,fixture}=require('./harness.cjs');
     assert.ok(!(await read()).days[f.date].notes.some(n=>n.text==='Made on this board'),'not a day note');
     // Dragged out past the edge it stays in the section.
     await page.keyboard.press('Escape');
+    // The board glides back from writing (5.32) before measuring.
+    await page.waitForTimeout(450);
     const nb=await page.locator('[data-board-id="life:n"]').boundingBox();
     await page.mouse.move(nb.x+nb.width/2,nb.y+10);await page.mouse.down();
     const sb2=await page.locator('[data-board-id="life:a"]').boundingBox();

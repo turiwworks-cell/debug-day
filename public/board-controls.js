@@ -1008,11 +1008,15 @@ export function DDcreateBoardControls(core) {
   }) {
     const { h, t, fa } = ui(R, language),
       root = R.useRef(null),
-      [section, setSection] = R.useState(null),
+      // A submenu can hold its own submenu (More › Text style): the path is the way in.
+      [path, setPath] = R.useState([]),
+      section = path.at(-1) || null,
+      setSection = (id) => setPath((p) => (id ? [...p, id] : p.slice(0, -1))),
       [position, setPosition] = R.useState({ x: menu.x, y: menu.y }),
-      rows = section
-        ? items.find((item) => item?.id === section)?.children || []
-        : items;
+      rows = path.reduce(
+        (list, id) => list.find((item) => item?.id === id)?.children || [],
+        items,
+      );
     R.useLayoutEffect(() => {
       const el = root.current,
         board = boardRef.current;
@@ -1035,7 +1039,7 @@ export function DDcreateBoardControls(core) {
       el.querySelector("[role=menuitem]:not([disabled])")?.focus({
         preventScroll: true,
       });
-    }, [menu, section, fa]);
+    }, [menu, path, fa]);
     R.useEffect(() => {
       const close = (e) => {
         if (!root.current?.contains(e.target)) onClose(false);
@@ -1067,7 +1071,7 @@ export function DDcreateBoardControls(core) {
           e.stopPropagation();
           const buttons = [
               ...e.currentTarget.querySelectorAll(
-                "[role=menuitem]:not([disabled])",
+                "[role=menuitem]:not([disabled]),[role=menuitemradio]:not([disabled])",
               ),
             ],
             current = buttons.indexOf(document.activeElement);
@@ -1120,6 +1124,28 @@ export function DDcreateBoardControls(core) {
               role: "separator",
               className: "b6-menu-separator",
             })
+          : item.swatches
+          ? // Quick colors: one click, no panel.
+            h(
+              "div",
+              { key: item.id || index, className: "b6-menu-swatches", role: "group", "aria-label": item.label },
+              item.swatches.map((color) =>
+                h("button", {
+                  key: color,
+                  type: "button",
+                  role: "menuitemradio",
+                  "aria-checked": item.current === color,
+                  "aria-label": item.label + " " + color,
+                  title: color,
+                  disabled: !!item.disabled,
+                  style: { background: color },
+                  onClick: () => {
+                    onClose(true);
+                    item.onPick?.(color);
+                  },
+                }),
+              ),
+            )
           : h(
               "button",
               {
@@ -1142,6 +1168,72 @@ export function DDcreateBoardControls(core) {
               item.checked && h(Icon, { React: R, name: "check", size: 14 }),
             ),
       ),
+    );
+  }
+  // Align like a design app: line things up, space them evenly, match sizes.
+  function AlignPanel({ React: R, language, nodes = [], onArrange, onSize, onClose }) {
+    const { h, t } = ui(R, language),
+      free = nodes.filter((n) => !n.locked),
+      wide = free.filter((n) => (n.kind === "sticky" && !n.memberOf) || n.lifeSection),
+      tall = free.filter((n) => n.lifeSection),
+      button = (op, label, icon, disabled) =>
+        h(
+          "button",
+          { key: op, type: "button", className: "b6-align-button", "aria-label": label, title: label, disabled, onClick: () => onArrange(op) },
+          h(Icon, { React: R, name: icon, size: 18 }),
+        );
+    return h(
+      "aside",
+      {
+        className: "b6-properties b6-align",
+        "aria-label": t("Align and space", "تراز و فاصله"),
+        onPointerDown: (e) => e.stopPropagation(),
+        onKeyDown: (e) => {
+          if (e.key === "Escape") {
+            e.preventDefault();
+            e.stopPropagation();
+            onClose();
+          }
+        },
+      },
+      h(
+        "div",
+        { className: "b6-panel-heading" },
+        h("div", null, h("strong", null, t("Align", "تراز")), h("small", null, free.length + t(" objects", " شیء"))),
+        h(
+          "button",
+          { type: "button", className: "b6-icon-button", "aria-label": t("Close align", "بستن تراز"), onClick: onClose },
+          h(Icon, { React: R, name: "close" }),
+        ),
+      ),
+      h(
+        "div",
+        { className: "b6-align-row", role: "group", "aria-label": t("Line up", "هم‌ردیف کردن") },
+        button("left", t("Align left", "تراز چپ"), "left", free.length < 2),
+        button("center-x", t("Align horizontal centers", "تراز مرکز افقی"), "centerX", free.length < 2),
+        button("right", t("Align right", "تراز راست"), "right", free.length < 2),
+        h("span", { className: "b6-align-gap", "aria-hidden": true }),
+        button("top", t("Align top", "تراز بالا"), "top", free.length < 2),
+        button("center-y", t("Align vertical centers", "تراز مرکز عمودی"), "centerY", free.length < 2),
+        button("bottom", t("Align bottom", "تراز پایین"), "bottom", free.length < 2),
+      ),
+      h("small", { className: "b6-align-label" }, t("Space evenly", "فاصلهٔ برابر")),
+      h(
+        "div",
+        { className: "b6-align-row", role: "group", "aria-label": t("Space evenly", "فاصلهٔ برابر") },
+        button("distribute-x", t("Distribute horizontally", "فاصلهٔ افقی برابر"), "distributeX", free.length < 3),
+        button("distribute-y", t("Distribute vertically", "فاصلهٔ عمودی برابر"), "distributeY", free.length < 3),
+      ),
+      h("small", { className: "b6-align-label" }, t("Size", "اندازه")),
+      h(
+        "div",
+        { className: "b6-align-row", role: "group", "aria-label": t("Size", "اندازه") },
+        h("button", { type: "button", className: "b6-align-wide", disabled: wide.length < 2, onClick: () => onSize("width") },
+          h(Icon, { React: R, name: "sameWidth", size: 18 }), t("Same width", "هم‌عرض")),
+        h("button", { type: "button", className: "b6-align-wide", disabled: tall.length < 2, onClick: () => onSize("height") },
+          h(Icon, { React: R, name: "sameHeight", size: 18 }), t("Same height", "هم‌ارتفاع")),
+      ),
+      h("p", { className: "b6-align-note" }, t("Sizes follow the largest one. Notes keep their height to fit their words.", "اندازه از بزرگ‌ترین گرفته می‌شه.")),
     );
   }
   function ViewPanel({
@@ -1258,6 +1350,7 @@ export function DDcreateBoardControls(core) {
     PropertiesPanel,
     ZoomControl,
     ContextMenu,
+    AlignPanel,
     ViewPanel,
   };
 }

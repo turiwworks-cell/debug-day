@@ -173,15 +173,17 @@ const { start, fixture } = require("./harness.cjs");
               requestAnimationFrame(() => requestAnimationFrame(resolve)),
             ),
         );
-        const camera = await page
-          .locator(".b2-world")
-          .evaluate((el) => el.style.transform);
         // Select, then Enter edits (the note bar is hidden on desktop, as in FigJam).
         await note().locator(".dd-note-preview").click(); await page.keyboard.press("Enter");
         const input = note().getByRole("textbox", {
           name: label("Sticky note text"),
           exact: true,
         });
+        // Zoomed out, the board first glides close to the note (5.32); typing then never moves it.
+        await page.waitForTimeout(450);
+        const camera = await page
+          .locator(".b2-world")
+          .evaluate((el) => el.style.transform);
         await input.fill("نوت تازه\nخط دوم");
         await input.pressSequentially(" saved");
         assert.equal(

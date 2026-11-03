@@ -1,3 +1,16 @@
+## 5.32.0 — 2026-11-03
+Branch: claude/project-thread-88x2ih
+- Renaming a section: double-click its name and it opens at a readable size (16px or more on screen) at any zoom, with the old name selected so you can just type.
+- Writing when zoomed out: the board glides close to the card so you can read what you type, then glides back to where you were when you finish. If you move the board yourself while writing, it stays where you put it. “Automatically zoom in to edit” in Settings turns this off; Reduce motion makes it a jump.
+- Text align on the note's bar: one button that goes left, center, right.
+- New Text tool (T, or “Add text here” on a right-click): words straight on the board, with no note paper, good for titles. It is still a note, so it shows in Plan and everywhere notes do; More › “Show as a note” gives it its paper back. An empty text goes away when you finish.
+- Right-click is shorter and shows only what fits: quick colors in one row, Color & properties, Edit text, “Send to section…”, Convert note to task, section actions, Align, Group, Copy, Duplicate, Lock, Delete. Everything else waits in More. The empty-canvas menu is shorter too.
+- “Send to section…” moves notes and sections into any section (it finds a free spot inside and the section grows to fit), or out of their section. A note of the day that goes into a section becomes a section note, like a drop does, and its lines come along.
+- Align panel, like a design app (Align & space on the bar, or right-click): align left / center / right / top / middle / bottom, space evenly, and same width / same height.
+- Lines: the color and weight you pick last are what new lines get. Lines caught in a selection box get Line color and Line weight on the bar, so many lines change at once. The line right-click has quick colors too.
+- Undo / redo messages and the name of a task made on the board are in English now.
+- New browser test `tests/browser/board-writing.cjs`; older board tests follow the new menus.
+
 ## 5.31.0 — 2026-11-03
 Branch: claude/project-thread-88x2ih
 - Each habit has its own daily goal, for example sport 60 minutes and writing 30. A day is “Good” at half the goal, “Enough” at the goal and “Too much” at twice the goal, so 60 minutes of sport is enough while 60 minutes of writing is too much. A habit without its own goal keeps the old shared levels.

@@ -3,7 +3,7 @@ import { DDSectionChip, DDsectionPath } from "./life-board.js";
 import { DDTimerMini, DDTimerPanel } from "./timer.js";
 export const DDboardShortcuts = [
   ["V", "Select", "انتخاب"], ["H / Space+drag", "Pan", "حرکت بوم"],
-  ["S", "Sticky note", "یادداشت"], ["Shift+S", "Section", "سکشن"],
+  ["S", "Sticky note", "یادداشت"], ["T", "Text / title", "متن / تایتل"], ["Shift+S", "Section", "سکشن"],
   ["X / Shift+L", "Bent connector", "اتصال شکسته"], ["L", "Straight connector", "اتصال مستقیم"],
   ["C", "Connector (legacy)", "اتصال (میان‌بر قبلی)"], ["B", "Task", "کار"], ["E", "Engine over the board", "انجین روی برد"], ["Tab / D", "Sections flowchart", "فلوچارت سکشن‌ها"], ["Shift+E", "Stickers", "استیکر"],
   ["G / Shift+G", "Goal / note rail", "ریل هدف / نوت"], ["Shift+H", "Habits rail", "ریل عادت‌ها"],
@@ -271,5 +271,34 @@ export const DDboardExperienceCSS = `
 .b6 .b4-port:hover::after,.b6 .b4-port:focus-visible::after{transform:scale(1.7)}
 /* Far out (under 35%) the dots and "+" go. */
 .b6 .b2-viewport.b4-far :is(.dd-add-near,.b4-port){display:none}
+/* 5.32 Renaming a section: the name is edited at 16px or more on screen, at any zoom. */
+.b6 .b4-life-section>.b4-node-body:has(>.dd-section-rename){--dd-ed-k:max(var(--dd-sec-k,1),var(--b4-inverse,1));height:calc(40px * var(--dd-ed-k));width:auto;max-width:none;overflow:visible;padding:0;border:0;background:transparent;z-index:60}
+.b6 .b4-node-body>input.dd-section-rename{width:calc(280px * var(--dd-ed-k));height:100%;font-size:calc(16px * var(--dd-ed-k));font-weight:500;line-height:1.2;padding:0 calc(10px * var(--dd-ed-k));border:calc(2px * var(--dd-ed-k)) solid var(--now);border-radius:calc(7px * var(--dd-ed-k));background:var(--paper);color:var(--ink);box-shadow:0 calc(6px * var(--dd-ed-k)) calc(18px * var(--dd-ed-k)) #0002}
+/* Text objects: a note without its paper. Notes keep their own design. */
+.b6 .b4-sticky.b4-plain{background:transparent!important;box-shadow:none!important;border-color:transparent!important}
+.b6 .b4-sticky.b4-plain .b4-sticky-head,.b6 .b4-sticky.b4-plain .dd-sticky-footer{display:none}
+.b6 .b4-sticky.b4-plain .dd-note-preview,.b6 .b4-sticky.b4-plain .dd-note-editor{padding:4px 6px!important;background:transparent}
+.b6 .b4-sticky.b4-plain .dd-note-preview,.b6 .b4-sticky.b4-plain .dd-note-editor textarea{color:var(--node-text)!important;font-weight:600;line-height:1.3}
+.b6 .b4-sticky.b4-plain .dd-note-preview:empty::before{content:"Text";color:var(--ink-3);font-weight:500}
+.b6 .b4-sticky.b4-plain:not(.selected):hover{outline:1px dashed color-mix(in srgb,var(--now) 55%,transparent);outline-offset:2px}
+.b6 .b2-viewport[data-tool=text]{cursor:text}
+/* Right-click: quick colors in one row. */
+.b6-menu-swatches{display:flex;flex-wrap:wrap;gap:7px;padding:4px 10px 8px;flex:none}
+.b6-menu-swatches button{width:22px;height:22px;min-height:0;padding:0;border-radius:50%;border:1px solid color-mix(in srgb,var(--ink) 20%,transparent);cursor:pointer;flex:none}
+.b6-menu-swatches button[aria-checked=true]{box-shadow:0 0 0 2px var(--paper),0 0 0 4px var(--now)}
+.b6-menu-swatches button:hover:not(:disabled),.b6-menu-swatches button:focus-visible{outline:2px solid var(--now);outline-offset:1px}
+/* Align panel, like a design app. */
+.b6 .b6-align{width:272px;gap:10px}
+.b6-align-row{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.b6-align-gap{width:6px}
+.b6-align-button,.b6-align-wide{height:32px;min-height:0;display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:8px;border:1px solid var(--rule-2);background:var(--paper);color:var(--ink-2);font-size:12px;cursor:pointer}
+.b6-align-button{width:32px;padding:0}
+.b6-align-wide{flex:1;padding:0 8px;white-space:nowrap}
+.b6-align button:hover:not(:disabled){background:var(--wash);color:var(--now)}
+.b6-align button:disabled{opacity:.4;cursor:default}
+.b6-align-label{color:var(--ink-3);font-size:11px;margin-bottom:-6px}
+.b6-align-note{color:var(--ink-3);font-size:11px;line-height:1.4;margin:0}
+.b6 .dd-wire-pop-note{font-size:10px;color:#fffb;white-space:nowrap;padding-inline:4px 2px}
+@media(max-width:700px){.b6 .dd-wire-pop-note{display:none}.b6 .b4-sticky.b4-plain .dd-note-preview{padding:4px 6px!important}}
 `;
 
