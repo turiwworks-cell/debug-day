@@ -6,7 +6,7 @@
 // text, color }. x and y are relative to the parent section (or to the Life area).
 
 import { DDstickyColors } from "./board-core.js";
-import { DDtagList } from "./note-tags.js";
+import { DDtagList, DDtagColors } from "./note-tags.js";
 import { DDmediaList } from "./media.js";
 import { DDnormalizeComments } from "./comments.js";
 import { DDnormalizeStrokes } from "./pen.js";
@@ -153,7 +153,9 @@ export function DDnormalizeLife(life) {
     .filter((c) => !c.on || ids.has(c.on.slice(5)))
     .map((c) => (c.on || !c.parent || sections.has(c.parent) ? c : { ...c, parent: "" }));
   const strokes = DDnormalizeStrokes(life?.strokes, { life: true }).map((s) => (!s.parent || sections.has(s.parent) ? s : { ...s, parent: "" }));
-  return { v: 2, items, links, frame, ...(comments.length ? { comments } : {}), ...(strokes.length ? { strokes } : {}) };
+  // Tag colours you picked, for the whole planner (note-tags.js).
+  const tagColors = DDtagColors(life?.tagColors);
+  return { v: 2, items, links, frame, ...(comments.length ? { comments } : {}), ...(strokes.length ? { strokes } : {}), ...(Object.keys(tagColors).length ? { tagColors } : {}) };
 }
 
 // Session history is shared by Plan and all day boards. It never enters backups.

@@ -226,3 +226,37 @@ test('a synced note keeps one set of tags in every copy (5.35 linked copies)',()
   const cleared=DDsyncCopies(out,next);
   assert.equal('tags' in cleared.days['2026-11-05'].notes[0],false,'no tags left anywhere');
 });
+
+test("tag colours: one per tag, saved in the Feed, readable words", async () => {
+  const { DDtagColors, DDtagColor, DDtagInk, DDtagPalette } = await import("../public/note-tags.js");
+  const { DDnormalizeLife } = await import("../public/life-board.js");
+  assert.deepEqual(DDtagColors({ "#Idea": "#5c7cfa", bad: "red", x: 3 }), { idea: "#5C7CFA" });
+  assert.equal(DDtagColor({ idea: "#5C7CFA" }, "IDEA"), "#5C7CFA", "any spelling of a tag shares its colour");
+  assert.ok(DDtagPalette.includes(DDtagColor({}, "sketch")), "an uncoloured tag gets one from its name");
+  assert.equal(DDtagColor({}, "sketch"), DDtagColor({}, "Sketch"));
+  assert.equal(DDtagInk("#FFD43B"), "#121211");
+  assert.equal(DDtagInk("#495057"), "#FFFFFF");
+  const life = DDnormalizeLife({ items: [], tagColors: { idea: "#5C7CFA", nope: "blue" } });
+  assert.deepEqual({ ...life.tagColors }, { idea: "#5C7CFA" });
+  assert.equal(DDnormalizeLife({ items: [] }).tagColors, undefined, "no colours, no field");
+});
+
+test('tag colours survive a sync merge and the Worker', async () => {
+  const merge=html.slice(html.indexOf('function DDmerge('),html.indexOf('function DDreadBoardView('));
+  const {DDmerge}=runInNewContext(merge+';({DDmerge})',{DDsameSnapshot});
+  const date='2026-11-03';
+  const base={setup:{types:[{id:'work'}],lanes:[{id:'work'}],life:{v:2,items:[{id:'n',type:'sticky',parent:'',x:0,y:0,w:200,h:200,text:'Idea'}],links:[]}},days:{[date]:{date,focus:'',blocks:[],notes:[],bugs:[]}}};
+  const local=structuredClone(base),remote=structuredClone(base);
+  local.setup.life.tagColors={idea:'#5C7CFA'};
+  remote.setup.life.items[0].text='Idea, edited';
+  const merged=plain(DDmerge(base,local,remote,'local').data);
+  assert.deepEqual(merged.setup.life.tagColors,{idea:'#5C7CFA'});
+  assert.equal(merged.setup.life.items[0].text,'Idea, edited');
+  const sql=new DatabaseSync(':memory:');
+  sql.exec(readFileSync(new URL('../schema.sql',import.meta.url),'utf8'));
+  const env={SYNC_TOKEN:'s'.repeat(64),MCP_WRITE_TOKEN:'w'.repeat(64),DB:{prepare(query){let args=[];return {bind(...values){args=values;return this},async first(){return sql.prepare(query).get(...args)||null},async run(){sql.prepare(query).run(...args);return {success:true}}}}}};
+  const auth={Authorization:'Bearer '+env.SYNC_TOKEN,'Content-Type':'application/json'};
+  assert.equal((await worker.fetch(new Request('http://localhost/api/sync',{method:'PUT',headers:{...auth,'If-Match':'0'},body:JSON.stringify({data:merged})}),env)).status,200);
+  const got=await (await worker.fetch(new Request('http://localhost/api/sync',{headers:auth}),env)).json();
+  assert.deepEqual(got.data.setup.life.tagColors,{idea:'#5C7CFA'});
+});

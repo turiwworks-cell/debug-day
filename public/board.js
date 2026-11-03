@@ -1311,6 +1311,8 @@ export function DDcreateBoard(deps) {
       finishEdit: () => finishEdit(), setMenu, search: (q) => { finishEdit(); setSearch(q); },
     };
     const pen = DDusePen(markCtx), comments = DDuseComments(markCtx), noteTools = DDuseNoteTools(markCtx);
+    // The tag panel for several notes closes when the selection moves on.
+    useEffect(() => { if (noteTools.group?.some((ref) => !selected.has(ref))) noteTools.stopTags(); }, [selected]);
     // Photos dropped, pasted or picked onto the board (5.38): a note holding a Drive link.
     const photos = DDuseBoardPhotos({ ...markCtx, root, language: DDlanguage, addPhoto: (point, template) => addSticky(point, template) });
     useLayoutEffect(() => { placeSectionLabels(true); }, [layout]);
@@ -5921,6 +5923,8 @@ export function DDcreateBoard(deps) {
           }),
           selectedNode && item("connect", "Connect from here", "اتصال از اینجا", "connector", () => { setConnecting(selectedNode.id); setTool("connector"); }, { disabled: allLocked }),
           sticky && item("tags", "Tags…", "Tags…", "tag", () => noteTools.editTags(selectedNode.id), { disabled: allLocked }),
+          // Several notes: tag them all at once.
+          !selectedNode && manyNotes.length > 1 && item("tags", "Tags…", "Tags…", "tag", () => noteTools.editTags(manyNotes.map((n) => n.id)), { disabled: allLocked }),
           selectedNode && item("comment", "Add comment", "Add comment", "comment", () => comments.addOn(selectedNode.id), { shortcut: "M" }),
           item("fit-selection", "Zoom to selection", "زوم روی انتخاب", "fit", () => fit(true), { shortcut: "Shift+2" }),
           selectedNode && mode === "mindmap" && item("branch", "Select branch", "انتخاب شاخه", "branch", selectBranch),
@@ -6043,6 +6047,7 @@ export function DDcreateBoard(deps) {
     const selectedNodes = [...selected]
         .map((Y) => layout.map.get(Y))
         .filter(Boolean),
+      manyNotes = selectedNodes.filter((n) => n.kind === "sticky"),
       titleFor = (Y) => layout.map.get(Y)?.title || Y;
     useLayoutEffect(() => {
       const row=pendingReveal.current, n=row&&layout.map.get(row.id);
@@ -6299,6 +6304,7 @@ export function DDcreateBoard(deps) {
                   );
                 })(),
                 // Tags on a note: they show under it, outside the paper (5.36).
+                !selectedNode && manyNotes.length > 1 && toolButton("Tags", "tag", () => (noteTools.group ? noteTools.stopTags() : noteTools.editTags(manyNotes.map((n) => n.id))), { "aria-pressed": !!noteTools.group, "data-note-tags": "many", disabled: manyNotes.every((n) => locked.has(n.id)) }),
                 selectedNode?.kind === "sticky" && toolButton("Tags", "tag", () => (noteTools.editing === selectedNode.id ? noteTools.stopTags() : noteTools.editTags(selectedNode.id)), { "aria-pressed": noteTools.editing === selectedNode.id, "data-note-tags": true, disabled: locked.has(selectedNode.id) }),
                 // Line things up, space them evenly, match sizes (like a design app).
                 selectedNodes.length > 1 && toolButton(
