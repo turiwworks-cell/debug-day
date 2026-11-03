@@ -151,11 +151,17 @@ const {start,fixture}=require('./harness.cjs');
   // 6. The align panel lines things up and spaces them evenly.
   await key('Escape');await key('Shift+1');await settle();
   await pick('sticky:a');await pick('sticky:c',true);await pick('sticky:'+text.id,true);
-  await bar.getByRole('button',{name:'Align & space',exact:true}).click();
+  // Picking several things opens Align by itself (5.38.2).
   const panel=page.getByRole('complementary',{name:'Align and space'});
   await panel.waitFor();
   await shot('align-panel');
+  const before=(await day()).notes.find((n)=>n.id==='c').y;
   await panel.getByRole('button',{name:'Align top',exact:true}).click();
+  // Ctrl+Z works with the focus still in the panel (undo clears the selection, as anywhere).
+  await page.keyboard.press('Control+z');await settle();
+  assert.equal((await day()).notes.find((n)=>n.id==='c').y,before,'Ctrl+Z undoes the align with the panel open');
+  await page.keyboard.press('Control+Shift+z');await settle();
+  await pick('sticky:a');await pick('sticky:c',true);await pick('sticky:'+text.id,true);await panel.waitFor();
   notes=(await day()).notes;
   assert.equal(notes.find((n)=>n.id==='a').y,notes.find((n)=>n.id==='c').y);
   assert.equal(notes.find((n)=>n.id==='a').y,notes.find((n)=>n.id===text.id).y);
@@ -164,6 +170,12 @@ const {start,fixture}=require('./harness.cjs');
   const widths=['a','c',text.id].map((id)=>node('sticky:'+id).evaluate((el)=>el.offsetWidth));
   const [wa,wc,wt]=await Promise.all(widths);
   assert.ok(wa===wc&&wc===wt,'same width: '+[wa,wc,wt]+JSON.stringify((await day()).canvas.board4.styles));
+  await panel.getByRole('button',{name:'Close align',exact:true}).click();
+  // Closed by hand: it stays closed for this selection, the bar button brings it back.
+  await pick('sticky:c',true);await settle();
+  assert.equal(await page.locator('.b4-node.selected').count(),2);
+  assert.equal(await panel.count(),0,'closed align stays closed while the selection lasts');
+  await bar.getByRole('button',{name:'Align & space',exact:true}).click();await panel.waitFor();
   await panel.getByRole('button',{name:'Close align',exact:true}).click();
   await key('Escape');
 

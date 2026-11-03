@@ -1,3 +1,9 @@
+## 5.38.2 — 2026-11-03
+Branch: claude/project-thread-d5d9gg
+- Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y now work while the Align panel is open (after clicking one of its buttons). Before, you had to leave the panel first.
+- Align opens by itself when you pick two or more things on a computer. Close it and it stays closed until the selection drops below two; the bar's Align button still opens it. On a phone it stays behind the button so it doesn't cover the board.
+- The selection bar sits above the Align panel, so its colour and weight pickers are never hidden under it.
+
 ## 5.38.1 — 2026-11-03
 Branch: claude/project-thread-d5d9gg
 - Lines inside a section: dragging a note's + (or connection point) into the section's empty inside now makes the new note there with a line to it. Before, the line got stuck to the section's frame and no note appeared.
