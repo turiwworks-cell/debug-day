@@ -1,6 +1,7 @@
 import { DDtags, DDcompletion } from "../public/planner.js";
 import { DDreconcileDay } from "../public/relations.js";
 import { DDlifeState, DDlifeAdd, DDlifeUpdate, DDlifeRemove, DDnormalizeLife } from "../public/life-board.js";
+import { DDmarksRebase } from "../public/pen.js";
 import { oauth, oauthRoute, oauthAccess } from "./oauth.js";
 const MAX_BYTES = 1500000;
 const VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"];
@@ -83,7 +84,17 @@ function validate(data) {
     for (const block of d.blocks) unique(block.subtasks || [], true);
     unique(d.notes || []);
     unique(d.bugs || []);
+    // Comments and drawings on the day's board (5.34) are lists with their own ids.
+    const board = d.canvas?.board4;
+    if (board && typeof board === "object")
+      for (const field of ["comments", "strokes"]) if (board[field] !== undefined) unique(board[field]);
   }
+  const life = data.setup.life;
+  if (life && typeof life === "object")
+    for (const field of ["comments", "strokes"]) if (life[field] !== undefined) {
+      if (!Array.isArray(life[field]) || life[field].some((x) => !x || typeof x.id !== "string" || !x.id) || new Set(life[field].map((x) => x.id)).size !== life[field].length)
+        throw new HttpError(400, "Invalid " + field);
+    }
   const text = JSON.stringify(data);
   if (new TextEncoder().encode(text).byteLength > MAX_BYTES)
     throw new HttpError(
@@ -558,7 +569,13 @@ async function callTool(name, args, env, access) {
     if (name==="add_life_item") {
       item={id:crypto.randomUUID(),type:args.type,text:args.text||"",role:args.role,parent:args.parent||"",...(args.color?{color:args.color,...(args.type==="section"&&args.parent?{ownColor:true}:{})}:{}),...(Number.isFinite(args.x)&&Number.isFinite(args.y)?{x:args.x,y:args.y}:{})};
       state.items=DDlifeAdd(state.items,item); item=state.items.find((i)=>i.id===item.id);
-    } else if (name==="delete_life_item") { state.items=DDlifeRemove(state.items,args.item_id); state.links=state.links.filter((l)=>l.from!=="life:"+args.item_id&&l.to!=="life:"+args.item_id); }
+    } else if (name==="delete_life_item") {
+      const before=structuredClone(state);
+      state.items=DDlifeRemove(state.items,args.item_id); state.links=state.links.filter((l)=>l.from!=="life:"+args.item_id&&l.to!=="life:"+args.item_id);
+      // Drawings and comments in a removed section stay where they were; comments on a removed note go with it.
+      const kept=DDnormalizeLife(DDmarksRebase(before,state));
+      for (const key of ["comments","strokes"]) { if (kept[key]) state[key]=kept[key]; else delete state[key]; }
+    }
     else {
       const {expected_revision,item_id,...patch}=args;
       // A color asked for a subsection is its own; without one it shows a shade of its top section's color.

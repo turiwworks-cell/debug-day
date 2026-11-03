@@ -110,6 +110,12 @@ export const DDboardIcons = {
   pause: "M6.5 4v12M13.5 4v12",
   eye: "M2 10c5-7.5 11-7.5 16 0-5 7.5-11 7.5-16 0zM10 7.2a2.8 2.8 0 110 5.6 2.8 2.8 0 010-5.6z",
   pin: "M6 3h8M7 3v6l-3 3h12l-3-3V3M10 12v6",
+  // Board tools (5.34)
+  draw: "M3.5 16.5c2.5-.3 3.6-1.8 4.5-3.6M8 12.9l1.6 1.6 7.6-7.6a1.6 1.6 0 000-2.3l-.2-.2a1.6 1.6 0 00-2.3 0L7.1 11.9zM13.6 5.5l1.9 1.9",
+  comment: "M4.5 3.5h11a2 2 0 012 2v7a2 2 0 01-2 2H9l-4.5 3v-3a2 2 0 01-2-2v-7a2 2 0 012-2zM7 8h6M7 11h3.5",
+  comments: "M3 3h9.5a1.5 1.5 0 011.5 1.5v5a1.5 1.5 0 01-1.5 1.5H7l-3 2.5V11a1.5 1.5 0 01-1.5-1.5v-5A1.5 1.5 0 013 3zM16.5 7.5a1.5 1.5 0 011.5 1.5v5a1.5 1.5 0 01-1.5 1.5v2.5l-3-2.5H10",
+  tag: "M3 3.5h6.2l7.8 7.8-5.7 5.7L3.5 9.2V3.5z" + dot(7, 7.5, 0.9),
+  parentLook: "M6 3h10v10H6zM4 5v10h10" + "M2 7v10h10",
 };
 // Older names still used across the Board, and what each now draws.
 export const DDboardIconAliases = {

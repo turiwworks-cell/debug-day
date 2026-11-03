@@ -1,11 +1,12 @@
 // Shared presentation and interaction helpers. No planner data is stored here.
 import { DDSectionChip, DDsectionPath } from "./life-board.js";
 import { DDTimerMini, DDTimerPanel } from "./timer.js";
+import { DDtagList, DDtagText, DDnoteTags } from "./note-tags.js";
 export const DDboardShortcuts = [
   ["V", "Select", "انتخاب"], ["H / Space+drag", "Pan", "حرکت بوم"],
   ["S", "Sticky note", "یادداشت"], ["T", "Text / title", "متن / تایتل"], ["Shift+S", "Section", "سکشن"],
   ["X / Shift+L", "Bent connector", "اتصال شکسته"], ["L", "Straight connector", "اتصال مستقیم"],
-  ["C", "Connector (legacy)", "اتصال (میان‌بر قبلی)"], ["B", "Task", "کار"], ["E", "Engine over the board", "انجین روی برد"], ["Tab / D", "Sections flowchart", "فلوچارت سکشن‌ها"], ["Shift+E", "Stickers", "استیکر"],
+  ["C", "Connector (legacy)", "اتصال (میان‌بر قبلی)"], ["P", "Pen (draw freehand)", "Pen"], ["M", "Comment", "Comment"], ["Shift+M", "All comments", "All comments"], ["B", "Task", "کار"], ["E", "Engine over the board", "انجین روی برد"], ["Tab / D", "Sections flowchart", "فلوچارت سکشن‌ها"], ["Shift+E", "Stickers", "استیکر"],
   ["G / Shift+G", "Goal / note rail", "ریل هدف / نوت"], ["Shift+H", "Habits rail", "ریل عادت‌ها"],
   ["Ctrl/Cmd+F", "Search this board", "جست‌وجوی همین برد"],
   ["Shift+1 / F", "Fit the whole board", "نمای کل برد"], ["Shift+2 / Shift+F", "Zoom to selection", "نمای انتخاب"],
@@ -45,15 +46,16 @@ export function DDboardSearchRows(day, lifeItems, visibleNodes = []) {
     .map((n) => [n.id, { id: n.id, title: n.title || "", detail: n.subtitle || "", blockId: n.blockId, lifeId: n.lifeId, kind: n.kind }]));
   const put = (row) => rows.set(row.id, { ...rows.get(row.id), ...row });
   for (const b of day.blocks || []) {
-    put({ id: "b:" + b.id, title: b.name, detail: [b.note, ...(b.tags || [])].join(" "), blockId: b.id, kind: "block", ...(b.from ? { from: b.from } : {}) });
+    // "#tag" finds tasks and notes alike (5.34).
+    put({ id: "b:" + b.id, title: b.name, detail: [b.note, DDtagText(b.tags)].join(" "), tags: DDtagList(b.tags), blockId: b.id, kind: "block", ...(b.from ? { from: b.from } : {}) });
     const visit = (list, parents) => { for (const s of list || []) {
       put({ id: `sub:${b.id}:${s.id}`, title: s.text, detail: b.name, blockId: b.id, parents, kind: "subtask" });
       visit(s.children, [...parents, s.id]);
     } };
     visit(b.subtasks, []);
   }
-  for (const n of day.notes || []) put({ id: "sticky:" + n.id, title: n.kind==="emoji"?(n.label||rows.get("sticky:"+n.id)?.title||n.text):n.text, detail: n.kind==="emoji"?n.text:"", kind: n.kind === "emoji" ? "emoji" : "sticky" });
-  for (const i of lifeItems) put({ id: "life:" + i.id, title: i.text, detail: "Feed", lifeId: i.id, kind: i.type === "section" ? "life-section" : "sticky" });
+  for (const n of day.notes || []) put({ id: "sticky:" + n.id, title: n.kind==="emoji"?(n.label||rows.get("sticky:"+n.id)?.title||n.text):n.text, detail: n.kind==="emoji"?n.text:DDtagText(DDnoteTags(n)), tags: DDnoteTags(n), kind: n.kind === "emoji" ? "emoji" : "sticky" });
+  for (const i of lifeItems) put({ id: "life:" + i.id, title: i.text, detail: "Feed " + DDtagText(DDnoteTags(i)), tags: DDnoteTags(i), lifeId: i.id, kind: i.type === "section" ? "life-section" : "sticky" });
   return [...rows.values()];
 }
 
@@ -121,7 +123,7 @@ export function DDBoardSearch({ React:R,language,rows,query,onQuery,onReveal,onC
     else if(e.key==="Enter"&&shown[index]){e.preventDefault();onReveal(shown[index]);}
   }},h("div",{className:"b4-panel-head"},h("input",{ref:input,value:query,"aria-label":t("Search board nodes","جست‌وجوی اشیای برد"),placeholder:t("Search tasks, notes and the Feed…","جست‌وجوی کارها، نوت‌ها و فید…"),onChange:e=>onQuery(e.target.value),"aria-controls":"dd-board-results","aria-activedescendant":shown[index]?`dd-board-result-${index}`:undefined}),h("button",{type:"button","aria-label":t("Close board search","بستن جست‌وجوی برد"),onClick:onClose},"×")),
     h("small",{role:"status"},matches.length?t(`${matches.length} results · ↑ ↓ Enter`,`${matches.length} نتیجه · ↑ ↓ Enter`):t("No matching objects","چیزی پیدا نشد")),
-    h("div",{ref:list,id:"dd-board-results",role:"listbox","aria-label":t("Board results","نتیجه‌های برد")},shown.map((r,i)=>h("button",{type:"button",role:"option",id:`dd-board-result-${i}`,key:r.id,"aria-selected":index===i,dir:"auto",onMouseEnter:()=>setIndex(i),onClick:()=>onReveal(r)},h("span",null,r.title||t("Untitled","بدون عنوان")),
+    h("div",{ref:list,id:"dd-board-results",role:"listbox","aria-label":t("Board results","نتیجه‌های برد")},shown.map((r,i)=>h("button",{type:"button",role:"option",id:`dd-board-result-${i}`,key:r.id,"aria-selected":index===i,dir:"auto",onMouseEnter:()=>setIndex(i),onClick:()=>onReveal(r)},h("span",null,r.title||t("Untitled","بدون عنوان"),r.tags?.length?h("em",{className:"dd-search-tags"}," "+DDtagText(r.tags)):null),
       // A task shows the section it came from; a section shows where it sits.
       r.from?h(DDSectionChip,{React:R,items,id:r.from,language,className:"dd-search-from"}):h("small",null,r.kind==="life-section"&&items.length?DDsectionPath(items,r.lifeId,60,t("Section","سکشن")).full:r.lifeId?"Life":r.kind)))));
 }
