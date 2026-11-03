@@ -144,7 +144,15 @@ const {start,fixture}=require('./harness.cjs');
   // 6. Alt-drag drops a copy and leaves the original.
   const cBefore=(await day()).notes.find((n)=>n.id==='c');
   await key('Escape');await pick('sticky:c');g0=await grab('sticky:c');
-  await drag(g0,{x:g0.x,y:g0.y+180},{alt:true});
+  // While dragging, the original stays where it was and a see-through copy follows (5.39.1).
+  await page.keyboard.down('Alt');await page.mouse.move(g0.x,g0.y);await page.mouse.down();
+  await page.mouse.move(g0.x,g0.y+180,{steps:10});
+  assert.equal(await page.locator('.dd-alt-original').count(),1,'the original stays in sight');
+  if(process.env.DEBUG_DAY_SCREENSHOTS)await page.screenshot({path:require('node:path').join(process.env.DEBUG_DAY_SCREENSHOTS,'alt-drag.png')});
+  assert.equal(await node('sticky:c').evaluate((el)=>el.classList.contains('dd-alt-ghost')&&getComputedStyle(el).opacity),'0.5','the copy-to-be is see-through');
+  await page.mouse.up();await page.keyboard.up('Alt');await settle();
+  assert.equal(await page.locator('.dd-alt-original').count(),0,'gone after the drop');
+  assert.equal(await page.locator('.dd-alt-ghost').count(),0);
   notes=(await day()).notes;
   assert.deepEqual([notes.find((n)=>n.id==='c').x,notes.find((n)=>n.id==='c').y],[cBefore.x,cBefore.y],'the original stays');
   assert.equal(notes.filter((n)=>n.text==='Gamma').length,3,'and a copy is made');

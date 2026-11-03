@@ -259,6 +259,9 @@ export const DDboardExperienceCSS = `
 .b6 .dd-wire-color{display:inline-block;width:14px;height:14px;border-radius:50%;border:1.5px solid #fff8}
 @media(prefers-reduced-motion:reduce){.b6 *{transition:none!important}}
 .b6 .b6-align{z-index:63}
+.b4-node.dd-alt-ghost{opacity:.5;outline:2px dashed var(--board-selection,#0D99FF);outline-offset:3px}
+.b4-node.dd-alt-original{pointer-events:none!important}
+.b2-viewport.dd-alt-copying,.b2-viewport.dd-alt-copying *{cursor:copy!important}
 @media(max-width:700px){.b6 .b6-properties{top:182px}.b6 .b4-sticky .dd-note-preview{padding:20px 20px 60px}}
 /* A section too small on screen to hold its name lets it step aside; selecting it shows the name again. */
 .b6 .b4-life-section[data-label-hidden=true]:not(.selected):not(:focus-within)>:is(.b4-node-body,.dd-sec-history){opacity:0;visibility:hidden;pointer-events:none}

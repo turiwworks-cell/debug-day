@@ -1915,6 +1915,9 @@ export function DDcreateBoard(deps) {
               )
               .join("");
         }
+        // Alt-drag makes a copy: the original stays put and the copy-to-be
+        // follows the pointer, see-through, so it is clear a copy is made.
+        if (G.alt && !G.altShown) { G.altShown = true; altCopyLook(G.refs); }
         for (const An of G.refs) {
           const Kt = G.starts[An],
             Dn = { x: Kt.x + Pt, y: Kt.y + yn };
@@ -2035,14 +2038,31 @@ export function DDcreateBoard(deps) {
         return;
       }
     }
+    function altCopyLook(refs) {
+      viewport.current?.classList.add("dd-alt-copying");
+      for (const ref of refs) {
+        const el = elementRefs.current.get(ref);
+        if (!el?.parentNode) continue;
+        const stay = el.cloneNode(true);
+        stay.classList.add("dd-alt-original");
+        stay.classList.remove("selected");
+        stay.style.transform = "";
+        stay.setAttribute("aria-hidden", "true");
+        for (const n of [stay, ...stay.querySelectorAll("[data-board-id],[id]")]) { n.removeAttribute("data-board-id"); n.removeAttribute("id"); }
+        el.parentNode.insertBefore(stay, el);
+        el.classList.add("dd-alt-ghost");
+      }
+    }
     function showPreview(Y) {
       for (const [G, ct] of elementRefs.current)
         ct.classList.toggle("b4-drop-target", G === Y);
     }
     function clearPreview() {
       if (guideSvg.current) guideSvg.current.replaceChildren();
+      viewport.current?.classList.remove("dd-alt-copying");
+      for (const el of root.current?.querySelectorAll(".dd-alt-original") || []) el.remove();
       for (const [Y, G] of elementRefs.current) {
-        ((G.style.transform = ""), G.classList.remove("b4-drop-target"));
+        ((G.style.transform = ""), G.classList.remove("b4-drop-target", "dd-alt-ghost"));
         const ct = layout.map.get(Y);
         if (ct) {
           G.style.width = ct.w + "px";
