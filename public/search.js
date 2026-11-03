@@ -466,8 +466,8 @@ export function DDeditSearchResult(snapshot, row, action, value, ensureDay) {
     } else if (action === "category") block.type = value;
     else if (action === "duration") {
       const minutes = Math.max(
-        15,
-        Math.min(720, Math.round(Number(value) / 15) * 15),
+        5,
+        Math.min(720, Math.round(Number(value) / 5) * 5),
       );
       if (!Number.isFinite(minutes)) return snapshot;
       if (row.kind === "subtask") target.min = minutes;
@@ -566,8 +566,8 @@ export function DDeditSearchResult(snapshot, row, action, value, ensureDay) {
     } else if (action === "category") block.type = value;
     else if (action === "duration")
       block.min = Math.max(
-        15,
-        Math.min(720, Math.round(Number(value) / 15) * 15),
+        5,
+        Math.min(720, Math.round(Number(value) / 5) * 5),
       );
     else if (action === "delete" || action === "move") {
       setup.later = setup.later.filter((b) => b.id !== row.itemId);
@@ -632,7 +632,7 @@ export function DDCommandPalette(props) {
       DDsearchStored("debug-day:search-recent", []),
     ),
     [pins, setPins] = R.useState(() =>
-      DDsearchStored("debug-day:search-pins", ["cmd-map"]),
+      DDsearchStored("debug-day:search-pins", []),
     );
   const input = R.useRef(null),
     opener = R.useRef(null);
@@ -1492,13 +1492,13 @@ export function DDCommandPalette(props) {
                   e.preventDefault();
                   if (
                     !/^\d+$/.test(DDsearchDigits(amount)) ||
-                    +DDsearchDigits(amount) < 15 ||
+                    +DDsearchDigits(amount) < 5 ||
                     +DDsearchDigits(amount) > 720
                   ) {
                     setError(
                       t(
-                        "Use 15–720 minutes",
-                        "مدت باید بین ۱۵ تا ۷۲۰ دقیقه باشد",
+                        "Use 5–720 minutes",
+                        "مدت باید بین ۵ تا ۷۲۰ دقیقه باشد",
                       ),
                     );
                     return;
@@ -1509,7 +1509,7 @@ export function DDCommandPalette(props) {
               h(
                 "label",
                 null,
-                t("Minutes (15–720)", "دقیقه (۱۵ تا ۷۲۰)"),
+                t("Minutes (5–720)", "دقیقه (۵ تا ۷۲۰)"),
                 h("input", {
                   autoFocus: true,
                   inputMode: "numeric",

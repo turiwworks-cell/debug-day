@@ -69,6 +69,17 @@ function DDsince(iso, language) {
   }).format(date);
 }
 
+// One way to write a length of time everywhere: "45m", "3h", "1h 30m".
+export function DDduration(minutes, language) {
+  const total = Math.max(0, Math.round(Number(minutes) || 0)),
+    h = Math.floor(total / 60),
+    m = total % 60,
+    fa = language === "fa",
+    n = (x) => (fa ? x.toLocaleString("fa-IR") : String(x));
+  if (fa) return h ? n(h) + " ساعت" + (m ? " و " + n(m) + " دقیقه" : "") : n(m) + " دقیقه";
+  return h ? h + "h" + (m ? " " + m + "m" : "") : m + "m";
+}
+
 // Short text for a card's size: "45m", "2/3 times" or "Waiting · 2 days".
 export function DDmeasureText(block, language, formatMinutes) {
   const measure = DDmeasureOf(block);
@@ -91,7 +102,7 @@ export function DDmeasureText(block, language, formatMinutes) {
       ? (fa ? "در انتظار از " : "Waiting since ") + since
       : (fa ? "در انتظار · " : "Waiting · ") + since;
   }
-  return formatMinutes ? formatMinutes(block?.min || 0) : (block?.min || 0) + "m";
+  return formatMinutes ? formatMinutes(block?.min || 0) : DDduration(block?.min || 0, language);
 }
 
 const DDmeasureLabels = {

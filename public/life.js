@@ -1,4 +1,5 @@
 // Optional scheduling and a gentle pause when the day changes unexpectedly.
+import { DDduration } from "./measure.js";
 export function DDvalidAnchor(value) {
   return typeof value === "string" && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
 }
@@ -507,8 +508,7 @@ export function DDLifeTools({
                       "small",
                       null,
                       block.at ? block.at + " · " : "",
-                      block.min,
-                      t(" min", " دقیقه"),
+                      DDduration(block.min, language),
                     ),
                     h(
                       "details",
@@ -532,15 +532,15 @@ export function DDLifeTools({
                         t("Minutes", "دقیقه"),
                         h("input", {
                           type: "number",
-                          min: 15,
+                          min: 5,
                           max: 720,
-                          step: 15,
+                          step: 5,
                           value: block.min,
                           onChange: (e) => {
                             const value = +e.target.value;
                             if (
                               Number.isFinite(value) &&
-                              value >= 15 &&
+                              value >= 5 &&
                               value <= 720
                             )
                               edit(block.id, { min: value });

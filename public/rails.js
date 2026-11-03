@@ -71,7 +71,7 @@ export function DDsetRailRole(day, ref, role) {
 export function DDrailPreferences(preferences, mobile = false) {
   const open = Object.fromEntries(["goal", "note", "habits"].map((key) => [key,
     typeof preferences?.["boardRail" + key[0].toUpperCase() + key.slice(1)] === "boolean"
-      ? preferences["boardRail" + key[0].toUpperCase() + key.slice(1)] : !mobile && key === "habits"]));
+      ? preferences["boardRail" + key[0].toUpperCase() + key.slice(1)] : false]));
   if (mobile) { const active = Object.keys(open).find((key) => open[key]); for (const key of Object.keys(open)) open[key] = key === active; }
   return open;
 }

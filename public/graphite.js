@@ -176,6 +176,17 @@ html .dd-engine-area-title{cursor:grab;touch-action:none;user-select:none;-webki
 html .dd-engine-area-title:active{cursor:grabbing}
 html .dd-engine-area-title button{cursor:pointer}
 
+/* Calmer details (5.40): a done task is the tick and the dim text, no extra
+   "Done" pill; Persian steps start next to their tick; nothing hides behind
+   the phone's Capture button; the calendar picker shows its whole name. */
+html .dd-done-badge{display:none}
+html:not([dir=rtl]) .subnode-input[dir=auto]{text-align:left}
+html .dd-review-system{min-width:118px}
+@media (max-width:700px){
+  html body{padding-bottom:calc(92px + env(safe-area-inset-bottom,0px))}
+  html .dd-review-system{min-width:112px;flex-basis:112px}
+}
+
 /* Focus stays visible for keyboards */
 html :is(button,a,input,select,textarea):focus-visible{outline:2px solid var(--now);outline-offset:2px}
 

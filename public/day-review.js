@@ -1,4 +1,5 @@
 import { DDcompletion, DDprogressLabel } from "./planner.js";
+import { DDduration } from "./measure.js";
 import { DDnoteTags, DDtagText } from "./note-tags.js";
 import { DDmediaTitle } from "./media.js";
 // Calendar and feelings share one selected day. Reading a day never creates it.
@@ -613,8 +614,8 @@ function DDReviewCalendar({
             "روی هر روز، حال ثبت‌شده و تعداد احساس‌ها دیده می‌شود.",
           )
         : t(
-            "Each day shows its tasks and feelings. Empty days have no saved entries.",
-            "روی هر روز، تعداد کارها و احساس‌ها دیده می‌شود. خانهٔ خالی یعنی هنوز چیزی ثبت نشده.",
+            "Each day shows how many tasks it had. Empty days have nothing saved.",
+            "روی هر روز، تعداد کارها دیده می‌شود. خانهٔ خالی یعنی هنوز چیزی ثبت نشده.",
           ),
     ),
   );
@@ -1392,7 +1393,7 @@ function DDReviewTasks({
               ? n(block.count || 0) + "/" + n(block.times || 1) + t(" times", " بار")
               : block.measure === "wait"
                 ? t("Waiting", "در انتظار")
-                : n(block.min) + t(" min", " دقیقه"),
+                : DDduration(block.min, language),
           ),
         ),
         h(
@@ -1738,15 +1739,17 @@ function DDReviewDay({
               "div",
               null,
               h("dt", null, t("Planned time", "زمان برنامه")),
-              h("dd", null, n(summary.plannedMinutes), t(" min", " دقیقه")),
+              h("dd", null, DDduration(summary.plannedMinutes, language)),
               h("dd", { className: "dd-day-progress", title: DDprogressLabel(language), "data-completion": summary.completionPct }, t("Progress ", "پیشرفت "), n(summary.completionPct), "%"),
             ),
-            h(
-              "div",
-              null,
-              h("dt", null, t("Feelings & events", "احساسات و اتفاق‌ها")),
-              h("dd", null, n(summary.feelings)),
-            ),
+            // Feelings left the app in 5.16; old ones still show here.
+            summary.feelings > 0 &&
+              h(
+                "div",
+                null,
+                h("dt", null, t("Feelings & events", "احساسات و اتفاق‌ها")),
+                h("dd", null, n(summary.feelings)),
+              ),
             day.focus &&
               h(
                 "div",
@@ -1931,8 +1934,8 @@ export function DDCalendarView(props) {
           "p",
           null,
           t(
-            "Your days, how they felt, and the patterns across them.",
-            "روزهایت، حالشان و الگوهایی که در آن‌ها تکرار می‌شود.",
+            "Your days and the patterns across them.",
+            "روزهایت و الگوهایی که در آن‌ها تکرار می‌شود.",
           ),
         ),
       ),
