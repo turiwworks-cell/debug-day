@@ -31,6 +31,15 @@ async function start() {
           }
         : { viewport: { width: 1440, height: 900 }, timezoneId: "Asia/Tehran" },
     );
+    // Phones open the Board full screen by default (5.41). Tests that use the
+    // board inside the page keep that choice unless they set it themselves.
+    if (mobile)
+      await context.addInitScript(() => {
+        try {
+          if (localStorage.getItem("debug-day:board-start-fullscreen") === null)
+            localStorage.setItem("debug-day:board-start-fullscreen", "false");
+        } catch {}
+      });
     const errors = [];
     await context.route("**/*", (route) =>
       new URL(route.request().url()).origin === server.origin

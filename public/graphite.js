@@ -183,8 +183,28 @@ html .dd-done-badge{display:none}
 html:not([dir=rtl]) .subnode-input[dir=auto]{text-align:left}
 html .dd-review-system{min-width:118px}
 @media (max-width:700px){
-  html body{padding-bottom:calc(92px + env(safe-area-inset-bottom,0px))}
   html .dd-review-system{min-width:112px;flex-basis:112px}
+}
+
+/* Board gets the room (5.41). On the Board view the Plan's rows (template,
+   timer, worry, later, pause, day note, find and quick add) step aside: the
+   board has its own timer, search and add tools, and the Plan keeps them all.
+   The board then fills the window under the header. */
+html main:has(> #b2) > :is(.dayline,.note,.toolbar,.dd-life-root,.dd-mobile-more){display:none}
+html main:has(> #b2) > .dd-capture-root > .dd-capture-bar{display:none}
+html main:has(> #b2) > #b2:not(.focus-mode){height:calc(100dvh - 104px);min-height:480px}
+
+/* Phone: the view tabs sit at the bottom, under the thumb, like other phone
+   apps. Capture floats just above them. */
+@media (max-width:700px){
+  html .top .dd-tabs{position:fixed;left:0;right:0;bottom:0;z-index:112;margin:0;padding:6px 10px calc(6px + env(safe-area-inset-bottom,0px));background:var(--panel);border-top:1px solid var(--rule-2);box-shadow:0 -8px 24px -18px #0008}
+  html .dd-floating-capture{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+  html .dd-floating-capture.dd-on-board{bottom:calc(148px + env(safe-area-inset-bottom,0px))}
+  html body{padding-bottom:calc(150px + env(safe-area-inset-bottom,0px))}
+  html main:has(> #b2) > #b2:not(.focus-mode){height:calc(100dvh - 232px)}
+  /* Full screen on a phone keeps the tabs, so Plan is one tap away. */
+  html .b4.focus-mode{bottom:calc(64px + env(safe-area-inset-bottom,0px));height:auto}
+  html body:has(.b4.focus-mode) .top .dd-tabs{z-index:1001}
 }
 
 /* Focus stays visible for keyboards */

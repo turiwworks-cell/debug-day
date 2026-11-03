@@ -95,7 +95,9 @@ const {start,fixture}=require('./harness.cjs');
     assert.ok((await pill('c').boundingBox()).height>=44,'pills are at least 44px tall on a phone');
     assert.ok((await box('a').locator('.dd-flow-fold').boundingBox()).width>=26,'and the fold toggles are easy to hit');
     assert.ok(panel.width>=viewport.width-2,'a full-width bottom sheet');
-    assert.ok(panel.y+panel.height>=viewport.height-2,'that sits on the bottom edge');
+    // The phone tabs stay under a full screen board (5.41), so the sheet sits on the board's bottom edge.
+    const boardBox=await page.locator('.b2').boundingBox();
+    assert.ok(panel.y+panel.height>=boardBox.y+boardBox.height-2,'that sits on the bottom edge');
    } else {
     const room=await page.locator('.dd-flow-backdrop').boundingBox();
     assert.ok(Math.abs(panel.x+panel.width/2-room.x-room.width/2)<4,'on a desktop it comes up in the middle of the board');
