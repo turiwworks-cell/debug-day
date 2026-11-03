@@ -19,6 +19,7 @@ import{DDstickyDateLabel,DDstickyToday,DDstickyHeight,DDstickySnap,DDstickyForma
 import { DDSectionsFlowchart, DDsectionsBus, DDinstallSectionsFlowStyles } from "./sections-flow.js";
 import { DDsectionTint, DDSectionChip, DDsetSectionColor, DDsectionPath, DDsectionPalette, DDlifeSendTo, DDlifeTakeOut } from "./life-board.js";
 import { DDplaces, DDPlacesBack } from "./places.js";
+import { DDsyncCopies, DDsyncNewId, DDsyncValid, DDsyncForget, DDsyncMarkLife, DDsyncJoin, DDsyncPlaces, DDsyncSameNotes, DDinstallLinkedStyles } from "./linked.js";
 const life = { DDinstallLifeStyles, DDlifeAbs, DDlifeAdd, DDlifeBounds, DDlifeHead, DDlifeItems, DDlifeParentAt };
 // Board interaction engine. Legacy planner adapters are injected once by the app.
 export function DDcreateBoard(deps) {
@@ -60,6 +61,7 @@ export function DDcreateBoard(deps) {
   DDinstallStickyStyles();
   DDinstallEngineStyles();
   DDinstallSectionsFlowStyles();
+  DDinstallLinkedStyles();
   let stepTextContext;
   return function BoardWorkspace({
     day: day,
@@ -214,6 +216,7 @@ export function DDcreateBoard(deps) {
       history = useRef(DDlifeHistory),
       dayRef = useRef(day),
       ownUpdate = useRef(null),
+      searchShown = useRef(null),
       propsRef = useRef({
         day: day,
         setup: setup,
@@ -292,7 +295,7 @@ export function DDcreateBoard(deps) {
           w = width || 240, h = height || 240, items = d.__life.items, inside = DDlifeDescendants(items, roomId),
           target = DDlifeParentAt(items, note.x - frame.x + w / 2, note.y - frame.y - DDlifeHead + h / 2, new Set(items.filter((i) => !inside.has(i.id)).map((i) => i.id)), roomId) || items.find((i) => i.id === roomId),
           base = DDlifeAbs(items, target.id), id = items.some((i) => i.id === note.id) ? "lf-" + C() : note.id;
-        d.__life.items = DDlifeAdd(items, { id, type: "sticky", parent: target.id, text: note.text, color: note.color, x: Math.round(note.x - frame.x - base.x), y: Math.round(note.y - frame.y - DDlifeHead - base.y), w, h, style });
+        d.__life.items = DDlifeAdd(items, { id, type: "sticky", parent: target.id, text: note.text, color: note.color, x: Math.round(note.x - frame.x - base.x), y: Math.round(note.y - frame.y - DDlifeHead - base.y), w, h, style, syncId: note.syncId });
         d.notes = d.notes.filter((n) => n !== note);
         transferRef(d, ref, "life:" + id);
       }
@@ -309,7 +312,7 @@ export function DDcreateBoard(deps) {
         if((note.kind === "sticky" || note.type === "sticky") && !oldNotes.has(note.id)) note.at = DDstickyToday();
       }
       if (layoutRef.current?.room && result.__life?.items) keepInRoom(result, ot, shared, layoutRef.current.room);
-      const nextLife = result.__life || shared;
+      let nextLife = result.__life || shared;
       delete result.__life;
       delete result.__lifeFrame;
       // Keep Life-to-Life wires shared, while links to a day's task stay with that day.
@@ -321,8 +324,14 @@ export function DDcreateBoard(deps) {
         board.links = board.links.filter((l) => !sharedLinks.includes(l));
       }
       delete result.__sharedLinksEdited;
+      let St = DDreconcileDay(result, ot, { ...propsRef.current.setup, life: nextLife });
+      // Linked copies on this board follow the one that changed in the same step,
+      // so the day and the Feed are saved together and agree.
+      if (St) {
+        const linked = DDsyncCopies({ setup: { life: nextLife }, days: { d: St } }, { setup: { life: shared }, days: { d: ot } });
+        St = linked.days.d; nextLife = linked.setup.life;
+      }
       const lifeChanged = JSON.stringify(shared) !== JSON.stringify(nextLife);
-      const St = DDreconcileDay(result, ot, { ...propsRef.current.setup, life: nextLife });
       !St ||
         (!lifeChanged && JSON.stringify(St) === JSON.stringify(ot)) ||
         (ct.history !== !1 && remember(ot, shared, St, nextLife),
@@ -1161,7 +1170,7 @@ export function DDcreateBoard(deps) {
             textColor: "#121211",
             x: finite(Jt.x, 40),
             y: finite(Jt.y, 40),
-            at: Jt.at || day.date, baseW:Jt.baseW || 240,
+            at: Jt.at || day.date, baseW:Jt.baseW || 240, syncId: Jt.syncId || undefined,
             w: Jt.kind === "emoji" ? 64 : 240,
             h: Jt.kind === "emoji" ? 64 : 160,
           });
@@ -1172,7 +1181,7 @@ export function DDcreateBoard(deps) {
           Y.push({ id: "life:" + it.id, lifeId: it.id, lifeSection: it.type === "section", kind: it.type === "section" ? "life-section" : "sticky", room: roomItem?.id === it.id || undefined, boardOnly: (roomItem && it.parent === roomItem.id && !DDlifeInFrame(items, it)) || undefined,
             title: it.text || (it.type === "section" ? t("Section","سکشن") : ""), color, textColor: it.style?.plain ? "var(--ink)" : core.contrast(color), ownColor: (it.type === "section" && !!it.parent && !!it.ownColor && !!it.color) || undefined, collapsed: it.collapsed, parentId: it.parent ? "life:" + it.parent : null,
             x: lf.x + a.x, y: lf.y + DDlifeHead + a.y, w: it.w, h: it.collapsed ? 38 : it.h,
-            at: it.at, baseW:it.baseW || 240,
+            at: it.at, baseW:it.baseW || 240, syncId: it.syncId || undefined,
             ...it.style, opacity: it.style?.opacity ?? 1, stack: it.type === "section" ? 2 + items.filter((i) => DDlifeDescendants(items,i.id).has(it.id)).length : 20 });
         }
         for (const n of Y) {
@@ -1302,6 +1311,13 @@ export function DDcreateBoard(deps) {
         [allDays, day, setup.life],
       ),
       sectionNames = new Map(DDlifeItems(setup).filter((i) => i.type === "section").map((i) => [i.id, i.text || t("Section", "سکشن")]));
+    // How many copies each linked note or section has, on every day and in the Feed.
+    const syncCount = useMemo(() => {
+      const count = new Map(), add = (id) => { if (DDsyncValid(id)) count.set(id, (count.get(id) || 0) + 1); };
+      for (const it of DDlifeItems(setup)) add(it.syncId);
+      for (const d of Object.values({ ...(allDays || {}), [day.date]: day })) for (const n of d?.notes || []) add(n.syncId);
+      return count;
+    }, [allDays, day, setup.life]);
     const selectedWire = layout.edges.find((Y) => Y.id === wireId),
       selectedNode =
         selected.size === 1 ? layout.map.get([...selected][0]) : null;
@@ -2156,7 +2172,7 @@ export function DDcreateBoard(deps) {
           const first = ct.refs.find((r) => preview.current.has(r)), end = first && preview.current.get(first), begin = first && ct.starts[first];
           clearPreview();
           if (end && begin) {
-            const payload = core.copy(boardDocument(), layout.nodes, layout.edges, new Set(ct.refs), mode);
+            const payload = standalone(core.copy(boardDocument(), layout.nodes, layout.edges, new Set(ct.refs), mode));
             if (payload) pastePayload(payload, { x: payload.origin.x + end.x - begin.x, y: payload.origin.y + end.y - begin.y });
           }
         } else if (ct.kind === "move" && ct.moved) {
@@ -2226,7 +2242,7 @@ export function DDcreateBoard(deps) {
                 const inside = pos.x + node.w/2 >= frame.x && pos.x + node.w/2 <= frame.x + frame.w && pos.y + node.h/2 >= frame.y + DDlifeHead && pos.y + node.h/2 <= frame.y + frame.h;
                 if (!inside && !target && !node.lifeSection) {
                   const old = Tt.__life.items.find((i) => i.id === node.lifeId), id=Tt.notes.some((i)=>i.id===old.id)?C():old.id;
-                  Tt.notes.push({ id, kind: "sticky", text: old.text, role: old.role, at:old.at, baseW:old.baseW, color: old.color || node.color, x: pos.x, y: pos.y });
+                  Tt.notes.push({ id, kind: "sticky", text: old.text, role: old.role, at:old.at, baseW:old.baseW, color: old.color || node.color, x: pos.x, y: pos.y, ...(old.syncId ? { syncId: old.syncId } : {}) });
                   Tt.canvas ||= {}; Tt.canvas.board4 ||= {};
                   Tt.canvas.board4.styles ||= {}; Tt.canvas.board4.styles["sticky:" + id] = { width: old.w, height: old.h, ...old.style };
                   Tt.__life.items = Tt.__life.items.filter((i) => i.id !== old.id);
@@ -2237,7 +2253,7 @@ export function DDcreateBoard(deps) {
                 const target = DDlifeParentAt(Tt.__life.items, pos.x - frame.x + node.w/2, pos.y - frame.y - DDlifeHead + node.h/2, undefined, layout.room || "");
                 if (target) {
                   const old = Tt.notes.find((i) => i.id === node.noteId), base = DDlifeAbs(Tt.__life.items,target.id),id=Tt.__life.items.some((i)=>i.id===old.id)?"lf-"+C():old.id;
-                  Tt.__life.items = DDlifeAdd(Tt.__life.items,{id,type:"sticky",parent:target.id,text:old.text,role:old.role,at:old.at,baseW:old.baseW,color:old.color,x:pos.x-frame.x-base.x,y:pos.y-frame.y-DDlifeHead-base.y,w:node.w,h:node.h,style:model.styles[node.id]});
+                  Tt.__life.items = DDlifeAdd(Tt.__life.items,{id,type:"sticky",parent:target.id,text:old.text,role:old.role,at:old.at,baseW:old.baseW,color:old.color,x:pos.x-frame.x-base.x,y:pos.y-frame.y-DDlifeHead-base.y,w:node.w,h:node.h,style:model.styles[node.id],syncId:old.syncId});
                   Tt.notes = Tt.notes.filter((i) => i.id !== old.id);
                   transferRef(Tt,node.id,"life:"+id); delete ot[ref]; intoFolded(id);
                 }
@@ -2843,13 +2859,13 @@ export function DDcreateBoard(deps) {
       setSelected(new Set()); setWireSelection(null); onSelectBlock?.(null);
     }
     function duplicate() {
-      const payload = core.copy(
+      const payload = standalone(core.copy(
         boardDocument(),
         layout.nodes,
         layout.edges,
         selected,
         mode,
-      );
+      ));
       // FigJam puts the copy beside the original, one even gap to the right, so
       // repeated duplicates line up in a row instead of piling up.
       const picked = layout.nodes.filter((n) => selected.has(n.id));
@@ -2858,6 +2874,103 @@ export function DDcreateBoard(deps) {
           x: payload.origin.x + (picked.length ? nodeBounds(picked).w : 0) + 40,
           y: payload.origin.y,
         });
+    }
+    // Linked copies (5.34). Duplicate and Alt+drag make a copy that stands on its own.
+    function standalone(payload) {
+      return payload && { ...payload, items: payload.items.map((i) => ({ ...i, data: DDsyncForget(i.data) })) };
+    }
+    // A note (on a day or in the Feed) or a Feed section can have synced copies.
+    const syncable = (n) => !!n && ((n.kind === "sticky" && (n.lifeId || (n.noteId && !n.memberOf))) || !!n.lifeSection);
+    function planSnapshot() {
+      return { setup: { life: DDlifeState(propsRef.current.setup) }, days: { ...(propsRef.current.allDays || {}), [dayRef.current.date]: dayRef.current } };
+    }
+    // The board document with its notes and sections linked, ready to copy.
+    function linkedDocument(nodes) {
+      const doc = boardDocument();
+      for (const n of nodes) {
+        if (n.lifeId) doc.__life.items = DDsyncMarkLife(doc.__life.items, n.lifeId);
+        else if (n.noteId) doc.notes = doc.notes.map((x) => (x.id === n.noteId && !DDsyncValid(x.syncId) ? { ...x, syncId: DDsyncNewId() } : x));
+      }
+      return doc;
+    }
+    // Ctrl/Cmd+Shift+D: a synced copy beside the original. Edit either one.
+    function syncedCopy() {
+      const picked = layout.nodes.filter((n) => selected.has(n.id) && syncable(n));
+      if (!picked.length) return setStatus(t("Only notes and sections can have synced copies", "فقط نوت و سکشن کپی همگام دارند"));
+      const doc = linkedDocument(picked), payload = core.copy(doc, layout.nodes, layout.edges, new Set(picked.map((n) => n.id)), mode);
+      if (payload) pastePayload(payload, { x: payload.origin.x + nodeBounds(picked).w + 40, y: payload.origin.y }, doc,
+        t("Synced copy made · a change in one shows in all", "کپی همگام ساخته شد؛ تغییر هر کدام در همه دیده می‌شود"));
+    }
+    // Copy as synced: paste it on any day, in the Feed or in a section.
+    function copySynced() {
+      const picked = layout.nodes.filter((n) => selected.has(n.id) && syncable(n));
+      if (!picked.length) return;
+      const doc = linkedDocument(picked);
+      commit(() => doc, null);
+      const payload = core.copy(doc, layout.nodes, layout.edges, new Set(picked.map((n) => n.id)), mode);
+      if (!payload) return;
+      clipboard.current = sharedClipboard = payload;
+      sharedFresh = true;
+      navigator.clipboard?.writeText(payload.text).catch(() => {});
+      setStatus(t("Copied as synced · paste on any day or in any section", "همگام کپی شد؛ روی هر روز یا هر سکشنی بچسبان"));
+    }
+    // Notes that already say the same words (made with Copy and Paste) become one.
+    function sameWords(n) {
+      if (!n || n.kind !== "sticky" || !(n.title || "").trim()) return [];
+      const except = n.lifeId ? { life: n.lifeId } : { date: dayRef.current.date, note: n.noteId };
+      return DDsyncSameNotes(planSnapshot(), n.title, except).filter((p) => !n.syncId || p.syncId !== n.syncId);
+    }
+    function syncSameWords(n) {
+      const matches = sameWords(n);
+      if (!matches.length) return;
+      const snap = planSnapshot(), date = dayRef.current.date;
+      const source = n.lifeId ? { kind: "life", id: n.lifeId, syncId: n.syncId } : { kind: "day", date, id: n.noteId, syncId: n.syncId };
+      const next = DDsyncJoin(snap, source, matches, DDsyncValid(n.syncId) ? n.syncId : DDsyncNewId());
+      for (const [d, value] of Object.entries(next.days)) if (d !== date && value !== snap.days[d]) onUpdateDayOnDate?.(d, () => value);
+      const mine = next.days[date];
+      commit((d) => { d.notes = mine.notes; d.canvas = mine.canvas; d.__life = { ...d.__life, items: next.setup.life.items }; return d; },
+        t(`${matches.length + 1} notes synced · a change in one shows in all`, `${matches.length + 1} نوت همگام شدند`));
+    }
+    function unsync(n) {
+      commit((d) => {
+        if (n.lifeId) d.__life.items = d.__life.items.map((i) => (i.id === n.lifeId ? DDsyncForget(i) : i));
+        else d.notes = d.notes.map((x) => (x.id === n.noteId ? DDsyncForget(x) : x));
+        return d;
+      }, t("This copy stands on its own now", "این کپی حالا مستقل است"));
+    }
+    // Where the other copies are, and a way to go there (Back returns).
+    function copyPlaces(n) {
+      if (!DDsyncValid(n?.syncId)) return [];
+      const items = DDlifeItems(setup), date = dayRef.current.date;
+      return DDsyncPlaces(planSnapshot(), n.syncId).map((p) => {
+        const here = p.kind === "life" ? n.lifeId === p.id : n.noteId === p.id && p.date === date;
+        const label = here ? t("Here", "همین‌جا") : p.kind === "life"
+          ? (p.parent ? DDsectionPath(items, p.parent, 36, t("Section", "سکشن")).short : t("Feed", "فید"))
+          : p.date === date ? t("This day", "همین روز") : new Date(p.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+        return { ...p, here, label };
+      });
+    }
+    function goToCopy(p) {
+      if (p.kind === "life") return jumpLife(p.id);
+      if (p.date === dayRef.current.date) return revealSearchResult({ id: "sticky:" + p.id, kind: "sticky" });
+      DDplaces.mark();
+      window.dispatchEvent(new CustomEvent("debug-day-open-note", { detail: { date: p.date, id: p.id } }));
+      // Each day has its own board: the other day's opens full screen if this one is.
+      if (focus) try { sessionStorage.setItem("debug-day:board-open-fullscreen", "1"); } catch {}
+    }
+    function syncBadge(Y) {
+      const n = syncCount.get(Y.syncId) || 0;
+      if (n < 2) return null;
+      const label = t(`Synced · ${n} copies`, `همگام · ${n} کپی`);
+      return _.createElement("button", {
+          type: "button", className: "dd-sync-badge", "data-sync-badge": Y.syncId, title: label, "aria-label": label,
+          onPointerDown: (e) => { e.stopPropagation(); },
+          onDoubleClick: (e) => e.stopPropagation(),
+          // It opens the note's menu at its copies.
+          onClick: (e) => { e.stopPropagation(); openContext(e, { ref: Y.id }); setTimeout(() => document.querySelector('.b6-context [role=menuitem][aria-haspopup][aria-label="Synced copy…"]')?.click(), 40); },
+        },
+        _.createElement(controls.Icon, { React: _, name: "sync", size: 12 }),
+        _.createElement("b", null, n));
     }
     // The board glides (it never jumps) and stops the moment you move it yourself.
     function glideCamera(target) {
@@ -3084,7 +3197,7 @@ export function DDcreateBoard(deps) {
             const n=layout.map.get("sticky:"+note.id);
             if(!n||n.kind!=="sticky"||n.x<point.x||n.y<point.y||n.x+n.w>point.x+w||n.y+n.h>point.y+h)continue;
             const nid=d.__life.items.some((i)=>i.id===note.id)?"lf-"+C():note.id;
-            d.__life.items=DDlifeAdd(d.__life.items,{id:nid,type:"sticky",parent:id,text:note.text,role:note.role,at:note.at,baseW:note.baseW,color:note.color,x:Math.round(n.x-point.x),y:Math.round(n.y-point.y),w:n.w,h:n.h,style:model.styles[n.id]});
+            d.__life.items=DDlifeAdd(d.__life.items,{id:nid,type:"sticky",parent:id,text:note.text,role:note.role,at:note.at,baseW:note.baseW,color:note.color,x:Math.round(n.x-point.x),y:Math.round(n.y-point.y),w:n.w,h:n.h,style:model.styles[n.id],syncId:note.syncId});
             d.notes=d.notes.filter((i)=>i.id!==note.id);
             transferRef(d,n.id,"life:"+nid);
           }
@@ -3596,6 +3709,9 @@ export function DDcreateBoard(deps) {
           return;
         }
         if (!n || !viewport.current) return;
+        // Go to a search result once; a later change in the Feed does not pull the board back.
+        if (searchShown.current === ddSearchNode) return;
+        searchShown.current = ddSearchNode;
         DDplaces.mark();
         setSelected(new Set([n.id]));
         const z = Math.min(1.2, (viewport.current.clientWidth - 80) / n.w);
@@ -3779,6 +3895,10 @@ export function DDcreateBoard(deps) {
               (ot.preventDefault(),
                 ot.stopImmediatePropagation(),
                 deleteNodes());
+              return;
+            }
+            if (St && ot.shiftKey && K === "d" && selected.size) {
+              (ot.preventDefault(), ot.stopImmediatePropagation(), syncedCopy());
               return;
             }
             if (St && K === "d" && selected.size) {
@@ -4346,6 +4466,7 @@ export function DDcreateBoard(deps) {
             openContext(event, Y.section ? {} : { ref: Y.id }),
         },
         Y.lifeSection && sectionStrip(Y),
+        Y.syncId && syncBadge(Y),
         // Where the task came from: the section's name, on the card's corner.
         Y.kind === "block" && Y.from && sectionNames.has(Y.from) && _.createElement(DDSectionChip, { React: _, items: DDlifeItems(setup), id: Y.from, language: DDlanguage }),
         Tt && Y.at && _.createElement("time",{className:"dd-sticky-footer",dateTime:Y.at},DDstickyDateLabel(Y.at,DDlanguage)),
@@ -5328,7 +5449,7 @@ export function DDcreateBoard(deps) {
           const old = d.notes.find((i) => i.id === n.noteId);
           if (!old) continue;
           const id = d.__life.items.some((i) => i.id === old.id) ? "lf-" + C() : old.id;
-          d.__life.items = DDlifeAdd(d.__life.items, { id, type: "sticky", parent: targetId, text: old.text, role: old.role, at: old.at, baseW: old.baseW, color: old.color, w: n.w, h: n.h, style: model.styles[n.id] });
+          d.__life.items = DDlifeAdd(d.__life.items, { id, type: "sticky", parent: targetId, text: old.text, role: old.role, at: old.at, baseW: old.baseW, color: old.color, w: n.w, h: n.h, style: model.styles[n.id], syncId: old.syncId });
           d.notes = d.notes.filter((i) => i.id !== old.id);
           transferRef(d, n.id, "life:" + id);
           refs.push("life:" + id);
@@ -5414,13 +5535,13 @@ export function DDcreateBoard(deps) {
           t("Copied · paste anywhere on the board", "کپی شد؛ هرجای برد بچسبان"),
         );
     }
-    function pastePayload(payload, point) {
+    function pastePayload(payload, point, base, message) {
       finishEdit();
       const rect = viewport.current.getBoundingClientRect();
       const at =
         point ||
         toWorld(rect.left + rect.width / 2, rect.top + rect.height / 2);
-      const result = core.paste(boardDocument(), payload, at, mode, C);
+      const result = core.paste(base || boardDocument(), payload, at, mode, C);
       if (!result.refs.length) return;
       const frame=layout.map.get("section:life"), target=frame&&(DDlifeParentAt(result.day.__life.items,at.x-frame.x,at.y-frame.y-DDlifeHead,layout.room?outsideRoom(result.day.__life.items):undefined,layout.room||"")||(layout.room?result.day.__life.items.find((i)=>i.id===layout.room):null));
       if (target) {
@@ -5434,12 +5555,12 @@ export function DDcreateBoard(deps) {
           if(!old)continue;
           // Same words and look in the section, and its lines come along.
           const {width,height,...look}=style;
-          result.day.__life.items=DDlifeAdd(result.day.__life.items,{id:old.id,type:"sticky",parent:target.id,text:old.text,role:old.role,at:old.at,baseW:old.baseW,color:old.color,x:old.x-frame.x-base.x,y:old.y-frame.y-DDlifeHead-base.y,w:width||240,h:height||240,style:look});
+          result.day.__life.items=DDlifeAdd(result.day.__life.items,{id:old.id,type:"sticky",parent:target.id,text:old.text,role:old.role,at:old.at,baseW:old.baseW,color:old.color,x:old.x-frame.x-base.x,y:old.y-frame.y-DDlifeHead-base.y,w:width||240,h:height||240,style:look,syncId:old.syncId});
           result.day.notes=result.day.notes.filter((i)=>i!==old);
           transferRef(result.day,ref,"life:"+old.id);result.refs[result.refs.indexOf(ref)]="life:"+old.id;
         }
       }
-      commit(() => result.day, t("Pasted", "چسبانده شد"));
+      commit(() => result.day, message || t("Pasted", "چسبانده شد"));
       setSelected(new Set(result.refs));
       setWireId(null);
       setWireSelection(null);
@@ -5675,6 +5796,18 @@ export function DDcreateBoard(deps) {
           movableLife = movable.filter((n) => n.lifeId),
           grouped = Object.values(model.groups).some((refs) => refs.some((ref) => selected.has(ref))),
           plainNow = sticky && !!selectedNode.plain;
+        // Linked copies: one note or section seen in many places.
+        const linkable = selectedNodes.filter(syncable), places = selectedNodes.length === 1 ? copyPlaces(selectedNode) : [],
+          twins = selectedNodes.length === 1 && sticky ? sameWords(selectedNode) : [];
+        const syncItems = linkable.length && linkable.length === selectedNodes.length ? [
+          item("sync-copy", "Make a synced copy", "ساخت کپی همگام", "sync", syncedCopy, { shortcut: "Ctrl/Cmd+Shift+D" }),
+          item("sync-clipboard", "Copy as synced", "کپی همگام برای چسباندن", "copy", copySynced),
+          twins.length > 0 && { ...item("sync-same", "", "", "sync", () => syncSameWords(selectedNode)), label: t(`Sync ${twins.length} more with the same words`, `همگام با ${twins.length} نوت هم‌متن`) },
+          places.length > 1 && sep("sync-places-sep"),
+          ...(places.length > 1 ? places.slice(0, 12).map((p) => ({ ...item("sync-go-" + p.kind + "-" + (p.date || "") + p.id, "", "", p.kind === "life" ? "section" : "note", () => goToCopy(p), { checked: p.here, disabled: p.here }), label: p.label })) : []),
+          places.length > 1 && sep("sync-off-sep"),
+          places.length > 1 && item("sync-off", "Unsync this copy", "جدا کردن این کپی", "unsync", () => unsync(selectedNode)),
+        ].filter(Boolean) : [];
         const more = [
           sticky && item("text-style", "Text style", "سبک متن", "bold", null, {
             disabled: allLocked,
@@ -5736,6 +5869,7 @@ export function DDcreateBoard(deps) {
           sep("clipboard-sep"),
           item("copy", "Copy", "کپی", "copy", () => copySelection(), { disabled: !copyable, shortcut: "Ctrl/Cmd+C" }),
           item("duplicate", "Duplicate", "ساخت کپی مستقل", "duplicate", duplicate, { disabled: !copyable, shortcut: "Ctrl/Cmd+D" }),
+          syncItems.length > 0 && item("synced", "Synced copy…", "کپی همگام…", "sync", null, { children: syncItems }),
           item("lock", allLocked ? "Unlock" : "Lock", allLocked ? "بازکردن قفل" : "قفل‌کردن", allLocked ? "unlock" : "lock", toggleLock),
           item("more", "More", "بیشتر", "more", null, { children: more }),
           sep("delete-sep"),

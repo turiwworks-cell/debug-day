@@ -119,6 +119,10 @@ export function DDnormalizeLife(life) {
       ...(typeof r.color === "string" && /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(r.color) ? { color: r.color, ...(section && r.ownColor === true ? { ownColor: true } : {}) } : {}),
       // A top section placed on the board outside the Feed.
       ...(section && r.out === true ? { out: true } : {}),
+      // Linked copies: the copies of one note or section share a syncId; the
+      // things inside a synced section share a syncKey with their twins.
+      ...(typeof r.syncId === "string" && /^[\w-]{1,64}$/.test(r.syncId) ? { syncId: r.syncId } : {}),
+      ...(typeof r.syncKey === "string" && /^[\w-]{1,64}$/.test(r.syncKey) ? { syncKey: r.syncKey } : {}),
     });
   }
   const sections = new Map(items.filter((i) => i.type === "section").map((i) => [i.id, i]));
@@ -335,6 +339,8 @@ export function DDlifeAdd(items, spec) {
       ...(spec.style ? { style: { ...spec.style } } : {}),
       color: spec.color || (section ? "#A8DAFF" : "#FFE299"),
       ...(section && spec.ownColor && spec.color ? { ownColor: true } : {}),
+      ...(spec.syncId ? { syncId: spec.syncId } : {}),
+      ...(spec.syncKey ? { syncKey: spec.syncKey } : {}),
     };
   // Like FigJam, something placed by hand may hang over its section's edge;
   // only an automatically chosen spot grows the section around it.
