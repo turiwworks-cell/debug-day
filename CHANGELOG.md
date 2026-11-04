@@ -1,3 +1,16 @@
+## 5.45.0 — 2026-11-04
+Branch: claude/project-thread-pbgoz7
+- Safety and gentle nudges from the full app review (part 6 of 7).
+- Recently deleted: notes and sections deleted from the Feed wait 30 days. Board › top "…" › Recently deleted lists them ("Ideas + 4 more · 3 days ago"); one click puts them back inside their section (or at the same place if the section is gone), with their lines. Undo of the delete also takes the entry away. It syncs with the Feed and stays small.
+- A note closed with nothing in it goes away (Undo brings it back). Photo, synced, tagged and goal notes stay.
+- Days no longer keep their own copies of Feed note places (about 50 per day before); they are dropped when a day loads and when the board saves.
+- The sync badge says "Synced · 2 min ago" with a small dot (green synced, orange waiting).
+- Settings › Data backup shows the space used: "Space used: 340 KB of 1.5 MB (23%)".
+- Plan (and the phone's Today card) starts with yesterday's leftovers when there are any: "1 left from Wed 28 Oct · Bring it / Not today".
+- A very full day (more than 10h, or 12 open tasks) shows one line: "This day is very full (11h 30m) · Move “Emails” / It’s fine". It offers the lowest-priority task and moves it to tomorrow, the same task in every view.
+- DESIGN.md: Recently deleted and nudges.
+- Test: new upkeep unit test and tests/browser/upkeep.cjs (desktop and phone). figjam-notes, section-lines and section-interactions now type a word into the notes they create, since empty notes go away.
+
 ## 5.44.0 — 2026-11-04
 Branch: claude/project-thread-pbgoz7
 - Soft budgets, goal counters and "→ Today" from the full app review (part 5 of 6).

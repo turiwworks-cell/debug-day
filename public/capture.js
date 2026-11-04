@@ -2,6 +2,7 @@
 import { DDTimerMini } from "./timer.js";
 import { DDduration } from "./measure.js";
 import { DDlifeState, DDlifeAdd } from "./life-board.js";
+import { DDPlanNudges, DDmoveToDay, DDnextDay } from "./nudges.js";
 function DDcaptureDate(date) {
   if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date))
     return false;
@@ -521,6 +522,12 @@ export function DDCaptureTools({
               : t("Full day / more", "روز کامل / بیشتر"),
           ),
         ),
+        // Yesterday's leftovers and a very full day, first thing on the phone (5.45).
+        h(DDPlanNudges, {
+          React: R, day, days: data.days, date, today, language,
+          onUpdateDay: (change) => setData((d) => ({ ...d, days: { ...d.days, [date]: change(d.days[date] || ensureDay(date)) } })),
+          onMove: (id) => { const name = day.blocks.find((b) => b.id === id)?.name || ""; setData((d) => DDmoveToDay(d, date, DDnextDay(date), id, ensureDay)); onToast?.(t("Moved “" + name + "” to tomorrow", "«" + name + "» رفت برای فردا")); },
+        }),
         current
           ? card(current, t("Current", "کار فعلی"))
           : h(
