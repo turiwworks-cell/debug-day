@@ -1,3 +1,15 @@
+## 5.42.0 — 2026-11-03
+Branch: claude/project-thread-pbgoz7
+- Calm Plan from the full app review (part 3 of 6).
+- A task in Plan is one line: name, time and steps. The colored hour bar under each task is gone (time is the small number; − and + still change it).
+- Steps open only when you ask: the steps button opens the field, ready to type, and Esc closes it. A task without steps never shows an empty step area, and the "Break this block into smaller mind-map steps…" line is gone. Open steps show a small "+ Add a step" instead of a field.
+- On a computer the − / + buttons and an empty task's steps button show when the pointer is on the row.
+- The kind of work ("Deep work") is no longer repeated on every Plan row; the row's icon and color still show it.
+- Day tools with nothing in them wait behind a "…" button: the Template chip when there is only one template, Worry parking with no worries, an empty Later tray, and Life happened while the day is not paused. "…" shows them all. On a phone the Worry and Later pills follow the same rule.
+- A day without stickers shows only a small "Stickers & emoji" button in the Plan's header instead of the "A little you, in your day" box (same in the Calendar and phone Today).
+- The Plan's hint is short: "Right-click a task for more" (the hour sample and the resize hint are gone).
+- Test: new calm-plan browser test; board-ux opens "…" before Life happened on a computer.
+
 ## 5.41.0 — 2026-11-03
 Branch: claude/project-thread-pbgoz7
 - Phone and Board room from the full app review (part 2 of 6).
