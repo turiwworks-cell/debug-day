@@ -339,7 +339,7 @@ export function DDLifeTools({
             ? t("Day paused", "روز متوقف است")
             : closed
               ? t("Today is closed", "امروز بسته است")
-              : t("Life happened", "اتفاقی افتاد"),
+              : t("Pause the day", "روز را نگه دار"),
         ),
     ),
     (paused || closed) &&
@@ -383,7 +383,7 @@ export function DDLifeTools({
             "aria-modal": true,
             "aria-label":
               panel === "pause"
-                ? t("Life happened", "اتفاقی افتاد")
+                ? t("Pause the day", "روز را نگه دار")
                 : t("Later tray", "سبد بعداً"),
             onClick: (e) => e.stopPropagation(),
             onKeyDown: key,
@@ -395,7 +395,7 @@ export function DDLifeTools({
               "h2",
               null,
               panel === "pause"
-                ? t("Life happened", "اتفاقی افتاد")
+                ? t("Pause the day", "روز را نگه دار")
                 : t("Later tray", "سبد بعداً"),
             ),
             h(

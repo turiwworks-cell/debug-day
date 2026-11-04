@@ -19,7 +19,7 @@ const { start, fixture } = require("./harness.cjs");
           "Zoom in": "بزرگ‌نمایی",
           Search: "جستجو",
           "Full day / more": "روز کامل / بیشتر",
-          "Life happened": "اتفاقی افتاد",
+          "Pause the day": "روز را نگه دار",
           "Close today, keep the tasks": "بستن امروز و حفظ کارها",
           "Continue the day": "ادامهٔ روز",
         };
@@ -249,14 +249,14 @@ const { start, fixture } = require("./harness.cjs");
         task = (await read()).blocks[0];
         assert.equal(task.done, false);
         assert.equal(task.subtasks[0].done, false);
-        // On a computer "Life happened" waits behind the "…" day tools button
+        // On a computer "Pause the day" waits behind the "…" day tools button
         // until the day is paused (5.42).
         if (!mobile)
           await page
             .getByRole("button", { name: "More day tools", exact: true })
             .click();
         await page
-          .getByRole("button", { name: label("Life happened"), exact: true })
+          .getByRole("button", { name: label("Pause the day"), exact: true })
           .click();
         await page
           .getByRole("button", {
@@ -279,7 +279,7 @@ const { start, fixture } = require("./harness.cjs");
             .click();
         }
         await page
-          .getByRole("dialog", { name: label("Life happened"), exact: true })
+          .getByRole("dialog", { name: label("Pause the day"), exact: true })
           .getByRole("button", { name: label("Continue the day"), exact: true })
           .click();
         assert.equal((await read()).pause.closed, false);

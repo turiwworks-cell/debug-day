@@ -1,6 +1,7 @@
 import { DDlifeItems, DDlifeRemoveTree, DDlifeHistory, DDlifeState, DDSectionChip } from "./life-board.js";
 import { DDnoteTags, DDtagText } from "./note-tags.js";
 import { DDmediaTitle } from "./media.js";
+import { DDpanelGlyph } from "./panels.js";
 // Readable, additive search and command palette. React is supplied by the app.
 export function DDsearchDigits(value = "") {
   return String(value).replace(/[۰-۹٠-٩]/g, (c) =>
@@ -1092,7 +1093,7 @@ export function DDCommandPalette(props) {
           ? h(
               "span",
               { className: "dd-result-symbol dd-panel-icon", "aria-hidden": true },
-              panel.icon,
+              DDpanelGlyph(R, panel.id),
             )
           : h(
               "span",

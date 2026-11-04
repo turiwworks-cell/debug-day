@@ -231,6 +231,12 @@ html .dd-day-stickers.is-empty .dd-sticker-add>span:first-child{font-size:13px}
 html .time-key>.dd-day-stickers.is-empty{margin-inline-start:auto}
 html .time-key>.dd-day-stickers.is-empty+*{margin-left:0!important}
 
+/* Line icons for panels (5.43): the panel's color draws the icon; in the
+   view tabs it takes the tab's own ink. */
+html .dd-panel-icon{color:var(--pc,var(--ink-2))}
+html .dd-panel-icon>svg{width:1.05em;height:1.05em;display:block}
+html .views button .dd-panel-icon{color:inherit}
+
 /* Focus stays visible for keyboards */
 html :is(button,a,input,select,textarea):focus-visible{outline:2px solid var(--now);outline-offset:2px}
 

@@ -1,3 +1,15 @@
+## 5.43.0 — 2026-11-03
+Branch: claude/project-thread-pbgoz7
+- One set of words and line icons from the full app review (part 4 of 6).
+- The app says Task and Step: "Add task", "Find a task or step", "1/2 steps", "+ Step", "↗ Task", "Task tool" and more (English and Persian). Renames live in the new public/words.js, which DDUI reads first.
+- The timer is "Focus" (was "Stillness"); "Life happened" is "Pause the day" ("روز را نگه دار").
+- The Board's name is its day ("Wed 4 Nov" with "40% completed" under it) instead of "Creative board". The Feed no longer says "Same on every day".
+- Board cards show time and steps; the kind of work is already in the card's icon and color.
+- View tabs, panel titles and Search rows use line icons instead of emoji (📋🧠📅🌱). Emoji stay for your own content.
+- Search no longer offers "Open app map".
+- New DESIGN.md: words, calm-by-default rules, color, icons, buttons, panels, phone, Persian and sync. CLAUDE.md points to it.
+- Test: new words unit test (renames, Persian, panel line icons); board-ux, timer and calm-plan use the new words.
+
 ## 5.42.0 — 2026-11-03
 Branch: claude/project-thread-pbgoz7
 - Calm Plan from the full app review (part 3 of 6).

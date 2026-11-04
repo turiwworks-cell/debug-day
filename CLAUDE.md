@@ -34,3 +34,7 @@ Branch: <branch-name>
 - Bump the same version in both places: `package.json` (`"version"`) and `src/worker.js` (`INFO.version`).
 - If another agent merged a version before you, take the next free number when you merge. Never reuse a version.
 - A PR without a CHANGELOG entry is not finished.
+
+## 3. Follow DESIGN.md for anything a person sees
+- Read `DESIGN.md` before changing labels, colors, icons, buttons or layout.
+- Use its words (Task and Step, Focus, Pause the day) and put renames in `public/words.js`.

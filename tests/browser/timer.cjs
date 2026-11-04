@@ -18,7 +18,7 @@ const {start,fixture}=require('./harness.cjs');
   await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),f.data);
   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
   const saved=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:timer')||'null'));
-  const chip=page.locator('.dchip').filter({hasText:'Stillness'});
+  const chip=page.locator('.dchip').filter({hasText:'Focus'});
   const options=()=>page.getByRole('button',{name:'Timer options',exact:true});
   const plan=page.getByRole('dialog',{name:'Timer',exact:true});
 
