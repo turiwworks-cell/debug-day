@@ -34,6 +34,9 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 - No hour grids, Gantt bars or red "late" states. Time is a small number next to the name, and optional.
 - No guilt: no red, no streak-loss warnings, no "you failed". Use neutral words ("not yet", "left").
 - Budgets and goals are soft: "1h 30m / 6h · week", "12 of 35 · 9 days left". Green when reached, never red when over or behind.
+- Deadlines are soft too: "◆ 8 days left", "tomorrow", "date passed" (`deadlines.js`). On a note the badge sits above the paper, never on it.
+- A task may be light or heavy (`energy.js`), never required. A tired day (😫 😕) offers the light ones first.
+- The Week view and its look back count what happened; they never score it. Next week's focus is one line.
 - Help text fades away: show a hint once, then rely on `?` and tooltips.
 - A task in Plan is one line. Details open on click, steps open when asked.
 

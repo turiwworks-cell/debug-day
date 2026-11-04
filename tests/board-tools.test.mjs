@@ -11,6 +11,7 @@ import {DDtagList,DDnoteTags,DDsetNoteTags,DDtagText,DDallTags} from '../public/
 import {DDtags} from '../public/planner.js';
 import {DDmediaList} from '../public/media.js';
 import {DDgoalClean} from '../public/budgets.js';
+import {DDdueClean} from '../public/deadlines.js';
 import {DDnormalizeLife} from '../public/life-board.js';
 import {DDreconcileDay} from '../public/relations.js';
 import {DDstrokeEncode,DDstrokeDecode,DDnormalizeStrokes,DDsimplifyStroke,DDstrokePath,DDmarksRebase} from '../public/pen.js';
@@ -39,7 +40,7 @@ test('note tags use the task tag system: one spelling, read and written in one p
 });
 
 test('day notes keep their tags through the day-note normalizer (stickies only)',()=>{
-  const fn=html.match(/function Ve\(at\).*?(?=var He=)/s)[0],c={L:v=>typeof v==='string'?v:'',C:()=>'id',Ie:Number.isFinite,Le:/^#[a-f0-9]{6}$/i,we:['#FFE299'],DDtags,DDmediaList,DDgoalClean};
+  const fn=html.match(/function Ve\(at\).*?(?=var He=)/s)[0],c={L:v=>typeof v==='string'?v:'',C:()=>'id',Ie:Number.isFinite,Le:/^#[a-f0-9]{6}$/i,we:['#FFE299'],DDtags,DDmediaList,DDgoalClean, DDdueClean};
   runInNewContext(fn+';this.note=Ve;',c);
   const once=c.note({id:'n',kind:'sticky',text:'Idea',tags:['#Idea','idea','sketch']});
   assert.deepEqual(plain(once.tags),['Idea','sketch']);

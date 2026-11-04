@@ -7,6 +7,7 @@ import { DDnormalizeLife, DDlifeAdd } from "../public/life-board.js";
 import { DDtags } from "../public/planner.js";
 import {DDmediaList} from "../public/media.js";
 import {DDgoalClean} from "../public/budgets.js";
+import {DDdueClean} from "../public/deadlines.js";
 import { DDboardCore as core } from "../public/board-core.js";
 import { DatabaseSync } from "node:sqlite";
 import { callTool, save, read } from "../src/worker.js";
@@ -66,7 +67,7 @@ test("legacy day-note and preference normalizers preserve only supported roles a
   const html = readFileSync(new URL("../public/index.html", import.meta.url), "utf8"),
     ve = html.match(/function Ve\(at\).*?(?=var He=)/s)[0],
     prefs = html.match(/function DDprefs\(at\).*?(?=function DDdownload)/s)[0],
-    context = { L: (v) => typeof v === "string" ? v : "", C: () => "id", Ie: Number.isFinite, Le: /^#[a-f0-9]{6}$/i, we: ["#FFE299"], DDhabitLevels: (v) => v, DDtags, DDmediaList, DDgoalClean };
+    context = { L: (v) => typeof v === "string" ? v : "", C: () => "id", Ie: Number.isFinite, Le: /^#[a-f0-9]{6}$/i, we: ["#FFE299"], DDhabitLevels: (v) => v, DDtags, DDmediaList, DDgoalClean, DDdueClean };
   runInNewContext(ve + prefs + ';this.note=Ve;this.prefs=DDprefs;', context);
   assert.equal(context.note({ role: "goal" }).role, "goal");
   assert.equal(context.note({ kind: "emoji", role: "goal" }).role, undefined);

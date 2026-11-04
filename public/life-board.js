@@ -12,6 +12,7 @@ import { DDnormalizeComments } from "./comments.js";
 import { DDnormalizeStrokes } from "./pen.js";
 import { DDbudgetOf, DDgoalClean } from "./budgets.js";
 import { DDtrashClean } from "./trash.js";
+import { DDdueClean } from "./deadlines.js";
 export const DDlifeHead = 90;
 export const DDlifeColors = DDstickyColors;
 const legacyFamilyColors = ["#FFE08A", "#9DD6FF", "#D3B8FF", "#FFA799", "#FFA6D9", "#E6E6E6", "#A8E6B8"];
@@ -123,6 +124,8 @@ function lifeItems(raw) {
       // A soft budget on a section, a counter on a goal note (budgets.js).
       ...(section && DDbudgetOf(r) ? { budget: DDbudgetOf(r) } : {}),
       ...(!section && DDgoalClean(r.goal) ? { goal: DDgoalClean(r.goal) } : {}),
+      // A deadline on a note or a section (deadlines.js).
+      ...(DDdueClean(r.due) ? { due: DDdueClean(r.due) } : {}),
       // Tags on a Feed note: the same tags as tasks (note-tags.js).
       ...(!section && DDtagList(r.tags).length ? { tags: DDtagList(r.tags) } : {}),
       // A photo note keeps only links to files in the person's Drive (board-photos.js).
@@ -365,6 +368,8 @@ export function DDlifeAdd(items, spec) {
       text: spec.text || "",
       ...(!section ? {at:spec.at || new Date().toLocaleDateString("en-CA"),...(spec.baseW?{baseW:spec.baseW}:{})} : {}),
       ...(!section && ["goal", "note"].includes(spec.role) ? { role: spec.role } : {}),
+      ...(!section && DDgoalClean(spec.goal) ? { goal: DDgoalClean(spec.goal) } : {}),
+      ...(DDdueClean(spec.due) ? { due: DDdueClean(spec.due) } : {}),
       ...(!section && DDmediaList(spec.media).length ? { media: DDmediaList(spec.media) } : {}),
       ...(spec.style ? { style: { ...spec.style } } : {}),
       color: spec.color || (section ? "#A8DAFF" : "#FFE299"),

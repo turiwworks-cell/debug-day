@@ -2,6 +2,9 @@ import { DDcompletion, DDprogressLabel } from "./planner.js";
 import { DDduration } from "./measure.js";
 import { DDnoteTags, DDtagText } from "./note-tags.js";
 import { DDmediaTitle } from "./media.js";
+import { DDlifeItems } from "./life-board.js";
+import { DDdueOn, DDdueName } from "./deadlines.js";
+import { DDCalendarWeek, DDWeekReview, DDCalendarModes, DDCalSections } from "./calendar-week.js";
 // Calendar and feelings share one selected day. Reading a day never creates it.
 export function DDreviewValidDate(date) {
   if (
@@ -375,8 +378,11 @@ function DDReviewCalendar({
   onSelect,
   feelingsOnly = false,
   panelId,
+  mode,
+  onMode,
 }) {
   const { h, fa, t, n } = DDreviewUI(R, language),
+    lifeItems = DDlifeItems(data.setup),
     [preference, setPreference] = R.useState(() =>
       DDreviewLocal("debug-day:review-calendar", null),
     );
@@ -459,6 +465,7 @@ function DDReviewCalendar({
           ),
         ),
       ),
+      onMode && h(DDCalendarModes, { React: R, mode, onMode, language }),
       h(
         "label",
         { className: "dd-review-system" },
@@ -532,6 +539,7 @@ function DDReviewCalendar({
       month.cells.map((cell) => {
         const day = data.days[cell.date],
           summary = DDreviewSummary(day, data.setup),
+          due = feelingsOnly ? [] : DDdueOn(lifeItems, cell.date),
           worries = (data.setup.worries || []).filter(
             (item) => item.createdAt === cell.date,
           ).length,
@@ -565,7 +573,8 @@ function DDReviewCalendar({
               (!feelingsOnly
                 ? " · " + n(summary.tasks) + t(summary.tasks === 1 ? " task" : " tasks", " کار")
                 : "") +
-              (other ? " · " + other : ""),
+              (other ? " · " + other : "") +
+              (due.length ? t(" · deadline: ", " · ددلاین: ") + due.map((i) => DDdueName(i, language)).join(", ") : ""),
             className:
               "dd-review-date" +
               (cell.inMonth ? "" : " outside") +
@@ -584,6 +593,7 @@ function DDReviewCalendar({
                 day.mood,
               ),
           ),
+          due.length > 0 && h("span", { className: "dd-cal-due", "data-cal-due": cell.date, "aria-hidden": true }, "◆"),
           h(
             "small",
             null,
@@ -602,6 +612,7 @@ function DDReviewCalendar({
               other &&
               h("span", null, other),
           ),
+          !feelingsOnly && h(DDCalSections, { React: R, day, items: lifeItems }),
         );
       }),
     ),
@@ -1967,16 +1978,34 @@ export function DDCalendarView(props) {
     ),
     section === "stats"
       ? h("div", { className: "dd-review-stats" }, props.stats)
-      : h(
-          "div",
-          { className: "dd-review-columns" },
-          h(DDReviewCalendar, {
-            ...props,
-            feelingsOnly: feelings,
-            onSelect: props.onSelectDay,
-            panelId: feelings ? "dd-feelings-day" : "dd-calendar-day",
-          }),
-          h(DDReviewDay, { ...props, feelingsOnly: feelings }),
-        ),
+      : h(DDCalendarColumns, { ...props, feelings }),
+  );
+}
+// The month beside the chosen day, or the week across the top (5.46).
+function DDCalendarColumns(props) {
+  const { React: R, feelings } = props,
+    h = R.createElement,
+    [mode, setMode] = R.useState(() => (DDreviewLocal("debug-day:calendar-mode", "month") === "week" ? "week" : "month")),
+    onMode = (value) => { setMode(value); DDreviewRemember("debug-day:calendar-mode", value); };
+  if (mode === "week" && !feelings)
+    return h(
+      "div",
+      { className: "dd-review-columns dd-week-columns" },
+      h(DDCalendarWeek, { ...props, mode, onMode }),
+      h(DDWeekReview, props),
+      h(DDReviewDay, { ...props, feelingsOnly: false }),
+    );
+  return h(
+    "div",
+    { className: "dd-review-columns" },
+    h(DDReviewCalendar, {
+      ...props,
+      feelingsOnly: feelings,
+      onSelect: props.onSelectDay,
+      panelId: feelings ? "dd-feelings-day" : "dd-calendar-day",
+      mode,
+      onMode: feelings ? null : onMode,
+    }),
+    h(DDReviewDay, { ...props, feelingsOnly: feelings }),
   );
 }
