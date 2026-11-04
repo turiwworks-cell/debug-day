@@ -1,3 +1,15 @@
+## 5.46.0 — 2026-11-04
+Branch: claude/project-thread-pbgoz7
+- Light and heavy tasks, deadlines and the Week view from the full app review (part 7 of 7).
+- A task can be marked light or heavy (Plan › right-click › Energy: Any / light / heavy). It shows as a small word beside the name in Plan, on the Board card and in the Week view. Optional, never asked for.
+- On a tired day (😫 or 😕) with light tasks, Plan shows one calm line: "A tired day. Start with something light? · Light ones first / Not today".
+- A Feed note or section can have a deadline (right-click › Deadline…: a date, or In 3 days / a week / 2 weeks / a month; on a day note it waits under More, so the menu stays short). A note shows "◆ 8 days left" above its paper (click it to change); a section shows it beside its name. Passed dates just say "date passed", never red. Moving a note between the Feed and a day keeps its deadline (and its goal counter, which was lost before).
+- Calendar: each day shows a thin line in the colors of the sections its tasks came from, and a small ◆ on days with a deadline.
+- Calendar › Week: seven days side by side (a list on the phone). Tick a task off or drag it to another day; it is the same task in Plan and on the Board. Month / Week is remembered.
+- Under the week, "Your week": tasks done and time, where the time went by section (with weekly budgets), goals, deadlines in the next two weeks, the week's moods, and "Focus for next week". That focus shows at the top of the next week.
+- DESIGN.md: deadlines, light/heavy and the Week view.
+- Test: new week unit test and tests/browser/week.cjs (desktop and phone).
+
 ## 5.45.0 — 2026-11-04
 Branch: claude/project-thread-pbgoz7
 - Safety and gentle nudges from the full app review (part 6 of 7).

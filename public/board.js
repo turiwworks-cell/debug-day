@@ -27,6 +27,8 @@ import { DDuseNoteTools, DDnoteBranch, DDparentLooks, DDnoteFamilyCSS } from "./
 import { DDuseBoardPhotos, DDnotePhoto, DDphotoHeight, DDboardPhotosCSS } from "./board-photos.js";
 import { DDtrashAdd, DDtrashRestore, DDtrashLabel } from "./trash.js";
 import { DDcanvasTidy } from "./upkeep.js";
+import { DDdueText, DDdueDate, DDdueDaysLeft, DDdueSet, DDDueEditor } from "./deadlines.js";
+import { DDenergyOf, DDenergyLabel } from "./energy.js";
 import { DDbudgetOf, DDbudgetUsed, DDbudgetText, DDbudgetLabel, DDbudgetPresets, DDbudgetSame } from "./budgets.js";
 import { DDsyncCopies, DDsyncNewId, DDsyncValid, DDsyncForget, DDsyncMarkLife, DDsyncJoin, DDsyncPlaces, DDsyncSameNotes, DDinstallLinkedStyles } from "./linked.js";
 const life = { DDinstallLifeStyles, DDlifeAbs, DDlifeAdd, DDlifeBounds, DDlifeHead, DDlifeItems, DDlifeParentAt };
@@ -193,6 +195,7 @@ export function DDcreateBoard(deps) {
       [room, setRoom] = useState(() => { try { return sessionStorage.getItem("debug-day:board-room") || null; } catch { return null; } }),
       roomCams = useRef({}),
       [quickColor, setQuickColor] = useState(null),
+      [dueEdit, setDueEdit] = useState(null),
       [stickerPicker, setStickerPicker] = useState(null),
       [details, setDetails] = useState(
         () => !globalThis.matchMedia?.("(max-width: 700px)").matches,
@@ -615,6 +618,16 @@ export function DDcreateBoard(deps) {
     function setBudget(id, budget) {
       lifeChange((list) => list.map((i) => i.id !== id ? i : budget ? { ...i, budget: { n: budget.n, unit: budget.unit, per: budget.per } } : (({ budget: _gone, ...rest }) => rest)(i)));
     }
+    // A deadline on a note or a section (deadlines.js): only a date, never a warning.
+    function setDue(ref, due) {
+      const life = ref.startsWith("life:"), id = life ? ref.slice(5) : ref.replace(/^sticky:/, "");
+      commit((d) => {
+        const list = life ? d.__life.items : d.notes, i = list.findIndex((x) => x.id === id);
+        if (i < 0) return;
+        list[i] = DDdueSet(list[i], due);
+        return d;
+      }, due ? t("Deadline: ", "ددلاین: ") + DDdueDate(due, DDlanguage) : t("No deadline", "بدون ددلاین"));
+    }
     function lifeFrame(Y, ct, top, left) {
       if (ddNodeMatches) return top;
       const b = life.DDlifeBounds(life.DDlifeItems(setup)),
@@ -861,7 +874,8 @@ export function DDcreateBoard(deps) {
               measure.DDmeasureText(block, DDlanguage, w) +
               (stats.total
                 ? ` \xB7 ${stats.done}/${stats.total} ${t("steps", "قدم")}`
-                : ""),
+                : "") +
+              (DDenergyOf(block) ? " \xB7 " + DDenergyLabel(DDenergyOf(block), DDlanguage) : ""),
             min: measure.DDmeasureOf(block) === "time" ? block.min : 0,
             done: block.done,
             emoji: block.emo || type.emo,
@@ -1114,7 +1128,8 @@ export function DDcreateBoard(deps) {
                   DDUI(Dl.name) +
                   (Pa.total
                     ? ` \xB7 ${Pa.done}/${Pa.total} ${t("steps", "\u0642\u062F\u0645")}`
-                    : ""),
+                    : "") +
+                  (DDenergyOf(Fn) ? " \xB7 " + DDenergyLabel(DDenergyOf(Fn), DDlanguage) : ""),
                 min: measure.DDmeasureOf(Fn) === "time" ? Fn.min : 0,
                 done: Fn.done,
                 emoji: Fn.emo || Dl.emo,
@@ -1213,7 +1228,7 @@ export function DDcreateBoard(deps) {
             textColor: "#121211",
             x: finite(Jt.x, 40),
             y: finite(Jt.y, 40),
-            at: Jt.at || day.date, baseW:Jt.baseW || 240, syncId: Jt.syncId || undefined,
+            at: Jt.at || day.date, baseW:Jt.baseW || 240, syncId: Jt.syncId || undefined, due: Jt.due || undefined,
             w: Jt.kind === "emoji" ? 64 : 240,
             h: Jt.kind === "emoji" ? 64 : 160,
           });
@@ -1224,7 +1239,7 @@ export function DDcreateBoard(deps) {
           Y.push({ id: "life:" + it.id, lifeId: it.id, lifeSection: it.type === "section", kind: it.type === "section" ? "life-section" : "sticky", room: roomItem?.id === it.id || undefined, boardOnly: (roomItem && it.parent === roomItem.id && !DDlifeInFrame(items, it)) || undefined,
             title: it.text || (it.type === "section" ? t("Section","سکشن") : ""), color, textColor: it.style?.plain ? "var(--ink)" : core.contrast(color), ownColor: (it.type === "section" && !!it.parent && !!it.ownColor && !!it.color) || undefined, collapsed: it.collapsed, parentId: it.parent ? "life:" + it.parent : null,
             x: lf.x + a.x, y: lf.y + DDlifeHead + a.y, w: it.w, h: it.collapsed ? 38 : it.h,
-            at: it.at, baseW:it.baseW || 240, syncId: it.syncId || undefined,
+            at: it.at, baseW:it.baseW || 240, syncId: it.syncId || undefined, due: it.due || undefined,
             ...it.style, opacity: it.style?.opacity ?? 1, stack: it.type === "section" ? 2 + items.filter((i) => DDlifeDescendants(items,i.id).has(it.id)).length : 20 });
         }
         for (const n of Y) {
@@ -2350,7 +2365,7 @@ export function DDcreateBoard(deps) {
                 const inside = pos.x + node.w/2 >= frame.x && pos.x + node.w/2 <= frame.x + frame.w && pos.y + node.h/2 >= frame.y + DDlifeHead && pos.y + node.h/2 <= frame.y + frame.h;
                 if (!inside && !target && !node.lifeSection) {
                   const old = Tt.__life.items.find((i) => i.id === node.lifeId), id=Tt.notes.some((i)=>i.id===old.id)?C():old.id;
-                  Tt.notes.push({ id, kind: "sticky", text: old.text, role: old.role, ...(old.goal ? { goal: old.goal } : {}), at:old.at, baseW:old.baseW, color: old.color || node.color, x: pos.x, y: pos.y, ...(old.syncId ? { syncId: old.syncId } : {}), ...(old.media ? { media: old.media } : {}) });
+                  Tt.notes.push({ id, kind: "sticky", text: old.text, role: old.role, ...(old.goal ? { goal: old.goal } : {}), ...(old.due ? { due: old.due } : {}), at:old.at, baseW:old.baseW, color: old.color || node.color, x: pos.x, y: pos.y, ...(old.syncId ? { syncId: old.syncId } : {}), ...(old.media ? { media: old.media } : {}) });
                   Tt.canvas ||= {}; Tt.canvas.board4 ||= {};
                   Tt.canvas.board4.styles ||= {}; Tt.canvas.board4.styles["sticky:" + id] = { width: old.w, height: old.h, ...old.style };
                   Tt.__life.items = Tt.__life.items.filter((i) => i.id !== old.id);
@@ -2361,7 +2376,7 @@ export function DDcreateBoard(deps) {
                 const target = DDlifeParentAt(Tt.__life.items, pos.x - frame.x + node.w/2, pos.y - frame.y - DDlifeHead + node.h/2, undefined, layout.room || "");
                 if (target) {
                   const old = Tt.notes.find((i) => i.id === node.noteId), base = DDlifeAbs(Tt.__life.items,target.id),id=Tt.__life.items.some((i)=>i.id===old.id)?"lf-"+C():old.id;
-                  Tt.__life.items = DDlifeAdd(Tt.__life.items,{id,type:"sticky",parent:target.id,text:old.text,role:old.role,goal:old.goal,at:old.at,baseW:old.baseW,color:old.color,x:pos.x-frame.x-base.x,y:pos.y-frame.y-DDlifeHead-base.y,w:node.w,h:node.h,style:model.styles[node.id],syncId:old.syncId,media:old.media});
+                  Tt.__life.items = DDlifeAdd(Tt.__life.items,{id,type:"sticky",parent:target.id,text:old.text,role:old.role,goal:old.goal,due:old.due,at:old.at,baseW:old.baseW,color:old.color,x:pos.x-frame.x-base.x,y:pos.y-frame.y-DDlifeHead-base.y,w:node.w,h:node.h,style:model.styles[node.id],syncId:old.syncId,media:old.media});
                   Tt.notes = Tt.notes.filter((i) => i.id !== old.id);
                   transferRef(Tt,node.id,"life:"+id); delete ot[ref]; intoFolded(id);
                 }
@@ -3066,6 +3081,17 @@ export function DDcreateBoard(deps) {
       // Each day has its own board: the other day's opens full screen if this one is.
       if (focus) try { sessionStorage.setItem("debug-day:board-open-fullscreen", "1"); } catch {}
     }
+    // Above the note, never on its paper: "◆ 8 days left".
+    function dueBadge(Y) {
+      const today = new Date().toLocaleDateString("en-CA"), left = DDdueDaysLeft(Y.due, today), text = DDdueText(Y.due, today, DDlanguage);
+      if (!text) return null;
+      const label = t("Deadline ", "ددلاین ") + DDdueDate(Y.due, DDlanguage) + " · " + text;
+      return _.createElement("button", {
+          type: "button", className: "dd-due-badge", "data-due-badge": Y.id, "data-left": left < 0 ? "passed" : left <= 3 ? "soon" : "later", title: label, "aria-label": label,
+          onPointerDown: (e) => e.stopPropagation(), onDoubleClick: (e) => e.stopPropagation(),
+          onClick: (e) => { e.stopPropagation(); const r = root.current.getBoundingClientRect(); setMenu(null); setDueEdit({ ref: Y.id, x: e.clientX - r.left, y: e.clientY - r.top + 12 }); },
+        }, "◆ " + text);
+    }
     function syncBadge(Y) {
       const n = syncCount.get(Y.syncId) || 0;
       if (n < 2) return null;
@@ -3313,7 +3339,7 @@ export function DDcreateBoard(deps) {
             const n=layout.map.get("sticky:"+note.id);
             if(!n||n.kind!=="sticky"||n.x<point.x||n.y<point.y||n.x+n.w>point.x+w||n.y+n.h>point.y+h)continue;
             const nid=d.__life.items.some((i)=>i.id===note.id)?"lf-"+C():note.id;
-            d.__life.items=DDlifeAdd(d.__life.items,{id:nid,type:"sticky",parent:id,text:note.text,role:note.role,goal:note.goal,at:note.at,baseW:note.baseW,color:note.color,x:Math.round(n.x-point.x),y:Math.round(n.y-point.y),w:n.w,h:n.h,style:model.styles[n.id],syncId:note.syncId});
+            d.__life.items=DDlifeAdd(d.__life.items,{id:nid,type:"sticky",parent:id,text:note.text,role:note.role,goal:note.goal,due:note.due,at:note.at,baseW:note.baseW,color:note.color,x:Math.round(n.x-point.x),y:Math.round(n.y-point.y),w:n.w,h:n.h,style:model.styles[n.id],syncId:note.syncId});
             d.notes=d.notes.filter((i)=>i.id!==note.id);
             transferRef(d,n.id,"life:"+nid);
           }
@@ -3947,7 +3973,7 @@ export function DDcreateBoard(deps) {
             if (
               !alignUndo &&
               ot.target.closest(
-                "input,textarea,select,[contenteditable=true],.b6-context,.b6-properties,.b6-camera,.b6-view-panel,.dd-sticker-dialog,.dd-board-timer,.dd-board-search,.b4-help-backdrop,.dd-engine-backdrop,.dd-flow-backdrop,.dd-board-rails",
+                "input,textarea,select,[contenteditable=true],.b6-context,.b6-properties,.b6-camera,.b6-view-panel,.dd-sticker-dialog,.dd-board-timer,.dd-board-search,.b4-help-backdrop,.dd-engine-backdrop,.dd-flow-backdrop,.dd-board-rails,.dd-due-editor",
               ) ||
               (ot.target.closest("[role=dialog]") &&
                 !root.current?.contains(ot.target))
@@ -4478,14 +4504,16 @@ export function DDcreateBoard(deps) {
         here = entries.find((e) => e.date === day.date)?.total || 0, isToday = day.date === new Date().toLocaleDateString("en-CA"),
         budget = DDbudgetOf(DDlifeItems(setup).find((i) => i.id === Y.lifeId)),
         used = budget ? DDbudgetUsed(budgetDays, DDlifeItems(setup), Y.lifeId, day.date, budget, DDlanguage) : 0,
-        reached = !!budget && used >= (budget.unit === "h" ? budget.n * 60 : budget.n);
-      if (!total && !budget) return null;
+        reached = !!budget && used >= (budget.unit === "h" ? budget.n * 60 : budget.n),
+        due = Y.due ? DDdueText(Y.due, new Date().toLocaleDateString("en-CA"), DDlanguage) : "";
+      if (!total && !budget && !due) return null;
       const num = (n) => DDlanguage === "fa" ? n.toLocaleString("fa-IR") : String(n),
         hereText = here ? (isToday ? t(num(here) + " today", num(here) + " امروز") : t(num(here) + " on this day", num(here) + " این روز")) : "",
         label = [
           total && t(`Last 14 days: ${done} of ${total} tasks from here done`, `۱۴ روز اخیر: ${done} از ${total} کار این سکشن انجام شد`),
           hereText,
           budget && t("Soft budget ", "بودجهٔ نرم ") + DDbudgetLabel(budget, DDlanguage) + ": " + DDbudgetText(budget, used, DDlanguage),
+          due && t("Deadline ", "ددلاین ") + DDdueDate(Y.due, DDlanguage) + " · " + due,
         ].filter(Boolean).join(" · ");
       return _.createElement("button", {
           type: "button", className: "dd-sec-history", "data-section-history": Y.lifeId, title: label, "aria-label": label,
@@ -4496,7 +4524,8 @@ export function DDcreateBoard(deps) {
         total > 0 && _.createElement("span", { className: "dd-history-strip" }, strip.map((d) => _.createElement("i", { key: d.date, "data-state": d.state }))),
         total > 0 && _.createElement("b", null, done + "/" + total),
         hereText && _.createElement("span", { className: "dd-sec-today", "data-section-today": here }, "· " + hereText),
-        budget && _.createElement("span", { className: "dd-sec-budget", "data-section-budget": Y.lifeId, "data-reached": reached }, DDbudgetText(budget, used, DDlanguage)));
+        budget && _.createElement("span", { className: "dd-sec-budget", "data-section-budget": Y.lifeId, "data-reached": reached }, DDbudgetText(budget, used, DDlanguage)),
+        due && _.createElement("span", { className: "dd-sec-due", "data-section-due": Y.lifeId }, "◆ " + due));
     }
     function renderNode(Y) {
       if (Y.section === "engine") return _.createElement("div", {
@@ -4631,6 +4660,7 @@ export function DDcreateBoard(deps) {
         },
         Y.lifeSection && sectionStrip(Y),
         Y.syncId && syncBadge(Y),
+        Tt && Y.due && dueBadge(Y),
         // Where the task came from: the section's name, on the card's corner.
         Y.kind === "block" && Y.from && sectionNames.has(Y.from) && _.createElement(DDSectionChip, { React: _, items: DDlifeItems(setup), id: Y.from, language: DDlanguage }),
         Tt && Y.at && _.createElement("time",{className:"dd-sticky-footer",dateTime:Y.at},DDstickyDateLabel(Y.at,DDlanguage)),
@@ -5621,7 +5651,7 @@ export function DDcreateBoard(deps) {
           const old = d.notes.find((i) => i.id === n.noteId);
           if (!old) continue;
           const id = d.__life.items.some((i) => i.id === old.id) ? "lf-" + C() : old.id;
-          d.__life.items = DDlifeAdd(d.__life.items, { id, type: "sticky", parent: targetId, text: old.text, role: old.role, goal: old.goal, at: old.at, baseW: old.baseW, color: old.color, w: n.w, h: n.h, style: model.styles[n.id], syncId: old.syncId });
+          d.__life.items = DDlifeAdd(d.__life.items, { id, type: "sticky", parent: targetId, text: old.text, role: old.role, goal: old.goal, due: old.due, at: old.at, baseW: old.baseW, color: old.color, w: n.w, h: n.h, style: model.styles[n.id], syncId: old.syncId });
           d.notes = d.notes.filter((i) => i.id !== old.id);
           transferRef(d, n.id, "life:" + id);
           refs.push("life:" + id);
@@ -5727,7 +5757,7 @@ export function DDcreateBoard(deps) {
           if(!old)continue;
           // Same words and look in the section, and its lines come along.
           const {width,height,...look}=style;
-          result.day.__life.items=DDlifeAdd(result.day.__life.items,{id:old.id,type:"sticky",parent:target.id,text:old.text,role:old.role,goal:old.goal,at:old.at,baseW:old.baseW,color:old.color,x:old.x-frame.x-base.x,y:old.y-frame.y-DDlifeHead-base.y,w:width||240,h:height||240,style:look,syncId:old.syncId,media:old.media});
+          result.day.__life.items=DDlifeAdd(result.day.__life.items,{id:old.id,type:"sticky",parent:target.id,text:old.text,role:old.role,goal:old.goal,due:old.due,at:old.at,baseW:old.baseW,color:old.color,x:old.x-frame.x-base.x,y:old.y-frame.y-DDlifeHead-base.y,w:width||240,h:height||240,style:look,syncId:old.syncId,media:old.media});
           result.day.notes=result.day.notes.filter((i)=>i!==old);
           transferRef(result.day,ref,"life:"+old.id);result.refs[result.refs.indexOf(ref)]="life:"+old.id;
         }
@@ -5991,7 +6021,9 @@ export function DDcreateBoard(deps) {
           places.length > 1 && sep("sync-off-sep"),
           places.length > 1 && item("sync-off", "Unsync this copy", "جدا کردن این کپی", "unsync", () => unsync(selectedNode)),
         ].filter(Boolean) : [];
+        const dueItem = (sticky || selectedNode?.lifeSection) && selectedNodes.length === 1 && item("deadline", selectedNode.due ? "Deadline · " + DDdueDate(selectedNode.due, "en") : "Deadline…", selectedNode.due ? "ددلاین · " + DDdueDate(selectedNode.due, "fa") : "ددلاین…", "deadline", () => setDueEdit({ ref: selectedNode.id, x: menu.x, y: menu.y }), { checked: !!selectedNode.due });
         const more = [
+          !selectedNode?.lifeId && dueItem,
           sticky && item("text-style", "Text style", "سبک متن", "bold", null, {
             disabled: allLocked,
             children: [["bold", "Bold", "پررنگ", "Ctrl/Cmd+B"], ["strike", "Strikethrough", "خط‌خورده", "Ctrl/Cmd+Shift+X"], ["todo", "To-do", "کار", "Ctrl/Cmd+Shift+9"]].map(([kind, en, fa, shortcut]) => item("format-" + kind, en, fa, kind, () => formatSticky(kind), { shortcut })),
@@ -6045,6 +6077,8 @@ export function DDcreateBoard(deps) {
             ].filter(Boolean),
           }),
           sticky && selectedNode.lifeId && item("to-today", "Add to this day (note stays)", "افزودن به این روز (نوت می‌مونه)", "toPlan", () => sendToToday(selectedNode), { checked: !!noteOnDay(selectedNode) }),
+          // Deadlines belong to the Feed: on a day note the item waits in More.
+          selectedNode?.lifeId && dueItem,
           sticky && item("convert", "Convert note to task", "تبدیل نوت به کار", "task", () => convertSticky(selectedNode), { disabled: allLocked }),
           ...(selectedNode?.lifeSection ? [
             item("section-note", "Add sticky note inside", "افزودن یادداشت داخل", "noteAdd", () => addLifeItem("sticky", selectedNode.lifeId)),
@@ -7008,6 +7042,11 @@ export function DDcreateBoard(deps) {
                 : selectedNode?.title || t("Object", "شیء")
               : t("Canvas", "بوم"),
         }),
+      dueEdit && ((n) => n && _.createElement(DDDueEditor, {
+        React: _, item: { type: n.lifeSection ? "section" : "sticky", text: n.title, due: n.due }, today: new Date().toLocaleDateString("en-CA"), language: DDlanguage,
+        style: { left: Math.max(8, Math.min(dueEdit.x, (root.current?.clientWidth || 600) - 276)), top: Math.max(8, Math.min(dueEdit.y, (root.current?.clientHeight || 600) - 250)) },
+        onChange: (due) => setDue(n.id, due), onClose: () => setDueEdit(null),
+      }))(layout.map.get(dueEdit.ref)),
       stickerPicker && _.createElement(playful.Picker,{current:stickerPicker.current,target:stickerPicker.target || "",targets:stickerPicker.replace?[]:day.blocks,onClose:()=>setStickerPicker(null),onPick:(value,target)=>{const rect=viewport.current.getBoundingClientRect(),point=stickerPicker.point || toWorld(rect.left+rect.width/2,rect.top+rect.height/2),id=stickerPicker.replace || C(),size=playful.isSticker(value)?128:76;commit(d=>playful.data.put(d,value,{id,replace:stickerPicker.replace,taskId:target,x:point.x-size/2,y:point.y-size/2}),t("A little personality added","کمی حال‌وهوا اضافه شد"));setSelected(new Set([target?"b:"+target:"sticky:"+id]));setWireId(null);setTool("select");onSelectBlock?.(target || null);}}),
       help &&
         _.createElement(

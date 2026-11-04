@@ -3,10 +3,11 @@
 // its own; the person decides.
 import { DDengineCarry, DDengineCopy, DDengineCarryHidden, DDhideEngineCarry } from "./engine.js";
 import { DDplanMinutes, DDduration } from "./measure.js";
+import { DDlowDay, DDlightTasks, DDlightFirst } from "./energy.js";
 
 // A day this full is a lot for one person: more than 10 hours, or 12 open tasks.
 export const DDfullMinutes = 600, DDfullCount = 12;
-const FULL_KEY = "debug-day:full-day-ok";
+const FULL_KEY = "debug-day:full-day-ok", LOW_KEY = "debug-day:low-day-ok";
 
 export function DDdayLoad(day) {
   const open = (day?.blocks || []).filter((b) => !b.done && String(b.name || "").trim());
@@ -69,6 +70,17 @@ export function DDPlanNudges({ React: R, day, days, date, today, language, makeI
         h("small", { dir: "auto" }, t("Move one thing to tomorrow?", "یه چیزش رو ببریم فردا؟"))),
       h("button", { type: "button", className: "dd-nudge-go", dir: "auto", onClick: () => onMove(pick.id) }, t("Move “" + pick.name + "”", "بردن «" + pick.name + "»")),
       h("button", { type: "button", className: "dd-nudge-later", onClick: () => { hide(FULL_KEY, date); redraw((n) => n + 1); } }, t("It’s fine", "اشکالی نداره"))));
+  }
+  // 3. A tired day (😫 or 😕): point to the tasks marked light (energy.js).
+  const light = DDlightTasks(day);
+  if (DDlowDay(day) && light.length && !hidden(LOW_KEY, date)) {
+    lines.push(h("div", { key: "low", className: "dd-nudge", "data-nudge": "low", role: "group", "aria-label": t("A tired day", "روز خسته") },
+      icon(h, "M12.5 3.5c-4.5 0-7.5 3-7.5 7.5v1.5M5 12.5l-2 2M5 10h4.5M7 7h4.5"),
+      h("div", { className: "dd-nudge-text" },
+        h("b", null, t("A tired day. Start with something light?", "روز خسته‌ایه. با یه کار سبک شروع کنی؟")),
+        h("small", { dir: "auto", title: light.map((b) => b.name).join(" · ") }, light.map((b) => b.name).join(" · "))),
+      h("button", { type: "button", className: "dd-nudge-go", onClick: () => { onUpdateDay((d) => DDlightFirst(d)); hide(LOW_KEY, date); redraw((n) => n + 1); } }, t("Light ones first", "سبک‌ها اول")),
+      h("button", { type: "button", className: "dd-nudge-later", onClick: () => { hide(LOW_KEY, date); redraw((n) => n + 1); } }, t("Not today", "امروز نه"))));
   }
   return lines.length ? h("div", { className: "dd-nudges", dir: fa ? "rtl" : "ltr" }, lines) : null;
 }
