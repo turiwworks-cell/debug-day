@@ -10,6 +10,7 @@ import { DDtagList, DDtagColors } from "./note-tags.js";
 import { DDmediaList } from "./media.js";
 import { DDnormalizeComments } from "./comments.js";
 import { DDnormalizeStrokes } from "./pen.js";
+import { DDbudgetOf, DDgoalClean } from "./budgets.js";
 export const DDlifeHead = 90;
 export const DDlifeColors = DDstickyColors;
 const legacyFamilyColors = ["#FFE08A", "#9DD6FF", "#D3B8FF", "#FFA799", "#FFA6D9", "#E6E6E6", "#A8E6B8"];
@@ -119,6 +120,9 @@ export function DDnormalizeLife(life) {
       ...(!section && /^\d{4}-\d{2}-\d{2}$/.test(r.at||"") ? {at:r.at} : {}),
       ...(!section && Number.isFinite(r.baseW) ? {baseW:Math.max(160,r.baseW)} : {}),
       ...(!section && ["goal", "note"].includes(r.role) ? { role: r.role } : {}),
+      // A soft budget on a section, a counter on a goal note (budgets.js).
+      ...(section && DDbudgetOf(r) ? { budget: DDbudgetOf(r) } : {}),
+      ...(!section && DDgoalClean(r.goal) ? { goal: DDgoalClean(r.goal) } : {}),
       // Tags on a Feed note: the same tags as tasks (note-tags.js).
       ...(!section && DDtagList(r.tags).length ? { tags: DDtagList(r.tags) } : {}),
       // A photo note keeps only links to files in the person's Drive (board-photos.js).

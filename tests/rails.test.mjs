@@ -6,6 +6,7 @@ import { DDrailGroups, DDrailConnections, DDsetRailRole, DDrailPreferences } fro
 import { DDnormalizeLife, DDlifeAdd } from "../public/life-board.js";
 import { DDtags } from "../public/planner.js";
 import {DDmediaList} from "../public/media.js";
+import {DDgoalClean} from "../public/budgets.js";
 import { DDboardCore as core } from "../public/board-core.js";
 import { DatabaseSync } from "node:sqlite";
 import { callTool, save, read } from "../src/worker.js";
@@ -65,11 +66,13 @@ test("legacy day-note and preference normalizers preserve only supported roles a
   const html = readFileSync(new URL("../public/index.html", import.meta.url), "utf8"),
     ve = html.match(/function Ve\(at\).*?(?=var He=)/s)[0],
     prefs = html.match(/function DDprefs\(at\).*?(?=function DDdownload)/s)[0],
-    context = { L: (v) => typeof v === "string" ? v : "", C: () => "id", Ie: Number.isFinite, Le: /^#[a-f0-9]{6}$/i, we: ["#FFE299"], DDhabitLevels: (v) => v, DDtags, DDmediaList };
+    context = { L: (v) => typeof v === "string" ? v : "", C: () => "id", Ie: Number.isFinite, Le: /^#[a-f0-9]{6}$/i, we: ["#FFE299"], DDhabitLevels: (v) => v, DDtags, DDmediaList, DDgoalClean };
   runInNewContext(ve + prefs + ';this.note=Ve;this.prefs=DDprefs;', context);
   assert.equal(context.note({ role: "goal" }).role, "goal");
   assert.equal(context.note({ kind: "emoji", role: "goal" }).role, undefined);
   assert.equal(context.note({ role: "invalid" }).role, undefined);
+  assert.deepEqual(context.note({ role: "goal", goal: { n: 2, of: 10, x: 1 } }).goal, { n: 2, of: 10 }, "a day goal keeps its counter (5.44)");
+  assert.equal(context.note({ goal: { n: 0, of: 0 } }).goal, undefined);
   const p = context.prefs({ boardRailGoal: false, boardRailNote: true, boardRailHabits: "true" });
   assert.equal(p.boardRailGoal, false); assert.equal(p.boardRailNote, true);
   assert.equal(p.boardRailHabits, undefined);

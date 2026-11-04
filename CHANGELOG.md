@@ -1,3 +1,14 @@
+## 5.44.0 — 2026-11-04
+Branch: claude/project-thread-pbgoz7
+- Soft budgets, goal counters and "→ Today" from the full app review (part 5 of 6).
+- A section can have a soft budget (right-click › Soft budget: 1–8h a day, 2–40h a week, or 1, 3 or 5 times a week). Beside its name it shows "1h 30m / 6h · week", added up from the done tasks that came from it and the sections inside it. Green when reached, never red. Nothing new is stored on the days.
+- A section also shows how many of this day's tasks came from it ("2 today").
+- "→ Today" on a note in the Feed adds it to the day as a task (first line = name, other lines = steps, from the note's section) and keeps the note. The note then shows "● Today" ("✓ Today" when done); a second tap doesn't add it twice. Day notes keep "→ Plan". Also in the note's menu: "Add to this day (note stays)".
+- A goal note can count up in the Goals rail: − / + and an optional target and date ("12 of 35 · 9 days left").
+- Tasks keep the note they came from (noteRef) and day notes keep their goal after a reload.
+- DESIGN.md: budgets and goals are soft.
+- Test: new budgets unit test and tests/browser/budgets.cjs (desktop and phone).
+
 ## 5.43.0 — 2026-11-03
 Branch: claude/project-thread-pbgoz7
 - One set of words and line icons from the full app review (part 4 of 6).
