@@ -3,6 +3,7 @@ import{DDlifePath}from"./life-board.js";
 import{DDboardSearchRows}from"./board-experience.js";
 import{DDHabitControls,DDHabitStats,DDhabitEntry,DDhabitLevels,DDhabitLevelsFor}from"./habits.js";
 import { DDtagText } from "./note-tags.js";
+import { DDGoalCounter, DDbudgetCSS } from "./budgets.js";
 
 export const DDrailRole = (value) => value === "goal" || value === "note" ? value : undefined;
 
@@ -51,7 +52,7 @@ export function DDrailGroups(day, items, room, sharedLinks = [], nodes = [], hab
     const role = DDrailRole(note.role);
     if (!role || note.scope !== scope) continue;
     const row = rows.get(note.ref);
-    if (row) result[role].push({ ...row, scope, scopeTitle: items.find((i) => i.id === scope)?.text || "", rows: DDrailConnections(note.ref, links, rows) });
+    if (row) result[role].push({ ...row, note, scope, scopeTitle: items.find((i) => i.id === scope)?.text || "", rows: DDrailConnections(note.ref, links, rows) });
   }
   return result;
 }
@@ -76,7 +77,7 @@ export function DDrailPreferences(preferences, mobile = false) {
   return open;
 }
 
-export function DDBoardRails({ React: R, day, items, room, sharedLinks, nodes, preferences, language, onToggle, onReveal, habitDay, days, habits = [], onHabitChange }) {
+export function DDBoardRails({ React: R, day, items, room, sharedLinks, nodes, preferences, language, onToggle, onReveal, habitDay, days, habits = [], onHabitChange, today, onGoalChange }) {
   const h = R.createElement, t = (en, fa) => language === "fa" ? fa : en,
     root = R.useRef(null), [mobile, setMobile] = R.useState(() => matchMedia("(max-width:700px)").matches),
     [stats, setStats] = R.useState(null), open = DDrailPreferences(preferences, mobile),
@@ -109,6 +110,8 @@ export function DDBoardRails({ React: R, day, items, room, sharedLinks, nodes, p
         h("small", null, group.scopeTitle || t("Main board", "برد اصلی")),
         h("button", { type: "button", className: "dd-rail-heading", dir: "auto", onClick: () => reveal({ ...group, rail: key }), "data-rail-ref": group.id }, group.title || t("Untitled note", "یادداشت بی‌عنوان")),
         group.tags?.length > 0 && h("small", { className: "dd-rail-tags", dir: "auto" }, DDtagText(group.tags)),
+        // A goal can count up: "12 of 35 · 9 days left". Optional, and never red.
+        key === "goal" && onGoalChange && h(DDGoalCounter, { React: R, note: group.note, today, language, onChange: (goal) => onGoalChange(group.id, goal) }),
         group.rows.length ? h("ul", null, group.rows.map((row) => h("li", { key: row.id }, h("button", { type: "button", dir: "auto", "data-rail-ref": row.id, onClick: () => reveal({ ...row, rail: key }) }, row.title || t("Untitled", "بی‌عنوان"))))) :
           h("p", { className: "dd-rail-empty" }, t("Connect something to this note on the board.", "روی برد چیزی به این یادداشت وصل کن.")))));
   return h("div", { ref: root, className: "dd-board-rails", "data-mobile": mobile,
@@ -145,6 +148,6 @@ export function DDinstallRailStyles() {
 .dd-rail-heading{font-weight:650}.dd-rail-group small{opacity:.65}.dd-rail-group+.dd-rail-group,.dd-rail-habit+.dd-rail-habit{border-top:1px solid var(--line);margin-top:8px;padding-top:8px}.dd-rail-group ul{padding-inline-start:16px;margin:0}.dd-rail-empty{opacity:.65;line-height:1.6;margin:4px 0;font-size:11px}
 .dd-board-rails button:hover{background:var(--wash)}.dd-board-rails button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}.dd-board-rails .dd-habit-controls{flex-wrap:wrap;gap:5px}.dd-board-rails .dd-habit-min input{width:44px;min-width:0}.dd-board-rails .dd-habit-stats{margin-top:8px}.dd-board-rails .dd-habit-grid{max-width:100%}
 @media(max-width:700px){.dd-board-rails{bottom:142px}.dd-rails-left{width:calc(100% - 136px);display:flex;flex-direction:row;gap:4px;overflow:visible}.dd-rails-left>[data-rail-slot]{min-width:0}.dd-rails-right{width:132px}.dd-rail-toggle{min-height:44px;padding:7px;font-size:11px;white-space:nowrap}.dd-rail-panel{position:absolute;top:44px;left:0;width:min(300px,calc(100vw - 36px));max-height:calc(100% - 50px);box-sizing:border-box}.dd-rails-left,.dd-rails-right{height:100%;max-height:100%}.dd-rails-right .dd-rail-panel{left:auto;right:0;max-height:calc(100% - 50px)}.dd-board-rails .dd-habit-tick,.dd-board-rails .dd-habit-plus,.dd-board-rails .dd-rail-heading,.dd-board-rails li button{min-height:44px}}
-`;
+` + DDbudgetCSS;
   document.head.append(style);
 }

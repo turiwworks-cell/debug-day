@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { DDphotoFiles, DDnotePhoto, DDphotoWidth, DDphotoImageHeight, DDphotoCaptionHeight, DDphotoHeight, DDphotoSpots } from "../public/board-photos.js";
 import { DDmediaList } from "../public/media.js";
+import { DDgoalClean } from "../public/budgets.js";
 import { DDnormalizeLife, DDlifeAdd } from "../public/life-board.js";
 import { DDtags } from "../public/planner.js";
 
@@ -53,7 +54,7 @@ test("several photos dropped together sit side by side, three to a row, first on
 test("photo notes keep their links on the day board and in the Feed", () => {
   const html = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
   const fn = html.match(/function Ve\(at\).*?(?=var He=)/s)[0];
-  const c = { L: (v) => (typeof v === "string" ? v : ""), C: () => "id", Ie: Number.isFinite, Le: /^#[a-f0-9]{6}$/i, we: ["#FFE299"], DDtags, DDmediaList };
+  const c = { L: (v) => (typeof v === "string" ? v : ""), C: () => "id", Ie: Number.isFinite, Le: /^#[a-f0-9]{6}$/i, we: ["#FFE299"], DDtags, DDmediaList, DDgoalClean };
   runInNewContext(fn + ";this.note=Ve;", c);
   const once = c.note({ id: "n", kind: "sticky", text: "", media: [photo, { id: "bad" }] });
   assert.deepEqual(plain(once.media), [photo]);

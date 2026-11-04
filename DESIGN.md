@@ -33,6 +33,7 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 - A tool with nothing in it hides until it has something, or until "…" is open (`dd-quiet` class).
 - No hour grids, Gantt bars or red "late" states. Time is a small number next to the name, and optional.
 - No guilt: no red, no streak-loss warnings, no "you failed". Use neutral words ("not yet", "left").
+- Budgets and goals are soft: "1h 30m / 6h · week", "12 of 35 · 9 days left". Green when reached, never red when over or behind.
 - Help text fades away: show a hint once, then rely on `?` and tooltips.
 - A task in Plan is one line. Details open on click, steps open when asked.
 
