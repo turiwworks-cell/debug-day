@@ -11,6 +11,7 @@ import { DDmediaList } from "./media.js";
 import { DDnormalizeComments } from "./comments.js";
 import { DDnormalizeStrokes } from "./pen.js";
 import { DDbudgetOf, DDgoalClean } from "./budgets.js";
+import { DDtrashClean } from "./trash.js";
 export const DDlifeHead = 90;
 export const DDlifeColors = DDstickyColors;
 const legacyFamilyColors = ["#FFE08A", "#9DD6FF", "#D3B8FF", "#FFA799", "#FFA6D9", "#E6E6E6", "#A8E6B8"];
@@ -97,9 +98,8 @@ function flatten(list, parent, out, root) {
 
 export const DDlifeDefault = () => flatten(DEFAULT_TREE, "", [], true);
 
-// Keep only valid items: known parents, no loops, sane numbers. Order is the stacking order.
-export function DDnormalizeLife(life) {
-  const raw = Array.isArray(life?.items) ? life.items : [];
+// One list of Feed items, cleaned (also used for Recently deleted).
+function lifeItems(raw) {
   const seen = new Set(),
     items = [];
   for (const r of raw) {
@@ -146,6 +146,12 @@ export function DDnormalizeLife(life) {
     if (!sections.has(it.parent) || it.parent === it.id || p) it.parent = "";
     if (it.parent) delete it.out;
   }
+  return items;
+}
+
+// Keep only valid items: known parents, no loops, sane numbers. Order is the stacking order.
+export function DDnormalizeLife(life) {
+  const items = lifeItems(Array.isArray(life?.items) ? life.items : []), sections = new Map(items.filter((i) => i.type === "section").map((i) => [i.id, i]));
   const refs = new Set(items.map((i) => "life:" + i.id));
   const links = (Array.isArray(life?.links) ? life.links : []).filter((l) => l && typeof l.id === "string" && refs.has(l.from) && refs.has(l.to) && l.from !== l.to).slice(0, 2000);
   const frame = {};
@@ -159,7 +165,9 @@ export function DDnormalizeLife(life) {
   const strokes = DDnormalizeStrokes(life?.strokes, { life: true }).map((s) => (!s.parent || sections.has(s.parent) ? s : { ...s, parent: "" }));
   // Tag colours you picked, for the whole planner (note-tags.js).
   const tagColors = DDtagColors(life?.tagColors);
-  return { v: 2, items, links, frame, ...(comments.length ? { comments } : {}), ...(strokes.length ? { strokes } : {}), ...(Object.keys(tagColors).length ? { tagColors } : {}) };
+  // Notes and sections deleted in the last 30 days (trash.js).
+  const trash = DDtrashClean(life?.trash, lifeItems);
+  return { v: 2, items, links, frame, ...(comments.length ? { comments } : {}), ...(strokes.length ? { strokes } : {}), ...(Object.keys(tagColors).length ? { tagColors } : {}), ...(trash.length ? { trash } : {}) };
 }
 
 // Session history is shared by Plan and all day boards. It never enters backups.

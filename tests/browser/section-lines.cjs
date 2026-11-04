@@ -37,7 +37,8 @@ const {start,fixture}=require('./harness.cjs');
   await page.mouse.move(pb.x+pb.width/2,pb.y+pb.height/2);await page.mouse.down();
   for(let i=1;i<=8;i++)await page.mouse.move(pb.x+pb.width/2+i*22,pb.y+pb.height/2+i*2);
   await page.mouse.up();await page.waitForTimeout(400);
-  await page.keyboard.press('Escape');await page.waitForTimeout(300);
+  // The new note is ready to type; a note closed empty goes away (5.45).
+  await page.keyboard.type('Linked');await page.keyboard.press('Escape');await page.waitForTimeout(300);
   const life=await read(),made=life.items.find((i)=>!['o','a','n','m'].includes(i.id));
   assert.ok(made,'a new note was made');
   assert.equal(made.parent,'a','in the section');

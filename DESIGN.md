@@ -56,7 +56,8 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 
 - Heights: 28px quiet controls, 32–36px chips, 44px minimum on touch (`pointer:coarse`).
 - Pills (`dchip`, `dd-pill`) for tools; `btn solid` for the one main action; `textbtn` for small links.
-- Destructive actions ask once or offer Undo; prefer Undo.
+- Destructive actions ask once or offer Undo; prefer Undo. Feed deletes also wait 30 days in Recently deleted (`trash.js`).
+- A nudge is one calm line with one button and "Not today" (`nudges.js`). It never moves anything on its own.
 
 ## 6. Panels and dialogs
 

@@ -25,6 +25,8 @@ import { DDuseComments, DDnormalizeComments, DDcommentsTransfer, DDcommentsCSS }
 import { DDnoteTagsCSS } from "./note-tags.js";
 import { DDuseNoteTools, DDnoteBranch, DDparentLooks, DDnoteFamilyCSS } from "./note-family.js";
 import { DDuseBoardPhotos, DDnotePhoto, DDphotoHeight, DDboardPhotosCSS } from "./board-photos.js";
+import { DDtrashAdd, DDtrashRestore, DDtrashLabel } from "./trash.js";
+import { DDcanvasTidy } from "./upkeep.js";
 import { DDbudgetOf, DDbudgetUsed, DDbudgetText, DDbudgetLabel, DDbudgetPresets, DDbudgetSame } from "./budgets.js";
 import { DDsyncCopies, DDsyncNewId, DDsyncValid, DDsyncForget, DDsyncMarkLife, DDsyncJoin, DDsyncPlaces, DDsyncSameNotes, DDinstallLinkedStyles } from "./linked.js";
 const life = { DDinstallLifeStyles, DDlifeAbs, DDlifeAdd, DDlifeBounds, DDlifeHead, DDlifeItems, DDlifeParentAt };
@@ -354,12 +356,16 @@ export function DDcreateBoard(deps) {
       }
       delete result.__sharedLinksEdited;
       let St = DDreconcileDay(result, ot, { ...propsRef.current.setup, life: nextLife });
+      // Feed places live in the Feed; a day keeps no copy of them (5.45).
+      if (St?.canvas) St.canvas = DDcanvasTidy(St.canvas);
       // Linked copies on this board follow the one that changed in the same step,
       // so the day and the Feed are saved together and agree.
       if (St) {
         const linked = DDsyncCopies({ setup: { life: nextLife }, days: { d: St } }, { setup: { life: shared }, days: { d: ot } });
         St = linked.days.d; nextLife = linked.setup.life;
       }
+      // A delete keeps what it took from the Feed in Recently deleted for 30 days.
+      if (St && ct.trash) nextLife = DDtrashAdd(shared, nextLife, (id) => (shared.items || []).some((i) => i.id === id) ? DDlifeAbs(shared.items, id) : null);
       const lifeChanged = JSON.stringify(shared) !== JSON.stringify(nextLife);
       !St ||
         (!lifeChanged && JSON.stringify(St) === JSON.stringify(ot)) ||
@@ -599,6 +605,11 @@ export function DDcreateBoard(deps) {
     // The Life section is the same on every day: it is kept in setup, not in the day.
     function lifeChange(change) {
       commit((d) => { d.__life.items = change(d.__life.items); return d; });
+    }
+    function restoreTrash(id) {
+      const entry = (DDlifeState(setup).trash || []).find((e) => e.id === id);
+      if (!entry) return;
+      commit((d) => { d.__life = DDtrashRestore(d.__life, id); return d; }, t("Put back: ", "برگشت: ") + DDtrashLabel(entry, Date.now(), DDlanguage).split(" · ")[0]);
     }
     // A soft budget on a section: no warnings, just "used / budget" beside its name.
     function setBudget(id, budget) {
@@ -2952,7 +2963,7 @@ export function DDcreateBoard(deps) {
           if (Array.isArray(board.hidden)) board.hidden = board.hidden.filter((id) => !selectedWires.has(id));
         }
         return core.remove(day, nodes);
-      }, t("Selection deleted · Undo to restore", "انتخاب حذف شد؛ با واگرد برگردان"));
+      }, nodes.some((n) => n.lifeId) ? t("Deleted · Undo, or find it in Recently deleted", "حذف شد · واگرد کن، یا از «تازه حذف‌شده‌ها» برگردون") : t("Selection deleted · Undo to restore", "انتخاب حذف شد؛ با واگرد برگردان"), { trash: true });
       setSelected(new Set()); setWireSelection(null); onSelectBlock?.(null);
     }
     function duplicate() {
@@ -3162,7 +3173,15 @@ export function DDcreateBoard(deps) {
         setSelected(new Set());
         return;
       }
-      if (ct?.kind === "sticky") return;
+      // A note closed with nothing in it goes away (Undo brings it back).
+      if (ct?.kind === "sticky") {
+        const src = ct.lifeId ? DDlifeState(propsRef.current.setup).items.find((i) => i.id === ct.lifeId) : (dayRef.current.notes || []).find((n) => n.id === ct.noteId);
+        if (src && !String(src.text || "").trim() && !(src.media || []).length && !src.syncId && !(src.tags || []).length && !src.role) {
+          commit((d) => core.remove(d, [ct]), t("Empty note removed", "نوت خالی پاک شد"));
+          setSelected(new Set());
+        }
+        return;
+      }
       if (ct?.lifeId) { lifeChange((list) => list.map((i) => i.id === ct.lifeId ? { ...i,text:ot } : i)); return; }
       if (ct?.kind === "habit") {
         if (!ot && !ct.title)
@@ -5826,6 +5845,11 @@ export function DDcreateBoard(deps) {
         return [
           item("redo", "Redo", "انجام مجدد", "redo", () => undo(true), { disabled: !history.current.future.length, shortcut: "Ctrl/Cmd+Shift+Z" }),
           item("comments", comments.count ? "Comments · " + comments.count : "Comments", "Comments", "comments", () => comments.openList(), { shortcut: "Shift+M" }),
+          // Notes and sections deleted from the Feed in the last 30 days (5.45).
+          ((list) => ({ ...item("trash", "Recently deleted", "تازه حذف‌شده‌ها", "trash", null, {
+            disabled: !list.length,
+            children: list.map((e) => ({ ...item("trash-" + e.id, "", "", "undo", () => restoreTrash(e.id)), label: DDtrashLabel(e, Date.now(), DDlanguage) })),
+          }), label: list.length ? t("Recently deleted · " + list.length, "تازه حذف‌شده‌ها · " + list.length.toLocaleString("fa-IR")) : t("Recently deleted", "تازه حذف‌شده‌ها") }))(DDlifeState(setup).trash || []),
           sep("top-view-sep"),
           item("fit-all", "Fit all objects", "نمایش همهٔ اشیا", "fitAll", () => fit(false), { shortcut: "Shift+1" }),
           item("theme", "Toggle light / dark", "تغییر روشن / تیره", (setup.look?.theme === "dark" || (setup.look?.theme !== "light" && matchMedia("(prefers-color-scheme:dark)").matches)) ? "sun" : "moon", toggleBoardTheme),

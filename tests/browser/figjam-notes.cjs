@@ -74,7 +74,8 @@ const {start,fixture}=require('./harness.cjs');
    await fitNear();
    await note('a').locator('.dd-note-preview').click();
    const plus=note('a').locator('[data-add-near="left"]');await plus.waitFor();
-   await plus.click();await page.keyboard.press('Escape');
+   // The new note is ready to type; a note closed empty goes away (5.45).
+   await plus.click();await page.keyboard.type('Neighbour');await page.keyboard.press('Escape');
    d=await day();const near=d.notes.at(-1),a=d.notes.find(n=>n.id==='a');
    assert.equal(near.x,a.x-240-40,'the new note sits one gap to the left');assert.equal(near.y,a.y);
    assert.equal((await style(near.id)).width,240);
@@ -104,7 +105,7 @@ const {start,fixture}=require('./harness.cjs');
    await page.mouse.move(port.x+port.width/2,port.y+port.height/2);await page.mouse.down();
    await page.mouse.move(port.x+port.width/2+200,port.y+port.height/2,{steps:10});
    assert.equal(await page.locator('.dd-ghost-note').evaluate((e)=>e.style.display),'block','a note waits at the end of the line');
-   await page.mouse.up();await page.keyboard.press('Escape');
+   await page.mouse.up();await page.keyboard.type('Linked');await page.keyboard.press('Escape');
    d=await day();assert.equal(d.notes.length,count+1,'dropping makes a note');
    const linked=d.notes.at(-1),link=d.canvas.board4.links.find(l=>l.from==='sticky:a'&&l.to==='sticky:'+linked.id);
    assert.ok(link,'and connects it');assert.equal(link.fromPort,'right');assert.equal(link.toPort,'left');
