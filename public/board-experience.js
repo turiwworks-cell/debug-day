@@ -238,7 +238,7 @@ export const DDboardExperienceCSS = `
 .b6 .dd-add-near:hover,.b6 .dd-add-near:focus-visible{background:var(--board-selection);color:#fff;opacity:1}
 @media(hover:none),(pointer:coarse){.b6 .dd-add-near{display:none}}
 /* With the "+" showing, it is the connector start too; the circles behind the edges go. */
-@media(hover:hover) and (pointer:fine){.b6 .b4-node:has(>.dd-add-near)>.b4-port{display:none}}
+@media(hover:hover) and (pointer:fine){.b6 .b4-node[data-add-near-host]>.b4-port{display:none}}
 .b6 .dd-add-near.left{left:calc(-46px * var(--b4-inverse,1));top:50%}
 .b6 .dd-add-near.right{left:calc(100% + 46px * var(--b4-inverse,1));top:50%}
 .b6 .dd-add-near.top{left:50%;top:calc(-46px * var(--b4-inverse,1))}

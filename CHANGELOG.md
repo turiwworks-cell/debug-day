@@ -1,3 +1,12 @@
+## 5.46.1 — 2026-11-06
+Branch: claude/project-thread-z9hvdv
+- Typing in notes is fast again on big boards (about 4 times faster on a slow phone in our test).
+- A board note is saved a moment (0.3 s) after the last key, not on every key. Finishing the note, Esc, opening another note, any other board change, leaving the Board or hiding the page saves it right away. Plan, Lanes and the Feed still get the same text.
+- A CSS rule that hid a note's dots behind its "+" buttons (`:has(>.dd-add-near)`) made the browser restyle every dot on the board on each key. The note now carries `data-add-near-host` instead; same look.
+- Section stacking, rail scopes and note date labels no longer loop over every Feed item for every item; date formatters are kept.
+- While typing, only the note being written is measured; section labels read all sizes before changing any.
+- Test: new tests/browser/note-typing.cjs (save after a pause, on Esc, on another note, on leaving the Board, Feed notes, undo).
+
 ## 5.46.0 — 2026-11-04
 Branch: claude/project-thread-pbgoz7
 - Light and heavy tasks, deadlines and the Week view from the full app review (part 7 of 7).

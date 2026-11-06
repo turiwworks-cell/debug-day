@@ -254,7 +254,10 @@ export function DDcreateBoard(deps) {
       lastTap = useRef(null),
       mounted = useRef(!0),
       lastNudge = useRef(0),
-      noteSession = useRef(null);
+      noteSession = useRef(null),
+      // Typing in a note waits a moment before it is saved (and before every other
+      // view hears about it), so each key no longer rebuilds the whole board.
+      pendingNote = useRef(null);
     const selectionbar = useRef(null), selectionState = useRef(null), pendingReveal = useRef(null), connectionStyle = useRef("elbow"), wireCache = useRef(new Map());
     // Writing zoomed out: where the board was before it came closer, and the glide.
     const editReturn = useRef(null), glide = useRef(0), glideTo = useRef(null);
@@ -334,6 +337,8 @@ export function DDcreateBoard(deps) {
       d.__life.items = DDlifeKeepIn(d.__life.items, roomId, shared.items || []);
     }
     function commit(Y, G, ct = {}) {
+      // Anything else that changes the board starts from the latest typed text.
+      if (pendingNote.current) flushNote();
       const ot = dayRef.current, shared = DDlifeState(propsRef.current.setup);
       const draft = copy(ot);
       draft.__life = copy(shared);
@@ -1200,6 +1205,10 @@ export function DDcreateBoard(deps) {
             }
             return true;
           };
+        // How deep a section sits (itself and every section around it). One walk up
+        // the parents, instead of searching every section's insides for each one.
+        const byId = new Map(items.map((i) => [i.id, i])),
+          ddNestDepth = (id) => { const seen = new Set(); let cur = byId.get(id); while (cur && !seen.has(cur.id)) { seen.add(cur.id); cur = cur.parent ? byId.get(cur.parent) : null; } return seen.size; };
         let roomShift = null;
         if (roomItem) {
           // Beside the Engine on a wide screen, under it on a phone.
@@ -1240,7 +1249,7 @@ export function DDcreateBoard(deps) {
             title: it.text || (it.type === "section" ? t("Section","سکشن") : ""), color, textColor: it.style?.plain ? "var(--ink)" : core.contrast(color), ownColor: (it.type === "section" && !!it.parent && !!it.ownColor && !!it.color) || undefined, collapsed: it.collapsed, parentId: it.parent ? "life:" + it.parent : null,
             x: lf.x + a.x, y: lf.y + DDlifeHead + a.y, w: it.w, h: it.collapsed ? 38 : it.h,
             at: it.at, baseW:it.baseW || 240, syncId: it.syncId || undefined, due: it.due || undefined,
-            ...it.style, opacity: it.style?.opacity ?? 1, stack: it.type === "section" ? 2 + items.filter((i) => DDlifeDescendants(items,i.id).has(it.id)).length : 20 });
+            ...it.style, opacity: it.style?.opacity ?? 1, stack: it.type === "section" ? 2 + ddNestDepth(it.id) : 20 });
         }
         for (const n of Y) {
           if (n.lifeId) continue;
@@ -1352,6 +1361,15 @@ export function DDcreateBoard(deps) {
     // Photos dropped, pasted or picked onto the board (5.38): a note holding a Drive link.
     const photos = DDuseBoardPhotos({ ...markCtx, root, language: DDlanguage, addPhoto: (point, template) => addSticky(point, template) });
     useLayoutEffect(() => { placeSectionLabels(true); }, [layout]);
+    // Text still waiting to be saved is saved when the page hides or the board closes.
+    const flushNoteRef = useRef(flushNote);
+    flushNoteRef.current = flushNote;
+    useEffect(() => {
+      const hide = () => { if (document.visibilityState === "hidden") flushNoteRef.current(); }, leave = () => flushNoteRef.current();
+      document.addEventListener("visibilitychange", hide);
+      addEventListener("pagehide", leave);
+      return () => { document.removeEventListener("visibilitychange", hide); removeEventListener("pagehide", leave); flushNoteRef.current(); };
+    }, []);
     // A section that grew around a long note keeps that size, so what sits in the
     // grown part belongs to it and moves with it (one rule for drawing and for drops).
     useEffect(() => {
@@ -1380,6 +1398,8 @@ export function DDcreateBoard(deps) {
       slots.forEach((slot, i) => (out[slot] = sections[i]));
       return out;
     }, [layout]);
+    // Typing only changes the note being written: measure just that one on each
+    // key. Everything is measured again when the board, the note or the language changes.
     useLayoutEffect(()=>{
       const measure=()=>{let changed=false;for(const n of layout.nodes.filter(n=>n.kind==="sticky")) {
         const el=elementRefs.current.get(n.id),body=el?.querySelector(":scope>.b4-node-body"),input=el?.querySelector("textarea");
@@ -1391,7 +1411,17 @@ export function DDcreateBoard(deps) {
       measure();const observer=new ResizeObserver(measure);
       for(const el of elementRefs.current.values()){const body=el.querySelector?.(":scope>.b4-node-body");if(body&&el.dataset.nodeKind==="sticky"){observer.observe(body);const footer=el.querySelector(".dd-sticky-footer");if(footer)observer.observe(footer);}}
       return()=>observer.disconnect();
-    },[layout,editing,DDlanguage]);
+    },[layout,editing?.ref,DDlanguage]);
+    const measureTyped=useRef(null);
+    useLayoutEffect(()=>{
+      const n=editing&&layout.map.get(editing.ref);
+      if(!n||n.kind!=="sticky"||measureTyped.current?.ref!==editing.ref){measureTyped.current=editing&&{ref:editing.ref};return;}
+      const el=elementRefs.current.get(n.id),body=el?.querySelector(":scope>.b4-node-body"),input=el?.querySelector("textarea");
+      if(input){input.style.height="0px";input.style.height=input.scrollHeight+"px";}
+      if(!body)return;
+      const h=Math.ceil(body.scrollHeight+(el.querySelector(".dd-sticky-footer")?.offsetHeight||0)),old=stickyHeights.current.get(n.id);
+      if(!old||old.h!==h||old.w!==n.w||old.text!==n.title||old.size!==(n.textSize||16)){stickyHeights.current.set(n.id,{w:n.w,text:n.title,size:n.textSize||16,h});setStickyRevision(v=>v+1);}
+    },[editing?.value]);
     // Where each task came from (phase 4): every section's done / not done record,
     // read from all days. Nothing is stored, so it is the same on every day.
     const sourceHistory = useMemo(
@@ -1535,10 +1565,12 @@ export function DDcreateBoard(deps) {
         depth = (n) => { let d = 0, p = n.parentId; while (p && d < 60) { d++; p = map.get(p)?.parentId; } return d; },
         list = [...host.querySelectorAll(".b4-life-section")].map((el) => ({ el, n: map.get(el.dataset.boardId) })).filter((e) => e.n);
       list.sort((a, b) => depth(a.n) - depth(b.n) || b.n.w * b.n.h - a.n.w * a.n.h);
+      // Read every size first, then write: mixing them made the browser lay out
+      // the board again for each section, on every key typed in a note.
+      for (const e of list) { const body = e.el.querySelector(":scope > .b4-node-body"); e.bw = body?.offsetWidth || 0; e.bh = body?.offsetHeight || 0; }
       const shown = [];
-      for (const { el, n } of list) {
-        const body = el.querySelector(":scope > .b4-node-body"),
-          r = { x: n.x + 10 * k, y: n.y + (n.collapsed ? 5 : 10) * k, w: body?.offsetWidth || 0, h: body?.offsetHeight || 28 * k },
+      for (const { el, n, bw, bh } of list) {
+        const r = { x: n.x + 10 * k, y: n.y + (n.collapsed ? 5 : 10) * k, w: bw, h: bh || 28 * k },
           tooSmall = !n.collapsed && (n.w * G.z < 64 || n.h * G.z < r.h * G.z * 1.6),
           clash = shown.some((o) => r.x < o.x + o.w + gap && r.x + r.w + gap > o.x && r.y < o.y + o.h + gap && r.y + r.h + gap > o.y),
           hide = !n.room && (tooSmall || clash);
@@ -3165,6 +3197,7 @@ export function DDcreateBoard(deps) {
       });
     }
     function openEdit(Y) {
+      flushNote();
       const G = layout.map.get(Y);
       if (G?.kind === "emoji") { if (!locked.has(Y)) { finishEdit(); setStickerPicker({replace:G.noteId,current:G.symbol}); } return; }
       !G ||
@@ -3182,6 +3215,7 @@ export function DDcreateBoard(deps) {
         setWireId(null));
     }
     function finishEdit(Y) {
+      flushNote();
       const G = editingRef.current;
       if (!G) return;
       ((editingRef.current = null), setEditing(null));
@@ -4395,8 +4429,22 @@ export function DDcreateBoard(deps) {
         t("Note fits its text", "اندازهٔ نوت با متن هماهنگ شد"),
       );
     }
-    function saveNote(noteId, text) {
-      const node = layout.map.get(editingRef.current?.ref || editing?.ref);
+    // Save the typed text a short moment after the last key; finishing the note,
+    // opening another one, any other change, or leaving the page saves it at once.
+    function queueNote(node, text) {
+      const p = pendingNote.current;
+      if (p && p.node.id !== node.id) flushNote();
+      if (pendingNote.current) clearTimeout(pendingNote.current.timer);
+      pendingNote.current = { node, text, timer: setTimeout(flushNote, 300) };
+    }
+    function flushNote() {
+      const p = pendingNote.current;
+      if (!p) return;
+      clearTimeout(p.timer);
+      pendingNote.current = null;
+      saveNote(p.node.noteId, p.text, p.node);
+    }
+    function saveNote(noteId, text, node = layout.map.get(editingRef.current?.ref || editing?.ref)) {
       if (node?.lifeId) {
         const first = noteSession.current !== node.lifeId;
         commit((d) => { d.__life.items = d.__life.items.map((i) => i.id === node.lifeId ? {...i,text} : i); return d; },null,{history:first});
@@ -4417,6 +4465,7 @@ export function DDcreateBoard(deps) {
       noteSession.current = noteId;
     }
     function formatSticky(kind) {
+      flushNote();
       const node=layout.map.get(editingRef.current?.ref)||selectedNode;if(node?.kind!=="sticky")return;
       const input=elementRefs.current.get(node.id)?.querySelector("textarea"),text=editingRef.current?.ref===node.id?editingRef.current.value:node.title;
       const next=DDstickyFormat(text,input?.selectionStart??0,input?.selectionEnd??text.length,kind);
@@ -4441,7 +4490,7 @@ export function DDcreateBoard(deps) {
           onChange: (event) => {
             const value = event.target.value;
             setEditing({ ref: node.id, value });
-            saveNote(node.noteId, value);
+            queueNote(node, value);
           },
           onBlur: (event) => {
             if (
@@ -4604,6 +4653,9 @@ export function DDcreateBoard(deps) {
           "data-life-type": Y.lifeId ? (Y.lifeSection ? "section" : "sticky") : undefined,
           "data-engine-section": Y.lifeSection && engineSections.has(Y.lifeId) ? true : undefined,
           "data-collapsed": Y.collapsed,
+          // Marks the note that shows the "+" buttons, so CSS can hide its ports
+          // without a :has() rule (that rule restyled every port on each key typed).
+          "data-add-near-host": Tt && G && !ot && !ct && selected.size === 1 ? true : undefined,
           "aria-selected": G,
           "data-section": Y.section || Y.sectionId,
           "data-member": Y.memberOf ? true : undefined,
