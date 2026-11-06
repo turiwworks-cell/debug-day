@@ -1,3 +1,10 @@
+## 5.46.2 — 2026-11-06
+Branch: claude/project-thread-z9hvdv
+- Zoom, moving around, opening the Board and picking a card are faster on big boards (tested on a 300-card board with the CPU slowed 4 times: Board opens in 1.5 s instead of 2.5 s, a zoom step takes 74 ms instead of 135 ms, a click to pick a card takes 230 ms instead of 405 ms).
+- Resize handles and connection dots are made only for a selected card, the card being connected, or with the line tool. On other cards they were invisible and could not be used, yet each zoom step restyled about 3,000 of them. Same look and same tools.
+- Line shapes are kept until a card moves or the board changes, so a click or a selection no longer routes every line again. Lines drawn in one render share one list of cards to go around.
+- Test: section-interactions aims a new line at the other note's edge, because its dots only show once it is picked.
+
 ## 5.46.1 — 2026-11-06
 Branch: claude/project-thread-z9hvdv
 - Typing in notes is fast again on big boards (about 4 times faster on a slow phone in our test).

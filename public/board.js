@@ -258,7 +258,10 @@ export function DDcreateBoard(deps) {
       // Typing in a note waits a moment before it is saved (and before every other
       // view hears about it), so each key no longer rebuilds the whole board.
       pendingNote = useRef(null);
-    const selectionbar = useRef(null), selectionState = useRef(null), pendingReveal = useRef(null), connectionStyle = useRef("elbow"), wireCache = useRef(new Map());
+    const selectionbar = useRef(null), selectionState = useRef(null), pendingReveal = useRef(null), connectionStyle = useRef("elbow"), wireCache = useRef(new Map()),
+      // Line shapes for the board as it is now: kept until a card moves or the board
+      // changes, so a click or a selection does not route every line again.
+      steadyWires = useRef({ layout: null, map: new Map() });
     // Writing zoomed out: where the board was before it came closer, and the glide.
     const editReturn = useRef(null), glide = useRef(0), glideTo = useRef(null);
     selectionState.current = { selected, wireId, selectedWires: wireSelection?.ids || [] };
@@ -1453,6 +1456,9 @@ export function DDcreateBoard(deps) {
       };
     }
     const bounds = nodeBounds();
+    // The cards the lines drawn in this render go around, gathered once (not once per line).
+    let shownObstacles = null;
+    const paintObstacles = () => shownObstacles || (shownObstacles = layout.nodes.map((n) => nodeFor(n.id)));
     function nodeFor(Y) {
       const G = layoutRef.current.map.get(Y);
       return G ? { ...G, ...(preview.current.get(Y) || {}) } : null;
@@ -1473,17 +1479,23 @@ export function DDcreateBoard(deps) {
       return shift && wire.from?.startsWith("life:") && wire.to?.startsWith("life:") ? shift : null;
     }
     function wireGeometry(wire, obstacles) {
+      const steady = !preview.current.size && !pointerWire.current, kept = steady && steadyWires.current.layout === layoutRef.current ? steadyWires.current.map.get(wire.id) : null;
+      if (kept && kept.wire === wire) { wireCache.current.set(wire.id, kept.geometry); return kept.geometry; }
       const a = nodeFor(wire.from), b = nodeFor(wire.to);
       if (!a || !b) return null;
       const drag = pointerWire.current, shift = bendShift(wire);
       const shown = shift && wire.bend ? { ...wire, bend: { x: wire.bend.x + shift.x, y: wire.bend.y + shift.y } } : wire;
-      const geometry = DDconnectionGeometry(a, b, drag?.id === wire.id && drag.end === "bend" ? { ...wire, bend: drag.point } : shown, obstacles || layoutRef.current.nodes.map((n) => nodeFor(n.id)));
+      const geometry = DDconnectionGeometry(a, b, drag?.id === wire.id && drag.end === "bend" ? { ...wire, bend: drag.point } : shown, (typeof obstacles === "function" ? obstacles() : obstacles) || layoutRef.current.nodes.map((n) => nodeFor(n.id)));
       if (geometry && drag?.id === wire.id && ["from", "to"].includes(drag.end)) {
         if (drag.end === "from") geometry.p = drag.point; else geometry.q = drag.point;
         geometry.d = `M${geometry.p.x} ${geometry.p.y}L${geometry.q.x} ${geometry.q.y}`;
         geometry.mid = { x: (geometry.p.x + geometry.q.x) / 2, y: (geometry.p.y + geometry.q.y) / 2 };
       }
       wireCache.current.set(wire.id, geometry);
+      if (steady && geometry) {
+        if (steadyWires.current.layout !== layoutRef.current) steadyWires.current = { layout: layoutRef.current, map: new Map() };
+        steadyWires.current.map.set(wire.id, { wire, geometry });
+      }
       return geometry;
     }
     function paintWires(recalculate = true) {
@@ -4977,7 +4989,10 @@ export function DDcreateBoard(deps) {
                   _.createElement("span", { title: DDUI("Locked") }, "\u25A3"),
               ),
             ),
+        // Resize handles only on a selected card: on any other card they were
+        // invisible and could not be touched, yet every zoom step restyled them.
         (Tt || (Y.lifeSection && !Y.collapsed)) &&
+          G &&
           !ct &&
           !ot &&
           (Tt ? ["nw","ne","e","se","sw","w"] : Y.memberOf ? ["s"] : Y.room ? ["e", "se", "s"] : ["nw", "n", "ne", "e", "se", "s", "sw", "w"]).map(
@@ -5093,7 +5108,9 @@ export function DDcreateBoard(deps) {
             }, "+"),
           ),
         // Sections show resize handles only; their connection points hid them.
-        !ct && !Y.lifeSection &&
+        // The dots show only on a selected card, the card being connected, or with
+        // the line tool, so they are made only then (thousands of hidden dots slowed zoom).
+        !ct && !Y.lifeSection && (G || connecting === Y.id || tool === "connector") &&
           ["left", "right", "top", "bottom"].map((Kt) =>
             _.createElement("button", {
               type: "button",
@@ -6598,7 +6615,7 @@ export function DDcreateBoard(deps) {
               ),
             ),
             layout.edges.map((Y) => {
-              const G = wireGeometry(Y),
+              const G = wireGeometry(Y, paintObstacles),
                 ct = wireId === Y.id;
               return G
                 ? _.createElement(
