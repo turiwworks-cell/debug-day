@@ -4,6 +4,7 @@ Branch: claude/project-thread-z9hvdv
 - Resize handles and connection dots are made only for a selected card, the card being connected, or with the line tool. On other cards they were invisible and could not be used, yet each zoom step restyled about 3,000 of them. Same look and same tools.
 - Line shapes are kept until a card moves or the board changes, so a click or a selection no longer routes every line again. Lines drawn in one render share one list of cards to go around.
 - Test: section-interactions aims a new line at the other note's edge, because its dots only show once it is picked.
+- Test: figjam-notes waits for the board to stop gliding back after writing before it clicks a line (it failed on slow machines, also on main).
 
 ## 5.46.1 — 2026-11-06
 Branch: claude/project-thread-z9hvdv
