@@ -1,3 +1,9 @@
+## 5.46.3 — 2026-11-06
+Branch: claude/project-thread-z9hvdv
+- Typing in a board note no longer redraws the whole board on each key: only the note's own text box changes (a key took 160 ms on a 300-card board with the CPU slowed 4 times, now 34 ms).
+- The text box keeps its own text (NoteText). The board keeps the latest text without drawing itself, saves it after a short pause as before, and measures the note on each key so it still grows while you type. Bold, Strikethrough and To-do while writing still change the text in the box, and the "Add a task…" hint still shows.
+- Test: note-typing also checks Bold and the to-do hint while writing.
+
 ## 5.46.2 — 2026-11-06
 Branch: claude/project-thread-z9hvdv
 - Zoom, moving around, opening the Board and picking a card are faster on big boards (tested on a 300-card board with the CPU slowed 4 times: Board opens in 1.5 s instead of 2.5 s, a zoom step takes 74 ms instead of 135 ms, a click to pick a card takes 230 ms instead of 405 ms).

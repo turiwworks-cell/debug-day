@@ -28,6 +28,15 @@ const {start,fixture}=require('./harness.cjs');
   assert.equal(await ed.inputValue(),'Alpha one');
   await page.waitForFunction((date)=>JSON.parse(localStorage.getItem('debug-day:v2')).days[date].notes.find((n)=>n.id==='a').text==='Alpha one',f.date);
 
+  // 1b. Bold while writing changes the text in the box, and keeps typing going (5.47).
+  await page.keyboard.press('Control+a');await page.keyboard.press('Control+b');
+  await page.waitForFunction(()=>document.querySelector('[data-board-id="sticky:a"] textarea')?.value==='**Alpha one**');
+  await page.keyboard.press('End');await page.keyboard.type('\n- [ ] ');
+  await node('sticky:a').locator('.dd-sticky-hint').waitFor();
+  await ed.fill('Alpha one');
+  await page.waitForFunction((date)=>JSON.parse(localStorage.getItem('debug-day:v2')).days[date].notes.find((n)=>n.id==='a').text==='Alpha one',f.date);
+  await page.keyboard.press('End');
+
   // 2. Esc right after typing saves it.
   await page.keyboard.type(' two');await page.keyboard.press('Escape');
   await page.waitForTimeout(50);
@@ -55,6 +64,6 @@ const {start,fixture}=require('./harness.cjs');
   assert.equal((await read()).setup.life.items.find((i)=>i.id==='fn').text,'Feed');
 
   assert.deepEqual(errors,[]);
-  console.log('note typing: saved after a pause, on Esc, on another note, on leaving the Board, Feed notes and undo ok');
+  console.log('note typing: Bold and the to-do hint while writing, saved after a pause, on Esc, on another note, on leaving the Board, Feed notes and undo ok');
  }finally{await h.stop();}
 })().catch((e)=>{console.error(e);process.exit(1);});
