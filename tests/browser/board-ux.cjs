@@ -180,11 +180,13 @@ const { start, fixture } = require("./harness.cjs");
           exact: true,
         });
         // Zoomed out, the board first glides close to the note (5.32); typing then never moves it.
-        // Wait until the glide has stopped (a busy machine can start it late).
-        const worldTransform = () => page.locator(".b2-world").evaluate((el) => el.style.transform);
+        // Wait until the glide has stopped. Between two looks the page must draw
+        // two frames, so a glide that a busy machine starts late is still seen.
+        const worldTransform = () => page.locator(".b2-world").evaluate((el) => el.style.transform),
+          frames = () => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
         let camera = await worldTransform();
-        for (let i = 0; i < 40; i++) {
-          await page.waitForTimeout(150);
+        for (let i = 0; i < 60; i++) {
+          await frames(); await page.waitForTimeout(60); await frames();
           const next = await worldTransform();
           if (next === camera) break;
           camera = next;

@@ -84,6 +84,18 @@ export function DDcreateBoard(deps) {
     document.head.append(Object.assign(document.createElement("style"), { id: "dd-board-tools-css", textContent: DDpenCSS + DDcommentsCSS + DDnoteTagsCSS + DDnoteFamilyCSS + DDboardPhotosCSS }));
   DDinstallLinkedStyles();
   let stepTextContext;
+  // The note being written keeps its own text while you type, so a key redraws
+  // only this box and not the whole board (5.47). The board hears each key
+  // through onText (and saves it a moment later); onSize lets it measure the note.
+  function NoteText({ initial, hint, onText, onSize, ...props }) {
+    const [value, setValue] = _.useState(initial), given = _.useRef(initial);
+    // A new text from the board (Bold, To-do…) replaces what is in the box.
+    if (initial !== given.current) { given.current = initial; if (initial !== value) setValue(initial); }
+    _.useLayoutEffect(() => { onSize(); }, [value]);
+    return _.createElement(_.Fragment, null,
+      _.createElement("textarea", { ...props, value, onChange: (event) => { const next = event.target.value; setValue(next); onText(next); } }),
+      /(?:^|\n)- \[ \] ?$/.test(value) && _.createElement("small", { className: "dd-sticky-hint" }, hint));
+  }
   return function BoardWorkspace({
     day: day,
     days: allDays,
@@ -1415,16 +1427,17 @@ export function DDcreateBoard(deps) {
       for(const el of elementRefs.current.values()){const body=el.querySelector?.(":scope>.b4-node-body");if(body&&el.dataset.nodeKind==="sticky"){observer.observe(body);const footer=el.querySelector(".dd-sticky-footer");if(footer)observer.observe(footer);}}
       return()=>observer.disconnect();
     },[layout,editing?.ref,DDlanguage]);
+    // The note being written is measured on each key by its text box (NoteText).
     const measureTyped=useRef(null);
-    useLayoutEffect(()=>{
-      const n=editing&&layout.map.get(editing.ref);
-      if(!n||n.kind!=="sticky"||measureTyped.current?.ref!==editing.ref){measureTyped.current=editing&&{ref:editing.ref};return;}
+    measureTyped.current=()=>{
+      const ed=editingRef.current,n=ed&&layoutRef.current.map.get(ed.ref);
+      if(!n||n.kind!=="sticky")return;
       const el=elementRefs.current.get(n.id),body=el?.querySelector(":scope>.b4-node-body"),input=el?.querySelector("textarea");
       if(input){input.style.height="0px";input.style.height=input.scrollHeight+"px";}
       if(!body)return;
       const h=Math.ceil(body.scrollHeight+(el.querySelector(".dd-sticky-footer")?.offsetHeight||0)),old=stickyHeights.current.get(n.id);
       if(!old||old.h!==h||old.w!==n.w||old.text!==n.title||old.size!==(n.textSize||16)){stickyHeights.current.set(n.id,{w:n.w,text:n.title,size:n.textSize||16,h});setStickyRevision(v=>v+1);}
-    },[editing?.value]);
+    };
     // Where each task came from (phase 4): every section's done / not done record,
     // read from all days. Nothing is stored, so it is the same on every day.
     const sourceHistory = useMemo(
@@ -4490,20 +4503,24 @@ export function DDcreateBoard(deps) {
       return _.createElement(
         "div",
         { className: "dd-note-editor" },
-        _.createElement("textarea", {
+        _.createElement(NoteText, {
           key: node.id,
+          initial: editing.value,
+          hint: t("Add a task…","یک کار اضافه کن…"),
           autoFocus: true,
           dir: "auto",
-          value: editing.value,
           maxLength: 4000,
           "aria-label": DDUI("Sticky note text"),
           placeholder: t("Type anything…", "هر چیزی بنویس…"),
           onPointerDown: (event) => event.stopPropagation(),
-          onChange: (event) => {
-            const value = event.target.value;
-            setEditing({ ref: node.id, value });
+          // The board keeps the latest text without drawing itself again: the
+          // editing state is updated in place, and saving waits for a pause.
+          onText: (value) => {
+            const now = editingRef.current;
+            if (now && now.ref === node.id) now.value = value;
             queueNote(node, value);
           },
+          onSize: () => measureTyped.current?.(),
           onBlur: (event) => {
             if (
               !event.currentTarget.parentElement.contains(event.relatedTarget)
@@ -4521,7 +4538,6 @@ export function DDcreateBoard(deps) {
             }
           },
         }),
-        /(?:^|\n)- \[ \] ?$/.test(editing.value) && _.createElement("small",{className:"dd-sticky-hint"},t("Add a task…","یک کار اضافه کن…")),
       );
     }
     // A section's record, on its own board under the section: every day's tasks
