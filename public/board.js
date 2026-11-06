@@ -114,6 +114,10 @@ export function DDcreateBoard(deps) {
     onTimerChange,
     onRevealObject,
   }) {
+    // Counts for the speed check (tests/browser/speed.cjs). Nothing is counted
+    // unless a test asks for it.
+    const ddPerf = globalThis.__ddPerf;
+    if (ddPerf) ddPerf.board++;
     const DDlanguage = deps.language(),
       t = (en, fa) => (DDlanguage === "fa" ? fa : en),
       railDate = new Date().toLocaleDateString("en-CA");
@@ -5165,6 +5169,7 @@ export function DDcreateBoard(deps) {
         key = (picked ? "p" : "") + (picked && selected.size === 1 ? "1" : "") + (locked.has(Y.id) ? "l" : "") + (connecting === Y.id ? "c" : "") + (quickColor === Y.id ? "q" : ""),
         kept = cardCache.current.map.get(Y.id);
       if (kept && kept.node === Y && kept.key === key) return kept.el;
+      if (ddPerf) ddPerf.cards++;
       const el = renderNode(Y);
       cardCache.current.map.set(Y.id, { node: Y, key, el });
       return el;

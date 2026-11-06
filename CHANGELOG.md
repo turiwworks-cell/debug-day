@@ -1,3 +1,8 @@
+## 5.46.5 — 2026-11-06
+Branch: claude/project-thread-z9hvdv
+- A speed check runs with the other browser tests, so the board cannot quietly get slow again. On a board of about 290 cards it checks that resting, moving the mouse and zooming never draw the board, a click draws it once and redraws only the two cards involved, typing in a note never draws the board, no hidden dots or resize handles are made, the board stays under 20 elements a card, and each key restyles fewer than 100 elements. Times are printed and fail only when far too slow.
+- The board counts its draws only when a test asks for it (`__ddPerf`); people using the app count nothing.
+
 ## 5.46.4 — 2026-11-06
 Branch: claude/project-thread-z9hvdv
 - Picking a card on a big board is about twice as fast (300-card board, CPU slowed 4 times: about 170 ms per click before, about 85 ms now).
