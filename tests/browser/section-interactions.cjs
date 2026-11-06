@@ -55,8 +55,9 @@ const {join}=require('node:path');
     assert.deepEqual((await read()).setup.life,before.setup.life,'Escape cancels a drag');
     // A real port gesture connects Life notes using native wires, stored in shared setup.
     await note.focus();
-    const from=await note.locator('[data-add-near="right"]').boundingBox();const to=await page.locator('[data-life-id="m"] .b4-port.left').boundingBox();
-    await page.mouse.move(from.x+from.width/2,from.y+from.height/2);await page.mouse.down();await page.mouse.move(to.x+to.width/2,to.y+to.height/2,{steps:12});await page.mouse.up();
+    const from=await note.locator('[data-add-near="right"]').boundingBox();// The other note shows no connection dots until picked (5.46.2): aim at its left edge.
+    const target=await page.locator('[data-life-id="m"]').boundingBox(),to={x:target.x+6,y:target.y+target.height/2};
+    await page.mouse.move(from.x+from.width/2,from.y+from.height/2);await page.mouse.down();await page.mouse.move(to.x,to.y,{steps:12});await page.mouse.up();
     // The gesture opens a linked note ready to type; a note closed empty goes away (5.45), so give it words.
     await page.keyboard.type('Linked idea');await page.keyboard.press('Escape');
     state=await read();assert.equal(state.setup.life.links.length,1,'Life-to-Life connections are shared');

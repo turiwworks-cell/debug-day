@@ -111,7 +111,10 @@ const {start,fixture}=require('./harness.cjs');
    assert.ok(link,'and connects it');assert.equal(link.fromPort,'right');assert.equal(link.toPort,'left');
    assert.ok(linked.x>a.x,'the new note is to the right');
    // A selected line gets FigJam's toolbar and no details panel.
-   const mid=await page.locator(`[data-wire-id="${link.id}"] .b4-wire-hit`).evaluate((p)=>{const q=p.getPointAtLength(p.getTotalLength()/2),m=p.getScreenCTM();return {x:m.a*q.x+m.c*q.y+m.e,y:m.b*q.x+m.d*q.y+m.f};});
+   // After writing, the board glides back; aim at the line once it has stopped moving.
+   const wireMid=()=>page.locator(`[data-wire-id="${link.id}"] .b4-wire-hit`).evaluate((p)=>{const q=p.getPointAtLength(p.getTotalLength()/2),m=p.getScreenCTM();return {x:m.a*q.x+m.c*q.y+m.e,y:m.b*q.x+m.d*q.y+m.f};});
+   let mid=await wireMid();
+   for(let i=0;i<40;i++){await page.waitForTimeout(100);const next=await wireMid();if(Math.abs(next.x-mid.x)<0.5&&Math.abs(next.y-mid.y)<0.5)break;mid=next;}
    await page.mouse.click(mid.x,mid.y);
    const bar=page.locator('.b4-selectionbar');await bar.getByRole('button',{name:t('Elbowed line','خط شکسته'),exact:true}).waitFor();
    assert.equal(await page.getByRole('textbox',{name:t('Connection label','عنوان اتصال'),exact:true}).count(),0,'details stay closed until asked');

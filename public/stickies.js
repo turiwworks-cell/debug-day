@@ -1,7 +1,17 @@
+// Every note shows its date, so the label is kept once per date, language and
+// calendar instead of building a new date formatter for each note on each render.
+const ddStickyLabels=new Map();
 export function DDstickyDateLabel(date,language) {
  let calendar=language==="fa"?"persian":"gregory";
  try{const value=JSON.parse(localStorage.getItem("debug-day:review-calendar"));if(["persian","gregory"].includes(value))calendar=value;}catch{}
- return new Intl.DateTimeFormat(language==="fa"?"fa-IR":"en-GB",{calendar,weekday:"short",day:"numeric",month:"short",timeZone:"UTC"}).format(new Date(date+"T12:00:00Z"));
+ const key=date+"|"+language+"|"+calendar;
+ let label=ddStickyLabels.get(key);
+ if(label===undefined){
+  label=new Intl.DateTimeFormat(language==="fa"?"fa-IR":"en-GB",{calendar,weekday:"short",day:"numeric",month:"short",timeZone:"UTC"}).format(new Date(date+"T12:00:00Z"));
+  if(ddStickyLabels.size>500)ddStickyLabels.clear();
+  ddStickyLabels.set(key,label);
+ }
+ return label;
 }
 // Canonical sticky text stays plain markdown; rendering never stores a second copy.
 export const DDstickyToday = () => new Date().toLocaleDateString("en-CA");

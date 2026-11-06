@@ -1,3 +1,20 @@
+## 5.46.2 — 2026-11-06
+Branch: claude/project-thread-z9hvdv
+- Zoom, moving around, opening the Board and picking a card are faster on big boards (tested on a 300-card board with the CPU slowed 4 times: Board opens in 1.5 s instead of 2.5 s, a zoom step takes 74 ms instead of 135 ms, a click to pick a card takes 230 ms instead of 405 ms).
+- Resize handles and connection dots are made only for a selected card, the card being connected, or with the line tool. On other cards they were invisible and could not be used, yet each zoom step restyled about 3,000 of them. Same look and same tools.
+- Line shapes are kept until a card moves or the board changes, so a click or a selection no longer routes every line again. Lines drawn in one render share one list of cards to go around.
+- Test: section-interactions aims a new line at the other note's edge, because its dots only show once it is picked.
+- Test: figjam-notes and board-ux wait for the board to stop gliding before they click a line or read the camera (both failed on slow machines, also on main).
+
+## 5.46.1 — 2026-11-06
+Branch: claude/project-thread-z9hvdv
+- Typing in notes is fast again on big boards (about 4 times faster on a slow phone in our test).
+- A board note is saved a moment (0.3 s) after the last key, not on every key. Finishing the note, Esc, opening another note, any other board change, leaving the Board or hiding the page saves it right away. Plan, Lanes and the Feed still get the same text.
+- A CSS rule that hid a note's dots behind its "+" buttons (`:has(>.dd-add-near)`) made the browser restyle every dot on the board on each key. The note now carries `data-add-near-host` instead; same look.
+- Section stacking, rail scopes and note date labels no longer loop over every Feed item for every item; date formatters are kept.
+- While typing, only the note being written is measured; section labels read all sizes before changing any.
+- Test: new tests/browser/note-typing.cjs (save after a pause, on Esc, on another note, on leaving the Board, Feed notes, undo).
+
 ## 5.46.0 — 2026-11-04
 Branch: claude/project-thread-pbgoz7
 - Light and heavy tasks, deadlines and the Week view from the full app review (part 7 of 7).

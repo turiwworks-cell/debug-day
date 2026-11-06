@@ -180,10 +180,15 @@ const { start, fixture } = require("./harness.cjs");
           exact: true,
         });
         // Zoomed out, the board first glides close to the note (5.32); typing then never moves it.
-        await page.waitForTimeout(450);
-        const camera = await page
-          .locator(".b2-world")
-          .evaluate((el) => el.style.transform);
+        // Wait until the glide has stopped (a busy machine can start it late).
+        const worldTransform = () => page.locator(".b2-world").evaluate((el) => el.style.transform);
+        let camera = await worldTransform();
+        for (let i = 0; i < 40; i++) {
+          await page.waitForTimeout(150);
+          const next = await worldTransform();
+          if (next === camera) break;
+          camera = next;
+        }
         await input.fill("نوت تازه\nخط دوم");
         await input.pressSequentially(" saved");
         assert.equal(

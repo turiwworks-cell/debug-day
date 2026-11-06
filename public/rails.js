@@ -9,8 +9,8 @@ export const DDrailRole = (value) => value === "goal" || value === "note" ? valu
 
 // A note belongs to its nearest section. This keeps a nested goal from appearing
 // twice while walking from the main board down to the current section.
-export function DDrailScope(note, items) {
-  const byId = new Map(items.map((i) => [i.id, i])), seen = new Set([note.id]);
+export function DDrailScope(note, items, byId = new Map(items.map((i) => [i.id, i]))) {
+  const seen = new Set([note.id]);
   let parent = note.parent;
   while (parent && !seen.has(parent)) {
     seen.add(parent);
@@ -36,7 +36,9 @@ export function DDrailConnections(ref, links, rows) {
 }
 
 export function DDrailGroups(day, items, room, sharedLinks = [], nodes = [], habits = []) {
-  const rows = new Map([
+  // One lookup for every note's section (it was rebuilt per note, on every key typed).
+  const byId = new Map(items.map((i) => [i.id, i])),
+    rows = new Map([
       ...DDboardSearchRows(day, items, nodes).map((r) => [r.id, r]),
       // A section hides the board's Habits frame, but its connected habits
       // still exist and must remain reachable from an ancestor goal.
@@ -46,7 +48,7 @@ export function DDrailGroups(day, items, room, sharedLinks = [], nodes = [], hab
     scopes = [null, ...DDlifePath(items, room).map((i) => i.id)],
     notes = [
       ...(day.notes || []).filter((n) => n.kind !== "emoji").map((n) => ({ ...n, ref: "sticky:" + n.id, scope: null })),
-      ...items.filter((i) => i.type === "sticky").map((i) => ({ ...i, ref: "life:" + i.id, scope: DDrailScope(i, items) })),
+      ...items.filter((i) => i.type === "sticky").map((i) => ({ ...i, ref: "life:" + i.id, scope: DDrailScope(i, items, byId) })),
     ], result = { goal: [], note: [] };
   for (const scope of scopes) for (const note of notes) {
     const role = DDrailRole(note.role);
