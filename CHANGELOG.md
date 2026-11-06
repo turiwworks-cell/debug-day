@@ -3,6 +3,7 @@ Branch: claude/project-thread-z9hvdv
 - Typing in a board note no longer redraws the whole board on each key: only the note's own text box changes (a key took 160 ms on a 300-card board with the CPU slowed 4 times, now 34 ms).
 - The text box keeps its own text (NoteText). The board keeps the latest text without drawing itself, saves it after a short pause as before, and measures the note on each key so it still grows while you type. Bold, Strikethrough and To-do while writing still change the text in the box, and the "Add a task…" hint still shows.
 - Test: note-typing also checks Bold and the to-do hint while writing.
+- Test: board-ux and figjam-notes let the page draw two frames between their looks at the camera, so a glide that a busy machine starts late is still waited for.
 
 ## 5.46.2 — 2026-11-06
 Branch: claude/project-thread-z9hvdv
