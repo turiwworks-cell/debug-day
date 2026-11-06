@@ -222,7 +222,7 @@ export function DDusePen(ctx) {
   R.useEffect(() => { if (!active) setEraser(false); }, [active]);
   R.useEffect(() => { try { localStorage.setItem(prefsKey, JSON.stringify(opts)); } catch {} }, [opts]);
   // A card or line picked on the board takes over the selection.
-  R.useEffect(() => { if (ctx.selected.size) setSel((s) => (s.size ? new Set() : s)); }, [ctx.selected]);
+  R.useEffect(() => { if (ctx.selected.size && sel.size) setSel(new Set()); }, [ctx.selected]);
   const board4 = ctx.day.canvas?.board4, lifeStrokes = ctx.setup.life?.strokes;
   const shown = R.useMemo(() => {
     const out = [];
