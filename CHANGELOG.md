@@ -1,3 +1,9 @@
+## 5.46.6 — 2026-11-06
+Branch: claude/project-thread-z9hvdv
+- The code that works out where every card sits on the board moved out of the big board file into its own file (`board-layout.js`). Nothing changes for people: the board looks and works the same.
+- The big board file is about 800 lines shorter, so it is easier to read and safer to change.
+- A small test checks that a new day starts the Engine where the last day left it.
+
 ## 5.46.5 — 2026-11-06
 Branch: claude/project-thread-z9hvdv
 - A speed check runs with the other browser tests, so the board cannot quietly get slow again. On a board of about 290 cards it checks that resting, moving the mouse and zooming never draw the board, a click draws it once and redraws only the two cards involved, typing in a note never draws the board, no hidden dots or resize handles are made, the board stays under 20 elements a card, and each key restyles fewer than 100 elements. Times are printed and fail only when far too slow.
