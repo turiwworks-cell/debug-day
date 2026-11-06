@@ -273,7 +273,12 @@ export function DDcreateBoard(deps) {
     const selectionbar = useRef(null), selectionState = useRef(null), pendingReveal = useRef(null), connectionStyle = useRef("elbow"), wireCache = useRef(new Map()),
       // Line shapes for the board as it is now: kept until a card moves or the board
       // changes, so a click or a selection does not route every line again.
-      steadyWires = useRef({ layout: null, map: new Map() });
+      steadyWires = useRef({ layout: null, map: new Map() }),
+      // Cards as they were last drawn, kept while nothing they show has changed (cardFor).
+      cardCache = useRef({ epoch: null, map: new Map() }),
+      // The board's newest functions. A kept card calls them through `relay`, so it
+      // never acts on an old selection, tool or day.
+      live = useRef(null), relay = useRef(null);
     // Writing zoomed out: where the board was before it came closer, and the glide.
     const editReturn = useRef(null), glide = useRef(0), glideTo = useRef(null);
     selectionState.current = { selected, wireId, selectedWires: wireSelection?.ids || [] };
@@ -282,7 +287,7 @@ export function DDcreateBoard(deps) {
     // stays closed until the selection drops below two again.
     const alignClosed = useRef(false);
     useEffect(() => {
-      if (selected.size < 2) { setAlignPanel(false); alignClosed.current = false; }
+      if (selected.size < 2) { if (alignPanel) setAlignPanel(false); alignClosed.current = false; }
       // On a phone it would cover the board: the bar's Align button opens it there.
       else if (!alignClosed.current && !window.matchMedia?.("(max-width:700px)").matches) setAlignPanel(true);
     }, [selected]);
@@ -1396,6 +1401,8 @@ export function DDcreateBoard(deps) {
       }
       if (grow.size) commit((d) => { d.__life.items = d.__life.items.map((i) => (grow.has(i.id) ? { ...i, h: grow.get(i.id) } : i)); return d; }, null, { history: !1 });
     }, [layout, editing]);
+    // The Feed cleaned once per change of it (the menu and the rails read it on every render).
+    const lifeView = useMemo(() => DDlifeState(setup), [setup.life]);
     // How many things each section keeps on its own board, outside its frame.
     const offFrame = useMemo(() => {
       const items = DDlifeItems(setup), m = new Map();
@@ -2156,16 +2163,18 @@ export function DDcreateBoard(deps) {
       if (guideSvg.current) guideSvg.current.replaceChildren();
       viewport.current?.classList.remove("dd-alt-copying");
       for (const el of root.current?.querySelectorAll(".dd-alt-original") || []) el.remove();
+      // Only cards a gesture changed are written to (every card, on every click, was slow).
       for (const [Y, G] of elementRefs.current) {
-        ((G.style.transform = ""), G.classList.remove("b4-drop-target", "dd-alt-ghost"));
+        if (G.style.transform) G.style.transform = "";
+        if (G.classList.contains("b4-drop-target") || G.classList.contains("dd-alt-ghost")) G.classList.remove("b4-drop-target", "dd-alt-ghost");
         const ct = layout.map.get(Y);
         if (ct) {
-          G.style.width = ct.w + "px";
-          G.style.height = ct.h + "px";
-          if (ct.kind === "sticky") G.style.setProperty("--object-size", (ct.textSize || 16) + "px");
+          if (G.style.width !== ct.w + "px") G.style.width = ct.w + "px";
+          if (G.style.height !== ct.h + "px") G.style.height = ct.h + "px";
+          if (ct.kind === "sticky" && G.style.getPropertyValue("--object-size") !== (ct.textSize || 16) + "px") G.style.setProperty("--object-size", (ct.textSize || 16) + "px");
         }
-        const ot = G.querySelector("[data-duration]");
-        ot && ct?.min && (ot.textContent = w(ct.min));
+        const ot = ct?.min && G.querySelector("[data-duration]");
+        if (ot && ot.textContent !== w(ct.min)) ot.textContent = w(ct.min);
       }
       (preview.current.clear(),
         (pointerWire.current = null),
@@ -3150,7 +3159,7 @@ export function DDcreateBoard(deps) {
         }, "◆ " + text);
     }
     function syncBadge(Y) {
-      const n = syncCount.get(Y.syncId) || 0;
+      const { openContext } = relay.current, n = syncCount.get(Y.syncId) || 0;
       if (n < 2) return null;
       const label = t(`Synced · ${n} copies`, `همگام · ${n} کپی`);
       return _.createElement("button", {
@@ -4576,6 +4585,7 @@ export function DDcreateBoard(deps) {
     // this day's tasks came from it, and its soft budget if it has one. Opens its board.
     function sectionStrip(Y) {
       if (Y.collapsed) return null;
+      const { enterRoom } = relay.current;
       const entries = sourceHistory.get(Y.lifeId) || [], strip = entries.length ? DDengineStrip(entries, day.date, 14) : [],
         done = strip.reduce((a, d) => a + d.done, 0), total = strip.reduce((a, d) => a + d.total, 0),
         here = entries.find((e) => e.date === day.date)?.total || 0, isToday = day.date === new Date().toLocaleDateString("en-CA"),
@@ -4605,6 +4615,9 @@ export function DDcreateBoard(deps) {
         due && _.createElement("span", { className: "dd-sec-due", "data-section-due": Y.lifeId }, "◆ " + due));
     }
     function renderNode(Y) {
+      // Kept cards outlive this render: their handlers reach the newest functions.
+      const { backgroundDown, openContext, finishEdit, startEngineMove, startFeedMove, startAreaResize, nodeDown, openEdit, selectOne, commit, toggleDone,
+        returnFromEdit, sendToToday, convertSticky, enterRoom, addLifeSection, ddAddFeeling, ddAddHabit, addSticky, addBlock, fitNote, portDown, showGhost, hideGhost, addNear } = relay.current;
       if (Y.section === "engine") return _.createElement("div", {
         key: Y.id, ref: (el) => el ? elementRefs.current.set(Y.id, el) : elementRefs.current.delete(Y.id),
         className: "dd-engine-area", "data-board-id": Y.id, "data-node-kind": "engine-area", "data-section": "engine",
@@ -4733,7 +4746,7 @@ export function DDcreateBoard(deps) {
             if (editingRef.current || (St && !Kt.target.closest(".b4-node-body"))) return;
             openEdit(Y.id);
           },
-          onFocus: (e) => { if (e.target === e.currentTarget && (!St || Y.lifeId) && !selected.has(Y.id)) selectOne(Y.id); },
+          onFocus: (e) => { if (e.target === e.currentTarget && (!St || Y.lifeId) && !selectionState.current.selected.has(Y.id)) selectOne(Y.id); },
           // A section is a place on the canvas: right-click gives the canvas menu.
           onContextMenu: (event) =>
             openContext(event, Y.section ? {} : { ref: Y.id }),
@@ -4839,7 +4852,7 @@ export function DDcreateBoard(deps) {
                               "⠿",
                             ),
                             _.createElement("span", null, DDUI("یادداشت")),
-                            _.createElement("button",{type:"button","aria-label":t("Change color","تغییر رنگ"),onClick:()=>setQuickColor(quickColor===Y.id?null:Y.id)},"●"),
+                            _.createElement("button",{type:"button","aria-label":t("Change color","تغییر رنگ"),onClick:()=>setQuickColor((open)=>open===Y.id?null:Y.id)},"●"),
                             _.createElement(
                               "button",
                               {
@@ -5140,6 +5153,21 @@ export function DDcreateBoard(deps) {
             }),
           ),
       );
+    }
+    // A card is drawn again only when something it shows has changed, so picking
+    // one card redraws that card and the one before it, not the whole board.
+    // Everything a card shows comes from its node and the flags in `key`; the
+    // rest is in the epoch checked before the board draws (a change there
+    // draws every card again). A card being written in is always drawn.
+    function cardFor(Y) {
+      if (Y.section === "engine" || Y.section === "life" || Y.kind === "section" || editing?.ref === Y.id) return renderNode(Y);
+      const picked = selected.has(Y.id),
+        key = (picked ? "p" : "") + (picked && selected.size === 1 ? "1" : "") + (locked.has(Y.id) ? "l" : "") + (connecting === Y.id ? "c" : "") + (quickColor === Y.id ? "q" : ""),
+        kept = cardCache.current.map.get(Y.id);
+      if (kept && kept.node === Y && kept.key === key) return kept.el;
+      const el = renderNode(Y);
+      cardCache.current.map.set(Y.id, { node: Y, key, el });
+      return el;
     }
     // The selected card shows what belongs to it: category, note, steps and linked notes.
     // A selected habit: tick, minutes and its last weeks.
@@ -5964,7 +5992,7 @@ export function DDcreateBoard(deps) {
           ((list) => ({ ...item("trash", "Recently deleted", "تازه حذف‌شده‌ها", "trash", null, {
             disabled: !list.length,
             children: list.map((e) => ({ ...item("trash-" + e.id, "", "", "undo", () => restoreTrash(e.id)), label: DDtrashLabel(e, Date.now(), DDlanguage) })),
-          }), label: list.length ? t("Recently deleted · " + list.length, "تازه حذف‌شده‌ها · " + list.length.toLocaleString("fa-IR")) : t("Recently deleted", "تازه حذف‌شده‌ها") }))(DDlifeState(setup).trash || []),
+          }), label: list.length ? t("Recently deleted · " + list.length, "تازه حذف‌شده‌ها · " + list.length.toLocaleString("fa-IR")) : t("Recently deleted", "تازه حذف‌شده‌ها") }))(lifeView.trash || []),
           sep("top-view-sep"),
           item("fit-all", "Fit all objects", "نمایش همهٔ اشیا", "fitAll", () => fit(false), { shortcut: "Shift+1" }),
           item("theme", "Toggle light / dark", "تغییر روشن / تیره", (setup.look?.theme === "dark" || (setup.look?.theme !== "light" && matchMedia("(prefers-color-scheme:dark)").matches)) ? "sun" : "moon", toggleBoardTheme),
@@ -6276,6 +6304,16 @@ export function DDcreateBoard(deps) {
       }
       paintSelection();
     },[layout,selected,wireId,wireSelection,focus,properties,tick,setup.preferences]);
+    live.current = { backgroundDown, openContext, finishEdit, startEngineMove, startFeedMove, startAreaResize, nodeDown, openEdit, selectOne, commit, toggleDone,
+      returnFromEdit, sendToToday, convertSticky, enterRoom, addLifeSection, ddAddFeeling, ddAddHabit, addSticky, addBlock, fitNote, portDown, showGhost, hideGhost, addNear };
+    relay.current ||= Object.fromEntries(Object.keys(live.current).map((name) => [name, (...args) => live.current[name](...args)]));
+    {
+      // What every card may show besides its own node. Any change here draws all cards again.
+      const epoch = [layout, day, allDays, setup, DDlanguage, railDate, tool === "connector", engineSections, syncCount, sourceHistory, budgetDays, offFrame,
+          noteTools.tags, noteTools.family, noteTools.editing, noteTools.look, photos.connected],
+        cards = cardCache.current;
+      if (!cards.epoch || epoch.some((v, i) => v !== cards.epoch[i])) { cards.epoch = epoch; cards.map.clear(); }
+    }
     return _.createElement(
       "section",
       {
@@ -6402,9 +6440,9 @@ export function DDcreateBoard(deps) {
           _.createElement("small",{className:"dd-room-note",dir:"auto"},t("Everything here is in this section · outside its frame stays on this board only","همه‌چیز اینجا مال این سکشنه · بیرون قاب فقط روی همین برد می‌مونه"))),
       ),
       _.createElement(DDBoardRails, {
-        React: _, day, items: DDlifeItems(setup), room: layout.room, sharedLinks: DDlifeState(setup).links,
+        React: _, day, items: DDlifeItems(setup), room: layout.room, sharedLinks: lifeView.links,
         nodes: layout.nodes, preferences: setup.preferences, language: DDlanguage,
-        onToggle: toggleRail, onReveal: revealRail, days: allDays, habits: setup.habits || [],
+        onToggle: toggleRail, onReveal: revealRail, days: allDays, habits: setup.habits || undefined,
         today: new Date().toLocaleDateString("en-CA"),
         onGoalChange: (ref, goal) => commit((d) => {
           const life = ref.startsWith("life:"), id = ref.slice(life ? 5 : 7), note = (life ? d.__life.items : d.notes).find((i) => i.id === id);
@@ -6788,7 +6826,7 @@ export function DDcreateBoard(deps) {
             ref: guideSvg,
             "aria-hidden": true,
           }),
-          paintOrder.map(renderNode),
+          paintOrder.map(cardFor),
           pen.world(),
           comments.world(),
           photos.world(),
