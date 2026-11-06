@@ -93,6 +93,14 @@ export function DDstrokeDistance(points, x, y) {
   for (let i = 2; i < points.length; i += 2) best = Math.min(best, segment2(x, y, points[i - 2], points[i - 1], points[i], points[i + 1]));
   return Math.sqrt(best);
 }
+// A still stroke keeps its path while its points stay the same (a click on the
+// board no longer rebuilds every drawing).
+const paths = new WeakMap();
+function pathOf(points) {
+  let d = paths.get(points);
+  if (d === undefined) paths.set(points, (d = DDstrokePath(points)));
+  return d;
+}
 // A smooth path through the points (curves through the midpoints). Vector, so it
 // stays sharp at any zoom.
 export function DDstrokePath(points, dx = 0, dy = 0) {
@@ -214,7 +222,7 @@ export function DDusePen(ctx) {
   R.useEffect(() => { if (!active) setEraser(false); }, [active]);
   R.useEffect(() => { try { localStorage.setItem(prefsKey, JSON.stringify(opts)); } catch {} }, [opts]);
   // A card or line picked on the board takes over the selection.
-  R.useEffect(() => { if (ctx.selected.size) setSel(new Set()); }, [ctx.selected]);
+  R.useEffect(() => { if (ctx.selected.size) setSel((s) => (s.size ? new Set() : s)); }, [ctx.selected]);
   const board4 = ctx.day.canvas?.board4, lifeStrokes = ctx.setup.life?.strokes;
   const shown = R.useMemo(() => {
     const out = [];
@@ -430,7 +438,7 @@ export function DDusePen(ctx) {
       shown.map((s) => {
         const key = keyOf(s), d = drag?.keys.has(key) ? drag : null;
         if (erasing.has(key)) return null;
-        const path = DDstrokePath(s.points, d?.dx || 0, d?.dy || 0);
+        const path = d ? DDstrokePath(s.points, d.dx, d.dy) : pathOf(s.points);
         return h("g", { key, "data-stroke-id": s.id, "data-stroke-home": s.life ? "feed" : "day", className: sel.has(key) ? "selected" : undefined },
           h("path", { d: path, className: "dd-ink-hit", onPointerDown: (e) => strokeDown(e, s), onContextMenu: (e) => { e.preventDefault(); e.stopPropagation(); if (!sel.has(key)) { ctxRef.current.clearBoardSelection(); setSel(new Set([key])); } } }),
           h("path", { d: path, className: "dd-ink-line", stroke: inkColor(s.color), strokeWidth: s.width }));

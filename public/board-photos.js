@@ -265,6 +265,7 @@ export function DDuseBoardPhotos(ctx) {
   return {
     photos,
     pending,
+    connected,
     photoOf: (ref) => photos.get(ref) || null,
     // From a menu: pick files, they land at the spot (or the middle of the view).
     pick: (point) => { pickAt.current = point || null; input.current?.click(); },

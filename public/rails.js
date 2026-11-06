@@ -79,11 +79,13 @@ export function DDrailPreferences(preferences, mobile = false) {
   return open;
 }
 
-export function DDBoardRails({ React: R, day, items, room, sharedLinks, nodes, preferences, language, onToggle, onReveal, habitDay, days, habits = [], onHabitChange, today, onGoalChange }) {
+const NO_HABITS = [];
+export function DDBoardRails({ React: R, day, items, room, sharedLinks, nodes, preferences, language, onToggle, onReveal, habitDay, days, habits = NO_HABITS, onHabitChange, today, onGoalChange }) {
   const h = R.createElement, t = (en, fa) => language === "fa" ? fa : en,
     root = R.useRef(null), [mobile, setMobile] = R.useState(() => matchMedia("(max-width:700px)").matches),
     [stats, setStats] = R.useState(null), open = DDrailPreferences(preferences, mobile),
-    groups = DDrailGroups(day, items, room, sharedLinks, nodes, habits), levels = DDhabitLevels(preferences?.habitLevels),
+    // Worked out again only when the board's data changes, not on every click.
+    groups = R.useMemo(() => DDrailGroups(day, items, room, sharedLinks, nodes, habits), [day, items, room, sharedLinks, nodes, habits]), levels = DDhabitLevels(preferences?.habitLevels),
     names = { goal: t("Goals", "هدف‌ها"), note: t("Notes", "نوت‌ها"), habits: t("Today's habits", "عادت‌های امروز") },
     keys = { goal: "G", note: "Shift+G", habits: "Shift+H" };
   R.useLayoutEffect(() => {

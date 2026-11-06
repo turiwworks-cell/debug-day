@@ -1,3 +1,12 @@
+## 5.46.4 — 2026-11-06
+Branch: claude/project-thread-z9hvdv
+- Picking a card on a big board is about twice as fast (300-card board, CPU slowed 4 times: about 170 ms per click before, about 85 ms now).
+- A click draws the board once instead of twice: the Align panel and the pen no longer ask for a second draw when nothing changed for them.
+- Cards keep what they drew while nothing they show has changed, so picking a card redraws that card and the one before it, not every card. Their buttons and drags always use the board as it is now (the current selection, tool and day).
+- The Feed's cleaned list, the goal and note rails and the drawings' outlines are worked out again only when their data changes, not on every click.
+- Ending a drag or a click writes only to the cards that the gesture moved or resized.
+- Test: kept-cards checks picking, Shift-picking, dragging two cards, Undo, the line tool's dots, quick colours and writing on cards that were kept.
+
 ## 5.46.3 — 2026-11-06
 Branch: claude/project-thread-z9hvdv
 - Typing in a board note no longer redraws the whole board on each key: only the note's own text box changes (a key took 160 ms on a 300-card board with the CPU slowed 4 times, now 34 ms).
