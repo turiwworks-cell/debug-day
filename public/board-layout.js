@@ -149,8 +149,8 @@ export function DDcreateBoardLayout(deps) {
       });
     }
     const engineShift = (saved) => DDengineShift(saved, allDays, day.date);
-    function lifeFrame(Y, ct, top, left) {
-      if (ddNodeMatches) return top;
+    function lifeFrame(Y) {
+      if (ddNodeMatches) return;
       const b = life.DDlifeBounds(life.DDlifeItems(setup)),
         legacy = Object.entries(allDays || {}).sort(([a],[b])=>a.localeCompare(b)).map(([,d])=>d.canvas?.board4?.layouts?.mindmap?.["section:life"] || d.canvas?.board4?.layouts?.lanes?.["section:life"]).find((p)=>Number.isFinite(p?.x)&&Number.isFinite(p?.y)),
         saved = { x: legacy?.x ?? 2400, y: legacy?.y ?? 80, ...setup.life?.frame },
@@ -170,7 +170,6 @@ export function DDcreateBoardLayout(deps) {
           autoH: life.DDlifeHead + b.h,
         };
       Y.push(node);
-      return node.y + node.h + 48;
     }
     // Feelings and Habits have their own sections on the board, in both modes.
     // Whatever changes here is the same data Plan and Lanes show.
@@ -245,10 +244,6 @@ export function DDcreateBoardLayout(deps) {
     // steps, feelings and notes. Relations show by placement, so no lines.
     function lanesLayout(Y, ct, attachedBugs, visible) {
       const CARD = 300,
-        GAP = 18,
-        PER_ROW = 4,
-        PAD = 16,
-        HEAD = 54,
         noteById = new Map((day.notes || []).map((n) => [n.id, n])),
         notesFor = new Map(),
         attachedNotes = new Set(),
@@ -531,7 +526,6 @@ export function DDcreateBoardLayout(deps) {
         });
     if (mode === "mindmap") {
       let Jt = 56;
-      const Xn = [];
       Object.assign(shift, engineShift(ct));
       Pt({
         id: "day:root",
@@ -558,7 +552,7 @@ export function DDcreateBoardLayout(deps) {
             Fn.expanded !== !1 && Fn.children?.length
               ? On(Fn.children, Xa, fa, Pl + 1, kl)
               : (Jt += stepH + 14);
-            const Dl = Pt({
+            Pt({
               id: Xa,
               kind: "subtask",
               title: Fn.text,
@@ -672,7 +666,7 @@ export function DDcreateBoardLayout(deps) {
             yn(Oa, Xa, Dl.color));
         }
         Jt === fa && (Jt += 84);
-        const kl = Pt({
+        Pt({
           id: Oa,
           kind: "lane",
           title: ma.name || DDUI("Parked"),
@@ -686,12 +680,12 @@ export function DDcreateBoardLayout(deps) {
           w: 126,
           h: 54,
         });
-        (Xn.push(kl), yn("day:root", Oa, "#85827A"), (Jt += 30));
+        (yn("day:root", Oa, "#85827A"), (Jt += 30));
       }
       ct["day:root"] || (Y[0].y = Math.max(60, Jt / 2 - 35) + shift.y);
       engineFrame(Y, shift);
       Object.assign(shift, { x: 0, y: 0, w: 0, h: 0 });
-    } else lanesLayout(Y, ct, ot, St, Pt);
+    } else lanesLayout(Y, ct, ot, St);
     if (mode === "mindmap")
       lifeFrame(
         Y,

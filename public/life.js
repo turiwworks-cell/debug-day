@@ -1,5 +1,6 @@
 // Optional scheduling and a gentle pause when the day changes unexpectedly.
 import { DDduration } from "./measure.js";
+import { DDcleanBoard } from "./search.js";
 export function DDvalidAnchor(value) {
   return typeof value === "string" && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
 }
@@ -21,32 +22,13 @@ function DDlifeSubRefs(items, blockId) {
   ]);
 }
 function DDlifeCleanBoard(day, blocks) {
-  const removed = new Set(
-      blocks.flatMap((block) => [
-        "b:" + block.id,
-        ...DDlifeSubRefs(block.subtasks, block.id),
-      ]),
-    ),
-    board = day.canvas?.board4;
-  if (!board) return;
-  board.links = (board.links || []).filter(
-    (link) => !removed.has(link.from) && !removed.has(link.to),
+  DDcleanBoard(
+    day,
+    blocks.flatMap((block) => [
+      "b:" + block.id,
+      ...DDlifeSubRefs(block.subtasks, block.id),
+    ]),
   );
-  for (const positions of Object.values(board.layouts || {}))
-    for (const id of removed) delete positions[id];
-  for (const ref of removed) if (board.styles) delete board.styles[ref];
-  if (Array.isArray(board.stack))
-    board.stack = board.stack.filter((ref) => !removed.has(ref));
-  for (const [key, link] of Object.entries(board.overrides || {}))
-    if (removed.has(link.from) || removed.has(link.to))
-      delete board.overrides[key];
-  for (const field of ["locked", "hidden"])
-    if (board[field])
-      board[field] = board[field].filter((id) => !removed.has(id));
-  for (const [key, refs] of Object.entries(board.groups || {})) {
-    board.groups[key] = refs.filter((id) => !removed.has(id));
-    if (board.groups[key].length < 2) delete board.groups[key];
-  }
 }
 function DDappendDayBlock(day, block) {
   const copy = structuredClone(block);

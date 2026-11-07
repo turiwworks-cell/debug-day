@@ -378,9 +378,7 @@ export function DDSectionsFlowchart({ React: R, items = [], room = null, languag
             onChange: (event) => setDraft({ id: node.id, color: event.target.value }),
             // The picker reports every step while you drag; save once, when it closes.
             ref: (el) => {
-              if (!el || el.dataset.ready) return;
-              el.dataset.ready = "1";
-              el.addEventListener("change", () => pick(node.id, el.value.toUpperCase()));
+              if (el) el.onchange = () => pick(node.id, el.value.toUpperCase());
             },
           }),
           h("span", null, t("Custom", "دلخواه"))),

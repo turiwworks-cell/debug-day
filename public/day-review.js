@@ -1232,78 +1232,6 @@ export function DDFeelingsPanel({
     }),
   );
 }
-// Calendar shows what was felt; writing and editing live on the Feelings page.
-function DDFeelingsBrief({ React: R, day, language, PanelIcon, onOpen }) {
-  const { h, t, n } = DDreviewUI(R, language),
-    all = day.bugs || [],
-    mood = DDreviewMoods.find(([emoji]) => emoji === day.mood);
-  return h(
-    "section",
-    {
-      className: "dd-review-feelings-brief",
-      "data-panel": "feelings",
-      "aria-label": t("Feelings for this day", "احساسات این روز"),
-    },
-    h(
-      "div",
-      { className: "dd-review-section-heading" },
-      h(
-        "h2",
-        null,
-        PanelIcon && h(PanelIcon, { React: R, id: "feelings" }),
-        t("Feelings & events", "احساسات و اتفاق‌ها"),
-        " · ",
-        n(all.length),
-      ),
-      onOpen &&
-        h(
-          "button",
-          { type: "button", className: "btn", onClick: onOpen },
-          all.length || day.mood
-            ? t("Open in Feelings", "باز کردن در احساسات")
-            : t("Write in Feelings", "نوشتن در احساسات"),
-        ),
-    ),
-    (day.mood || "") &&
-      h(
-        "p",
-        { className: "dd-review-brief-mood" },
-        t("Mood: ", "حال: "),
-        h("span", { "aria-hidden": true }, day.mood),
-        mood ? " " + t(mood[1], mood[2]) : "",
-      ),
-    all.length
-      ? h(
-          "ul",
-          null,
-          all.slice(0, 6).map((item) =>
-            h(
-              "li",
-              {
-                key: item.id,
-                "data-feeling-id": item.id,
-                className: item.fixed ? "closed" : "",
-                style: item.color ? { "--feeling-color": item.color } : undefined,
-              },
-              h(
-                "span",
-                { className: "dd-review-status" },
-                item.fixed ? t("Closed", "بسته‌شده") : t("Open", "باز"),
-              ),
-              h("span", { dir: "auto" }, item.text),
-            ),
-          ),
-          all.length > 6 &&
-            h("li", { className: "more" }, t("and ", "و ") + n(all.length - 6) + t(" more", " مورد دیگر")),
-        )
-      : !day.mood &&
-          h(
-            "p",
-            { className: "dd-review-empty" },
-            t("Nothing recorded for this day.", "برای این روز چیزی ثبت نشده."),
-          ),
-  );
-}
 function DDReviewTasks({
   React: R,
   playful,
@@ -1677,7 +1605,6 @@ function DDReviewDay({
   feelingsOnly = false,
   playful,
   PanelIcon,
-  onOpenFeelings,
 }) {
   const { h, t, n } = DDreviewUI(R, language),
     day = data.days[date] || DDreviewEmptyDay(date),

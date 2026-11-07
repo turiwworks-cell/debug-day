@@ -67,7 +67,6 @@ export function DDcaptureItem(
     data.setup.later.push(task);
     return data;
   }
-  if (!DDcaptureDate(date)) return snapshot;
   const day =
     data.days[date] || (data.days[date] = structuredClone(ensureDay(date)));
   if (kind === "task") {
@@ -171,7 +170,6 @@ export function DDdaysWithWorries(days, worries = []) {
 const DDcaptureIcons = {
   cloud:
     "M4.6 12.5h6.9a3 3 0 0 0 .4-6A4.2 4.2 0 0 0 4 5.6a3.5 3.5 0 0 0 .6 6.9z",
-  plus: "M8 3v10M3 8h10",
 };
 export function DDcaptureIcon(h, name) {
   return h(
@@ -200,11 +198,6 @@ function DDcaptureRemember(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {}
-}
-function DDcaptureTomorrow(date) {
-  const value = new Date(date + "T12:00:00Z");
-  value.setUTCDate(value.getUTCDate() + 1);
-  return value.toISOString().slice(0, 10);
 }
 function DDcaptureDone(items) {
   return (items || []).map((item) => ({
@@ -762,11 +755,11 @@ export function DDCaptureTools({
                       h("option", { value: today }, t("Today", "امروز")),
                       reviewingDay &&
                         date !== today &&
-                        date !== DDcaptureTomorrow(today) &&
+                        date !== DDnextDay(today) &&
                         h("option", { value: date }, t("Selected day", "روز انتخاب‌شده") + " · " + date),
                       h(
                         "option",
-                        { value: DDcaptureTomorrow(today) },
+                        { value: DDnextDay(today) },
                         t("Tomorrow", "فردا"),
                       ),
                       h(
@@ -906,7 +899,7 @@ export function DDCaptureTools({
                                 DDconvertWorry(
                                   old,
                                   worry.id,
-                                  DDcaptureTomorrow(today),
+                                  DDnextDay(today),
                                   ensureDay,
                                 ),
                               ),

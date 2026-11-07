@@ -136,7 +136,7 @@ export function DDcreatePlayful({React:R,Legacy,Art,styles,language}){
   }
   function Picker({onPick,onClose,current='',onClear,targets=[],target:initialTarget='',title}){
     const dialog=R.useRef(null),searchInput=R.useRef(null),ending=R.useRef(false),backdropDown=R.useRef(false),pointerStarted=R.useRef(false);
-    const[tab,setTab]=R.useState(current&&!DDplayfulData.isSticker(current)?'emoji':'sticker'),[query,setQuery]=R.useState(''),[filter,setFilter]=R.useState('all'),[favorites,setFavorites]=R.useState(()=>local('debug-day:sticker-favorites',[])),[recent,setRecent]=R.useState(()=>local('debug-day:sticker-recent',[])),[target,setTarget]=R.useState(initialTarget),[motionTick,setMotionTick]=R.useState(0);
+    const[tab,setTab]=R.useState(current&&!DDplayfulData.isSticker(current)?'emoji':'sticker'),[query,setQuery]=R.useState(''),[filter,setFilter]=R.useState('all'),[favorites,setFavorites]=R.useState(()=>local('debug-day:sticker-favorites',[])),[recent]=R.useState(()=>local('debug-day:sticker-recent',[])),[target,setTarget]=R.useState(initialTarget),[motionTick,setMotionTick]=R.useState(0);
     const fa=language()==='fa',base=tab==='sticker'?stickers:emojis,q=query.normalize('NFKC').toLowerCase().replace(/ي/g,'ی').replace(/ك/g,'ک').trim();
     const saved=Array.isArray(favorites)?favorites.filter(value=>DDplayfulData.valid(value)):[],used=Array.isArray(recent)?recent.filter(value=>DDplayfulData.valid(value)):[];
     const items=base.filter(item=>(filter==='all'||filter==='favorites'&&saved.includes(item.value)||filter==='recent'&&used.includes(item.value)||item.category===filter)&&(!q||(item.en+' '+item.fa+' '+item.value).toLowerCase().includes(q)));
