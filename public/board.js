@@ -211,7 +211,6 @@ export function DDcreateBoard(deps) {
       roomCams = useRef({}),
       [quickColor, setQuickColor] = useState(null),
       [dueEdit, setDueEdit] = useState(null),
-      [stickerPicker, setStickerPicker] = useState(null),
       [details, setDetails] = useState(
         () => !globalThis.matchMedia?.("(max-width: 700px)").matches,
       ),
@@ -1276,19 +1275,6 @@ export function DDcreateBoard(deps) {
         }
         preview.current.set(G.ref, { x, y, w: width, h: height });
         paintWires(); paintSelection();
-        return;
-      }
-      if (G.kind === "resize") {
-        G.min = Math.max(
-          5,
-          Math.min(720, S(G.startMin + ct / (3 * cam.current.z))),
-        );
-        const Pt = elementRefs.current.get(G.ref);
-        if (Pt) {
-          Pt.style.width = 136 + G.min * 3 + "px";
-          const yn = Pt.querySelector("[data-duration]");
-          yn && (yn.textContent = w(G.min));
-        }
         return;
       }
       if (G.kind === "wire" || G.kind === "rewire") {
@@ -2436,7 +2422,6 @@ export function DDcreateBoard(deps) {
     function openEdit(Y) {
       flushNote();
       const G = layout.map.get(Y);
-      if (G?.kind === "emoji") { if (!locked.has(Y)) { finishEdit(); setStickerPicker({replace:G.noteId,current:G.symbol}); } return; }
       !G ||
         G.kind === "frame" ||
         G.kind === "lane" ||
@@ -3244,7 +3229,7 @@ export function DDcreateBoard(deps) {
             if (
               !alignUndo &&
               ot.target.closest(
-                "input,textarea,select,[contenteditable=true],.b6-context,.b6-properties,.b6-camera,.b6-view-panel,.dd-sticker-dialog,.dd-board-timer,.dd-board-search,.b4-help-backdrop,.dd-engine-backdrop,.dd-flow-backdrop,.dd-board-rails,.dd-due-editor",
+                "input,textarea,select,[contenteditable=true],.b6-context,.b6-properties,.b6-camera,.b6-view-panel,.dd-board-timer,.dd-board-search,.b4-help-backdrop,.dd-engine-backdrop,.dd-flow-backdrop,.dd-board-rails,.dd-due-editor",
               ) ||
               (ot.target.closest("[role=dialog]") &&
                 !root.current?.contains(ot.target))
@@ -3481,8 +3466,7 @@ export function DDcreateBoard(deps) {
             else if (Tt === "p" && !ot.shiftKey) { finishEdit(); setTool((v) => (v === "pen" ? "select" : "pen")); }
             else if (Tt === "m" && ot.shiftKey) { ot.preventDefault(); finishEdit(); comments.toggleList(); }
             else if (Tt === "m") { finishEdit(); setTool((v) => (v === "comment" ? "select" : "comment")); }
-            else if (Tt === "e" && ot.shiftKey) { finishEdit(); setStickerPicker({}); }
-            else if (Tt === "e") { finishEdit(); cancelGesture(); setMenu(null); setEngine((v) => !v); }
+            else if (Tt === "e" && !ot.shiftKey) { finishEdit(); cancelGesture(); setMenu(null); setEngine((v) => !v); }
             else if (Tt === "d" && !ot.shiftKey) { ot.preventDefault(); finishEdit(); cancelGesture(); setMenu(null); setLifeNav((v) => !v); }
             else if (Tt === "f") (ot.preventDefault(), fit(ot.shiftKey));
             else if (Tt === "0") (ot.preventDefault(), setZoom(1));
@@ -4266,56 +4250,6 @@ export function DDcreateBoard(deps) {
                 },
               }),
           ),
-        false &&
-          _.createElement("span", {
-            className: "b4-resize",
-            "data-resize": !0,
-            role: "slider",
-            tabIndex: 0,
-            "aria-label": "Duration of " + Y.title,
-            "aria-valuemin": 5,
-            "aria-valuemax": 720,
-            "aria-valuenow": Y.min,
-            onPointerDown: (Kt) => {
-              (Kt.preventDefault(),
-                Kt.stopPropagation(),
-                (gesture.current = {
-                  kind: "resize",
-                  ref: Y.id,
-                  blockId: Y.blockId,
-                  startMin: Y.min,
-                  min: Y.min,
-                  sx: Kt.clientX,
-                  sy: Kt.clientY,
-                  pointerId: Kt.pointerId,
-                  moved: !1,
-                }),
-                viewport.current.setPointerCapture(Kt.pointerId));
-            },
-            onKeyDown: (Kt) => {
-              if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(Kt.key)) {
-                (Kt.preventDefault(), Kt.stopPropagation());
-                const Dn =
-                  Kt.key === "Home"
-                    ? 5
-                    : Kt.key === "End"
-                      ? 720
-                      : Math.max(
-                          5,
-                          Math.min(
-                            720,
-                            Y.min + (Kt.key === "ArrowRight" ? (Y.min >= 30 ? 15 : 5) : -(Y.min > 30 ? 15 : 5)),
-                          ),
-                        );
-                commit((Jt) => ({
-                  ...Jt,
-                  blocks: Jt.blocks.map((Xn) =>
-                    Xn.id === Y.blockId ? { ...Xn, min: Dn } : Xn,
-                  ),
-                }));
-              }
-            },
-          }),
         // FigJam: a selected sticky offers a "+" on each side for the next note.
         Tt && G && !ot && !ct && selected.size === 1 &&
           ["left", "right", "top", "bottom"].map((side) =>
@@ -4386,154 +4320,9 @@ export function DDcreateBoard(deps) {
         onClose: () => setDetails(false),
       });
     }
-    // A selected feeling: the same words and choices as the Feelings page.
-    function feelingDetails(node) {
-      const bug = (day.bugs || []).find((b) => b.id === node.bugId);
-      if (!bug) return null;
-      const h = _.createElement,
-        isLocked = locked.has(node.id),
-        change = (patch, grouped) => {
-          const first = !grouped || noteDraft.current !== "bug:" + bug.id;
-          if (grouped) noteDraft.current = "bug:" + bug.id;
-          commit(
-            (d) => {
-              d.bugs = d.bugs.map((b) => (b.id === bug.id ? { ...b, ...patch } : b));
-              return d;
-            },
-            grouped ? null : t("Feeling updated", "احساس به‌روز شد"),
-            { history: first },
-          );
-        },
-        topics = deps.feelingTopics || [];
-      return h(
-        "aside",
-        {
-          className: "dd-card-details dd-feeling-details",
-          dir: DDlanguage === "fa" ? "rtl" : "ltr",
-          "aria-label": t("Feeling", "احساس"),
-          style: { "--card-color": DDbugColor(bug) },
-          onPointerDown: (event) => event.stopPropagation(),
-        },
-        h(
-          "header",
-          null,
-          h("span", { className: "dd-card-swatch" }),
-          h("strong", null, "💭 " + t("Feeling", "احساس")),
-          h(
-            "button",
-            {
-              type: "button",
-              "aria-label": t("Hide details", "بستن جزئیات"),
-              onClick: () => setDetails(false),
-            },
-            "×",
-          ),
-        ),
-        h(
-          "label",
-          { className: "dd-card-field" },
-          h("span", null, t("What are you feeling, or what happened?", "چه حسی داری، یا چه اتفاقی افتاد؟")),
-          h("textarea", {
-            dir: "auto",
-            rows: 3,
-            maxLength: 4000,
-            value: bug.text || "",
-            disabled: isLocked,
-            onChange: (event) => change({ text: event.target.value }, true),
-            onBlur: () => (noteDraft.current = null),
-          }),
-        ),
-        topics.length > 0 &&
-          h(
-            "div",
-            { className: "dd-card-field" },
-            h("span", null, t("Topic", "موضوع")),
-            h(
-              "div",
-              { className: "dd-feeling-topics", role: "group" },
-              topics.map(([id, en, fa]) =>
-                h(
-                  "button",
-                  {
-                    key: id,
-                    type: "button",
-                    "aria-pressed": bug.category === id,
-                    disabled: isLocked,
-                    style: { "--topic": DDbugColor({ category: id }) },
-                    onClick: () => change({ category: id, color: undefined }),
-                  },
-                  t(en, fa),
-                ),
-              ),
-            ),
-          ),
-        h(
-          "label",
-          { className: "dd-card-field" },
-          h("span", null, t("Related card", "کارت مرتبط")),
-          h(
-            "select",
-            {
-              value: day.blocks.some((b) => b.id === bug.blockId) ? bug.blockId : "",
-              disabled: isLocked,
-              onChange: (event) => change({ blockId: event.target.value, on: "" }),
-            },
-            h("option", { value: "" }, t("No specific card", "کارت خاصی نه")),
-            day.blocks.map((b) =>
-              h("option", { key: b.id, value: b.id }, b.name || DDUI("Untitled")),
-            ),
-          ),
-        ),
-        h(
-          "label",
-          { className: "dd-card-field" },
-          h("span", null, t("What could help?", "چه چیزی می‌تواند کمک کند؟")),
-          h("input", {
-            dir: "auto",
-            maxLength: 4000,
-            value: bug.antidote || "",
-            disabled: isLocked,
-            onChange: (event) => change({ antidote: event.target.value }, true),
-            onBlur: () => (noteDraft.current = null),
-          }),
-        ),
-        h(
-          "div",
-          { className: "dd-feeling-actions" },
-          h(
-            "button",
-            {
-              type: "button",
-              className: "btn",
-              disabled: isLocked,
-              "aria-pressed": !!bug.fixed,
-              onClick: () => toggleDone(node),
-            },
-            bug.fixed ? t("Open again", "دوباره باز کن") : t("It passed", "گذشت"),
-          ),
-          h(
-            "button",
-            {
-              type: "button",
-              className: "textbtn",
-              disabled: isLocked,
-              onClick: () => {
-                commit(
-                  (d) => core.remove(d, [node]),
-                  t("Feeling deleted · Undo to restore", "احساس حذف شد؛ با واگرد برگردان"),
-                );
-                setSelected(new Set());
-              },
-            },
-            t("Delete", "حذف"),
-          ),
-        ),
-      );
-    }
     function cardDetails() {
       if (!details || properties || selectedWire || !selectedNode) return null;
       if (selectedNode.kind === "habit") return habitDetails(selectedNode);
-      if (selectedNode.kind === "bug") return feelingDetails(selectedNode);
       if (!["block", "subtask"].includes(selectedNode.kind)) return null;
       const block = day.blocks.find((b) => b.id === selectedNode.blockId);
       if (!block) return null;
@@ -4558,13 +4347,6 @@ export function DDcreateBoard(deps) {
         ]
           .map((id) => (day.notes || []).find((n) => n.id === id))
           .filter(Boolean),
-        feelings = [].filter(
-          (bug) =>
-            bug.blockId === block.id ||
-            (!bug.blockId &&
-              bug.on &&
-              bug.on.toLowerCase() === (block.name || "").toLowerCase()),
-        ),
         isLocked = locked.has("b:" + block.id),
         changeMeasure = (change) =>
           !isLocked &&
@@ -4741,7 +4523,7 @@ export function DDcreateBoard(deps) {
               h("ul", { className: "dd-card-steps" }, block.subtasks.map((c) => step(c, 0))),
             )
           : null,
-        linkedNotes.length || feelings.length
+        linkedNotes.length
           ? h(
               "div",
               { className: "dd-card-field" },
@@ -4765,26 +4547,6 @@ export function DDcreateBoard(deps) {
                         },
                       },
                       (note.text || t("Empty note", "یادداشت خالی")).slice(0, 140),
-                    ),
-                  ),
-                ),
-                feelings.map((bug) =>
-                  h(
-                    "li",
-                    { key: bug.id },
-                    h(
-                      "button",
-                      {
-                        type: "button",
-                        dir: "auto",
-                        className: "is-feeling",
-                        style: { "--chip": DDbugColor(bug) },
-                        onClick: () => {
-                          if (layout.map.has("bug:" + bug.id))
-                            setSelected(new Set(["bug:" + bug.id]));
-                        },
-                      },
-                      bug.text,
                     ),
                   ),
                 ),
@@ -5344,7 +5106,6 @@ export function DDcreateBoard(deps) {
             const note = selectedNode.lifeId ? lifeList.find((n) => n.id === selectedNode.lifeId) : day.notes.find((n) => n.id === selectedNode.noteId), active = note?.role === role;
             return item("rail-" + role, active ? (role === "goal" ? "Remove goal role" : "Remove note role") : (role === "goal" ? "Make it the goal" : "Make it a note"), active ? (role === "goal" ? "برداشتن هدف" : "برداشتن نوت") : (role === "goal" ? "هدف کن" : "نوت کن"), role === "goal" ? "goal" : "lines", () => commit((d) => DDsetRailRole(d, selectedNode.id, active ? undefined : role)), { checked: active, disabled: allLocked });
           }) : []),
-          selectedNode?.kind === "block" && item("task-symbol","Change task sticker / emoji","تغییر استیکر / ایموجی کار","sticker",()=>{finishEdit();setStickerPicker({target:selectedNode.blockId,current:selectedNode.emoji});},{disabled:allLocked}),
           ...styleItems.slice(1),
           item("layers", "Layer order", "ترتیب لایه‌ها", "layers", null, {
             disabled: !editable,
@@ -5371,8 +5132,8 @@ export function DDcreateBoard(deps) {
           selectedNode &&
             item(
               "edit",
-              selectedNode.kind === "emoji" ? "Change sticker / emoji" : "Edit text",
-              selectedNode.kind === "emoji" ? "تغییر استیکر / ایموجی" : "ویرایش متن",
+              "Edit text",
+              "ویرایش متن",
               "edit",
               () => openEdit(selectedNode.id),
               {
@@ -5420,7 +5181,6 @@ export function DDcreateBoard(deps) {
         item("add-note", "Add note here", "افزودن نوت اینجا", "note", () => addSticky(menu.point)),
         item("add-text", "Add text here", "افزودن متن اینجا", "text", () => addText(menu.point), { shortcut: "T" }),
         item("add-task", "Add task here", "افزودن کار اینجا", "task", () => addBlock(null, menu.point)),
-        item("add-symbol","Add sticker / emoji here","افزودن استیکر / ایموجی اینجا","sticker",()=>{finishEdit();setStickerPicker({point:menu.point});}),
         item("add-comment", "Add comment here", "Add comment here", "comment", () => comments.addAt(menu.point), { shortcut: "M" }),
         sep("paste-sep"),
         item("paste", "Paste here", "چسباندن اینجا", "paste", () => pasteClipboard(menu.point), { shortcut: "Ctrl/Cmd+V" }),
@@ -6312,7 +6072,6 @@ export function DDcreateBoard(deps) {
           ),
         ),
         _.createElement("span", { className: "b2-sep" }),
-        toolButton(t("Stickers & emoji","استیکر و ایموجی"),"sticker",()=>{finishEdit();setMenu(null);setStickerPicker({target:selectedNode?.kind==="block"?selectedNode.blockId:""});},{},t("Stickers","استیکر")),
         // Snap, grid, minimap and canvas settings: right-click the dock, or ⋯.
         dockMore("tools"),
       ),
@@ -6368,7 +6127,6 @@ export function DDcreateBoard(deps) {
         style: { left: Math.max(8, Math.min(dueEdit.x, (root.current?.clientWidth || 600) - 276)), top: Math.max(8, Math.min(dueEdit.y, (root.current?.clientHeight || 600) - 250)) },
         onChange: (due) => setDue(n.id, due), onClose: () => setDueEdit(null),
       }))(layout.map.get(dueEdit.ref)),
-      stickerPicker && _.createElement(playful.Picker,{current:stickerPicker.current,target:stickerPicker.target || "",targets:stickerPicker.replace?[]:day.blocks,onClose:()=>setStickerPicker(null),onPick:(value,target)=>{const rect=viewport.current.getBoundingClientRect(),point=stickerPicker.point || toWorld(rect.left+rect.width/2,rect.top+rect.height/2),id=stickerPicker.replace || C(),size=playful.isSticker(value)?128:76;commit(d=>playful.data.put(d,value,{id,replace:stickerPicker.replace,taskId:target,x:point.x-size/2,y:point.y-size/2}),t("A little personality added","کمی حال‌وهوا اضافه شد"));setSelected(new Set([target?"b:"+target:"sticky:"+id]));setWireId(null);setTool("select");onSelectBlock?.(target || null);}}),
       help &&
         _.createElement(
           "div",

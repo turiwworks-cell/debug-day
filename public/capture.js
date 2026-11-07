@@ -3,16 +3,8 @@ import { DDTimerMini } from "./timer.js";
 import { DDduration } from "./measure.js";
 import { DDlifeState, DDlifeAdd } from "./life-board.js";
 import { DDPlanNudges, DDmoveToDay, DDnextDay } from "./nudges.js";
-function DDcaptureDate(date) {
-  if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date))
-    return false;
-  const value = new Date(date + "T12:00:00Z");
-  return (
-    +date.slice(0, 4) >= 1900 &&
-    Number.isFinite(+value) &&
-    value.toISOString().slice(0, 10) === date
-  );
-}
+import { DDvalidDate } from "./dates.js";
+const DDcaptureDate = DDvalidDate;
 export function DDworry(text, date, tag = "general-friction") {
   return {
     id: crypto.randomUUID(),
@@ -557,7 +549,6 @@ export function DDCaptureTools({
             h("span", { dir: "auto" }, next.name),
             h("em", null, DDduration(next.min, language)),
           ),
-        playful && coarse && !details && h(playful.DayStickers, {day,date,onChange:fn=>setData(old=>({...old,days:{...old.days,[date]:fn(old.days[date]||day)}}))}),
         timer.running &&
           h(
             "p",

@@ -1,20 +1,11 @@
 // Optional scheduling and a gentle pause when the day changes unexpectedly.
 import { DDduration } from "./measure.js";
 import { DDcleanBoard } from "./search.js";
+import { DDaddDays, DDvalidDate } from "./dates.js";
 export function DDvalidAnchor(value) {
   return typeof value === "string" && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
 }
-function DDlifeDate(date) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || +date.slice(0, 4) < 1900)
-    return false;
-  const value = new Date(date + "T12:00:00Z");
-  return Number.isFinite(+value) && value.toISOString().slice(0, 10) === date;
-}
-function DDlifeShift(date) {
-  const value = new Date(date + "T12:00:00Z");
-  value.setUTCDate(value.getUTCDate() + 1);
-  return value.toISOString().slice(0, 10);
-}
+const DDlifeDate = DDvalidDate, DDlifeShift = (date) => DDaddDays(date, 1);
 function DDlifeSubRefs(items, blockId) {
   return (items || []).flatMap((item) => [
     "sub:" + blockId + ":" + item.id,

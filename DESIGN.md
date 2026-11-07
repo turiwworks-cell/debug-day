@@ -53,7 +53,7 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 
 - App icons are line icons: 16×16 viewBox, `stroke="currentColor"`, stroke 1.5, round caps.
   Panel icons live in `public/panels.js` (`DDpanelGlyph`), others in the bundle's icon set and `board-icons.js`.
-- Emoji are only for the person's own content (task emoji, stickers, notes).
+- Emoji are only for the person's own content (task emoji, notes).
 
 ## 5. Buttons and controls
 

@@ -10,8 +10,8 @@ test("board search reads collapsed descendants and normalizes Persian, Arabic an
   assert.equal(DDboardSearch(rows,"كار ۱۲۳")[0].id,"sticky:n");
   assert.deepEqual(DDboardSearch(rows,"deep")[0].parents,["s"]);
   assert.equal(DDboardSearch(rows,"hidden idea")[0].id,"life:child");
-  assert.equal(DDboardSearch(rows,"little spark")[0].id,"sticky:emoji");
-  assert.equal(DDboardSearch(rows,"جرقهٔ کوچولو")[0].id,"sticky:emoji");
+  assert.equal(DDboardSearch(rows,"little spark").length,0);
+  assert.equal(DDboardSearch(rows,"جرقهٔ کوچولو").length,0);
   assert.equal(DDboardSearch(rows,"no such object").length,0);
 });
 test("selection moves an ancestor once even when a grandchild is selected",()=>{

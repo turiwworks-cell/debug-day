@@ -46,9 +46,6 @@ const {start,fixture}=require('./harness.cjs');
    const dim=await page.locator('.dd-engine-backdrop').evaluate(e=>getComputedStyle(e).backgroundColor);
    assert.match(dim,/rgba\(18, 18, 17, 0\.55\)/,'the board behind is dimmed');
    await engine.locator('.dd-engine-name').first().focus();await page.keyboard.press('e');await engine.waitFor({state:'detached'});
-   // Shift+E still opens stickers.
-   await page.locator('.b2-viewport').focus();await page.keyboard.press('Shift+E');
-   await page.locator('.dd-sticker-dialog').waitFor();await page.keyboard.press('Escape');
    // The toolbar Engine button jumps to the engine; the day root is named Engine.
    assert.ok(await page.locator('[data-engine-jump]').count(),'Engine button in the board toolbar');
    assert.match(await page.locator('[data-board-id="day:root"]').innerText(),new RegExp(t('Engine','انجین')));

@@ -4,6 +4,7 @@
 // 1 done · 2 good (half the goal) · 3 enough (the goal) · 4 too much (twice the goal).
 // Each habit has its own goal (5.31), so 60 minutes of sport can be "enough"
 // while 60 minutes of writing is "too much".
+import { DDaddDays } from "./dates.js";
 export const DDhabitPalette = [
   "#E2683C",
   "#3F8CFF",
@@ -123,11 +124,7 @@ export function DDtoggleHabit(day, id) {
     : DDsetHabitEntry(day, id, { done: true });
 }
 
-function DDshiftDate(date, amount) {
-  const value = new Date(date + "T12:00:00Z");
-  value.setUTCDate(value.getUTCDate() + amount);
-  return value.toISOString().slice(0, 10);
-}
+const DDshiftDate = DDaddDays;
 
 // The last `count` days up to `endDate`, oldest first.
 export function DDhabitHistory(days, id, endDate, count, levels) {
@@ -419,11 +416,11 @@ export function DDHabitsPanel({
                   habit,
                   entry,
                   levels,
-                  language: "en",
+                  language,
                   onChange: (patch) => onUpdateDay((d) => DDsetHabitEntry(d, habit.id, patch)),
                 }),
-                h(DDHabitStrip, { React: R, history, language: "en" }),
-                open === habit.id && h(DDHabitStats, { React: R, habit, days, date, levels, language: "en" }),
+                h(DDHabitStrip, { React: R, history, language }),
+                open === habit.id && h(DDHabitStats, { React: R, habit, days, date, levels, language }),
               );
             }),
           )
@@ -541,6 +538,7 @@ export function DDHabitDetails({
   days,
   date,
   setup,
+  language,
   onUpdateDay,
   onUpdateSetup,
   onClose,
@@ -580,7 +578,7 @@ export function DDHabitDetails({
         habit,
         entry,
         levels,
-        language: "en",
+        language,
         onChange: (patch) => onUpdateDay((d) => DDsetHabitEntry(d, habit.id, patch)),
       }),
     ),
@@ -588,7 +586,7 @@ export function DDHabitDetails({
       "div",
       { className: "dd-card-field" },
       h("span", null, "Last 8 weeks"),
-      h(DDHabitStats, { React: R, habit, days, date, levels, language: "en" }),
+      h(DDHabitStats, { React: R, habit, days, date, levels, language }),
     ),
     h(
       "div",

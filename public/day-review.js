@@ -5,28 +5,16 @@ import { DDmediaTitle } from "./media.js";
 import { DDlifeItems } from "./life-board.js";
 import { DDdueOn, DDdueName } from "./deadlines.js";
 import { DDCalendarWeek, DDWeekReview, DDCalendarModes, DDCalSections } from "./calendar-week.js";
+import { DDaddDays, DDvalidDate } from "./dates.js";
 // Calendar and feelings share one selected day. Reading a day never creates it.
-export function DDreviewValidDate(date) {
-  if (
-    typeof date !== "string" ||
-    !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
-    +date.slice(0, 4) < 1900
-  )
-    return false;
-  const value = new Date(date + "T12:00:00Z");
-  return Number.isFinite(+value) && value.toISOString().slice(0, 10) === date;
-}
+export const DDreviewValidDate = DDvalidDate;
 // Counted and waiting cards take no minutes from the day.
 function DDreviewMinutes(block) {
   return block?.measure === "count" || block?.measure === "wait"
     ? 0
     : Number(block?.min) || 0;
 }
-export function DDreviewShift(date, amount) {
-  const value = new Date(date + "T12:00:00Z");
-  value.setUTCDate(value.getUTCDate() + amount);
-  return value.toISOString().slice(0, 10);
-}
+export const DDreviewShift = DDaddDays;
 const DDreviewFormats = new Map();
 function DDreviewFormatter(language, calendar, options) {
   const key = JSON.stringify([language, calendar, options]);
@@ -1698,7 +1686,6 @@ function DDReviewDay({
           ),
         ),
       ),
-    playful && h(playful.DayStickers, { day, date, onChange: fn => setData(old => ({...old, days: {...old.days, [date]: fn(old.days[date] || DDreviewEmptyDay(date))}})) }),
     !feelingsOnly &&
       h(DDReviewTasks, {
         React: R,
@@ -1770,70 +1757,71 @@ function DDReviewDay({
         onScheduleReminder,
         onToast,
       }),
-    feelingsOnly
-      ? h(
-          "section",
-          { className: "dd-review-notes" },
-          h("h2", null, t("Day note", "یادداشت روز")),
-          h("textarea", {
-            value: day.journal || "",
-            rows: 3,
-            maxLength: 4000,
-            dir: "auto",
-            "aria-label": t("Day note", "یادداشت روز"),
-            placeholder: t(
-              "Anything you want to remember about this day…",
-              "هر چیزی که می‌خواهی از این روز یادت بماند…",
+    ((notes) =>
+      feelingsOnly
+        ? h(
+            "section",
+            { className: "dd-review-notes" },
+            h("h2", null, t("Day note", "یادداشت روز")),
+            h("textarea", {
+              value: day.journal || "",
+              rows: 3,
+              maxLength: 4000,
+              dir: "auto",
+              "aria-label": t("Day note", "یادداشت روز"),
+              placeholder: t(
+                "Anything you want to remember about this day…",
+                "هر چیزی که می‌خواهی از این روز یادت بماند…",
+              ),
+              onChange: (event) => {
+                const value = event.target.value;
+                setData((old) => DDreviewField(old, date, "journal", value));
+              },
+            }),
+            h(
+              "small",
+              null,
+              t("Changes save automatically.", "تغییرات خودکار ذخیره می‌شوند."),
             ),
-            onChange: (event) => {
-              const value = event.target.value;
-              setData((old) => DDreviewField(old, date, "journal", value));
-            },
-          }),
+            notes.length > 0 &&
+              h(
+                "details",
+                null,
+                h(
+                  "summary",
+                  null,
+                  t("Notes saved on the board", "نوت‌های ثبت‌شده در برد"),
+                  " · ",
+                  n(notes.length),
+                ),
+                notes.map((note) =>
+                  h("p", { key: note.id, dir: "auto" }, note.label || note.text || DDmediaTitle(note), DDnoteTags(note).length > 0 && h("small", { className: "dd-review-note-tags" }, DDtagText(DDnoteTags(note)))),
+                ),
+              ),
+          )
+        : (day.journal || notes.length > 0) &&
           h(
-            "small",
-            null,
-            t("Changes save automatically.", "تغییرات خودکار ذخیره می‌شوند."),
-          ),
-          day.notes.length > 0 &&
-            h(
-              "details",
-              null,
+            "section",
+            { className: "dd-review-notes brief" },
+            h("h2", null, t("Day note", "یادداشت روز")),
+            day.journal &&
+              h("p", { className: "dd-review-note-text", dir: "auto" }, day.journal),
+            notes.length > 0 &&
               h(
-                "summary",
+                "details",
                 null,
-                t("Notes saved on the board", "نوت‌های ثبت‌شده در برد"),
-                " · ",
-                n(day.notes.length),
+                h(
+                  "summary",
+                  null,
+                  t("Notes saved on the board", "نوت‌های ثبت‌شده در برد"),
+                  " · ",
+                  n(notes.length),
+                ),
+                notes.map((note) =>
+                  h("p", { key: note.id, dir: "auto" }, note.label || note.text || DDmediaTitle(note), DDnoteTags(note).length > 0 && h("small", { className: "dd-review-note-tags" }, DDtagText(DDnoteTags(note)))),
+                ),
               ),
-              day.notes.map((note) =>
-                h("p", { key: note.id, dir: "auto" }, note.kind === "emoji" && playful ? h(playful.Emoji, { emoji: note.text, size: 42 }) : note.label || note.text || DDmediaTitle(note), DDnoteTags(note).length > 0 && h("small", { className: "dd-review-note-tags" }, DDtagText(DDnoteTags(note)))),
-              ),
-            ),
-        )
-      : (day.journal || day.notes.length > 0) &&
-        h(
-          "section",
-          { className: "dd-review-notes brief" },
-          h("h2", null, t("Day note", "یادداشت روز")),
-          day.journal &&
-            h("p", { className: "dd-review-note-text", dir: "auto" }, day.journal),
-          day.notes.length > 0 &&
-            h(
-              "details",
-              null,
-              h(
-                "summary",
-                null,
-                t("Notes saved on the board", "نوت‌های ثبت‌شده در برد"),
-                " · ",
-                n(day.notes.length),
-              ),
-              day.notes.map((note) =>
-                h("p", { key: note.id, dir: "auto" }, note.kind === "emoji" && playful ? h(playful.Emoji, { emoji: note.text, size: 42 }) : note.label || note.text || DDmediaTitle(note), DDnoteTags(note).length > 0 && h("small", { className: "dd-review-note-tags" }, DDtagText(DDnoteTags(note)))),
-              ),
-            ),
-        ),
+          ))((day.notes || []).filter((note) => note.kind !== "emoji")),
   );
 }
 // Calendar, Feelings and Stats share one panel: one tab in the header and
