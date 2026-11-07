@@ -204,7 +204,6 @@ export const DDnoteFamilyCSS = `
 .dd-note-family small{font:500 10px/18px var(--sans);color:var(--ink-3,#777);margin-inline-end:2px}
 .dd-family-chip{all:unset;box-sizing:border-box;cursor:pointer;max-width:100%;padding:2px 8px;border-radius:8px;background:var(--paper);color:var(--ink);border:1px solid var(--rule-2,#0002);font:500 11px/18px var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dd-family-chip:hover,.dd-family-chip:focus-visible{border-color:var(--board-accent,#0D99FF);color:var(--board-accent,#0D99FF)}
-.b4-node[data-member]:not(.selected) .dd-note-under{display:none}
 .dd-note-tag-sheet{position:absolute;left:8px;right:8px;bottom:70px;z-index:110;display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:16px;background:var(--paper);color:var(--ink);border:1px solid var(--rule-2,#0002);box-shadow:0 14px 40px -12px #0007}
 .dd-note-tag-sheet header{display:flex;align-items:baseline;gap:8px;padding:0 4px;min-width:0}
 .dd-note-tag-sheet header small{color:var(--ink-3,#777);font:500 11px var(--sans)}

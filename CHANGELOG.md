@@ -1,3 +1,11 @@
+## 5.46.7 — 2026-11-07
+Branch: claude/project-thread-nxzqpy
+- Code cleanup found with Gemini and checked by Claude. Nothing changes for people: every screen looks and works the same.
+- Removed code nothing used: an old Feelings box in the Calendar code, a date helper in notes, unused imports and values in the board and its layout, a second date check in quick capture, an unused icon, a CSS rule for a class no element has, an unused sticker state setter.
+- The board no longer adds up planned and done minutes on every draw just to throw them away.
+- Quick capture uses the shared "next day" helper instead of its own copy, and the Life code uses the shared board clean-up when tasks are removed instead of a copy of it.
+- Fixed: in the Sections flowchart, a custom color picked after moving the color menu from one section to another could go to the first section. The picker now always saves to the section whose menu is open.
+
 ## 5.46.6 — 2026-11-06
 Branch: claude/project-thread-z9hvdv
 - The code that works out where every card sits on the board moved out of the big board file into its own file (`board-layout.js`). Nothing changes for people: the board looks and works the same.

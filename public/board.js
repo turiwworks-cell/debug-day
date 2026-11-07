@@ -1,4 +1,4 @@
-import { DDcompletion, DDTaskMetadata, DDTaskTags, DDpriorityLabel, DDprogressLabel } from "./planner.js";
+import { DDcompletion, DDTaskMetadata, DDTaskTags, DDpriorityLabel } from "./planner.js";
 import { DDreconcileDay, DDrelation, DDconnectRelation, DDdisconnectRelation, DDrewireRelation } from "./relations.js";
 import { DDconnectionGeometry } from "./connections.js";
 import { DDundoRevert } from "./board-history.js";
@@ -15,11 +15,11 @@ import {
   DDlifeItems,
   DDlifeParentAt,
   DDlifeState, DDlifeHistory, DDlifeCompact, DDlifeMoveBy, DDlifeRemove, DDlifeDescendants, DDlifeAdopt, DDlifePath, DDlifeKeepIn, DDlifeInFrame, DDlifeShown, DDlifeHome, DDlifeRelease,
+  DDSectionChip, DDsetSectionColor, DDsectionPath, DDsectionPalette, DDlifeSendTo, DDlifeTakeOut,
 } from "./life-board.js";
 import{DDBoardRails,DDinstallRailStyles,DDsetRailRole,DDrailPreferences,DDrailScope}from"./rails.js";
 import{DDstickyDateLabel,DDstickyToday,DDstickySnap,DDstickyFormat,DDstickyTodo,DDStickyText,DDinstallStickyStyles}from"./stickies.js";
 import { DDSectionsFlowchart, DDsectionsBus, DDinstallSectionsFlowStyles } from "./sections-flow.js";
-import { DDSectionChip, DDsetSectionColor, DDsectionPath, DDsectionPalette, DDlifeSendTo, DDlifeTakeOut } from "./life-board.js";
 import { DDplaces, DDPlacesBack } from "./places.js";
 import { DDusePen, DDnormalizeStrokes, DDmarksRebase, DDpenCSS } from "./pen.js";
 import { DDuseComments, DDnormalizeComments, DDcommentsTransfer, DDcommentsCSS } from "./comments.js";
@@ -54,7 +54,6 @@ export function DDcreateBoard(deps) {
     S,
     _,
     de,
-    ee,
     ie,
     w,
     z,
@@ -101,7 +100,6 @@ export function DDcreateBoard(deps) {
     day: day,
     days: allDays,
     setup: setup,
-    selectedBlockId: selectedBlockId,
     onSelectBlock: onSelectBlock,
     onUpdateDay: onUpdateDay,
     onUpdateSetup: onUpdateSetup,
@@ -325,7 +323,6 @@ export function DDcreateBoard(deps) {
           icon: "dot",
         },
       laneIds = setup.lanes.map((Y) => Y.id),
-      isScheduled = (Y) => laneIds.includes(Y.lane),
       locked = new Set(model.locked),
       selectedWires = new Set(
         wireSelection && wireSelection.sel === selected
@@ -3552,13 +3549,7 @@ export function DDcreateBoard(deps) {
         },
         [],
       ));
-    const plannedMinutes = day.blocks
-        .filter(isScheduled)
-        .reduce((Y, G) => Y + measure.DDplanMinutes(G), 0),
-      doneMinutes = day.blocks
-        .filter((Y) => isScheduled(Y) && Y.done)
-        .reduce((Y, G) => Y + measure.DDplanMinutes(G), 0),
-      completion = DDcompletion(day, laneIds).percent;
+    const completion = DDcompletion(day, laneIds).percent;
     const shortcutKeys = [
       ["Undo", "Ctrl+Z"],
       ["Redo", "Ctrl+Shift+Z"],

@@ -15,7 +15,6 @@ export function DDstickyDateLabel(date,language) {
 }
 // Canonical sticky text stays plain markdown; rendering never stores a second copy.
 export const DDstickyToday = () => new Date().toLocaleDateString("en-CA");
-export const DDstickyDate = v => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v+"T12:00:00Z")) ? v : undefined;
 export const DDstickyHeight = (width, content) => Math.ceil(Math.max(width, content));
 export const DDstickySnap = (width, base = 240) => Math.abs(width-base) <= Math.abs(width-base*1.5) ? base : base*1.5;
 export function DDstickyFormat(text, start, end, kind) {
