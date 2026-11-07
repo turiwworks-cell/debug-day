@@ -66,45 +66,9 @@ export const DDplayfulStyles = `
 .dd-playful-emoji[data-visible=true][data-idle=true] .dd-sticker-spark{animation:dd-sticker-spark 4s ease-in-out infinite}
 .dd-playful-emoji[data-visible=true][data-idle=true][data-native=true]>span{animation:dd-emoji-breathe 5.2s ease-in-out infinite}
 .dd-playful-emoji.dd-replay{animation:dd-emoji-replay .62s cubic-bezier(.18,.65,.3,1) both}
-.dd-sticker-dialog{display:none;position:fixed;inset:0;margin:auto;width:min(680px,calc(100vw - 24px));max-width:680px;max-height:min(750px,calc(100dvh - 32px));padding:0;border:1px solid var(--rule-2);border-radius:24px;background:var(--paper);color:var(--ink);font:13px/1.6 var(--sans);box-shadow:0 30px 90px #0003;overflow:hidden;text-align:start}
-.dd-sticker-dialog[open]{display:flex;flex-direction:column}.dd-sticker-dialog::backdrop{background:#17152255;backdrop-filter:blur(5px)}
-.dd-sticker-dialog button,.dd-day-stickers button,.dd-task-sticker button{font-family:var(--sans);letter-spacing:0;cursor:pointer}
-.dd-sticker-dialog button:focus-visible,.dd-sticker-dialog input:focus-visible,.dd-sticker-dialog select:focus-visible,.dd-day-stickers button:focus-visible,.dd-task-sticker button:focus-visible{outline:2px solid var(--now);outline-offset:3px}
-.dd-sticker-dialog button:disabled,.dd-day-stickers button:disabled{opacity:.45;cursor:default}
-.dd-sticker-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:20px 22px 12px;flex:none}
-.dd-sticker-heading>div{min-width:0}.dd-sticker-heading h2{font-size:22px;letter-spacing:-.5px;line-height:1.4;margin:0;font-weight:600}.dd-sticker-heading p{font-size:12px;color:var(--ink-3);margin:5px 0 0}
-.dd-playful-close{flex:none;display:grid;place-items:center;width:32px;height:32px;border-radius:10px;border:0;background:var(--wash);color:var(--ink-2);font-size:21px}
-.dd-sticker-toolbar{display:flex;flex-direction:column;gap:12px;padding:0 22px 12px;flex:none}
-.dd-sticker-tabs{display:flex;align-items:center;gap:6px}.dd-sticker-tabs button{padding:8px 14px;border:1px solid transparent;border-radius:12px;font-size:12px;background:transparent;color:var(--ink-3)}
-.dd-sticker-tabs button[aria-selected=true]{color:var(--now);border-color:color-mix(in srgb,var(--now) 24%,transparent);background:color-mix(in srgb,var(--now) 10%,var(--paper))}
-.dd-sticker-search{display:flex;align-items:center;gap:8px;background:var(--wash);border:1px solid var(--rule-2);border-radius:12px;padding:8px 12px;min-width:0}.dd-sticker-search input{width:100%;min-width:0;border:0;outline:none;background:transparent;color:var(--ink);font:13px var(--sans);height:25px}.dd-sticker-search input::placeholder{color:var(--ink-3)}
-.dd-sticker-filters{display:flex;align-items:center;gap:6px;overflow:auto;scrollbar-width:none}.dd-sticker-filters button{flex:none;padding:5px 11px;border-radius:99px;font-size:11px;border:1px solid var(--rule-2);background:transparent;color:var(--ink-3)}
-.dd-sticker-filters button[aria-pressed=true]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
-.dd-sticker-target{display:flex;align-items:center;gap:12px;color:var(--ink-3);font-size:11px}.dd-sticker-target select{flex:1;min-width:0;height:34px;padding:5px 8px;border:1px solid var(--rule-2);border-radius:8px;background:var(--paper);color:var(--ink);font:12px var(--sans)}
-.dd-sticker-scroll{overflow:auto;overscroll-behavior:contain;padding:2px 22px 16px;min-height:120px;scrollbar-width:thin}
-.dd-sticker-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;list-style:none;margin:0;padding:0}
-.dd-sticker-cell{position:relative;min-width:0}.dd-sticker-choice{width:100%;min-height:125px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:12px 8px 9px;border:1px solid var(--rule-2);border-radius:18px;background:var(--wash);color:var(--ink);transition:background .15s,border-color .15s,box-shadow .15s}
-.dd-sticker-choice:hover{background:color-mix(in srgb,var(--now) 6%,var(--paper));border-color:color-mix(in srgb,var(--now) 45%,var(--rule-2));box-shadow:0 5px 16px #0000000a}
-.dd-sticker-choice[aria-pressed=true]{border-color:var(--now);box-shadow:inset 0 0 0 1px var(--now)}
-.dd-sticker-choice>span:last-child{font-size:11px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dd-sticker-favorite{position:absolute;top:6px;inset-inline-end:6px;z-index:2;width:27px;height:27px;display:grid;place-items:center;border:0;border-radius:8px;background:transparent;color:var(--ink-3);opacity:0;font-size:15px}
-.dd-sticker-cell:hover .dd-sticker-favorite,.dd-sticker-cell:focus-within .dd-sticker-favorite,.dd-sticker-favorite[aria-pressed=true]{opacity:1}.dd-sticker-favorite[aria-pressed=true]{color:#D45F85;background:#D45F8512}
-.dd-sticker-empty{display:flex;flex-direction:column;align-items:center;gap:6px;padding:30px 10px;color:var(--ink-3);text-align:center}.dd-sticker-empty p{margin:0;font-size:12px}
-.dd-sticker-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 22px;border-top:1px solid var(--rule-2);flex:none;flex-wrap:wrap}.dd-sticker-footer>div{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.dd-sticker-footer button{padding:7px 10px;min-height:34px;border-radius:9px;font-size:11px;background:transparent;border:1px solid var(--rule-2);color:var(--ink-2)}
-.dd-sticker-footer button:hover{background:var(--wash)}.dd-sticker-footer button.dd-sticker-surprise{color:var(--now);border-color:color-mix(in srgb,var(--now) 35%,var(--rule-2))}
-.dd-sticker-motion[aria-pressed=true]{color:var(--now);background:color-mix(in srgb,var(--now) 8%,transparent)}
-.dd-day-stickers{grid-column:1/-1;border:1px solid var(--rule-2);border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;background:var(--paper);min-width:0;text-align:start}
-.dd-day-sticker-heading{display:flex;align-items:center;gap:12px;justify-content:space-between}.dd-day-sticker-heading>div{min-width:0}.dd-day-sticker-heading h3{font-size:12px;font-weight:500;margin:0}.dd-day-sticker-heading p{font-size:10px;line-height:1.5;color:var(--ink-3);margin:3px 0 0}
-.dd-sticker-add{display:flex;align-items:center;gap:7px;flex:none;padding:7px 10px;min-height:34px;border:1px solid var(--rule-2);border-radius:10px;background:var(--wash);color:var(--ink);font-size:11px}
-.dd-sticker-add:hover{border-color:var(--now);color:var(--now)}.dd-sticker-add>span:first-child{font-size:18px}
-.dd-day-sticker-items{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start}.dd-day-sticker-item{position:relative;flex:none;width:92px;min-width:0}.dd-day-sticker-item>button:first-child{width:100%;display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 5px;border-radius:13px;border:0;background:var(--wash);color:var(--ink-2);font-size:10px}
-.dd-day-sticker-item>button:first-child>span:last-child{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dd-day-sticker-remove{position:absolute;top:-3px;inset-inline-end:-3px;opacity:0;width:23px;height:23px;border-radius:99px;background:var(--paper);border:1px solid var(--rule-2);color:var(--ink-3);display:grid;place-items:center;font-size:15px}
-.dd-day-sticker-item:hover .dd-day-sticker-remove,.dd-day-sticker-item:focus-within .dd-day-sticker-remove{opacity:1}.dd-day-sticker-remove:hover{color:#D45F85}.dd-sticker-show{align-self:flex-start;background:transparent;border:0;padding:4px 0;color:var(--now);font-size:11px}
-.dd-task-sticker{padding:8px 0}.dd-task-sticker>button{display:flex;align-items:center;gap:10px;border:1px solid var(--rule-2);border-radius:12px;background:var(--wash);color:var(--ink);padding:7px 12px;font-size:12px}.dd-task-sticker>button:hover{border-color:var(--now)}
 .dd-playful-burst{position:fixed;inset:0;pointer-events:none!important;z-index:1500;overflow:hidden}.dd-playful-burst i{position:absolute;left:var(--x);top:var(--y);width:8px;height:8px;background:var(--spark);clip-path:polygon(50% 0,62% 35%,100% 50%,62% 65%,50% 100%,38% 65%,0 50%,38% 35%);animation:dd-playful-puff .68s cubic-bezier(.1,.5,.3,1) both;animation-delay:var(--delay)}
-html[data-playful-ready=true] :is(.btn,.dd-review-mood button,.dd-sticker-add,.dd-sticker-choice){transition:background .15s,border-color .15s,box-shadow .15s}
-html[data-playful-ready=true] :is(.btn,.dd-sticker-add):active{scale:.98}
+html[data-playful-ready=true] :is(.btn,.dd-review-mood button){transition:background .15s,border-color .15s,box-shadow .15s}
+html[data-playful-ready=true] .btn:active{scale:.98}
 .dd-review-mood button[aria-pressed=true] .dd-playful-emoji{animation:dd-emoji-replay .5s ease-out}
 @keyframes dd-sticker-float{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-3px) rotate(1.5deg)}}
 @keyframes dd-sticker-blink{0%,90%,96%,100%{transform:scaleY(1)}93%{transform:scaleY(.12)}}
@@ -115,10 +79,10 @@ html[data-playful-ready=true] :is(.btn,.dd-sticker-add):active{scale:.98}
 @keyframes dd-emoji-breathe{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-2px) rotate(2deg)}}
 @keyframes dd-emoji-replay{0%,100%{transform:rotate(0) scale(1)}25%{transform:rotate(-10deg) scale(1.08)}55%{transform:rotate(7deg) scale(1.04)}80%{transform:rotate(-3deg)}}
 @keyframes dd-playful-puff{0%{opacity:0;transform:translate(-50%,-50%) scale(.2)}15%{opacity:1}100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) rotate(80deg) scale(.4)}}
-html[data-reduce-motion=true] :is(.dd-playful-emoji,.dd-playful-emoji *,.dd-sticker-dialog *,.dd-playful-burst *,.dd-review-mood button .dd-playful-emoji){animation:none!important;transition:none!important}
-html[data-reduce-motion=true] .dd-playful-burst{display:none}html[data-reduce-motion=true] :is(.btn,.dd-sticker-add):active{scale:1}
-@media(prefers-reduced-motion:reduce){.dd-playful-emoji,.dd-playful-emoji *,.dd-sticker-dialog *,.dd-playful-burst *,.dd-review-mood button .dd-playful-emoji{animation:none!important;transition:none!important}.dd-playful-burst{display:none}html[data-playful-ready=true] :is(.btn,.dd-sticker-add):active{scale:1}}
-@media(max-width:700px){.dd-sticker-dialog{width:calc(100vw - 20px);max-height:calc(100dvh - 24px);border-radius:20px}.dd-sticker-heading{padding:16px 16px 10px}.dd-sticker-heading h2{font-size:20px}.dd-sticker-heading p{font-size:11px}.dd-sticker-toolbar{padding:0 16px 10px;gap:10px}.dd-sticker-scroll{padding:2px 16px 14px}.dd-sticker-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.dd-sticker-choice{min-height:116px;padding:10px 4px 8px;border-radius:14px}.dd-sticker-choice>span:last-child{font-size:10px}.dd-sticker-footer{padding:10px 16px}.dd-sticker-footer button{font-size:10px;padding:7px 8px;min-height:38px}.dd-day-stickers{padding:11px 12px}.dd-day-sticker-heading p{max-width:200px}.dd-day-sticker-item{width:84px}.dd-day-sticker-items{gap:8px}.dd-day-sticker-remove{opacity:1}.dd-sticker-favorite{opacity:1}.dd-sticker-motion{max-width:160px}.b6 .b2-dock>.b2-icon>span{font-size:9px}}
+html[data-reduce-motion=true] :is(.dd-playful-emoji,.dd-playful-emoji *,.dd-playful-burst *,.dd-review-mood button .dd-playful-emoji){animation:none!important;transition:none!important}
+html[data-reduce-motion=true] .dd-playful-burst{display:none}html[data-reduce-motion=true] .btn:active{scale:1}
+@media(prefers-reduced-motion:reduce){.dd-playful-emoji,.dd-playful-emoji *,.dd-playful-burst *,.dd-review-mood button .dd-playful-emoji{animation:none!important;transition:none!important}.dd-playful-burst{display:none}html[data-playful-ready=true] .btn:active{scale:1}}
+@media(max-width:700px){.b6 .b2-dock>.b2-icon>span{font-size:9px}}
 
 .dd-current-task h2 .dd-playful-emoji{margin-inline-end:8px;vertical-align:middle}
 .dd-review-task-name .dd-playful-emoji{margin-inline-end:6px;vertical-align:middle}

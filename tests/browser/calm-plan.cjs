@@ -47,9 +47,6 @@ const { start, fixture } = require("./harness.cjs");
     assert.equal(await tools.locator(".dchip", { hasText: "Template" }).isVisible(), true);
     await tools.getByRole("button", { name: "Fewer day tools" }).click();
     assert.equal(await tools.getByRole("button", { name: "Later tray" }).isVisible(), false);
-    // A day without stickers shows only a small add button in the Plan's header.
-    assert.equal(await page.locator("#plan .time-key .dd-day-stickers.is-empty .dd-sticker-add").isVisible(), true);
-    assert.equal(await page.getByText("A little you, in your day").count(), 0);
     assert.deepEqual(errors, []);
     await context.close();
     console.log("calm plan: one line per task, steps on demand, quiet day tools");

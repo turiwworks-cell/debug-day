@@ -4,6 +4,7 @@
 import { DDengineCarry, DDengineCopy, DDengineCarryHidden, DDhideEngineCarry } from "./engine.js";
 import { DDplanMinutes, DDduration } from "./measure.js";
 import { DDlowDay, DDlightTasks, DDlightFirst } from "./energy.js";
+import { DDaddDays } from "./dates.js";
 
 // A day this full is a lot for one person: more than 10 hours, or 12 open tasks.
 export const DDfullMinutes = 600, DDfullCount = 12;
@@ -32,7 +33,7 @@ export function DDmoveToDay(data, from, to, id, ensureDay = (date) => ({ date, b
   const target = data.days[to] || ensureDay(to);
   return { ...data, days: { ...data.days, [from]: { ...source, blocks: source.blocks.filter((b) => b.id !== id) }, [to]: { ...target, blocks: [...target.blocks.filter((b) => b.id !== id), structuredClone(block)] } } };
 }
-export const DDnextDay = (date) => new Date(Date.parse(date + "T12:00:00Z") + 864e5).toISOString().slice(0, 10);
+export const DDnextDay = (date) => DDaddDays(date, 1);
 const shortDate = (date, language) => { try { return new Intl.DateTimeFormat(language === "fa" ? "fa-IR" : "en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(date + "T12:00:00Z")); } catch { return date; } };
 
 // Line icons, like the rest of the app (DESIGN.md › Icons).

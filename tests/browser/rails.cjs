@@ -135,7 +135,6 @@ const { start, fixture } = require("./harness.cjs");
       assert.equal(await page.locator(".b2.focus-mode").count(), fullscreenBefore);
       await key("e"); await page.getByRole("dialog", { name: t("Engine", "انجین"), exact: true }).waitFor();
       await page.keyboard.press("Escape");
-      await key("Shift+e"); await page.locator(".dd-sticker-dialog").waitFor(); await page.keyboard.press("Escape");
       assert.deepEqual(errors, []);
       await context.close();
       console.log(`rails ${language} ${mobile ? "390x844" : "1440x900"} ok`);

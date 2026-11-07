@@ -2,6 +2,7 @@ import { DDlifeItems, DDlifeRemoveTree, DDlifeHistory, DDlifeState, DDSectionChi
 import { DDnoteTags, DDtagText } from "./note-tags.js";
 import { DDmediaTitle } from "./media.js";
 import { DDpanelGlyph } from "./panels.js";
+import { DDaddDays } from "./dates.js";
 // Readable, additive search and command palette. React is supplied by the app.
 export function DDsearchDigits(value = "") {
   return String(value).replace(/[۰-۹٠-٩]/g, (c) =>
@@ -18,11 +19,7 @@ export function DDsearchText(value = "") {
     .replace(/\s+/g, " ")
     .trim();
 }
-export function DDshiftDate(date, offset) {
-  const value = new Date(date + "T12:00:00Z");
-  value.setUTCDate(value.getUTCDate() + offset);
-  return value.toISOString().slice(0, 10);
-}
+export const DDshiftDate = DDaddDays;
 const DDpersianCalendar = new Intl.DateTimeFormat("en-US-u-ca-persian", {
   year: "numeric",
   month: "2-digit",
@@ -236,19 +233,19 @@ export function DDbuildSearchIndex(data, today) {
         group: "feelings",
       });
     for (const note of day.notes || [])
-      add({
-        id: "note:" + date + ":" + note.id,
-        itemId: note.id,
-        kind: "note",
-        date,
-        title: note.label || note.text || DDmediaTitle(note),
-        extra: note.kind === "emoji" ? note.text : undefined,
-        // A note's tags: "#tag" finds notes and tasks alike (5.36).
-        tags: note.kind === "emoji" ? [] : DDnoteTags(note),
-        detail: date,
-        done: false,
-        group: "notes",
-      });
+      if (note.kind !== "emoji")
+        add({
+          id: "note:" + date + ":" + note.id,
+          itemId: note.id,
+          kind: "note",
+          date,
+          title: note.label || note.text || DDmediaTitle(note),
+          // A note's tags: "#tag" finds notes and tasks alike (5.36).
+          tags: DDnoteTags(note),
+          detail: date,
+          done: false,
+          group: "notes",
+        });
     if (day.focus || day.journal)
       add({
         id: "journal:" + date,

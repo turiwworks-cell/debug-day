@@ -1,3 +1,12 @@
+## 5.47.0 — 2026-11-07
+Branch: claude/project-thread-nxzqpy
+- Stickers & emoji are gone, as Turinoz asked: the picker, the day sticker row in Plan, Calendar and quick capture, the sticker button on a task, and on the Board the "Stickers & emoji" button, its menu items and Shift+E. Emoji cards no longer show on the Board, in Calendar notes or in search.
+- Nothing saved is deleted: old emoji cards and task stickers stay in the data. A task's own emoji (including an old drawn sticker) and the mood faces in Calendar still show.
+- Fixed: the Habits panel and a habit's details on the Board now follow the app language, so they are Persian in Persian (they were always English).
+- One small file (`dates.js`) now holds the date helpers that were copied in seven files. Old names still work.
+- Removed Board code that could never run: the old Feelings section and card, and the hidden duration handle on cards. Same look and same tools.
+- Found with Gemini and checked by Claude. Tests about the sticker tool were removed or changed; a test now checks that an old drawn sticker on a task still shows in the offline file.
+
 ## 5.46.7 — 2026-11-07
 Branch: claude/project-thread-nxzqpy
 - Code cleanup found with Gemini and checked by Claude. Nothing changes for people: every screen looks and works the same.

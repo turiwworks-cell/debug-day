@@ -6,9 +6,10 @@ import { DDplanMinutes, DDduration } from "./measure.js";
 import { DDbudgetOf, DDbudgetUsed, DDbudgetText, DDgoalOf, DDgoalText } from "./budgets.js";
 import { DDdueBetween, DDdueOn, DDdueText, DDdueDate, DDdueName } from "./deadlines.js";
 import { DDenergyOf, DDenergyLabel } from "./energy.js";
+import { DDaddDays } from "./dates.js";
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
-export const DDcalShift = (date, n) => new Date(Date.parse(date + "T12:00:00Z") + n * 864e5).toISOString().slice(0, 10);
+export const DDcalShift = DDaddDays;
 
 // The week starts on Saturday in Persian and on Monday in English, like the month.
 export function DDweekStart(date, language) {

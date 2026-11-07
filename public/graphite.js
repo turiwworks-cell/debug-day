@@ -223,13 +223,6 @@ html .list .row .rn .ty{display:none}
 }
 html .subtree .dd-add-step{align-self:flex-start;min-height:26px;padding:0 4px;font-size:12px;color:var(--ink-3)}
 html .subtree .dd-add-step:hover{color:var(--ink)}
-html .dd-day-stickers.is-empty{border:0;padding:0;background:none;gap:0}
-html .dd-day-stickers.is-empty .dd-day-sticker-heading{justify-content:flex-start}
-html .dd-day-stickers.is-empty .dd-sticker-add{min-height:28px;padding:0 9px;background:none;border-color:transparent;color:var(--ink-3);font:500 12px/1 var(--sans)}
-html .dd-day-stickers.is-empty .dd-sticker-add:hover{border-color:var(--rule-2);color:var(--ink)}
-html .dd-day-stickers.is-empty .dd-sticker-add>span:first-child{font-size:13px}
-html .time-key>.dd-day-stickers.is-empty{margin-inline-start:auto}
-html .time-key>.dd-day-stickers.is-empty+*{margin-left:0!important}
 
 /* Line icons for panels (5.43): the panel's color draws the icon; in the
    view tabs it takes the tab's own ink. */

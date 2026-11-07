@@ -115,10 +115,6 @@ export function DDcreateBoardLayout(deps) {
       frame.h = Math.max(150, bottom - frame.y, rowY + rowH + PAD - frame.y);
       return frame.y + frame.h;
     }
-    const feelingTopic = (bug) => {
-      const topic = (deps.feelingTopics || []).find(([id]) => id === bug.category);
-      return topic ? t(topic[1], topic[2]) : DDUI("Feeling");
-    };
     // The Engine has its own section around today's tree, apart from Life. It
     // grows and shrinks with what is in it, and a note dropped inside becomes a task.
     function engineFrame(Y, size = {}) {
@@ -171,86 +167,15 @@ export function DDcreateBoardLayout(deps) {
         };
       Y.push(node);
     }
-    // Feelings and Habits have their own sections on the board, in both modes.
-    // Whatever changes here is the same data Plan and Lanes show.
-    function sideSections(Y, ct, attachedBugs, top, left) {
-      const CARD = 280,
-        bugVisible = (n) =>
-          !ddNodeMatches || ddNodeMatches.has("bug:" + day.date + ":" + n.id),
-        linked = new Set(model.links.flatMap((l) => [l.from, l.to])),
-        // Feelings were removed from the app (5.16); old entries stay in the data.
-        freeBugs = [].filter(
-          (bug) =>
-            bugVisible(bug) &&
-            !attachedBugs.has(bug.id) &&
-            (!bug.fixed || linked.has("bug:" + bug.id)),
-        ),
-        // A saved spot counts while it is still in or after its section.
-        near = (saved, auto) =>
-          saved && saved.x >= auto.frame.x - 40 && saved.y >= auto.frame.y + 20
-            ? saved
-            : null;
-      freeBugs.forEach((bug) => attachedBugs.add(bug.id));
-      if (freeBugs.length)
-        top =
-          framePlace(
-            Y,
-            ct,
-            {
-              id: "section:feelings",
-              kind: "frame",
-              section: "feelings",
-              title: "💭 " + t("Feelings", "احساسات"),
-              subtitle: freeBugs.length
-                ? String(freeBugs.length)
-                : t(
-                    "Press + to note how you feel. Drop one on a card to link it.",
-                    "با + حس‌ات را بنویس. روی کارت بیندازی، به آن وصل می‌شود.",
-                  ),
-              color: "#4A4843",
-              textColor: "#fff",
-              x: left,
-              y: top,
-              w: 0,
-              h: 150,
-            },
-            freeBugs,
-            (bug, auto) => {
-              const saved = near(ct["bug:" + bug.id], auto),
-                node = {
-                  id: "bug:" + bug.id,
-                  kind: "bug",
-                  title: bug.text,
-                  subtitle: feelingTopic(bug),
-                  bugId: bug.id,
-                  done: !!bug.fixed,
-                  sectionId: "feelings",
-                  color: DDbugColor(bug),
-                  textColor: "#fff",
-                  x: finite(saved?.x, auto.x),
-                  y: finite(saved?.y, auto.y),
-                  w: CARD,
-                  h: 52,
-                };
-              Y.push(node);
-              return { ...node, custom: !!saved };
-            },
-            CARD,
-          ) + 48;
-      // Habits live in the rail beside the board (Shift+H), not in a section under the Engine.
-      return top;
-    }
     // Lanes: each lane is a section, and each card is a section holding its
-    // steps, feelings and notes. Relations show by placement, so no lines.
-    function lanesLayout(Y, ct, attachedBugs, visible) {
+    // steps and notes. Relations show by placement, so no lines.
+    function lanesLayout(Y, ct, visible) {
       const CARD = 300,
         noteById = new Map((day.notes || []).map((n) => [n.id, n])),
         notesFor = new Map(),
         attachedNotes = new Set(),
         noteVisible = (n) =>
-          !ddNodeMatches || ddNodeMatches.has("note:" + day.date + ":" + n.id),
-        bugVisible = (n) =>
-          !ddNodeMatches || ddNodeMatches.has("bug:" + day.date + ":" + n.id);
+          !ddNodeMatches || ddNodeMatches.has("note:" + day.date + ":" + n.id);
       for (const link of model.links)
         for (const [a, b] of [
           [link.from, link.to],
@@ -266,17 +191,6 @@ export function DDcreateBoardLayout(deps) {
           attachedNotes.add(note.id);
           notesFor.set(owner, [...(notesFor.get(owner) || []), note]);
         }
-      const feelingsFor = (block) =>
-        [].filter(
-          (bug) =>
-            !bug.fixed &&
-            bugVisible(bug) &&
-            !attachedBugs.has(bug.id) &&
-            (bug.blockId === block.id ||
-              (!bug.blockId &&
-                bug.on &&
-                bug.on.toLowerCase() === (block.name || "").toLowerCase())),
-        );
       const stepH = (text, width) =>
         Math.min(
           150,
@@ -330,25 +244,6 @@ export function DDcreateBoardLayout(deps) {
               steps(item.children, depth + 1);
           });
         if (block.expanded !== false) steps(block.subtasks, 0);
-        for (const bug of feelingsFor(block)) {
-          attachedBugs.add(bug.id);
-          members.push({
-            id: "bug:" + bug.id,
-            kind: "bug",
-            title: bug.text,
-            subtitle: feelingTopic(bug),
-            bugId: bug.id,
-            blockId: block.id,
-            memberOf: ref,
-            color: DDbugColor(bug),
-            textColor: "#fff",
-            x: x + 10,
-            y: cy,
-            w: inner,
-            h: 52,
-          });
-          cy += 58;
-        }
         for (const note of notesFor.get(block.id) || []) {
           const height = noteH(note,inner);
           members.push({
@@ -454,9 +349,8 @@ export function DDcreateBoardLayout(deps) {
         };
         top = Math.max(top, placeFrame(frame, blocks, placeCard(lane.id)) + 48);
       }
-      top = sideSections(Y, ct, attachedBugs, top, 48);
       const freeNotes = (day.notes || []).filter(
-        (note) => noteVisible(note) && !attachedNotes.has(note.id),
+        (note) => note.kind !== "emoji" && noteVisible(note) && !attachedNotes.has(note.id),
       );
       if (freeNotes.length)
         top = placeFrame(
@@ -505,7 +399,6 @@ export function DDcreateBoardLayout(deps) {
     const Y = [],
       G = [],
       ct = model.layouts[mode] || {},
-      ot = new Set(),
       St = new Set(visibleKey.split("|")),
       // Today's tree in the Engine starts where the Engine was moved to.
       shift = { x: 0, y: 0 },
@@ -595,42 +488,6 @@ export function DDcreateBoardLayout(deps) {
           Fn.expanded !== !1 && Fn.subtasks?.length
             ? On(Fn.subtasks, Xa, Fn, 1, Dl.color)
             : (Jt += 82);
-          for (const ba of [].filter(
-            (n) =>
-              !ddNodeMatches ||
-              ddNodeMatches.has("bug:" + day.date + ":" + n.id),
-          )) {
-            if (
-              ba.fixed ||
-              ot.has(ba.id) ||
-              !(
-                ba.blockId === Fn.id ||
-                (!ba.blockId &&
-                  ba.on &&
-                  ba.on.toLowerCase() === Fn.name.toLowerCase())
-              )
-            )
-              continue;
-            ot.add(ba.id);
-            const va = `bug:${ba.id}`;
-            (Pt({
-              id: va,
-              kind: "bug",
-              title: ba.text,
-              subtitle: feelingTopic(ba),
-              bugId: ba.id,
-              blockId: Fn.id,
-              parentId: Xa,
-              color: DDbugColor(ba),
-              textColor: "#fff",
-              x: 720,
-              y: Jt,
-              w: 238,
-              h: 52,
-            }),
-              yn(Xa, va, "#D9434A", !0),
-              (Jt += 66));
-          }
           const Pa = de(Fn.subtasks || []);
           (Pt({
             id: Xa,
@@ -685,20 +542,8 @@ export function DDcreateBoardLayout(deps) {
       ct["day:root"] || (Y[0].y = Math.max(60, Jt / 2 - 35) + shift.y);
       engineFrame(Y, shift);
       Object.assign(shift, { x: 0, y: 0, w: 0, h: 0 });
-    } else lanesLayout(Y, ct, ot, St);
-    if (mode === "mindmap")
-      lifeFrame(
-        Y,
-        ct,
-        sideSections(
-          Y,
-          ct,
-          ot,
-          Math.max(60, ...Y.map((n) => n.y + n.h)) + 56,
-          24,
-        ),
-        24,
-      );
+    } else lanesLayout(Y, ct, St);
+    if (mode === "mindmap") lifeFrame(Y);
     // A section's own board: only that section and what is inside it, placed
     // beside today's Engine. Same data as the main board, nothing is copied.
     const lf = Y.find((n) => n.section === "life"), items = DDlifeItems(setup),
@@ -732,6 +577,7 @@ export function DDcreateBoardLayout(deps) {
     }
     for (const Jt of (day.notes || []).filter(
       (n) =>
+        n.kind !== "emoji" &&
         mode !== "lanes" && !roomItem &&
         (!ddNodeMatches ||
           ddNodeMatches.has("note:" + day.date + ":" + n.id)),

@@ -7,7 +7,7 @@ export const DDboardShortcuts = [
   ["V", "Select", "انتخاب"], ["H / Space+drag", "Pan", "حرکت بوم"],
   ["S", "Sticky note", "یادداشت"], ["T", "Text / title", "متن / تایتل"], ["Shift+S", "Section", "سکشن"],
   ["X / Shift+L", "Bent connector", "اتصال شکسته"], ["L", "Straight connector", "اتصال مستقیم"],
-  ["C", "Connector (legacy)", "اتصال (میان‌بر قبلی)"], ["P", "Pen (draw freehand)", "Pen"], ["M", "Comment", "Comment"], ["Shift+M", "All comments", "All comments"], ["B", "Task", "کار"], ["E", "Engine over the board", "انجین روی برد"], ["Tab / D", "Sections flowchart", "فلوچارت سکشن‌ها"], ["Shift+E", "Stickers", "استیکر"],
+  ["C", "Connector (legacy)", "اتصال (میان‌بر قبلی)"], ["P", "Pen (draw freehand)", "Pen"], ["M", "Comment", "Comment"], ["Shift+M", "All comments", "All comments"], ["B", "Task", "کار"], ["E", "Engine over the board", "انجین روی برد"], ["Tab / D", "Sections flowchart", "فلوچارت سکشن‌ها"],
   ["G / Shift+G", "Goal / note rail", "ریل هدف / نوت"], ["Shift+H", "Habits rail", "ریل عادت‌ها"],
   ["Ctrl/Cmd+F", "Search this board", "جست‌وجوی همین برد"],
   ["Shift+1 / F", "Fit the whole board", "نمای کل برد"], ["Shift+2 / Shift+F", "Zoom to selection", "نمای انتخاب"],
@@ -56,7 +56,7 @@ export function DDboardSearchRows(day, lifeItems, visibleNodes = []) {
     } };
     visit(b.subtasks, []);
   }
-  for (const n of day.notes || []) put({ id: "sticky:" + n.id, title: n.kind==="emoji"?(n.label||rows.get("sticky:"+n.id)?.title||n.text):n.text||DDmediaTitle(n), detail: n.kind==="emoji"?n.text:DDtagText(DDnoteTags(n)), tags: DDnoteTags(n), kind: n.kind === "emoji" ? "emoji" : "sticky" });
+  for (const n of day.notes || []) if (n.kind !== "emoji") put({ id: "sticky:" + n.id, title: n.text || DDmediaTitle(n), detail: DDtagText(DDnoteTags(n)), tags: DDnoteTags(n), kind: "sticky" });
   for (const i of lifeItems) put({ id: "life:" + i.id, title: i.text || DDmediaTitle(i), detail: "Feed " + DDtagText(DDnoteTags(i)), tags: DDnoteTags(i), lifeId: i.id, kind: i.type === "section" ? "life-section" : "sticky" });
   return [...rows.values()];
 }
