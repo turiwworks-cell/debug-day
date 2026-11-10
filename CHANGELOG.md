@@ -1,3 +1,8 @@
+## 5.48.1 — 2026-11-10
+Branch: fix/arena-worker-redirect
+- Fix Are.na requests returning 502 on the deployed Worker: Cloudflare rejects the Fetch redirect mode "error". Use "manual" and reject non-success responses without following redirects or forwarding tokens to another host.
+- Add a regression test using Wrangler's actual workerd runtime for block, channel and Premium search requests and redirect rejection; upstream responses use an isolated fake service, not a live account.
+
 ## 5.48.0 — 2026-11-10
 Branch: feat/arena-board
 - Add images from Are.na with a block/channel link or Premium image/channel search, from the Board tools menu, canvas menu or a pasted link.
