@@ -3218,7 +3218,7 @@ export function DDcreateBoard(deps) {
       }, []),
       useEffect(() => {
         const Y = (ot) => {
-            if(ot.isComposing)return;
+            if(ot.isComposing || root.current?.querySelector(".dd-arena-backdrop"))return;
             if(root.current?.contains(ot.target) && (ot.ctrlKey||ot.metaKey) && (ot.target.closest(".dd-note-editor") || (!ot.target.closest("input,textarea,select,[contenteditable=true]") && selectedNode?.kind==="sticky"))) {
               const key=core.shortcutKey(ot),kind=key==="b"&&!ot.shiftKey?"bold":ot.shiftKey&&key==="x"?"strike":ot.shiftKey&&ot.code==="Digit9"?"todo":null;
               if(kind){ot.preventDefault();ot.stopImmediatePropagation();formatSticky(kind);return;}
@@ -4969,6 +4969,7 @@ export function DDcreateBoard(deps) {
           item("parent-look", "Parent note look", "Parent note look", "parentLook", null, {
             children: DDparentLooks.map(([id, name]) => item("parent-look-" + id, name, name, "parentLook", () => noteTools.setLook(id), { checked: noteTools.look === id })),
           }),
+          item("arena", "From Are.na…", "از Are.na…", "photo", () => photos.arena()),
           item("photo", "Photo or video…", "عکس یا ویدیو…", "photo", () => photos.pick()),
           sep("tools-view-sep"),
           item("view", "Canvas settings…", "تنظیمات بوم…", "settings", () => { setViewPanel(true); setProperties(false); setInspector(false); }),
@@ -5210,6 +5211,7 @@ export function DDcreateBoard(deps) {
         }),
         item("more", "More", "بیشتر", "more", null, { children: [
           // Photos also drop or paste straight onto the board (5.38).
+          item("add-arena", "From Are.na…", "از Are.na…", "photo", () => photos.arena(menu.point)),
           item("add-photo", "Add photo here", "افزودن عکس اینجا", "photo", () => photos.pick(menu.point)),
           item("zoom-100", "Zoom to 100%", "زوم ۱۰۰٪", "zoom", () => setZoom(1), { shortcut: "0" }),
           item("fit-day","Fit current day","نمای روز جاری","fitDay",()=>fit(false,"day"),{shortcut:"Shift+3"}),

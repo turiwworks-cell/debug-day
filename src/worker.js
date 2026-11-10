@@ -1,3 +1,4 @@
+import { arenaRead } from "./arena.js";
 import { DDtags, DDcompletion } from "../public/planner.js";
 import { DDreconcileDay } from "../public/relations.js";
 import { DDlifeState, DDlifeAdd, DDlifeUpdate, DDlifeRemove, DDnormalizeLife } from "../public/life-board.js";
@@ -6,7 +7,7 @@ import { DDsyncCopies } from "../public/linked.js";
 import { oauth, oauthRoute, oauthAccess } from "./oauth.js";
 const MAX_BYTES = 1500000;
 const VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"];
-const INFO = { name: "debug-day", title: "Debug Day", version: "5.47.0" };
+const INFO = { name: "debug-day", title: "Debug Day", version: "5.48.0" };
 class HttpError extends Error {
   constructor(status, message) {
     super(message);
@@ -999,13 +1000,14 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url),
       api = url.pathname === "/api/sync",
+      isArena = url.pathname === "/api/arena",
       isMcp = url.pathname === "/mcp";
     if (oauthRoute(url.pathname)) return oauth(request, env);
     if (url.pathname === "/api/media-config" && request.method === "GET")
       return json({ googleClientId: env.GOOGLE_CLIENT_ID || "" }, 200, {
         "Cache-Control": "no-store",
       });
-    if (!api && !isMcp) return env.ASSETS.fetch(request);
+    if (!api && !isMcp && !isArena) return env.ASSETS.fetch(request);
     const origin = request.headers.get("Origin"),
       allowed = new Set([
         url.origin,
@@ -1031,7 +1033,8 @@ export default {
         return new Response(null, { status: 204, headers: cors });
       const access = await authorize(request, env, isMcp ? "mcp" : "sync");
       let response;
-      if (isMcp) {
+      if (isArena) response = await arenaRead(request, env);
+      else if (isMcp) {
         if (request.method !== "POST")
           throw new HttpError(405, "Use POST for MCP");
         if (!request.headers.get("Accept")?.includes("application/json"))
