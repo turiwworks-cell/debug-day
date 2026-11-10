@@ -1610,7 +1610,9 @@ export function DDcreateBoard(deps) {
                       within(ot[n.id], n, habitsArea),
                   ),
             habitRefs = new Set(toHabits.map((n) => n.id)),
-            madeTasks = [];
+            madeTasks = [],
+            movedRef = ct.refs.find(ref => ot[ref] && ct.starts[ref]),
+            strokeDelta = movedRef ? { x: ot[movedRef].x - ct.starts[movedRef].x, y: ot[movedRef].y - ct.starts[movedRef].y } : { x: 0, y: 0 };
           commit((Tt) => {
             // A note dragged into the Engine's section from outside becomes a task
             // there, in the lane it lands nearest to. The note itself is used up.
@@ -1800,7 +1802,7 @@ export function DDcreateBoard(deps) {
             return (
               (Pt.layouts = { ...Pt.layouts, [mode]: yn }),
               (Tt.canvas = { ...(Tt.canvas || {}), board4: Pt }),
-              pen.moveDraft(Tt, ot[ct.refs[0]].x - ct.starts[ct.refs[0]].x, ot[ct.refs[0]].y - ct.starts[ct.refs[0]].y)
+              pen.moveDraft(Tt, strokeDelta.x, strokeDelta.y)
             );
           }, madeTasks.length ? t("The note is now a task in the Engine", "یادداشت حالا یک کار در انجین است") : DDUI("\u062C\u0627\u06CC \u0646\u0648\u062F\u0647\u0627 \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F"));
           if (madeTasks.length) (setSelected(new Set(madeTasks.map((id) => "b:" + id))), onSelectBlock?.(madeTasks[0]));
