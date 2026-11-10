@@ -1,3 +1,4 @@
+import { DDarenaImageURL } from "./arena.js";
 // Photos and videos on a task, kept in the person's own Google Drive.
 // The planner only stores a small link to each file ({ id, name, mime, size });
 // the file itself lives in a "Debug Day" folder in Drive. The app asks only for
@@ -46,6 +47,16 @@ export function DDmediaList(value) {
   for (const raw of value) {
     const item = raw || {},
       id = text(item.id, 200);
+    if (item.provider === "arena") {
+      const blockId = item.blockId, src = DDarenaImageURL(item.src);
+      if (!Number.isSafeInteger(blockId) || blockId < 1 || id !== "arena_" + blockId || !src || seen.has(id)) continue;
+      seen.add(id);
+      out.push({ id, provider: "arena", blockId, name: text(item.name, 200) || "Are.na", mime: "image/jpeg", size: 0,
+        src, original: DDarenaImageURL(item.original) || src,
+        ...(dim(item.w) && dim(item.h) ? { w: dim(item.w), h: dim(item.h) } : {}) });
+      if (out.length >= MAX_ITEMS) break;
+      continue;
+    }
     if (!/^[A-Za-z0-9_-]{10,200}$/.test(id) || seen.has(id)) continue;
     seen.add(id);
     const mime = text(item.mime, 100),
@@ -72,6 +83,7 @@ export function DDmediaKind(item) {
   return mime.startsWith("video/") ? "video" : mime.startsWith("image/") ? "image" : "file";
 }
 export function DDmediaViewUrl(item) {
+  if (item.provider === "arena") return "https://www.are.na/block/" + item.blockId;
   return "https://drive.google.com/file/d/" + encodeURIComponent(item.id) + "/view";
 }
 export function DDmediaSize(bytes, language) {
@@ -279,11 +291,12 @@ function MediaTile({ React: R, item, language, connected, disabled, onRemove }) 
   R.useEffect(() => {
     let live = true;
     setSrc("");
-    if (connected && kind !== "file") thumbnail(item.id).then((s) => live && setSrc(s));
+    if (item.provider === "arena") setSrc(item.src);
+    else if (connected && kind !== "file") thumbnail(item.id).then((s) => live && setSrc(s));
     return () => {
       live = false;
     };
-  }, [item.id, connected]);
+  }, [item.id, item.src, connected]);
   const icon = kind === "video" ? "🎬" : kind === "image" ? "🖼️" : "📄";
   return h(
     "li",
@@ -294,7 +307,7 @@ function MediaTile({ React: R, item, language, connected, disabled, onRemove }) 
         href: DDmediaViewUrl(item),
         target: "_blank",
         rel: "noopener noreferrer",
-        title: (fa ? "باز کردن در درایو: " : "Open in Drive: ") + item.name,
+        title: (item.provider === "arena" ? "Are.na: " : (fa ? "باز کردن در درایو: " : "Open in Drive: ")) + item.name,
       },
       src
         ? h("img", { src, alt: item.name, loading: "lazy", referrerPolicy: "no-referrer", onError: () => setSrc("") })
@@ -308,8 +321,8 @@ function MediaTile({ React: R, item, language, connected, disabled, onRemove }) 
         type: "button",
         disabled,
         className: "dd-media-remove",
-        "aria-label": (fa ? "برداشتن از این کار (در درایو می‌ماند): " : "Remove from this task (stays in Drive): ") + item.name,
-        title: fa ? "برداشتن از این کار؛ فایل در درایو می‌ماند" : "Remove from this task; the file stays in your Drive",
+        "aria-label": (item.provider === "arena" ? (fa ? "برداشتن از این کار: " : "Remove from this task: ") : (fa ? "برداشتن از این کار (در درایو می‌ماند): " : "Remove from this task (stays in Drive): ")) + item.name,
+        title: item.provider === "arena" ? (fa ? "برداشتن لینک از این کار" : "Remove link from this task") : (fa ? "برداشتن از این کار؛ فایل در درایو می‌ماند" : "Remove from this task; the file stays in your Drive"),
         onClick: onRemove,
       },
       "×",

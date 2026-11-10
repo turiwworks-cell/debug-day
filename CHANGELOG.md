@@ -1,3 +1,10 @@
+## 5.48.0 — 2026-11-10
+Branch: feat/arena-board
+- Add images from Are.na with a block/channel link or Premium image/channel search, from the Board tools menu, canvas menu or a pasted link.
+- Images load directly from Are.na; only reference links and board geometry are saved. Existing photo notes keep captions, resizing, connections, Undo and shared storage.
+- Read-only Are.na API requests require the existing private planner connection. The optional ARENA_ACCESS_TOKEN stays in the Worker; search needs a Premium account token.
+- Add paged selection, bilingual desktop/phone controls, offline/error states and image reload without Google Drive authentication.
+
 ## 5.47.0 — 2026-11-07
 Branch: claude/project-thread-nxzqpy
 - Stickers & emoji are gone, as Turinoz asked: the picker, the day sticker row in Plan, Calendar and quick capture, the sticker button on a task, and on the Board the "Stickers & emoji" button, its menu items and Shift+E. Emoji cards no longer show on the Board, in Calendar notes or in search.

@@ -1,3 +1,4 @@
+import { DDarenaPicker, DDarenaCSS, DDarenaInput, DDarenaRequest, DDarenaMedia } from "./arena.js";
 // Photos straight on the Board, like a mood board (5.38).
 // Drop image files on the canvas, paste one (Ctrl/Cmd+V), or pick one from the
 // canvas menu: each becomes a photo card where it landed. The file goes to the
@@ -84,12 +85,22 @@ function PhotoFace({ React: R, item, imageH, connected, language, onConnect }) {
   const [src, setSrc] = R.useState(() => local.get(item.id) || "");
   R.useEffect(() => {
     let live = true;
-    if (local.has(item.id)) setSrc(local.get(item.id));
+    if (item.provider === "arena") setSrc(item.src);
+    else if (local.has(item.id)) setSrc(local.get(item.id));
     else if (connected) DDmediaThumb(item.id, 800).then((s) => live && setSrc(s));
     return () => { live = false; };
-  }, [item.id, connected]);
+  }, [item.id, item.src, connected]);
+  const [refreshing, setRefreshing] = R.useState(false);
+  const refresh = async () => {
+    setRefreshing(true);
+    try {
+      const result = await DDarenaRequest({ op: "block", id: item.blockId });
+      const current = DDarenaMedia(result.data?.[0]);
+      if (current) setSrc(current.src);
+    } catch {} finally { setRefreshing(false); }
+  };
   const isLocal = local.has(item.id) && src === local.get(item.id);
-  return h("div", { className: "dd-photo-face", "data-kind": kind, style: { height: imageH } },
+  return h("div", { className: "dd-photo-face", "data-kind": kind, "data-provider": item.provider || "drive", style: { height: imageH } },
     src
       ? kind === "video" && isLocal
         ? h("video", { src, muted: true, playsInline: true, preload: "metadata", draggable: false })
@@ -97,12 +108,13 @@ function PhotoFace({ React: R, item, imageH, connected, language, onConnect }) {
       : h("span", { className: "dd-photo-wait" },
           h("span", { "aria-hidden": true }, kind === "video" ? "🎬" : "🖼️"),
           h("small", { dir: "auto" }, item.name),
-          !connected && h("button", { type: "button", className: "dd-photo-show", onClick: (e) => { e.stopPropagation(); onConnect(); } }, fa ? "نمایش عکس" : "Show photo")),
+          item.provider === "arena" && h("button", { type: "button", className: "dd-photo-show", disabled: refreshing, onClick: (e) => { e.stopPropagation(); refresh(); } }, refreshing ? (fa ? "در حال دریافت…" : "Loading…") : (fa ? "دوباره دریافت کن" : "Reload image")),
+          !connected && item.provider !== "arena" && h("button", { type: "button", className: "dd-photo-show", onClick: (e) => { e.stopPropagation(); onConnect(); } }, fa ? "نمایش عکس" : "Show photo")),
     kind === "video" && h("span", { className: "dd-photo-play", "aria-hidden": true }, "▶"),
     h("button", {
       type: "button", className: "dd-photo-open", "data-photo-open": true,
-      title: fa ? "باز کردن در گوگل درایو" : "Open in Google Drive",
-      "aria-label": (fa ? "باز کردن در گوگل درایو: " : "Open in Google Drive: ") + item.name,
+      title: item.provider === "arena" ? "Are.na" : (fa ? "باز کردن در گوگل درایو" : "Open in Google Drive"),
+      "aria-label": (item.provider === "arena" ? "Are.na: " : (fa ? "باز کردن در گوگل درایو: " : "Open in Google Drive: ")) + item.name,
       onClick: (e) => { e.stopPropagation(); window.open(DDmediaViewUrl(item), "_blank", "noopener,noreferrer"); },
     }, "↗"));
 }
@@ -140,6 +152,7 @@ export function DDuseBoardPhotos(ctx) {
   const [pending, setPending] = R.useState([]), pendingRef = R.useRef(pending);
   pendingRef.current = pending;
   const [connected, setConnected] = R.useState(DDmediaConnected);
+  const [arena, setArena] = R.useState(null);
   const [over, setOver] = R.useState(false);
   const lastPoint = R.useRef(null), input = R.useRef(null), pickAt = R.useRef(null);
   const patch = (key, change) => setPending((list) => list.map((p) => (p.key === key ? { ...p, ...change } : p)));
@@ -239,7 +252,15 @@ export function DDuseBoardPhotos(ctx) {
       const root = ctxRef.current.root.current;
       if (!root?.contains(e.target) || e.target.closest?.("input,textarea,select,[contenteditable=true]")) return;
       const files = DDphotoFiles(e.clipboardData?.files);
-      if (!files.length) return;
+      if (!files.length) {
+        const text = e.clipboardData?.getData("text/plain");
+        try {
+          if (DDarenaInput(text).op === "search") return;
+          e.preventDefault(); e.stopImmediatePropagation();
+          setArena({ initial: text, point: lastPoint.current || center(), date: ctxRef.current.day.date, room: ctxRef.current.layout.room });
+        } catch {}
+        return;
+      }
       e.preventDefault();
       e.stopImmediatePropagation();
       begin(files.map((f, i) => (f.name && f.name !== "image.png" ? f : new File([f], "pasted-" + new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-") + (i ? "-" + i : "") + "." + (f.type.split("/")[1] || "png"), { type: f.type }))), lastPoint.current);
@@ -264,6 +285,7 @@ export function DDuseBoardPhotos(ctx) {
 
   return {
     photos,
+    arena: (point) => setArena({ initial: "", point: point || center(), date: ctxRef.current.day.date, room: ctxRef.current.layout.room }),
     pending,
     connected,
     photoOf: (ref) => photos.get(ref) || null,
@@ -279,6 +301,13 @@ export function DDuseBoardPhotos(ctx) {
       pending.map((p) => h(PendingCard, { key: p.key, React: R, p, language: ctx.language, onSave: () => upload([p.key]), onCancel: () => drop(p.key) }))),
     // The drop hint and the hidden file picker, on the screen.
     screen: () => h(R.Fragment, null,
+      arena && h(DDarenaPicker, { React: R, language: ctx.language, initial: arena.initial, onClose: () => setArena(null), onAdd: (list) => {
+        const c = ctxRef.current;
+        if (c.day.date !== arena.date || c.layout.room !== arena.room) { c.setStatus?.(fa ? "برد عوض شده؛ دوباره عکس‌ها را انتخاب کن" : "The board changed. Pick the images again."); return; }
+        const sizes = list.map((m) => { const w = DDphotoWidth(m); return { w, h: DDphotoImageHeight(w, m) }; });
+        const spots = DDphotoSpots(arena.point, sizes);
+        list.forEach((m, i) => c.addPhoto(spots[i], { media: [m], ...sizes[i] }));
+      } }),
       over && h("div", { className: "dd-photo-drop-hint", "aria-hidden": true }, h("span", null, fa ? "عکس را اینجا رها کن" : "Drop photos here")),
       h("input", {
         ref: input, type: "file", accept: "image/*,video/*", multiple: true, hidden: true, "data-board-photo-input": true,
@@ -287,7 +316,7 @@ export function DDuseBoardPhotos(ctx) {
   };
 }
 
-export const DDboardPhotosCSS = `
+export const DDboardPhotosCSS = DDarenaCSS + `
 .b6 .b4-sticky[data-photo]{flex-direction:column;background:var(--paper,#fff)!important;color:var(--ink,#141414)!important;border-radius:8px}
 .b6 .b4-sticky[data-photo]>.b4-node-body{flex:0 0 auto!important;background:var(--paper,#fff);border-radius:0 0 8px 8px}
 .b6 .b4-sticky[data-photo] .dd-photo-face{border-radius:8px 8px 0 0}
