@@ -474,6 +474,7 @@ export function DDcreateBoardControls(core) {
         language,
         nodes = [],
         wire,
+        pen,
         onStyle,
         onPreview,
         onWirePatch,
@@ -485,19 +486,21 @@ export function DDcreateBoardControls(core) {
       } = props,
       { h, t } = ui(R, language),
       node = nodes.length === 1 ? nodes[0] : null,
-      locked = nodes.length > 0 && nodes.every((n) => n.locked),
-      base = wire?.color || node?.fill || node?.color || "#FFFFFF",
-      opacity = wire
-        ? (wire.opacity ?? 1)
-        : (node?.opacity ??
-          (nodes.every((n) => n.opacity === nodes[0]?.opacity)
-            ? nodes[0]?.opacity
-            : 1)),
-      box = core.bounds(nodes),
+      locked = !pen && nodes.length > 0 && nodes.every((n) => n.locked),
+      base = pen ? (pen.color || "#1E1E1E") : (wire?.color || node?.fill || node?.color || "#FFFFFF"),
+      opacity = pen
+        ? (pen.opacity ?? 1)
+        : wire
+          ? (wire.opacity ?? 1)
+          : (node?.opacity ??
+            (nodes.every((n) => n.opacity === nodes[0]?.opacity)
+              ? nodes[0]?.opacity
+              : 1)),
+      box = pen ? (pen.box || { x: 0, y: 0, w: 0, h: 0 }) : core.bounds(nodes),
       note = node?.kind === "sticky" || node?.kind === "emoji";
     const preview = (patch) =>
-        wire ? onWirePreview?.(patch) : onPreview?.(patch),
-      apply = (patch) => (wire ? onWirePatch(patch) : onStyle(patch));
+        pen ? pen.onPreview?.(patch) : wire ? onWirePreview?.(patch) : onPreview?.(patch),
+      apply = (patch) => (pen ? pen.onStyle?.(patch) : wire ? onWirePatch(patch) : onStyle(patch));
     return h(
       "aside",
       {
@@ -524,18 +527,26 @@ export function DDcreateBoardControls(core) {
           h(
             "strong",
             null,
-            wire
-              ? t("Connection", "اتصال")
-              : nodes.length === 1
-                ? t("Object properties", "ویژگی‌های شیء")
-                : t("Selection properties", "ویژگی‌های انتخاب"),
+            pen
+              ? (pen.count > 0 ? t("Drawing properties", "ویژگی‌های طراحی") : t("Pen & color", "قلم و رنگ"))
+              : wire
+                ? t("Connection", "اتصال")
+                : nodes.length === 1
+                  ? t("Object properties", "ویژگی‌های شیء")
+                  : t("Selection properties", "ویژگی‌های انتخاب"),
           ),
           h(
             "small",
             null,
-            wire
-              ? t("Appearance & route", "ظاهر و مسیر")
-              : node?.title || nodes.length + t(" objects", " شیء"),
+            pen
+              ? (pen.count > 1
+                  ? pen.count + t(" drawings", " خط")
+                  : pen.count === 1
+                    ? t("1 drawing", "۱ خط")
+                    : t("Freehand & straight lines", "رسم آزاد و خط صاف"))
+              : wire
+                ? t("Appearance & route", "ظاهر و مسیر")
+                : node?.title || nodes.length + t(" objects", " شیء"),
           ),
         ),
         h(
@@ -617,19 +628,129 @@ export function DDcreateBoardControls(core) {
               className: "b6-text-button",
               disabled: locked,
               onClick: () =>
-                onStyle({
-                  fill: null,
-                  opacity: null,
-                  textColor: null,
-                  textSize: null,
-                  textAlign: null,
-                }),
+                pen
+                  ? pen.onStyle({ color: "#1E1E1E", width: 4, opacity: 1 })
+                  : onStyle({
+                      fill: null,
+                      opacity: null,
+                      textColor: null,
+                      textSize: null,
+                      textAlign: null,
+                    }),
             },
             t("Reset appearance", "بازنشانی ظاهر"),
           ),
       ),
-      wire
+      pen
         ? h(
+            R.Fragment,
+            null,
+            h(
+              "section",
+              { className: "b6-property-section" },
+              h("h3", null, t("Stroke & tool", "خط و ابزار قلم")),
+              h(
+                "label",
+                { className: "b6-label" },
+                t("Stroke weight", "ضخامت خط"),
+                h(
+                  "select",
+                  {
+                    "aria-label": t("Stroke weight", "ضخامت خط"),
+                    value: pen.width || 4,
+                    onChange: (e) => pen.onStyle({ width: +e.target.value }),
+                  },
+                  [
+                    [2, "Thin · 2px", "نازک · ۲px"],
+                    [4, "Medium · 4px", "متوسط · ۴px"],
+                    [8, "Thick · 8px", "ضخیم · ۸px"],
+                  ].map(([w, en, fa2]) => h("option", { key: w, value: w }, t(en, fa2))),
+                ),
+              ),
+              h(
+                "label",
+                { className: "b6-check" },
+                h("input", {
+                  type: "checkbox",
+                  checked: !!pen.straight,
+                  onChange: (e) => pen.onStraight(e.target.checked),
+                }),
+                t("Straight line mode (or hold Shift)", "حالت خط صاف (یا نگه‌داشتن Shift)"),
+              ),
+              h(
+                "label",
+                { className: "b6-check" },
+                h("input", {
+                  type: "checkbox",
+                  checked: !!pen.eraser,
+                  onChange: (e) => pen.onEraser(e.target.checked),
+                }),
+                t("Point eraser", "پاک‌کن نقطه‌ای"),
+              ),
+              h(NumberField, {
+                React: R,
+                language,
+                label: t("Eraser size", "اندازهٔ پاک‌کن"),
+                value: pen.eraserSize || 11,
+                min: 4,
+                max: 36,
+                step: 1,
+                onCommit: (v) => pen.onEraserSize(v),
+                suffix: "px",
+              }),
+            ),
+            pen.box &&
+              pen.count > 0 &&
+              h(
+                "details",
+                { className: "b6-property-section", open: true },
+                h("summary", null, t("Position & size", "موقعیت و اندازه")),
+                h(
+                  "div",
+                  { className: "b6-field-grid" },
+                  h(NumberField, {
+                    React: R,
+                    language,
+                    label: "X",
+                    value: pen.box.x,
+                    onCommit: (x) => pen.onPosition({ x }),
+                  }),
+                  h(NumberField, {
+                    React: R,
+                    language,
+                    label: "Y",
+                    value: pen.box.y,
+                    onCommit: (y) => pen.onPosition({ y }),
+                  }),
+                ),
+                h(
+                  "div",
+                  { className: "b6-field-grid" },
+                  h(NumberField, {
+                    React: R,
+                    language,
+                    label: t("Width", "عرض"),
+                    value: pen.box.w,
+                    min: 4,
+                    max: 4000,
+                    step: 4,
+                    onCommit: (width) => pen.onResize({ width }),
+                  }),
+                  h(NumberField, {
+                    React: R,
+                    language,
+                    label: t("Height", "ارتفاع"),
+                    value: pen.box.h,
+                    min: 4,
+                    max: 4000,
+                    step: 4,
+                    onCommit: (height) => pen.onResize({ height }),
+                  }),
+                ),
+              ),
+          )
+        : wire
+          ? h(
             "section",
             { className: "b6-property-section" },
             h("h3", null, t("Line", "خط")),

@@ -1,3 +1,19 @@
+## 5.49.1 — 2026-11-11
+Branch: fix/pen-direction-and-selection
+- Lock Shift drawing to the initial direction and project movement onto that line.
+- Keep drawing-only selection and pen properties separate from previously selected notes.
+- Preserve every existing drawing when erasing would exceed drawing capacity.
+- Restore Shift-click deselection through the drawing bounding box.
+- Apply mixed selection colors and movement in a single undoable operation.
+
+## 5.49.0 — 2026-11-10
+Branch: feat/pen-upgrade
+- Multi-select and group delete for Pen drawings: marquee box selection, Shift+click, Ctrl/Cmd+A and a "Select all" action in the pen bar select drawings together so they can be moved, restyled or deleted at once.
+- Strong interactive Bounding Box for selected drawings: solid frame, dashed sub-boxes for multi-selection, drag-anywhere-inside to move, and 8 resize handles (corners and edges, with Shift for proportional scale and Alt for centered scale).
+- Point / partial eraser: rubbing the eraser across a stroke removes only the touched segment (splitting a line in two when erased through the middle) instead of deleting the entire stroke.
+- Hold Shift while drawing (or toggle Straight line mode in the pen bar / side panel) to draw crisp straight lines.
+- Side Color & Properties panel (`.b6-properties`) and right-click context menu for the Pen tool and selected drawings, matching sticky notes (full ColorPicker, Hex/RGB, opacity slider, stroke weight, straight-line and eraser controls, and X/Y/Width/Height fields).
+
 ## 5.48.1 — 2026-11-10
 Branch: fix/arena-worker-redirect
 - Fix Are.na requests returning 502 on the deployed Worker: Cloudflare rejects the Fetch redirect mode "error". Use "manual" and reject non-success responses without following redirects or forwarding tokens to another host.

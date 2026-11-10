@@ -212,11 +212,11 @@ const {start,fixture}=require('./harness.cjs');
    assert.equal((await life()).strokes,undefined,'undo takes the stroke back');
    await redo();
    assert.equal((await life()).strokes.length,1,'redo brings it again');
-   // Eraser: one touch removes a whole stroke.
+   // Eraser: point eraser splits a stroke where it crosses the middle, and Undo restores the single stroke.
    await page.locator('.dd-pen-bar').getByRole('button',{name:/Eraser/}).click();
    const mid=await toScreen(2090,185);
    await draw([{x:mid.x-30,y:mid.y-40},{x:mid.x,y:mid.y},{x:mid.x+30,y:mid.y+40}]);
-   assert.equal((await today()).canvas.board4.strokes,undefined,'the eraser removed the whole stroke');
+   assert.equal((await today()).canvas.board4.strokes.length,2,'the point eraser split the stroke into two pieces');
    await undo();
    assert.equal((await today()).canvas.board4.strokes.length,1);
    // A two-finger pan on a phone still pans while the pen is on.
