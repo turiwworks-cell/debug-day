@@ -76,6 +76,8 @@ const {join}=require('node:path');
   }
   {
    const {page,context,errors}=await h.context(false),f=await fixture(page,h.origin);
+   // The app currently forces English; exercise the component's RTL support in isolation.
+   await page.route('**/comments.js',route=>route.fulfill({contentType:'text/javascript',body:require('node:fs').readFileSync(join(__dirname,'../../public/comments.js'),'utf8').replace('language = ctx.language || "en"','language = "fa"')}));
    f.data.setup.preferences.language='fa';
    f.data.days[f.date].canvas={board4:{layouts:{mindmap:{}},comments:[{id:'persian',x:180,y:220,pinned:true,thread:[{id:'fa1',text:'اینجا ریتم تصویر آرام‌تر شود؟',at:'2026-11-11T08:00:00.000Z'}]}]}};
    await page.evaluate(f=>{localStorage.setItem('debug-day:v2',JSON.stringify(f.data));localStorage.setItem('debug-day:ui',JSON.stringify({view:'board'}));localStorage.setItem('debug-day:board-view:'+f.date,JSON.stringify({mode:'mindmap',camera:{x:30,y:80,z:0.8}}));},f);
