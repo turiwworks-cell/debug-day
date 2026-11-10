@@ -204,6 +204,8 @@ html[lang="fa"] body *{letter-spacing:0!important}
     render();
   }
   function lockedBoard(target) {
+    // Conversation cards remain usable while one-finger swipes scroll the page.
+    if (target && target.closest && target.closest('.dd-thread')) return null;
     var vp = target && target.closest && target.closest('.b2-viewport');
     // full screen can't scroll the page, so the board is always live there
     return vp && vp.__ddLock && vp.__ddLock.locked && !vp.closest('.focus-mode') ? vp : null;

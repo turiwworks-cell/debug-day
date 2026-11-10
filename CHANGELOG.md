@@ -1,3 +1,11 @@
+## 5.50.0 — 2026-11-11
+Branch: feat/comments-stay-open
+- Pin individual conversations open on the board, including after reload and sync.
+- Keep replies in the conversation being edited when several comments are open.
+- Refresh conversation cards with clearer messages, reply grouping and a growing composer.
+- Save unsent replies locally, preserve composition input and localize conversation controls.
+- Keep pinned cards visible during board navigation; closing a card explicitly unpins it.
+
 ## 5.49.1 — 2026-11-11
 Branch: fix/pen-direction-and-selection
 - Lock Shift drawing to the initial direction and project movement onto that line.

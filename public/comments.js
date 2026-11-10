@@ -38,6 +38,7 @@ export function DDnormalizeComments(list, { life = false } = {}) {
       id: c.id,
       ...(on ? { on, fx: frac(c.fx), fy: frac(c.fy) } : { ...(life ? { parent: typeof c.parent === "string" ? c.parent.slice(0, 80) : "" } : {}), x: num(c.x), y: num(c.y) }),
       ...(c.done === true ? { done: true } : {}),
+      ...(c.pinned === true ? { pinned: true } : {}),
       thread,
     });
     if (out.length >= 500) break;
@@ -69,17 +70,18 @@ export function DDcommentsTransfer(d, from, to) {
 }
 
 // Soft times: "just now", "12 min ago", "today", "yesterday", "Tue 3 Nov".
-export function DDcommentTime(at, now = Date.now()) {
+export function DDcommentTime(at, now = Date.now(), language = "en") {
   const t = Date.parse(at);
   if (!Number.isFinite(t)) return "";
   const s = (now - t) / 1000;
-  if (s < 60) return "just now";
-  if (s < 3600) return Math.floor(s / 60) + " min ago";
+  const fa = language === "fa";
+  if (s < 60) return fa ? "همین الان" : "just now";
+  if (s < 3600) return fa ? Math.floor(s / 60).toLocaleString("fa-IR") + " دقیقه پیش" : Math.floor(s / 60) + " min ago";
   const a = new Date(t), b = new Date(now), day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
   const days = Math.round((day(b) - day(a)) / 864e5);
-  if (days === 0) return "today";
-  if (days === 1) return "yesterday";
-  return a.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", ...(a.getFullYear() !== b.getFullYear() ? { year: "numeric" } : {}) }).replace(",", "");
+  if (days === 0) return fa ? "امروز" : "today";
+  if (days === 1) return fa ? "دیروز" : "yesterday";
+  return a.toLocaleDateString(fa ? "fa-IR" : "en-GB", { weekday: "short", day: "numeric", month: "short", ...(a.getFullYear() !== b.getFullYear() ? { year: "numeric" } : {}) }).replace(",", "");
 }
 
 const newId = (p) => p + Math.random().toString(36).slice(2, 10);
@@ -102,44 +104,62 @@ function writeList(d, life, list) {
   d.canvas = { ...(d.canvas || {}), board4: board };
 }
 
-function Thread({ React: R, comment, place, sheet, side, drop, onPost, onEdit, onRemove, onResolve, onDelete, onClose }) {
-  const h = R.createElement, [text, setText] = R.useState(""), [edit, setEdit] = R.useState(null), box = R.useRef(null), list = R.useRef(null);
+function Thread({ React: R, comment, place, sheet, side, drop, offset, language = "en", draftKey, focus, onActivate, onPin, onPost, onEdit, onRemove, onResolve, onDelete, onClose }) {
+  const h = R.createElement, t = (en, fa) => language === "fa" ? fa : en;
+  const [text, setText] = R.useState(() => {
+    try { return (localStorage.getItem(draftKey) || "").slice(0, 2000); } catch { return ""; }
+  }), [edit, setEdit] = R.useState(null), box = R.useRef(null), list = R.useRef(null), composing = R.useRef(false);
   const fresh = !comment.thread.length;
-  R.useEffect(() => { box.current?.focus({ preventScroll: true }); }, [comment.id]);
+  const changeText = value => {
+    setText(value);
+    try { if (value) localStorage.setItem(draftKey, value); else localStorage.removeItem(draftKey); } catch {}
+  };
+  R.useEffect(() => { if (focus || fresh) box.current?.focus({ preventScroll: true }); }, [comment.id, focus]);
+  R.useEffect(() => {
+    const el = box.current;
+    if (el) { el.style.height = "auto"; el.style.height = Math.min(144, Math.max(56, el.scrollHeight)) + "px"; }
+  }, [text]);
   R.useEffect(() => { if (list.current) list.current.scrollTop = list.current.scrollHeight; }, [comment.thread.length]);
-  const post = () => { if (!text.trim()) return; onPost(text.trim()); setText(""); };
+  const post = () => {
+    if (!text.trim() || composing.current) return;
+    if (onPost(text.trim()) === false) return;
+    changeText(""); box.current?.focus({ preventScroll: true });
+  };
   const keys = (e, send) => {
     e.stopPropagation();
-    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); }
-    else if (e.key === "Escape") { e.preventDefault(); if (edit) setEdit(null); else onClose(); }
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing && !composing.current && e.keyCode !== 229) { e.preventDefault(); send(); }
+    else if (e.key === "Escape") { e.preventDefault(); if (edit) setEdit(null); else if (comment.pinned) box.current?.blur(); else onClose(); }
   };
-  return h("section", { className: "dd-thread" + (sheet ? " dd-thread-sheet" : ""), "data-side": side, "data-drop": drop || undefined, role: "dialog", "aria-label": fresh ? "New comment" : "Comment",
-    "data-comment-thread": comment.id, onPointerDown: (e) => e.stopPropagation(), onDoubleClick: (e) => e.stopPropagation(), onContextMenu: (e) => e.stopPropagation(), onWheel: (e) => e.stopPropagation() },
+  const icon = path => h("svg", { width: 16, height: 16, viewBox: "0 0 20 20", fill: "none", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true }, h("path", { d: path }));
+  const pinLabel = comment.pinned ? t("Unpin comment", "برداشتن سنجاق کامنت") : t("Keep comment open", "باز نگه‌داشتن کامنت");
+  return h("section", { className: "dd-thread" + (sheet ? " dd-thread-sheet" : ""), "data-side": side, "data-drop": drop || undefined, "data-pinned": comment.pinned || undefined, dir: language === "fa" ? "rtl" : "ltr", role: "dialog", "aria-label": fresh ? t("New comment", "کامنت جدید") : t("Comment", "کامنت"),
+    "data-comment-thread": comment.id, style: offset === undefined ? undefined : { left: offset, right: "auto" }, onPointerEnter: onActivate, onFocus: onActivate, onPointerDown: e => { e.stopPropagation(); onActivate(); }, onDoubleClick: e => e.stopPropagation(), onContextMenu: e => e.stopPropagation(), onWheel: e => e.stopPropagation() },
     h("header", null,
-      h("small", { dir: "auto" }, place),
-      !fresh && h("button", { type: "button", className: "dd-thread-icon", "data-resolve": true, "aria-pressed": !!comment.done, title: comment.done ? "Reopen" : "Resolve · hides it from the board", "aria-label": comment.done ? "Reopen comment" : "Resolve comment", onClick: onResolve },
-        h("svg", { width: 16, height: 16, viewBox: "0 0 20 20", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true }, h("path", { d: "M4 10.5l4 4 8-9" }))),
-      !fresh && h("button", { type: "button", className: "dd-thread-icon", "data-delete-thread": true, title: "Delete comment", "aria-label": "Delete comment", onClick: onDelete },
-        h("svg", { width: 16, height: 16, viewBox: "0 0 20 20", fill: "none", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true }, h("path", { d: "M3.5 5.5h13M8 5.5V3h4v2.5M5.5 5.5l1 12h7l1-12" }))),
-      h("button", { type: "button", className: "dd-thread-icon", title: "Close", "aria-label": "Close comment", onClick: onClose }, "×")),
-    comment.thread.length > 0 && h("ol", { ref: list },
-      comment.thread.map((m) => h("li", { key: m.id, "data-message-id": m.id },
+      h("div", { className: "dd-thread-heading" }, h("strong", null, fresh ? t("Leave a thought", "یک فکر بنویس") : comment.done ? t("Resolved conversation", "گفتگوی حل‌شده") : t("Conversation", "گفتگو")), h("small", { dir: "auto", title: place }, place)),
+      !fresh && h("button", { type: "button", className: "dd-thread-icon", "data-comment-pin": true, "aria-pressed": !!comment.pinned, "aria-label": pinLabel, title: pinLabel, onClick: onPin }, icon("M7 3h6l-1 5 3 3v1H5v-1l3-3-1-5M10 12v5")),
+      !fresh && h("button", { type: "button", className: "dd-thread-icon", "data-resolve": true, "aria-pressed": !!comment.done, title: comment.done ? t("Reopen", "باز کردن دوباره") : t("Resolve comment", "حل کردن کامنت"), "aria-label": comment.done ? t("Reopen comment", "باز کردن دوبارهٔ کامنت") : t("Resolve comment", "حل کردن کامنت"), onClick: onResolve }, icon("M4 10.5l4 4 8-9")),
+      !fresh && h("button", { type: "button", className: "dd-thread-icon dd-thread-delete", "data-delete-thread": true, title: t("Delete comment", "حذف کامنت"), "aria-label": t("Delete comment", "حذف کامنت"), onClick: onDelete }, icon("M3.5 5.5h13M8 5.5V3h4v2.5M5.5 5.5l1 12h7l1-12")),
+      h("button", { type: "button", className: "dd-thread-icon", title: comment.pinned ? t("Close and unpin", "بستن و برداشتن سنجاق") : t("Close", "بستن"), "aria-label": t("Close comment", "بستن کامنت"), onClick: onClose }, icon("M5 5l10 10M15 5L5 15"))),
+    comment.pinned && h("div", { className: "dd-thread-kept" }, t("Stays open on the board", "روی برد باز می‌ماند")),
+    fresh && h("p", { className: "dd-thread-welcome" }, t("A question, an idea, or something to come back to.", "یک سؤال، یک ایده، یا چیزی برای برگشتن به آن.")),
+    comment.thread.length > 0 && h("ol", { ref: list, "aria-label": t("Messages", "پیام‌ها"), "aria-live": "polite", "aria-relevant": "additions text" },
+      comment.thread.map((m, index) => h("li", { key: m.id, "data-message-id": m.id, "data-first": index === 0 || undefined },
+        index === 1 && h("small", { className: "dd-thread-reply-label" }, t("Replies", "پاسخ‌ها")),
         edit?.id === m.id
-          ? h("form", { className: "dd-thread-edit", onSubmit: (e) => { e.preventDefault(); if (edit.text.trim()) onEdit(m.id, edit.text.trim()); setEdit(null); } },
-              h("textarea", { autoFocus: true, dir: "auto", value: edit.text, rows: 2, maxLength: 2000, "aria-label": "Edit message", onChange: (e) => setEdit({ ...edit, text: e.target.value }),
-                onKeyDown: (e) => keys(e, () => { if (edit.text.trim()) onEdit(m.id, edit.text.trim()); setEdit(null); }) }),
-              h("span", null, h("button", { type: "button", onClick: () => setEdit(null) }, "Cancel"), h("button", { type: "submit", className: "solid" }, "Save")))
+          ? h("form", { className: "dd-thread-edit", onSubmit: e => { e.preventDefault(); if (edit.text.trim()) { onEdit(m.id, edit.text.trim()); setEdit(null); } } },
+              h("textarea", { autoFocus: true, dir: "auto", value: edit.text, rows: 2, maxLength: 2000, "aria-label": t("Edit message", "ویرایش پیام"), onChange: e => setEdit({ ...edit, text: e.target.value }), onCompositionStart: () => { composing.current = true; }, onCompositionEnd: () => { composing.current = false; }, onKeyDown: e => keys(e, () => { if (edit.text.trim()) { onEdit(m.id, edit.text.trim()); setEdit(null); } }) }),
+              h("span", null, h("button", { type: "button", onClick: () => setEdit(null) }, t("Cancel", "لغو")), h("button", { type: "submit", className: "solid", disabled: !edit.text.trim() }, t("Save", "ذخیره"))))
           : h(R.Fragment, null,
-              h("p", { dir: "auto" }, m.text),
+              h("p", { dir: "auto", className: "dd-thread-message" }, m.text),
               h("footer", null,
-                h("time", { dateTime: m.at, title: m.at ? new Date(m.at).toLocaleString() : undefined }, DDcommentTime(m.at) + (m.edited ? " · edited" : "")),
-                h("button", { type: "button", "aria-label": "Edit message", onClick: () => setEdit({ id: m.id, text: m.text }) }, "Edit"),
-                h("button", { type: "button", "aria-label": "Delete message", onClick: () => onRemove(m.id) }, "Delete")))))),
-    h("form", { className: "dd-thread-new", onSubmit: (e) => { e.preventDefault(); post(); } },
-      h("textarea", { ref: box, dir: "auto", rows: fresh ? 2 : 1, value: text, maxLength: 2000, placeholder: fresh ? "Write a comment…" : "Reply…", "aria-label": fresh ? "Write a comment" : "Reply",
-        onChange: (e) => setText(e.target.value), onKeyDown: (e) => keys(e, post) }),
-      h("button", { type: "submit", className: "solid", disabled: !text.trim() }, fresh ? "Post" : "Reply")));
+                h("time", { dateTime: m.at, title: m.at ? new Date(m.at).toLocaleString(language === "fa" ? "fa-IR" : "en-GB") : undefined }, DDcommentTime(m.at, Date.now(), language) + (m.edited ? t(" · edited", " · ویرایش‌شده") : "")),
+                h("button", { type: "button", "aria-label": t("Edit message", "ویرایش پیام"), onClick: () => setEdit({ id: m.id, text: m.text }) }, t("Edit", "ویرایش")),
+                h("button", { type: "button", "aria-label": t("Delete message", "حذف پیام"), onClick: () => onRemove(m.id) }, t("Delete", "حذف"))))))),
+    h("form", { className: "dd-thread-new", onSubmit: e => { e.preventDefault(); post(); } },
+      h("textarea", { ref: box, dir: "auto", rows: 2, value: text, maxLength: 2000, placeholder: fresh ? t("What’s on your mind?", "چه چیزی در ذهنت است؟") : t("Add to the conversation…", "به گفتگو اضافه کن…"), "aria-label": fresh ? t("Write a comment", "نوشتن کامنت") : t("Reply", "پاسخ"), onChange: e => changeText(e.target.value), onCompositionStart: () => { composing.current = true; }, onCompositionEnd: () => { composing.current = false; }, onKeyDown: e => keys(e, post) }),
+      h("div", { className: "dd-thread-compose-footer" }, h("small", null, text.length > 1800 ? text.length + " / 2000" : t("Enter to send · Shift+Enter for a new line", "Enter برای ارسال · Shift+Enter برای خط جدید")), h("button", { type: "submit", className: "solid", disabled: !text.trim() }, fresh ? t("Post", "ثبت") : t("Reply", "پاسخ")))));
 }
+
 
 // The comments on a board. `ctx` comes from the board.
 export function DDuseComments(ctx) {
@@ -147,10 +167,11 @@ export function DDuseComments(ctx) {
   const [open, setOpen] = R.useState(null), // { key } of a saved comment, or { draft }
     [listOpen, setListOpen] = R.useState(false),
     [resolvedTab, setResolvedTab] = R.useState(false),
+    [raised, setRaised] = R.useState(null),
     [drag, setDrag] = R.useState(null),
     pending = R.useRef(null), ctxRef = R.useRef(ctx);
   ctxRef.current = ctx;
-  const active = ctx.tool === "comment";
+  const active = ctx.tool === "comment", language = ctx.language || "en", t = (en, fa) => language === "fa" ? fa : en;
   const dayRaw = ctx.day.canvas?.board4?.comments, lifeRaw = ctx.setup.life?.comments, items = ctx.items;
   const all = R.useMemo(() => [
     ...DDnormalizeComments(dayRaw).map((c) => ({ ...c, life: false })),
@@ -167,9 +188,9 @@ export function DDuseComments(ctx) {
   const short = (s, n = 34) => { s = String(s || "").replace(/\*\*|~~/g, "").replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
   const sectionName = (id) => items.find((i) => i.id === id)?.text || "Section";
   function placeOf(c) {
-    if (c.on) return "On “" + (short(titleOf(c.on)) || "a card") + "”";
-    if (c.life) return c.parent ? "In " + short(sectionName(c.parent)) : "In the Feed";
-    return "On this day's board";
+    if (c.on) return t("On “", "روی «") + (short(titleOf(c.on)) || t("a card", "یک کارت")) + t("”", "»");
+    if (c.life) return c.parent ? t("In ", "در ") + short(sectionName(c.parent)) : t("In the Feed", "در فید");
+    return t("On this day's board", "روی برد این روز");
   }
   // Where each pin sits on this board (board points), or nothing when its home is not here.
   function spot(c) {
@@ -200,11 +221,11 @@ export function DDuseComments(ctx) {
     ctxRef.current.commit((d) => { writeList(d, life, change(readList(d, life))); return d; }, message);
   }
   const patchComment = (c, fn, message) => write(c.life, (list) => list.map((x) => (x.id === c.id ? fn(x) : x)), message);
-  function post(text) {
-    const c = openComment;
-    if (!c) return;
+  function post(c, text) {
+    if (!c) return false;
+    if (c.thread.length >= 200) { ctxRef.current.setStatus(t("This conversation is full. Start a new comment.", "این گفتگو پر است. یک کامنت جدید بساز.")); return false; }
     const message = { id: newId("m-"), text, at: nowStamp() };
-    if (open.draft) {
+    if (c.draft) {
       const { draft, life, ...anchor } = c;
       write(life, (list) => [...list, { ...anchor, thread: [message] }], "Comment added");
       setOpen({ key: (life ? "L:" : "D:") + c.id });
@@ -213,7 +234,7 @@ export function DDuseComments(ctx) {
   }
   function removeComment(c, message = "Comment deleted · Undo to restore") {
     write(c.life, (list) => list.filter((x) => x.id !== c.id), message);
-    setOpen(null);
+    if (openKey === keyOf(c)) setOpen(null);
   }
   // The anchor for a spot: a card under it, the section it is in, or the day.
   function anchorAt(clientX, clientY, point) {
@@ -307,8 +328,8 @@ export function DDuseComments(ctx) {
       if (!moved) { setOpen(openKey === key ? null : { key }); return; }
       const point = ctxRef.current.toWorld(ev.clientX, ev.clientY), anchor = anchorAt(ev.clientX, ev.clientY, point);
       if (!anchor) return;
-      const { life, ...where } = anchor, { id: cid, done, thread } = c;
-      const next = { id: cid, ...where, ...(done ? { done } : {}), thread };
+      const { life, ...where } = anchor, { id: cid, done, pinned, thread } = c;
+      const next = { id: cid, ...where, ...(done ? { done } : {}), ...(pinned ? { pinned } : {}), thread };
       ctxRef.current.commit((d) => {
         writeList(d, c.life, readList(d, c.life).filter((x) => x.id !== cid));
         writeList(d, life, [...readList(d, life), next]);
@@ -334,13 +355,22 @@ export function DDuseComments(ctx) {
 
   const phone = typeof matchMedia === "function" && matchMedia("(max-width:700px)").matches;
   const thread = (c, sheet, side, drop) => h(Thread, {
-    React: R, key: keyOf(c), comment: c, place: placeOf(c), sheet, side, drop,
-    onPost: post,
+    React: R, key: keyOf(c), comment: c, place: placeOf(c), sheet, side, drop, language,
+    offset: sheet ? undefined : leftOf(spot(c), side),
+    draftKey: "debug-day:comment-draft:" + (c.life ? "feed" : ctx.day.date) + ":" + c.id,
+    focus: openKey === keyOf(c),
+    onActivate: () => setRaised(keyOf(c)),
+    onPin: () => { patchComment(c, x => { const { pinned, ...rest } = x; return pinned ? rest : { ...rest, pinned: true }; }, t("Comment updated", "کامنت به‌روز شد")); setOpen({ key: keyOf(c) }); },
+    onPost: text => post(c, text),
     onEdit: (mid, text) => patchComment(c, (x) => ({ ...x, thread: x.thread.map((m) => (m.id === mid ? { ...m, text, edited: nowStamp() } : m)) }), null),
     onRemove: (mid) => (c.thread.length <= 1 ? removeComment(c) : patchComment(c, (x) => ({ ...x, thread: x.thread.filter((m) => m.id !== mid) }), "Message deleted")),
     onResolve: () => { patchComment(c, (x) => { const { done, ...rest } = x; return done ? rest : { ...rest, done: true }; }, c.done ? "Comment reopened" : "Comment resolved · find it in Comments"); if (!c.done) setOpen(null); },
     onDelete: () => removeComment(c),
-    onClose: () => setOpen(null),
+    onClose: () => {
+      if (c.pinned) patchComment(c, x => { const { pinned, ...rest } = x; return rest; }, null);
+      if (c.draft || openKey === keyOf(c)) setOpen(null);
+      ctx.viewport.current?.focus({ preventScroll: true });
+    },
   });
   const shownPins = all.filter((c) => !c.done || keyOf(c) === openKey).map((c) => ({ c, at: drag?.key === keyOf(c) ? drag.at : spot(c) })).filter((p) => p.at);
   if (open?.draft) { const at = spot(open.draft); if (at) shownPins.push({ c: open.draft, at }); }
@@ -355,6 +385,13 @@ export function DDuseComments(ctx) {
   const dropOf = (at) => {
     const cam = ctx.getCamera(), hgt = ctx.viewport.current?.clientHeight || 800;
     return cam.y + at.y * cam.z < hgt * 0.45;
+  };
+  const leftOf = (at, side) => {
+    if (!at) return undefined;
+    const cam = ctx.getCamera(), w = ctx.viewport.current?.clientWidth || 1200;
+    const x = cam.x + at.x * cam.z, width = phone ? Math.min(300, w - 32) : 328;
+    const preferred = side === "start" ? -width - 8 : 36;
+    return x < 0 || x > w ? preferred : Math.max(8 - x, Math.min(w - width - 8 - x, preferred));
   };
   const counts = { open: all.filter((c) => !c.done).length, done: all.filter((c) => c.done).length };
   const listed = all.filter((c) => !!c.done === resolvedTab);
@@ -372,12 +409,12 @@ export function DDuseComments(ctx) {
     // Inside the board's world: the pins, each with its thread when open (desktop).
     world: () => h("div", { className: "dd-pins", "aria-label": "Comments" },
       shownPins.map(({ c, at }) => {
-        const key = keyOf(c), isOpen = open?.draft ? c === open.draft : open?.key === key;
-        return h("div", { key, className: "dd-pin", "data-comment-id": c.id, "data-comment-home": c.life ? "feed" : "day", "data-open": isOpen || undefined, "data-done": c.done || undefined, style: { left: at.x, top: at.y } },
+        const key = keyOf(c), isOpen = (c.pinned && !c.done) || (open?.draft ? c === open.draft : open?.key === key);
+        return h("div", { key, className: "dd-pin", "data-comment-id": c.id, "data-comment-home": c.life ? "feed" : "day", "data-open": isOpen || undefined, "data-active": raised === key || undefined, "data-pinned": c.pinned || undefined, "data-done": c.done || undefined, style: { left: at.x, top: at.y } },
           h("button", { type: "button", className: "dd-pin-dot", "aria-label": c.draft ? "New comment" : "Comment: " + short(c.thread[0]?.text, 60) + (c.thread.length > 1 ? " · " + c.thread.length + " messages" : ""), "aria-expanded": isOpen,
             title: c.draft ? "" : short(c.thread[0]?.text, 80), onPointerDown: (e) => (c.draft ? e.stopPropagation() : pinDown(e, c)), onKeyDown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen(isOpen ? null : { key }); } }, onContextMenu: (e) => { e.preventDefault(); e.stopPropagation(); } },
             c.thread.length > 1 ? h("b", null, c.thread.length) : h("svg", { width: 14, height: 14, viewBox: "0 0 20 20", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true }, h("path", { d: "M5 6h10M5 10h6" }))),
-          isOpen && !phone && thread(openComment, false, sideOf(at), dropOf(at)));
+          isOpen && (!phone || c.pinned) && thread(c, false, sideOf(at), dropOf(at)));
       })),
     // Over the board while the comment tool is on: a click places a comment.
     capture: () => active && h("div", { className: "dd-comment-capture", "aria-hidden": true,
@@ -392,7 +429,7 @@ export function DDuseComments(ctx) {
       onContextMenu: (e) => e.preventDefault() }),
     // Phone: the open thread is a sheet at the bottom. Everywhere: the Comments list.
     screen: () => h(R.Fragment, null,
-      phone && openComment && thread(openComment, true, "end"),
+      phone && openComment && !openComment.pinned && thread(openComment, true, "end"),
       listOpen && h("aside", { className: "dd-comments-panel", role: "dialog", "aria-label": "Comments", onPointerDown: (e) => e.stopPropagation(), onWheel: (e) => e.stopPropagation(), onContextMenu: (e) => e.stopPropagation() },
         h("header", null, h("strong", null, "Comments"), h("button", { type: "button", "aria-label": "Close comments", onClick: () => { setListOpen(false); ctx.viewport.current?.focus({ preventScroll: true }); } }, "×")),
         h("div", { className: "dd-comments-tabs", role: "group", "aria-label": "Show" },
@@ -403,7 +440,7 @@ export function DDuseComments(ctx) {
           h("small", null, name),
           list.map((c) => h("button", { type: "button", key: keyOf(c), className: "dd-comment-row", "data-comment-row": c.id, onClick: () => { setListOpen(phone ? false : true); jump(c); } },
             h("span", { dir: "auto" }, short(c.thread[0]?.text, 90)),
-            h("small", { dir: "auto" }, placeOf(c) + (c.thread.length > 1 ? " · " + (c.thread.length - 1) + (c.thread.length > 2 ? " replies" : " reply") : "") + " · " + DDcommentTime(c.thread.at(-1)?.at)))))))),
+            h("small", { dir: "auto" }, placeOf(c) + (c.thread.length > 1 ? " · " + (c.thread.length - 1) + (c.thread.length > 2 ? " replies" : " reply") : "") + " · " + DDcommentTime(c.thread.at(-1)?.at, Date.now(), language)))))))),
   };
 }
 
@@ -411,6 +448,7 @@ export const DDcommentsCSS = `
 .dd-pins{position:absolute;left:0;top:0;width:1px;height:1px;overflow:visible;z-index:950;pointer-events:none}
 .dd-pin{position:absolute;width:0;height:0;transform:scale(var(--b4-inverse,1));transform-origin:0 0;pointer-events:none}
 .dd-pin[data-open]{z-index:2}
+.dd-pin[data-active]{z-index:5}
 .dd-pin-dot{all:unset;box-sizing:border-box;position:absolute;left:0;bottom:0;display:grid;place-items:center;min-width:28px;height:28px;padding:0 6px;border-radius:14px 14px 14px 3px;background:var(--paper);color:var(--ink);border:1.5px solid var(--board-accent,#0D99FF);box-shadow:0 3px 10px -3px #0006;cursor:pointer;pointer-events:auto;font:600 12px/1 var(--sans);touch-action:none}
 .dd-pin-dot:hover,.dd-pin-dot:focus-visible,.dd-pin[data-open] .dd-pin-dot{background:var(--board-accent,#0D99FF);color:#fff}
 .dd-pin[data-done] .dd-pin-dot{opacity:.6;border-style:dashed}
@@ -457,4 +495,35 @@ export const DDcommentsCSS = `
 .dd-comments-empty{margin:4px 2px;color:var(--ink-3,#777)}
 @media(max-width:700px){.dd-comments-panel{top:122px;right:8px;max-width:calc(100% - 16px);max-height:calc(100% - 200px)}}
 @media(pointer:coarse){.dd-pin-dot{min-width:34px;height:34px;border-radius:17px 17px 17px 4px}.dd-thread-icon{width:40px;height:40px}.dd-thread form button{min-height:40px}}
+
+/* Conversations have room to read and compose; pinned cards belong to the board. */
+.dd-thread{width:328px;max-height:480px;border-radius:18px;box-shadow:0 16px 42px -14px #0005;animation:dd-thread-enter .15s ease-out}
+.dd-thread header{padding:12px;gap:3px;align-items:flex-start;background:var(--paper)}
+.dd-thread-heading{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;padding:3px 0}
+.dd-thread-heading strong{font-size:13px;font-weight:600;letter-spacing:-.01em}
+.dd-thread-heading small{display:block;max-width:100%;font-size:11px}
+.dd-thread-icon{flex:none;width:30px;height:30px;color:var(--ink-3)}
+.dd-thread-icon[data-comment-pin][aria-pressed=true]{background:var(--wash);color:var(--ink);box-shadow:inset 0 0 0 1px var(--rule-2)}
+.dd-thread[data-pinned]{border-color:var(--ink-3)}
+.dd-thread-kept{font-size:10px;color:var(--ink-3);padding:0 14px 9px;background:var(--paper)}
+.dd-thread-welcome{margin:0;padding:14px 16px 2px;font-size:13px;color:var(--ink-3);line-height:1.7}
+.dd-thread ol{padding:6px 0 10px;overscroll-behavior:contain}
+.dd-thread li{padding:8px 14px}
+.dd-thread li+li{border-top:0}
+.dd-thread-message{padding:10px 12px;border-radius:12px;background:var(--wash);line-height:1.65}
+.dd-thread li[data-first] .dd-thread-message{background:transparent;padding:3px 0 7px;font-size:14px;line-height:1.7}
+.dd-thread-reply-label{display:block;margin:0 0 10px;color:var(--ink-3);font-size:10px;letter-spacing:.02em}
+.dd-thread li footer{margin:5px 2px 0;gap:10px;font-size:10px}
+.dd-thread-new{flex-direction:column;align-items:stretch!important;padding:12px!important;background:var(--paper);gap:8px!important}
+.dd-thread textarea{box-sizing:border-box;width:100%;padding:10px 12px;min-height:56px;border-radius:12px;line-height:1.6;font-size:13px;overflow:auto}
+.dd-thread textarea:focus{outline:2px solid var(--rule-2);outline-offset:1px;border-color:var(--ink-3)}
+.dd-thread-compose-footer{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.dd-thread-compose-footer small{font-size:9px;color:var(--ink-3);line-height:1.5}
+.dd-thread form button.solid{border-radius:20px;font-size:12px;padding:7px 16px;white-space:nowrap}
+.dd-thread-sheet{width:auto;max-height:min(65%,540px)}
+.dd-thread[dir=rtl] header,.dd-thread[dir=rtl] footer,.dd-thread[dir=rtl] .dd-thread-compose-footer{direction:rtl}
+@keyframes dd-thread-enter{from{opacity:0;translate:0 4px}to{opacity:1;translate:0 0}}
+@media(max-width:700px){.dd-thread:not(.dd-thread-sheet){width:min(300px,calc(100vw - 32px))}.dd-thread header{flex-wrap:wrap}.dd-thread-heading{flex-basis:100%}.dd-thread-compose-footer small{max-width:160px}}
+@media(pointer:coarse){.dd-thread-icon{width:44px;height:44px}.dd-thread form button{min-height:44px}.dd-thread li footer button{opacity:1;min-height:32px}.dd-thread-compose-footer small{display:none}}
+@media(prefers-reduced-motion:reduce){.dd-thread{animation:none}}
 `;
