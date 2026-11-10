@@ -5025,11 +5025,11 @@ export function DDcreateBoard(deps) {
         setPenInspector(true);
         setInspector(true);
         setViewPanel(false);
-        requestAnimationFrame(() =>
-          root.current
-            ?.querySelector(".b6-properties button")
-            ?.focus({ preventScroll: true }),
-        );
+        requestAnimationFrame(() => {
+          const panel = root.current?.querySelector(".b6-properties");
+          if (panel && !panel.contains(document.activeElement))
+            panel.querySelector("button")?.focus({ preventScroll: true });
+        });
       };
       const styleItems = [
         item(

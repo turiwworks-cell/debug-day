@@ -5,6 +5,7 @@ Branch: fix/pen-direction-and-selection
 - Preserve every existing drawing when erasing would exceed drawing capacity.
 - Restore Shift-click deselection through the drawing bounding box.
 - Apply mixed selection colors and movement in a single undoable operation.
+- Keep focus in a properties field when delayed panel focus runs after editing starts.
 
 ## 5.49.0 — 2026-11-10
 Branch: feat/pen-upgrade
