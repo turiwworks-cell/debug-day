@@ -166,11 +166,12 @@ test('sync round trip: two devices add comments, drawings and tags; the Worker k
   const local=structuredClone(base),remote=structuredClone(base);
   // This device: a reply, a new drawing, a tag on the Feed note.
   local.days[date].canvas.board4.comments[0].thread.push(...msg('reply'));
+  local.days[date].canvas.board4.comments[0].pinned=true;
   local.days[date].canvas.board4.strokes=[{id:'ink-a',pts:'1,1 2,2',color:'#0D99FF',width:8}];
   DDsetNoteTags(local.setup.life.items[1],['sketch']);
   // The other device: erases the old Feed drawing, comments in the section, tags the day note.
   remote.setup.life.strokes=[];
-  remote.setup.life.comments=[{id:'c-feed',parent:'s',x:100,y:100,thread:msg('feed')}];
+  remote.setup.life.comments=[{id:'c-feed',parent:'s',x:100,y:100,pinned:true,thread:msg('feed')}];
   DDsetNoteTags(remote.days[date].notes[0],['idea']);
   const result=plain(DDmerge(base,local,remote,'local')),merged=result.data;
   assert.deepEqual(result.conflicts,[]);
@@ -210,7 +211,7 @@ test('sync round trip: two devices add comments, drawings and tags; the Worker k
     const removed=await rpc('delete_life_item',{expected_revision:after.revision,item_id:'s'});
     assert.equal(removed.isError,false,JSON.stringify(removed));
     const last=(await rpc('get_life',{})).structuredContent.life;
-    assert.deepEqual(last.comments,[{id:'c-feed',parent:'',x:100,y:100,thread:msg('feed')}],'the section comment stays where it was');
+    assert.deepEqual(last.comments,[{id:'c-feed',parent:'',x:100,y:100,pinned:true,thread:msg('feed')}],'the section comment stays where it was and remains pinned');
   }finally{sql.close();}
 });
 
@@ -294,4 +295,17 @@ test('Shift locks its initial ray while the pointer drifts perpendicular to it',
   DDlockedStrokeEnd(diagonal, { x: -10, y: 10 });
   const end = DDlockedStrokeEnd(diagonal, { x: -80, y: 20 });
   assert.ok(Math.abs(end.x + end.y) < 1e-9);
+});
+
+
+test('pinned conversations normalize, transfer and retain Persian relative times', () => {
+  const raw={id:'pin',on:'sticky:n',fx:1,fy:0,pinned:true,thread:[{id:'m',text:'Idea',at}]};
+  const once=DDnormalizeComments([raw]);
+  assert.equal(once[0].pinned,true);
+  assert.deepEqual(DDnormalizeComments(once),once);
+  assert.equal(DDnormalizeComments([{...raw,pinned:'true'}])[0].pinned,undefined);
+  const d={notes:[{id:'n'}],canvas:{board4:{comments:once}},__life:{items:[],comments:[]}};
+  DDcommentsTransfer(d,'sticky:n','life:n');
+  assert.equal(d.__life.comments[0].pinned,true);
+  assert.equal(DDcommentTime('2026-11-11T08:00:00.000Z',Date.parse('2026-11-11T08:00:30.000Z'),'fa'),'همین الان');
 });
