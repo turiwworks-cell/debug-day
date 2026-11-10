@@ -167,3 +167,7 @@ The device must already be connected to Debug Day through Settings. For Premium 
 The authenticated, read-only `/api/arena` adapter accepts only block, channel-contents and image/channel search operations against `api.are.na/v3`. It uses the existing planner sync key and origin policy, returns no-store display metadata, limits requests to 24 results, and forwards no arbitrary URLs or upstream error bodies. A 403 can indicate missing content permission or a non-Premium token; a 429 asks the person to wait. No database migration is needed.
 
 Validation: `node --test tests/arena.test.mjs` and `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/path/to/chromium node tests/browser/arena.cjs`. The browser test mocks Are.na API/CDN traffic; real-account and live-CDN validation must be done after the Worker secret is configured and the feature is deployed.
+
+### Are.na Worker regression (5.48.1)
+
+`node --test tests/arena-runtime.test.mjs` runs the real Worker in the workerd runtime bundled with Wrangler, with an isolated fake Are.na outbound service. It covers authenticated block, channel and search reads and verifies redirects are never followed with the account token. Node fetch mocks alone do not catch Workers-specific incompatibilities such as unsupported redirect modes. This regression is included in `npm test`.

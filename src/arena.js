@@ -1,5 +1,6 @@
 // Read-only Are.na API adapter. Planner authentication is checked by worker.js.
-// Fixed API paths and redirect:error prevent forwarding the token to other hosts.
+// Fixed API paths and manual redirects keep the token on the Are.na host.
+// workerd rejects redirect:"error"; leave redirects unfollowed and reject !ok below.
 import { DDarenaMedia } from "../public/arena.js";
 const reply = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), {
   status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", ...headers },
@@ -21,7 +22,7 @@ export async function arenaRead(request, env, fetcher = fetch) {
   else return reply({ error: "Invalid Are.na request" }, 400);
   try {
     const r = await fetcher("https://api.are.na" + path + "?" + query, {
-      method: "GET", redirect: "error", signal: AbortSignal.timeout(15000),
+      method: "GET", redirect: "manual", signal: AbortSignal.timeout(15000),
       headers: { Accept: "application/json", ...(env.ARENA_ACCESS_TOKEN ? { Authorization: "Bearer " + env.ARENA_ACCESS_TOKEN } : {}) },
     });
     if (!r.ok) {

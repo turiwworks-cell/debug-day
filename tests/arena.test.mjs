@@ -42,7 +42,7 @@ test("API requests are bounded, read-only and pass the token only to the fixed A
     assert.equal(new URL(url).pathname, "/v3/search");
     assert.equal(new URL(url).searchParams.get("per"), "24");
     assert.equal(new URL(url).searchParams.get("page"), "2");
-    assert.equal(options.method, "GET"); assert.equal(options.redirect, "error");
+    assert.equal(options.method, "GET"); assert.equal(options.redirect, "manual");
     assert.equal(options.headers.Authorization, "Bearer secret-test");
     return Response.json({ data: [image, { type: "Text", content: "do not expose" }], meta: { has_more_pages: true }, private: "do not expose" });
   };
