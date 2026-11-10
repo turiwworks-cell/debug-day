@@ -14,7 +14,7 @@ import {DDgoalClean} from '../public/budgets.js';
 import {DDdueClean} from '../public/deadlines.js';
 import {DDnormalizeLife} from '../public/life-board.js';
 import {DDreconcileDay} from '../public/relations.js';
-import {DDstrokeEncode,DDstrokeDecode,DDnormalizeStrokes,DDsimplifyStroke,DDstrokePath,DDmarksRebase} from '../public/pen.js';
+import {DDstrokeEncode,DDstrokeDecode,DDnormalizeStrokes,DDsimplifyStroke,DDstrokePath,DDmarksRebase,DDeraseStrokeCircle,DDstrokeInBox,DDtransformPoints} from '../public/pen.js';
 import {DDnormalizeComments,DDcommentsTransfer,DDcommentTime} from '../public/comments.js';
 import {DDarrowFamily,DDnoteFamily,DDnoteBranch} from '../public/note-family.js';
 import {DDboardSearchRows} from '../public/board-experience.js';
@@ -261,4 +261,37 @@ test('tag colours survive a sync merge and the Worker', async () => {
   assert.equal((await worker.fetch(new Request('http://localhost/api/sync',{method:'PUT',headers:{...auth,'If-Match':'0'},body:JSON.stringify({data:merged})}),env)).status,200);
   const got=await (await worker.fetch(new Request('http://localhost/api/sync',{headers:auth}),env)).json();
   assert.deepEqual(got.data.setup.life.tagColors,{idea:'#5C7CFA'});
+});
+
+test('pen 5.49 upgrades: point eraser splits strokes, marquee box hits strokes, bounding box scales and opacity normalizes', () => {
+  // 1. Point eraser splits a straight line from (0,0)->(100,0) when erasing at (50,0) with radius 10
+  const pieces = DDeraseStrokeCircle([0, 0, 100, 0], 50, 0, 10);
+  assert.equal(pieces.length, 2, 'erasing the middle splits the stroke into two pieces');
+  assert.deepEqual(pieces[0].map((v) => Math.round(v)), [0, 0, 40, 0]);
+  assert.deepEqual(pieces[1].map((v) => Math.round(v)), [60, 0, 100, 0]);
+  // Erasing completely over a short stroke removes it
+  assert.deepEqual(DDeraseStrokeCircle([45, 0, 55, 0], 50, 0, 12), []);
+  // 2. Marquee selection box hits strokes inside or crossing the box
+  assert.equal(DDstrokeInBox([0, 0, 100, 100], { x: 40, y: 40, w: 20, h: 20 }), true);
+  assert.equal(DDstrokeInBox([0, 0, 20, 20], { x: 40, y: 40, w: 20, h: 20 }), false);
+  // 3. Bounding box scaling and translation
+  assert.deepEqual(DDtransformPoints([10, 20, 30, 40], { dx: 5, dy: -5 }), [15, 15, 35, 35]);
+  assert.deepEqual(DDtransformPoints([10, 20, 30, 40], { scale: { ox: 10, oy: 20, sx: 2, sy: 0.5 } }), [10, 20, 50, 30]);
+  // 4. Opacity is preserved when < 1 and omitted when 1
+  const norm = DDnormalizeStrokes([{ id: 's1', pts: '0,0 10,10', color: '#123456', width: 4, opacity: 0.65 }, { id: 's2', pts: '0,0 5,5', opacity: 1 }]);
+  assert.equal(norm[0].color, '#123456');
+  assert.equal(norm[0].opacity, 0.65);
+  assert.equal('opacity' in norm[1], false);
+});
+
+test('Shift locks its initial ray while the pointer drifts perpendicular to it', async () => {
+  const { DDlockedStrokeEnd } = await import('../public/pen.js');
+  const g = { start: { x: 10, y: 20 } };
+  assert.deepEqual(DDlockedStrokeEnd(g, { x: 30, y: 20 }), { x: 30, y: 20 });
+  assert.deepEqual(DDlockedStrokeEnd(g, { x: 80, y: 200 }), { x: 80, y: 20 });
+  assert.deepEqual(DDlockedStrokeEnd(g, { x: -20, y: 200 }), g.start);
+  const diagonal = { start: { x: 0, y: 0 } };
+  DDlockedStrokeEnd(diagonal, { x: -10, y: 10 });
+  const end = DDlockedStrokeEnd(diagonal, { x: -80, y: 20 });
+  assert.ok(Math.abs(end.x + end.y) < 1e-9);
 });

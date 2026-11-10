@@ -199,6 +199,7 @@ export function DDcreateBoard(deps) {
       [appearance, setAppearance] = useState(() => core.appearance()),
       [viewPanel, setViewPanel] = useState(false),
       [properties, setProperties] = useState(false),
+      [penInspector, setPenInspector] = useState(() => !phoneBoard()),
       [alignPanel, setAlignPanel] = useState(false),
       // The Sections flowchart (Tab, D, the Sections button or Ctrl+Space), with the Life area tools.
       [lifeNav, setLifeNav] = useState(() => DDsectionsBus.take()),
@@ -569,7 +570,29 @@ export function DDcreateBoard(deps) {
     // modules; the board hands them its data, its camera and its commit.
     const markCtx = {
       React: _, day, days: allDays, setup, mode, layout, tool, setTool, selected, items: DDlifeItems(setup), lifeHead: DDlifeHead,
+      language: DDlanguage, Icon: controls.Icon, properties: properties || penInspector,
+      togglePenProperties: () => {
+        restoreStylePreview();
+        const next = !(properties || penInspector);
+        setProperties(next);
+        setPenInspector(next);
+        setAlignPanel(false);
+        setViewPanel(false);
+      },
+      openPenProperties: () => {
+        restoreStylePreview();
+        setProperties(true);
+        setPenInspector(true);
+        setAlignPanel(false);
+        setViewPanel(false);
+      },
+      openPenContext: (e) => openContext(e, { pen: true }),
       clearBoardSelection: () => { setSelected(new Set()); setWireId(null); setWireSelection(null); },
+      moveDrawingGroup: (dx, dy) => {
+        const nodes = DDrootSelection(layout.nodes, selected).filter(n => !locked.has(n.id));
+        const positions = Object.fromEntries(nodes.map(n => [n.id, { x: n.x + dx, y: n.y + dy }]));
+        commit(d => pen.moveDraft(core.place(d, nodes, positions, mode), dx, dy), t("Selection moved", "انتخاب جابه‌جا شد"));
+      },
       commit: (change, message) => commit(change, message), toWorld, getCamera: () => cam.current, viewport, setStatus,
       pinching: () => !!pinch.current || touches.current.size > 1, panKey: () => space.current,
       reveal: (row) => revealSearchResult(row), enterRoom, setMode, mark: () => DDplaces.mark(), lifeHome: DDlifeHome,
@@ -577,6 +600,9 @@ export function DDcreateBoard(deps) {
       glide: (p) => { const el = viewport.current, z = Math.max(cam.current.z, 0.7); if (el) glideCamera({ x: el.clientWidth / 2 - (p.x + (el.clientWidth < 700 ? 0 : 140 / z)) * z, y: el.clientHeight / 2 - (p.y - (el.clientWidth < 700 ? 120 / z : 60 / z)) * z, z }); },
       finishEdit: () => finishEdit(), setMenu, search: (q) => { finishEdit(); setSearch(q); },
     };
+    useEffect(() => {
+      if (tool === "pen") { setSelected(new Set()); setWireId(null); setWireSelection(null); }
+    }, [tool]);
     const pen = DDusePen(markCtx), comments = DDuseComments(markCtx), noteTools = DDuseNoteTools(markCtx);
     // The tag panel for several notes closes when the selection moves on.
     useEffect(() => { if (noteTools.group?.some((ref) => !selected.has(ref))) noteTools.stopTags(); }, [selected]);
@@ -964,6 +990,7 @@ export function DDcreateBoard(deps) {
     }
     function selectOne(Y) {
       if (Y === "section:life") return;
+      pen.clear();
       (setSelected(new Set([Y])), setWireId(null));
       const G = layout.map.get(Y);
       G?.blockId && onSelectBlock?.(G.blockId);
@@ -1007,6 +1034,7 @@ export function DDcreateBoard(deps) {
         setTool("select");
       }
       let ct = new Set(selected);
+      if (!Y.shiftKey && !ct.has(G.id)) pen.clear();
       if (ddConnect) ct = new Set([G.id]);
       else if (Y.shiftKey)
         for (const ref of groupFor(G.id))
@@ -1582,7 +1610,9 @@ export function DDcreateBoard(deps) {
                       within(ot[n.id], n, habitsArea),
                   ),
             habitRefs = new Set(toHabits.map((n) => n.id)),
-            madeTasks = [];
+            madeTasks = [],
+            movedRef = ct.refs.find(ref => ot[ref] && ct.starts[ref]),
+            strokeDelta = movedRef ? { x: ot[movedRef].x - ct.starts[movedRef].x, y: ot[movedRef].y - ct.starts[movedRef].y } : { x: 0, y: 0 };
           commit((Tt) => {
             // A note dragged into the Engine's section from outside becomes a task
             // there, in the lane it lands nearest to. The note itself is used up.
@@ -1772,7 +1802,7 @@ export function DDcreateBoard(deps) {
             return (
               (Pt.layouts = { ...Pt.layouts, [mode]: yn }),
               (Tt.canvas = { ...(Tt.canvas || {}), board4: Pt }),
-              Tt
+              pen.moveDraft(Tt, strokeDelta.x, strokeDelta.y)
             );
           }, madeTasks.length ? t("The note is now a task in the Engine", "یادداشت حالا یک کار در انجین است") : DDUI("\u062C\u0627\u06CC \u0646\u0648\u062F\u0647\u0627 \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F"));
           if (madeTasks.length) (setSelected(new Set(madeTasks.map((id) => "b:" + id))), onSelectBlock?.(madeTasks[0]));
@@ -1851,7 +1881,7 @@ export function DDcreateBoard(deps) {
         } else if (ct.kind === "marquee" && ct.moved && ct.box) {
           const ot = ct.box,
             St = DDmarqueeSelection(layout.nodes, ot, locked);
-          selectMarquee(new Set([...(ct.shift ? ct.initial : []), ...St]), ot);
+          selectMarquee(new Set([...(ct.shift ? ct.initial : []), ...St]), ot, ct.shift);
         } else if (ct.kind === "marquee" && !ct.moved && !ct.shift) {
           if (doubleTap("board", Y)) noteHere(Y);
         } else if (ct.kind === "move" && !ct.moved && ct.connect) {
@@ -2222,7 +2252,10 @@ export function DDcreateBoard(deps) {
     function deleteNodes() {
       if (wireId) return deleteWire();
       const nodes = layout.nodes.filter((n) => selected.has(n.id));
-      if (!nodes.length && !selectedWires.size) return;
+      if (!nodes.length && !selectedWires.size) {
+        if (pen.hasSelection) pen.deleteSelection();
+        return;
+      }
       commit((day) => {
         day.__life.links=day.__life.links.filter((e)=>!selectedWires.has(e.id));
         for (const edge of layout.edges.filter((e) => selectedWires.has(e.id) && e.automatic))
@@ -2232,6 +2265,7 @@ export function DDcreateBoard(deps) {
           board.links = (board.links || []).filter((e) => !selectedWires.has(e.id));
           if (Array.isArray(board.hidden)) board.hidden = board.hidden.filter((id) => !selectedWires.has(id));
         }
+        if (pen.hasSelection) day = pen.deleteFromDraft(day);
         return core.remove(day, nodes);
       }, nodes.some((n) => n.lifeId) ? t("Deleted · Undo, or find it in Recently deleted", "حذف شد · واگرد کن، یا از «تازه حذف‌شده‌ها» برگردون") : t("Selection deleted · Undo to restore", "انتخاب حذف شد؛ با واگرد برگردان"), { trash: true });
       setSelected(new Set()); setWireSelection(null); onSelectBlock?.(null);
@@ -3332,8 +3366,13 @@ export function DDcreateBoard(deps) {
               return;
             }
             if (St && K === "a") {
-              (ot.preventDefault(),
-                ot.stopImmediatePropagation(),
+              ot.preventDefault();
+              ot.stopImmediatePropagation();
+              if (tool === "pen") {
+                setSelected(new Set()); setWireSelection(null);
+                setTool("select");
+                pen.selectAll();
+              } else {
                 setSelected(
                   new Set(
                     layout.nodes
@@ -3346,8 +3385,10 @@ export function DDcreateBoard(deps) {
                       )
                       .map((Pt) => Pt.id),
                   ),
-                ),
-                setWireId(null));
+                );
+                pen.selectAll();
+              }
+              setWireId(null);
               return;
             }
             if (St && ["c", "x", "v"].includes(K)) {
@@ -3440,7 +3481,7 @@ export function DDcreateBoard(deps) {
                     return (
                       (Xn.layouts = { ...Xn.layouts, [mode]: On }),
                       (Jt.canvas = { ...(Jt.canvas || {}), board4: Xn }),
-                      Jt
+                      pen.moveDraft(Jt, yn, An)
                     );
                   },
                   null,
@@ -3463,7 +3504,7 @@ export function DDcreateBoard(deps) {
             else if (Tt === "s") setTool("sticky");
             else if (Tt === "t") setTool("text");
             // Pen and comments (5.36): P draws, M comments, Shift+M lists the comments.
-            else if (Tt === "p" && !ot.shiftKey) { finishEdit(); setTool((v) => (v === "pen" ? "select" : "pen")); }
+            else if (Tt === "p" && !ot.shiftKey) { finishEdit(); setSelected(new Set()); setWireId(null); setWireSelection(null); setTool((v) => (v === "pen" ? "select" : "pen")); }
             else if (Tt === "m" && ot.shiftKey) { ot.preventDefault(); finishEdit(); comments.toggleList(); }
             else if (Tt === "m") { finishEdit(); setTool((v) => (v === "comment" ? "select" : "comment")); }
             else if (Tt === "e" && !ot.shiftKey) { finishEdit(); cancelGesture(); setMenu(null); setEngine((v) => !v); }
@@ -3547,8 +3588,9 @@ export function DDcreateBoard(deps) {
       ["Exit focus mode", "Esc"],
       ["Exit full screen", "Esc"],
     ];
-    function selectMarquee(S, box) {
+    function selectMarquee(S, box, shift = false) {
       (setSelected(S), setWireId(null));
+      pen.selectInBox(box, shift);
       const ids = [];
       for (const e of layout.edges) {
         const p = wireRefs.current.get(e.id)?.querySelector("[data-wire-path]");
@@ -4980,13 +5022,14 @@ export function DDcreateBoard(deps) {
         );
       const showProperties = () => {
         setProperties(true);
+        setPenInspector(true);
         setInspector(true);
         setViewPanel(false);
-        requestAnimationFrame(() =>
-          root.current
-            ?.querySelector(".b6-properties button")
-            ?.focus({ preventScroll: true }),
-        );
+        requestAnimationFrame(() => {
+          const panel = root.current?.querySelector(".b6-properties");
+          if (panel && !panel.contains(document.activeElement))
+            panel.querySelector("button")?.focus({ preventScroll: true });
+        });
       };
       const styleItems = [
         item(
@@ -5017,6 +5060,32 @@ export function DDcreateBoard(deps) {
           ),
         }),
       ];
+      if (menu.pen) {
+        const p = pen.panelProps();
+        return [
+          { id: "pen-colors", label: t("Color", "رنگ"), swatches: ["#1E1E1E", "#F24822", "#FFA629", "#14AE5C", "#0D99FF", "#9747FF", ...core.stickyColors.filter((c) => !["#1E1E1E", "#F24822", "#FFA629", "#14AE5C", "#0D99FF", "#9747FF"].includes(c))], current: String(p.color || "").toUpperCase(), onPick: (color) => p.onStyle({ color }) },
+          item("properties", "Color & properties…", "رنگ و ویژگی‌ها…", "palette", showProperties),
+          item("pen-width", "Stroke weight", "ضخامت خط", "lines", null, {
+            children: [
+              [2, "Thin · 2px", "نازک · ۲px"],
+              [4, "Medium · 4px", "متوسط · ۴px"],
+              [8, "Thick · 8px", "ضخیم · ۸px"],
+            ].map(([w, en, fa2]) =>
+              item("pen-w-" + w, en, fa2, "lines", () => p.onStyle({ width: w }), { checked: p.width === w }),
+            ),
+          }),
+          item("pen-opacity", "Opacity", "شفافیت", "opacity", null, {
+            children: [100, 75, 50, 25].map((n) =>
+              item("pen-alpha-" + n, n + "%", n + "٪", "opacity", () => p.onStyle({ opacity: n / 100 }), { checked: Math.round((p.opacity ?? 1) * 100) === n }),
+            ),
+          }),
+          sep("pen-sep"),
+          item("pen-select-all", "Select all drawings", "انتخاب همهٔ خط‌ها", "select", () => p.onSelectAll(), { shortcut: "Ctrl/Cmd+A" }),
+          p.count > 0 && item("pen-duplicate", "Duplicate", "ساخت کپی مستقل", "duplicate", () => pen.duplicateSelected(), { shortcut: "Ctrl/Cmd+D" }),
+          p.count > 0 && sep("pen-del-sep"),
+          p.count > 0 && item("pen-delete", p.count > 1 ? "Delete drawings" : "Delete drawing", p.count > 1 ? "حذف خط‌ها" : "حذف خط", "trash", () => p.onDelete(), { danger: true, shortcut: "Delete" }),
+        ].filter(Boolean);
+      }
       if (menu.wire)
         return [
           { id: "line-colors", label: t("Line color", "رنگ خط"), swatches: wireColors, current: String(selectedWire?.color || "").toUpperCase(), onPick: (color) => { patchWire(wireId, { color }, t("Line color changed", "رنگ خط تغییر کرد")); changeAppearance({ lineColor: color }); } },
@@ -5198,6 +5267,7 @@ export function DDcreateBoard(deps) {
                   .map((n) => n.id),
               ),
             );
+            pen.selectAll();
             setWireId(null);
           },
           { shortcut: "Ctrl/Cmd+A" },
@@ -5284,7 +5354,7 @@ export function DDcreateBoard(deps) {
         onContextMenu: (event) => {
           if (
             event.target.closest(
-              "button,input,textarea,select,[contenteditable],[data-wire-id],[data-board-id],.b6-context",
+              "button,input,textarea,select,[contenteditable],[data-wire-id],[data-board-id],[data-stroke-id],[data-ink-bbox],.b6-context",
             )
           )
             return;
@@ -5832,14 +5902,20 @@ export function DDcreateBoard(deps) {
           onClose: () => { alignClosed.current = true; setAlignPanel(false); viewport.current?.focus({ preventScroll: true }); },
         }),
       ((selectedWire && inspector) ||
-        (properties && selectedNodes.length > 0)) &&
+        (properties && selectedNodes.length > 0) ||
+        ((properties || penInspector) && !selectedWire && !selectedNodes.length && (pen.hasSelection || tool === "pen"))) &&
         _.createElement(controls.PropertiesPanel, {
-          key: selectedWire?.id || [...selected].join("|"),
+          key: selectedWire?.id || (selectedNodes.length ? [...selected].join("|") : "pen-" + pen.selection.map((s) => s.id).join("|")),
           React: _,
           language: DDlanguage,
           nodes: selectedNodes,
           wire: selectedWire ? { ...selectedWire, fromPort: wireGeometry(selectedWire)?.from, toPort: wireGeometry(selectedWire)?.to } : null,
-          onStyle: applyStyle,
+          pen: !selectedWire && !selectedNodes.length && (pen.hasSelection || tool === "pen") ? pen.panelProps() : null,
+          onStyle: (patch) => {
+            restoreStylePreview();
+            commit(d => pen.styleDraft(core.setStyle(d, selectedNodes, patch), patch), t("Appearance updated", "ظاهر تغییر کرد"));
+            if (patch.fill) changeAppearance({ stickyColor: patch.fill });
+          },
           onPreview: previewStyle,
           onWirePatch: (patch) => {
             restoreStylePreview();
@@ -5874,6 +5950,7 @@ export function DDcreateBoard(deps) {
           onClose: () => {
             restoreStylePreview();
             setProperties(false);
+            setPenInspector(false);
             setInspector(false);
             viewport.current?.focus({ preventScroll: true });
           },
