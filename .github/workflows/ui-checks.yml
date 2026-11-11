@@ -9,6 +9,20 @@ concurrency:
 permissions:
   contents: read
 jobs:
+  engine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: node tests/browser/engine-redesign.cjs
+        env:
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome
   browser:
     runs-on: ubuntu-latest
     timeout-minutes: 15
