@@ -575,20 +575,10 @@ export function DDcreateBoardLayout(deps) {
       for (let i = Y.length - 1; i >= 0; i--)
         if (Y[i] === lf || ["habits", "feelings", "notes"].includes(Y[i].section || Y[i].sectionId)) Y.splice(i, 1);
     }
-    // Older notes predate the explicit Engine flag. Recognize them by their
-    // saved position while leaving the original day and note IDs intact.
-    const engineBounds = Y.find((node) => node.id === "section:engine");
-    const inEngine = (note) => {
-      if (note.engineShared) return true;
-      const style = model.styles["sticky:" + note.id];
-      const x = note.x + (style?.width || 240) / 2, y = note.y + (style?.height || 160) / 2;
-      return engineBounds && x >= engineBounds.x && x <= engineBounds.x + engineBounds.w
-        && y >= engineBounds.y && y <= engineBounds.y + engineBounds.h;
-    };
     for (const Jt of (day.notes || []).filter(
       (n) =>
         n.kind !== "emoji" &&
-        mode !== "lanes" && (!roomItem || inEngine(n)) &&
+        mode !== "lanes" && !roomItem &&
         (!ddNodeMatches ||
           ddNodeMatches.has("note:" + day.date + ":" + n.id)),
     ))

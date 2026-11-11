@@ -29,20 +29,19 @@ test("Ctrl+Space rows isolate a panel, or open the pages that have no isolate", 
     rows = DDpanelCommands("en", (id, isolate) => calls.push([id, isolate]));
   const order = DDpanelList.map((panel) => panel.id);
   order.splice(1, 0, "sections");
-  order.splice(2, 0, "capture");
   assert.deepEqual(rows.map((row) => row.id), order.map((id) => "cmd-panel-" + id), "Sections sits right after the Engine");
   for (const row of rows) {
     assert.ok(row.id.startsWith("cmd-"), "the app only passes cmd- rows to the palette");
     row.action();
   }
-  assert.deepEqual(calls, order.map((id) => id === "capture" ? ["board", false] : [id, id === "sections" ? false : DDpanelList.find((panel) => panel.id === id).isolate]));
+  assert.deepEqual(calls, order.map((id) => [id, id === "sections" ? false : DDpanelList.find((panel) => panel.id === id).isolate]));
   calls.length = 0;
   rows.find((row) => row.panel.id === "habits").showWithRest();
   assert.deepEqual(calls, [["habits", false]]);
   assert.equal(rows.find((row) => row.panel.id === "calendar").showWithRest, null);
   assert.equal(DDpanelCommands("fa", () => {})[0].title, "انجین", "the Engine comes first in Ctrl+Space");
   assert.equal(DDpanelCommands("fa", () => {})[1].title, "سکشن‌ها", "then the Section Drawer");
-  assert.equal(DDpanelCommands("fa", () => {})[2].title, "ثبت ایده");
+  assert.equal(DDpanelCommands("fa", () => {})[2].title, "پلن");
 });
 
 test("map counts read the day without changing it", () => {
@@ -70,8 +69,7 @@ test("Stats lives inside Calendar and Feelings is gone, so the app map shows one
     assert.ok(DDpanelOf(panel.partOf), panel.id);
     assert.ok(!cards.includes(panel.id), panel.id);
   }
-  assert.deepEqual(cards, ["engine", "board", "habits", "calendar"]);
-  assert.equal(DDpanelOf("plan"), null, "Plan is integrated into Engine navigation");
+  assert.deepEqual(cards, ["engine", "plan", "board", "habits", "calendar"]);
   assert.equal(DDpanelOf("lab"), null, "App changes was removed (5.28)");
   assert.equal(DDpanelOf("feelings"), null, "the Feelings panel was removed");
   const calendar = map.children[cards.indexOf("calendar")],

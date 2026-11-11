@@ -1,7 +1,5 @@
 # راه‌اندازی Debug Day روی Cloudflare
 
-> نسخهٔ مستقل **5.51.0-local**: برای تغییرات Engine، Today/Park، Capture و میانبرها فایل [UPDATE-NOTES.md](UPDATE-NOTES.md) را بخوان. این کپی هنوز در GitHub یا Cloudflare منتشر نشده است.
-
 این بسته برنامه، ذخیرهٔ مشترک بین دستگاه‌ها و سرور MCP را با Cloudflare Workers و D1 راه‌اندازی می‌کند. صرفاً آپلود کردن یک HTML در Pages، اطلاعات مرورگرهای مختلف را مشترک نمی‌کند؛ بخش Worker و دیتابیس هم باید فعال باشند.
 
 ## مسیر کوتاه نصب
