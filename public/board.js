@@ -108,7 +108,7 @@ export function DDcreateBoard(deps) {
     onUpdateDay: onUpdateDay,
     onUpdateSetup: onUpdateSetup,
     onUpdateDayOnDate,
-    onScheduleLater,
+    todayDate, onScheduleLater,
     renderPlan,
     onToast: onToast,
     matchesFilter: matchesFilter,
@@ -2242,11 +2242,11 @@ export function DDcreateBoard(deps) {
       commit((day) => {
         if (Y.kind === "block")
           day.blocks = day.blocks.map((block) =>
-            block.id === Y.blockId ? DDsetTaskDone(block, !block.done) : block,
+            block.id === Y.blockId ? DDsetTaskDone(block, !block.done, day) : block,
           );
         else if (Y.kind === "subtask")
           day.blocks = day.blocks.map((block) =>
-            block.id === Y.blockId ? DDtoggleSubtask(block, Y.subId) : block,
+            block.id === Y.blockId ? DDtoggleSubtask(block, Y.subId, day) : block,
           );
         else if (Y.kind === "bug")
           day.bugs = day.bugs.map((bug) =>
@@ -5542,7 +5542,7 @@ export function DDcreateBoard(deps) {
         onClose: () => { setLifeNav(false); viewport.current?.focus({ preventScroll: true }); },
       }),
       captureHub && _.createElement(DDCaptureHub, {
-        React: _, setup, language: DDlanguage,
+        React: _, setup, language: DDlanguage, todayDate,
         onClose: () => setCaptureHub(false),
         onCapture: () => window.dispatchEvent(new CustomEvent("debug-day-open-capture", { detail: "capture" })),
         onLater: () => window.dispatchEvent(new CustomEvent("debug-day-open-capture", { detail: "later" })),
@@ -6339,7 +6339,7 @@ export function DDcreateBoard(deps) {
           dateFormat: (date) => ie.format(E(date)),
           makeId: C,
           renderPlan,
-          sectionId: layout.room,
+          sectionId: layout.room, todayDate,
           sources: DDengineSources(DDlifeItems(setup)),
           measure,
           setDone: DDsetTaskDone,

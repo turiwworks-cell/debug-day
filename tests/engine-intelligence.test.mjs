@@ -137,3 +137,13 @@ test("a parent checkbox respects its children's external prerequisites", () => {
   const ready = DDengineToggleStep(data, "b", "b1", DDtoggleSubtask);
   assert.equal(DDengineToggleStep(ready, "a", "a1", DDtoggleSubtask).blocks[0].subtasks[0].children[0].done, true);
 });
+
+test("Board, Plan and search completion respect another task's unfinished prerequisite", async () => {
+  const { DDsetTaskDone, DDtoggleSubtask } = await import("../public/search.js");
+  const data = DDengineSetDependency(day(), "b1", "a1");
+  const task = data.blocks[1];
+  assert.equal(DDtoggleSubtask(task, "b1", data), task);
+  assert.equal(DDsetTaskDone(task, true, data), task);
+  data.blocks[0] = DDtoggleSubtask(data.blocks[0], "a1", data);
+  assert.equal(DDtoggleSubtask(task, "b1", data).done, true);
+});

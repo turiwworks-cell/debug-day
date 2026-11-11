@@ -19,7 +19,7 @@ export function DDcaptureSummary(setup = {}) {
   };
 }
 
-export function DDCaptureHub({ React: R, setup = {}, language = "en", onClose, onCapture, onLater, onWorries, onOpenInbox, onPromote }) {
+export function DDCaptureHub({ React: R, setup = {}, language = "en", todayDate, onClose, onCapture, onLater, onWorries, onOpenInbox, onPromote }) {
   const h = R.createElement, fa = language === "fa", t = (en, f) => fa ? f : en,
     [filter, setFilter] = R.useState("ideas"),
     data = DDcaptureSummary(setup),
@@ -43,7 +43,7 @@ export function DDCaptureHub({ React: R, setup = {}, language = "en", onClose, o
           h("div", { className: "dd-capture-item-actions" },
             filter === "later" && !item.done && ["today", "park"].map((zone) => h("button", {
               key: zone, type: "button", onClick: () => onPromote?.(item.id, zone)
-            }, zone === "today" ? t("+ Today", "+ امروز") : t("+ Park", "+ پارک"))),
+            }, (zone === "today" ? t("Schedule", "برنامه‌ریزی") : t("Park for", "پارک برای")) + " · " + new Intl.DateTimeFormat(fa ? "fa-IR" : "en-US", { month: "short", day: "numeric" }).format(new Date(todayDate + "T12:00:00")))),
             filter === "worries" && item.closed && h("small", null, t("Closed", "بسته")),
             filter === "ideas" && item.at && h("small", null, item.at)))) :
           h("p", { className: "dd-capture-empty" }, t("Nothing here yet.", "هنوز چیزی اینجا نیست."))),

@@ -130,7 +130,7 @@ test("the kind picker offers tick, score and waiting, and keeps an old counted c
 });
 
 test("the overlay is a labelled dialog that closes on E or Escape but not while typing", () => {
-  const hooks = { useRef: () => ({ current: null }), useEffect() {}, useState: (v) => [v, () => {}] };
+  const hooks = { useMemo: fn => fn(), useRef: () => ({ current: null }), useEffect() {}, useState: (v) => [v, () => {}] };
   let closed = 0;
   const overlay = DDEngineOverlay({
     React: { ...R, ...hooks },
@@ -284,7 +284,7 @@ test("the 14-day strip marks each day as none, done, some or open", () => {
 });
 
 test("an Engine row shows where the task came from and can change it", () => {
-  const hooks = { useRef: () => ({ current: null }), useEffect() {}, useState: (v) => [v, () => {}] };
+  const hooks = { useMemo: fn => fn(), useRef: () => ({ current: null }), useEffect() {}, useState: (v) => [v, () => {}] };
   let changed;
   const overlay = DDEngineOverlay({
     React: { ...R, ...hooks },
@@ -300,7 +300,7 @@ test("an Engine row shows where the task came from and can change it", () => {
   });
   const rowNode = find(overlay, (n) => typeof n.type === "function" && n.props.block?.id === "a")[0];
   const row = rowNode.type({ ...rowNode.props, React: { ...R, ...hooks } });
-  const picker = find(row, (n) => n.props.className === "dd-engine-from")[0];
+  const picker = find(row, (n) => n.props.className?.split(" ").includes("dd-engine-from"))[0];
   assert.equal(picker.props.value, "ink");
   assert.deepEqual(find(picker, (n) => n.type === "option").map((o) => o.children.join("")), ["↖ Main board", "↖ Creative life", "↖ Creative life › Ink", "↖ Creative life › Sketches", "↖ Home"], "every option shows the whole path");
   assert.equal(picker.props.style.background, DDengineSources(life).find((s) => s.id === "ink").tint.fill, "the picker wears its root's tint");
