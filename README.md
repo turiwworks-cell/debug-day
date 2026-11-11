@@ -2,6 +2,22 @@
 
 A personal daily planner with a time-scaled board, mind maps, Persian/English UI, private multi-device sync, and an MCP server.
 
+## Download a standalone copy
+
+Don't want to clone or run anything? The whole app ships as **one HTML file** you can double-click.
+
+**[⬇ debug-day-5.50.0.html](https://github.com/turiwworks-cell/debug-day/raw/arena/af447777-debug-day/debug-day-5.50.0.html)** &nbsp;·&nbsp; 1.9 MB · all modules inlined · runs offline from `file://`
+
+1. Click the link above (it saves to your Downloads folder; right-click → *Save link as…* if your browser opens it as text instead).
+2. Double-click the downloaded file — it opens in your browser.
+3. Keep it as a single file and bookmark it. Your data stays in that browser's storage.
+
+You can also get it from inside the app: **This app → Download standalone HTML**.
+
+> The download above is a 5.50.0 preview from branch `arena/af447777-debug-day`, not yet merged into `main`.
+
+## Source layout
+
 - `public/index.html` — legacy bundled interface and integration points; starts with an empty workspace.
 - `public/playful.js`, `public/playful-art.js` — original animated vectors, bilingual sticker/emoji picker, shared task/day symbols, and reduced-motion interactions; included in offline exports.
 - `public/search.js`, `public/capture.js`, `public/life.js` — readable source for universal search, capture/Today, and optional scheduling/pause tools.
