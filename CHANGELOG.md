@@ -1,3 +1,11 @@
+## 5.51.0 — 2026-11-11
+Branch: release/5.51.0
+- Publish the reviewed local Engine update: section-scoped Today/Park tasks, nested steps, prerequisites, shared notes, Capture and section shortcuts.
+- Restore parked tasks to their previous lane and preserve the selected Persian language.
+- Retain the existing Worker, D1 schema, deployment configuration and sync endpoints.
+- Previous production source: 8e9b19da72c2af991cffb9b9e2d03f5fbc85b714, preserved in backup/pre-5.51.0-2026-11-11.
+- Roll back the release by reverting its merge commit on main, then let the existing Cloudflare build deploy it. This restores code; planner edits made after release remain data edits.
+
 ## 5.49.1 — 2026-11-11
 Branch: fix/pen-direction-and-selection
 - Lock Shift drawing to the initial direction and project movement onto that line.
@@ -649,4 +657,13 @@ Branch: claude/project-thread-xnja7m
 - Baseline: starting the changelog from the current version (5.0.0).
 - Added `CLAUDE.md` with rules for all agents: work on a separate branch and merge, and log version + changes here after every change.
 
+
+## 5.50.0-local — 2026-11-11 (download-only; not published)
+- Combine the visible Engine workflow into Today (with weekday) and Park, preserving existing lane membership and older day records.
+- Show nested steps directly in Engine, add/rename/check steps, sort important open tasks, and filter All / Left / Done.
+- Add cross-task step prerequisites with cycle rejection and sequential/parallel presentation; internal references remap on carry/copy.
+- Replace the visible Plan navigation entry with Engine, while retaining legacy Plan code for compatibility and existing integrations.
+- Add a Capture hub for Inbox, Later and worries, with Later-to-Today promotion, and a Pause the day button on the Board.
+- Add shared Engine notes stored in the Feed, one-tap section navigation from task source tags, a quick Tab navigation strip, T for This App, and assignable Alt+1–9 section shortcuts.
+- Unit tests pass. Browser automation was attempted but Chromium could not launch in the current restricted environment.
 

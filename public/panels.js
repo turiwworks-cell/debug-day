@@ -1,4 +1,5 @@
 // The app's panels, each with one color and one icon so it is quick to spot.
+import { DDcaptureHubBus } from "./capture-hub.js";
 // Headings, the app map, the view tabs and Ctrl+Space all read from this list.
 export const DDpanelList = [
   {
@@ -9,15 +10,6 @@ export const DDpanelList = [
     about: ["Bring today's Engine over the board: tick, score and add tasks", "انجین امروز را روی برد بیاور: تیک، نمره و افزودن کار"],
     words: "engine today tasks tick score quick انجین موتور امروز تیک نمره",
     isolate: false,
-  },
-  {
-    id: "plan",
-    icon: "📋",
-    color: "#3F8CFF",
-    name: ["Plan", "پلن"],
-    about: ["Today's tasks in lanes, with steps and time", "کارهای امروز در لاین‌ها، با قدم‌ها و زمان"],
-    words: "today tasks cards lanes blocks امروز کار کارت لاین",
-    isolate: true,
   },
   {
     id: "board",
@@ -97,12 +89,19 @@ export const DDsectionsCommand = {
   words: "sections flowchart flow chart tree list drawer colors life rooms سکشن فلوچارت درخت فهرست کشو رنگ زندگی",
   isolate: false,
 };
+export const DDcaptureCommand = {
+  id: "capture", icon: "✳", color: "#2A9677", name: ["Capture", "ثبت ایده"],
+  about: ["Ideas, Later and worries in one place", "ایده‌ها، کارهای بعداً و نگرانی‌ها در یک‌جا"],
+  words: "capture inbox ideas later worries quick ثبت ایده صندوق نگرانی بعداً",
+  isolate: false,
+};
 
 // Rows for Ctrl+Space. open(id, isolate) runs when one is picked.
 export function DDpanelCommands(language, open) {
   const fa = language === "fa",
     list = [...DDpanelList];
   list.splice(list.findIndex((panel) => panel.id === "engine") + 1, 0, DDsectionsCommand);
+  list.splice(list.findIndex((panel) => panel.id === "sections") + 1, 0, DDcaptureCommand);
   return list.map((panel) => ({
     id: "cmd-panel-" + panel.id,
     panel: { id: panel.id, icon: panel.icon, color: panel.color, isolate: panel.isolate },
@@ -110,7 +109,7 @@ export function DDpanelCommands(language, open) {
     title: panel.name[fa ? 1 : 0],
     subtitle: panel.about[fa ? 1 : 0],
     words: [panel.id, ...panel.name, ...panel.about, panel.words].join(" "),
-    action: () => open(panel.id, panel.isolate),
+    action: () => panel.id === "capture" ? (DDcaptureHubBus.request(), open("board", false)) : open(panel.id, panel.isolate),
     showWithRest: panel.isolate ? () => open(panel.id, false) : null,
   }));
 }
