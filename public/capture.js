@@ -3,7 +3,7 @@ import { DDTimerMini } from "./timer.js";
 import { DDduration } from "./measure.js";
 import { DDlifeState, DDlifeAdd } from "./life-board.js";
 import { DDPlanNudges, DDmoveToDay, DDnextDay } from "./nudges.js";
-import { DDvalidDate } from "./dates.js";
+import { DDvalidDate, DDaddDays } from "./dates.js";
 const DDcaptureDate = DDvalidDate;
 export function DDworry(text, date, tag = "general-friction") {
   return {
@@ -322,11 +322,13 @@ export function DDCaptureTools({
       onToast(t("Saved to Inbox in the Feed", "در صندوق ورودی فید ذخیره شد"));
       return;
     }
-    const captureDate = kind === "worry" ? today : target;
-    const scope =
-        target === "later"
-          ? { blocks: data.setup.later || [] }
-          : data.days[target] || ensureDay(target),
+    // A task can also be put aside for Later (the old Plan's little tray), and
+    // the Capture page's "Later" choice means the same thing (5.50).
+    const later = kind === "task" && (target === "later" || target === "dd-later");
+    const captureDate = kind === "worry" ? today : later ? today : target;
+    const scope = later
+      ? { ...(data.days[today] || ensureDay(today)), blocks: data.setup.later || [] }
+      : data.days[target] || ensureDay(target),
       task =
         kind === "task"
           ? DDcaptureLane(
@@ -343,14 +345,23 @@ export function DDCaptureTools({
       return;
     }
     const tag = classify(text)?.triggerTag || "general-friction";
-    setData((old) =>
-      DDcaptureItem(
+    setData((old) => {
+      const next = DDcaptureItem(
         old,
         { kind, text, date: captureDate, tag },
         ensureDay,
         () => task,
-      ),
-    );
+      );
+      if (!later || !task) return next;
+      // Kept in Later, not on a day: take the copy the capture just made off today.
+      const day = next.days[today];
+      if (!day) return next;
+      return {
+        ...next,
+        days: { ...next.days, [today]: { ...day, blocks: day.blocks.filter((b) => b.id !== task.id) } },
+        setup: { ...next.setup, later: [...(next.setup.later || []), task] },
+      };
+    });
     setText("");
     setError("");
     setPanel(null);
@@ -481,10 +492,103 @@ export function DDCaptureTools({
     setTarget(today);
     setPanel("capture");
   }
+  const capturePage = view === "capture";
   return h(
     "section",
-    { className: "dd-capture-root", dir: fa ? "rtl" : "ltr" },
-    view === "plan" &&
+    { className: "dd-capture-root", "data-capture-page": capturePage ? "true" : undefined, dir: fa ? "rtl" : "ltr" },
+    // Capture has a page of its own (5.50): the same quick box, opened as a page
+    // rather than a sheet, with the worries and the ideas kept beside it.
+    capturePage
+      ? h(
+          "div",
+          { className: "dd-capture-page" },
+          h(
+            "header",
+            { className: "dd-capture-page-head" },
+            h("h1", null, t("Capture", "ثبت")),
+            h("p", null, t("Put a thought down and go on. Nothing has to be finished here.", "فکری را بگذار و برو. هیچ‌چیز لازم نیست همین‌جا تمام شود.")),
+          ),
+          h(
+            "form",
+            {
+              className: "dd-capture-page-form",
+              onSubmit: (event) => {
+                event.preventDefault();
+                if (!text.trim()) return;
+                save(event);
+              },
+            },
+            h(
+              "div",
+              { className: "dd-capture-kinds", role: "group", "aria-label": t("Capture type", "نوع ثبت") },
+              [["task", t("Task", "کار")], ["idea", t("Idea", "ایده")], ["worry", t("Worry", "نگرانی")]].map(([id, label]) =>
+                h(
+                  "button",
+                  {
+                    type: "button",
+                    key: id,
+                    "aria-pressed": kind === id,
+                    onClick: () => {
+                      setKind(id);
+                      DDcaptureRemember("debug-day:capture-kind", id);
+                    },
+                  },
+                  label,
+                ),
+              ),
+            ),
+            h("input", {
+              dir: "auto",
+              value: text,
+              onChange: (event) => setText(event.target.value),
+              maxLength: 4000,
+              "aria-label": t("Capture text", "متن ثبت"),
+              placeholder:
+                kind === "task"
+                  ? t("One thing to do…", "یک کار برای انجام دادن…")
+                  : kind === "idea"
+                    ? t("An idea, a thought, a reference…", "یک ایده، یک فکر، یک رفرنس…")
+                    : t("Leave the thought here…", "فکرت را همین‌جا بگذار…"),
+              onKeyDown: (event) => event.stopPropagation(),
+            }),
+            h("button", { type: "submit", className: "btn solid" }, t("Put it down", "بگذارش")),
+          ),
+          kind === "task"
+            ? h(
+                "div",
+                { className: "dd-capture-page-row" },
+                h("small", null, t("For", "برای")),
+                h(
+                  "select",
+                  { value: target, "aria-label": t("Day", "روز"), onChange: (event) => setTarget(event.target.value) },
+                  [today, DDaddDays(today, 1), DDaddDays(today, 2)].map((day) => h("option", { key: day, value: day }, day)),
+                  h("option", { value: "dd-later" }, t("Later", "بعداً")),
+                ),
+                lanes.length > 1 ? h("select", { value: shownLane, "aria-label": t("Lane", "لاین"), onChange: (event) => pickLane(event.target.value) }, lanes.map((lane) => h("option", { key: lane.id, value: lane.id }, lane.name || lane.id))) : null,
+              )
+            : null,
+          h(
+            "div",
+            { className: "dd-capture-page-lists" },
+            h(
+              "section",
+              null,
+              h("h2", null, t("Worries parked", "نگرانی‌های پارک‌شده"), openWorries.length ? h("small", null, openWorries.length) : null),
+              openWorries.length
+                ? h("ul", null, openWorries.slice(0, 20).map((worry) => h("li", { key: worry.id, dir: "auto" }, worry.text)))
+                : h("p", { className: "dd-capture-page-empty" }, t("Nothing is being carried.", "چیزی روی دوشت نیست.")),
+            ),
+            h(
+              "section",
+              null,
+              h("h2", null, t("Ideas in the Feed", "ایده‌ها در فید")),
+              h("p", { className: "dd-capture-page-empty" }, t("Ideas go to the Inbox section of the Feed, on every day.", "ایده‌ها به سکشن Inbox در فید می‌روند، در همهٔ روزها.")),
+              h("button", { type: "button", className: "textbtn", onClick: () => onToast?.(t("Captured ideas live in the Feed", "ایده‌های ثبت‌شده در فید هستند")) }, t("Where they go", "کجا می‌روند")),
+            ),
+          ),
+        )
+      : null,
+    view === "engine" &&
       date === today &&
       !isolated &&
       h(
@@ -663,7 +767,7 @@ export function DDCaptureTools({
                         onClick: () => {
                           setKind(id);
                           DDcaptureRemember("debug-day:capture-kind", id);
-                          if (id !== "task" && target === "later")
+                          if (id !== "task" && (target === "later" || target === "dd-later"))
                             setTarget(defaultCaptureDay);
                           entry.current?.focus();
                         },
@@ -947,4 +1051,34 @@ export function DDCaptureTools({
         ),
       ),
   );
+}
+
+// The Capture page (5.50): the quick box as a page of its own, with what is
+// parked beside it. It keeps the same look as the sheet, only calmer and wider.
+export const DDCapturePageCSS = `
+.dd-capture-page{display:flex;flex-direction:column;gap:16px;padding:18px 20px 26px;border-radius:16px;background:var(--paper,#fff);box-shadow:inset 0 0 0 1px var(--rule-2,#0002)}
+.dd-capture-page-head h1{margin:0 0 4px;font:600 calc(19px * var(--k,1))/1.15 var(--sans,system-ui);letter-spacing:-.02em}
+.dd-capture-page-head p{margin:0;font-size:12.5px;color:var(--ink-3,#777);max-width:56ch}
+.dd-capture-page-form{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px;border-radius:12px;background:var(--panel,#f6f5f2)}
+.dd-capture-page-form .dd-capture-kinds{display:inline-flex;gap:2px;padding:2px;border-radius:9px;background:var(--paper,#fff);box-shadow:inset 0 0 0 1px var(--rule-2,#0002)}
+.dd-capture-page-form .dd-capture-kinds button{min-height:28px;padding:0 10px;border-radius:7px;background:none;color:var(--ink-3,#777);font:500 12px/1 var(--sans,system-ui)}
+.dd-capture-page-form .dd-capture-kinds button[aria-pressed=true]{background:var(--ink,#121211);color:var(--paper,#fff)}
+.dd-capture-page-form input{flex:1 1 260px;min-width:0;font:inherit;font-size:14px;padding:9px 11px;border-radius:9px;border:1px solid var(--rule-2,#ccc);background:var(--paper,#fff);color:var(--ink,#121211)}
+.dd-capture-page-form input:focus{outline:none;border-color:var(--now,#2C50FF)}
+.dd-capture-page-form>button{flex:none;min-height:36px}
+.dd-capture-page-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:12px;color:var(--ink-3,#777)}
+.dd-capture-page-row select{font:inherit;font-size:12px;padding:5px 8px;border-radius:8px;border:1px solid var(--rule-2,#ccc);background:var(--paper,#fff);color:var(--ink,#121211)}
+.dd-capture-page-lists{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.dd-capture-page-lists section{display:flex;flex-direction:column;gap:6px;padding:12px;border-radius:12px;box-shadow:inset 0 0 0 1px var(--rule-2,#0002);min-width:0}
+.dd-capture-page-lists h2{display:flex;align-items:center;gap:8px;margin:0;font:600 12px/1 var(--mono,monospace);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2,#555)}
+.dd-capture-page-lists h2 small{margin-inline-start:auto;font:600 10px/1 var(--mono,monospace);padding:2px 5px;border-radius:5px;background:var(--wash,#eee);color:var(--ink-3,#777);letter-spacing:0}
+.dd-capture-page-lists ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.dd-capture-page-lists li{padding:6px 8px;border-radius:8px;background:var(--wash,#f1efe9);font-size:12.5px;overflow-wrap:anywhere}
+.dd-capture-page-empty{margin:0;font-size:12px;color:var(--ink-3,#777)}
+@media (max-width:640px){.dd-capture-page{padding:14px 12px}.dd-capture-page-form{padding:8px}.dd-capture-page-form input{font-size:16px}.dd-capture-page-form>button{width:100%;min-height:44px}}
+`;
+
+export function DDinstallCapturePageStyles() {
+  if (typeof document === "undefined" || document.getElementById("dd-capture-page-css")) return;
+  document.head.append(Object.assign(document.createElement("style"), { id: "dd-capture-page-css", textContent: DDCapturePageCSS }));
 }

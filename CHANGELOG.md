@@ -1,3 +1,14 @@
+## 5.50.0 — 2026-11-10
+Branch: feat/tabs-engine-this-app
+- The Engine is a page of its own on shortcut E: today's tasks and their steps, the Park beside them, All / Left / Done, priority, the day arrows, "Pause the day" and the notes that stay. The old Plan tab is no longer in the bar: the Engine is where the day is opened, and the deeper day editing (lanes, feel cards, the note panel) sits behind it when a task is opened.
+- One tab bar for every place: Today, Board, Calendar, Capture and This app, each with the key that opens it, and a sheet (⌄) that lists every tab and every section of the Feed. A section can be given its own key from the sheet or from This app, and the key opens that section's board from anywhere.
+- This app (T) is a page of its own: every tab and section with its key, today's counts, and the newest entries of this changelog.
+- Capture is its own page and reads as a place to put things down, not to work in; "Later" on that page is the same Later tray as before. Pause the day is on the Engine's page.
+- Section tags on a task's header and in the task panel: one press tags the task with a section, and pressing the tag jumps to that section's board.
+- Engine notes stay the same on the board and inside every section, on every day.
+- The changelog is read beside the app, so this page shows what changed without a second copy.
+- Fix "Download standalone HTML": a module with `export let` kept its `export` in the single file, so the saved page would not run from disk. Every `export function|const|class|let|var` is stripped now, and the tab bar and its sheet are plain modules the bundle can carry.
+
 ## 5.49.1 — 2026-11-11
 Branch: fix/pen-direction-and-selection
 - Lock Shift drawing to the initial direction and project movement onto that line.
