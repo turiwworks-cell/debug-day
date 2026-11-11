@@ -2,8 +2,7 @@
 // It is not a copy: it reads and writes day.blocks, the same data Plan, Lanes
 // and the Board show, so a change here is the same change everywhere.
 import { DDcompletion } from "./planner.js";
-import { DDsectionTint, DDshortPath, DDlifePath, DDlifeItems } from "./life-board.js";
-import { DDengineMoveTask, DDengineColumns, DDengineStepGraph, DDengineSetDependency, DDengineSetFlow, DDengineToggleStep, DDengineEditStep } from "./engine-intelligence.js";
+import { DDsectionTint, DDshortPath, DDlifePath } from "./life-board.js";
 
 // Ask the Board to bring the Engine up. The request waits until a Board is
 // on screen (Ctrl+Space can ask from Plan or Calendar before the Board opens).
@@ -78,27 +77,16 @@ export function DDengineEarlierDay(days = {}, date, skip = 0) {
 }
 
 // A copy of an earlier task for today: new ids, not done, no score yet.
-export function DDengineCopyMany(blocks, makeId = () => crypto.randomUUID()) {
-  const ids = new Map();
-  const steps = (items) => (items || []).map((item) => {
-    const id = makeId(); ids.set(item.id, id);
-    return { ...item, id, done: false, children: steps(item.children) };
-  });
-  const copied = blocks.map((block) => {
-    const copy = { ...structuredClone(block), id: makeId(), done: false, subtasks: steps(block.subtasks) };
-    delete copy.score; delete copy.bx; delete copy.by; delete copy.at;
-    if (copy.measure === "count") copy.count = 0;
-    return copy;
-  });
-  const remap = (items) => items.map((step) => ({
-    ...step,
-    ...(Array.isArray(step.dependsOn) ? { dependsOn: step.dependsOn.map((id) => ids.get(id)).filter(Boolean) } : {}),
-    children: remap(step.children || []),
-  }));
-  return copied.map((copy) => ({ ...copy, subtasks: remap(copy.subtasks) }));
-}
 export function DDengineCopy(block, makeId = () => crypto.randomUUID()) {
-  return DDengineCopyMany([block], makeId)[0];
+  const steps = (items) =>
+    (items || []).map((item) => ({ ...item, id: makeId(), done: false, children: steps(item.children) }));
+  const copy = { ...structuredClone(block), id: makeId(), done: false, subtasks: steps(block.subtasks) };
+  delete copy.score;
+  delete copy.bx;
+  delete copy.by;
+  delete copy.at;
+  if (copy.measure === "count") copy.count = 0;
+  return copy;
 }
 
 // Is a task with this name already in today's Engine?
@@ -309,48 +297,7 @@ const KINDS = [
   ["wait", "⏳", "Waiting", "ویتینگ"],
 ];
 
-function EngineSteps({ React: R, block, graph, items, language, change, toggleStep, onJump, depth = 0 }) {
-  const h = R.createElement,
-    fa = language === "fa",
-    t = (en, f) => fa ? f : en;
-  const [editingDependency, setEditingDependency] = R.useState(null);
-  return h("ol", { className: "dd-engine-steps", "data-depth": depth }, (items || []).map((step) => {
-    const node = graph.steps.get(step.id), state = graph.status(step.id), prereqs = graph.deps.get(step.id) || [],
-      candidates = editingDependency !== step.id ? [] : [...graph.steps.values()].filter((other) => other.id !== step.id && !prereqs.includes(other.id) && !graph.reachable(other.id, step.id));
-    return h("li", { key: step.id, className: "dd-engine-step", "data-step": step.id, "data-flow": step.flow === "after" ? "after" : "parallel", "data-blocked": !state.ready, "data-done": !!step.done },
-      h("div", { className: "dd-engine-step-line" },
-        h("button", { type: "button", className: "dd-step-check", disabled: !graph.canToggle(step.id),
-          "aria-pressed": !!step.done, "aria-label": t("Toggle step: ", "تغییر وضعیت قدم: ") + step.text,
-          onClick: () => change((day) => DDengineToggleStep(day, block.id, step.id, toggleStep)) }, step.done ? "✓" : ""),
-        h("input", { className: "dd-step-text", dir: "auto", defaultValue: step.text, key: step.id + ":" + step.text,
-          "aria-label": t("Step", "قدم"), maxLength: 300,
-          onBlur: (event) => { const text = event.target.value.trim(); if (text && text !== step.text) change((day) => DDengineEditStep(day, step.id, (s) => ({ ...s, text }))); },
-          onKeyDown: (event) => { event.stopPropagation(); if (event.key === "Enter") event.currentTarget.blur(); } }),
-        node?.previous && h("button", { type: "button", className: "dd-step-flow", "aria-pressed": step.flow === "after",
-          title: step.flow === "after" ? t("Runs after the previous step", "پس از قدم قبلی") : t("Can run in parallel", "قابل انجام موازی"),
-          onClick: () => change((day) => DDengineSetFlow(day, step.id, step.flow === "after" ? "parallel" : "after")) }, step.flow === "after" ? "↳" : "∥"),
-        !state.ready && h("small", { className: "dd-step-blocked" }, t("Waiting", "در انتظار"))),
-      h("div", { className: "dd-engine-step-deps" },
-        prereqs.map(id => {
-          const dep = graph.steps.get(id);
-          return h(R.Fragment, { key: id },
-            h("button", { className: "dd-step-dep", type: "button", onClick: () => onJump(dep) }, [dep.taskId !== block.id && dep.taskName, dep.step.text].filter(Boolean).join(" › ")),
-            editingDependency === step.id && h("button", { type: "button", "aria-label": t("Remove prerequisite", "حذف پیش‌نیاز"), onClick: () => change(day => {
-              const next = DDengineSetDependency(day, step.id, id, false);
-              return step.flow === "after" && node.previous === id ? DDengineSetFlow(next, step.id, "parallel") : next;
-            }) }, "×"));
-        }),
-        h("button", { type: "button", className: "dd-step-dep-edit", "aria-expanded": editingDependency === step.id,
-          onClick: () => setEditingDependency(editingDependency === step.id ? null : step.id) }, t("Prerequisites", "پیش‌نیازها")),
-        editingDependency === step.id && h("select", { value: "", className: "dd-step-dependency", "aria-label": t("Add prerequisite to ", "افزودن پیش‌نیاز برای ") + step.text,
-          onChange: (event) => { const id = event.target.value; if (id) { change((day) => DDengineSetDependency(day, step.id, id)); setEditingDependency(null); } } },
-          h("option", { value: "" }, candidates.length ? t("+ Depends on…", "+ وابسته به…") : t("No available steps", "قدمی برای انتخاب نیست")),
-          candidates.map((n) => h("option", { key: n.id, value: n.id }, n.taskName + " › " + n.step.text)))),
-      (step.children || []).length > 0 && h(EngineSteps, { React: R, block, graph, items: step.children, language, change, toggleStep, onJump, depth: depth + 1 }));
-  }));
-}
-
-function EngineRow({ React: R, block, lanes, sources = [], language, measure, setDone, toggleStep, graph, makeId, change, onReveal, onOpenSection, jump, onJump }) {
+function EngineRow({ React: R, block, lanes, sources = [], language, measure, setDone, change, onReveal }) {
   const fa = language === "fa",
     t = (en, f) => (fa ? f : en),
     h = R.createElement,
@@ -358,25 +305,10 @@ function EngineRow({ React: R, block, lanes, sources = [], language, measure, se
     // The kind, lane and "show" controls stay out of sight until the row is
     // hovered or focused, or ⋯ is tapped (5.37): a calm list of names first.
     [tools, setTools] = R.useState(false),
-    [stepsOpen, setStepsOpen] = R.useState(false),
-    [stepDraft, setStepDraft] = R.useState(""),
     kind = measure.DDmeasureOf(block),
     from = sources.find((s) => s.id === block.from),
     sourcePath = (s) => DDshortPath((s.parts || [s.name]).map((p) => p.trim() || t("Section", "سکشن")), 34),
-    update = (fn) => change((day) => ({ ...day, blocks: day.blocks.map((b) => (b.id === block.id ? fn(b) : b)) })),
-    taskSteps = [...graph.steps.values()].filter((n) => n.taskId === block.id).length,
-    leftSteps = [...graph.steps.values()].filter((n) => n.taskId === block.id && !n.step.done).length,
-    waitingIds = [...new Set([...graph.steps.values()].filter(node => node.taskId === block.id && !node.step.done).flatMap(node => graph.status(node.id).waiting))],
-    taskBlocked = waitingIds.length > 0;
-  R.useEffect(() => {
-    if (jump?.taskId !== block.id) return;
-    setStepsOpen(true);
-    const frame = requestAnimationFrame(() => {
-      const field = document.querySelector('[data-step="' + CSS.escape(jump.id) + '"] .dd-step-text');
-      field?.focus(); field?.scrollIntoView({ block: "nearest" });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [jump, block.id]);
+    update = (fn) => change((day) => ({ ...day, blocks: day.blocks.map((b) => (b.id === block.id ? fn(b) : b)) }));
   return h(
     "li",
     { className: "dd-engine-task", "data-done": !!block.done, "data-kind": kind, "data-engine-task": block.id, "data-tools": tools ? "open" : undefined },
@@ -386,7 +318,6 @@ function EngineRow({ React: R, block, lanes, sources = [], language, measure, se
           {
             type: "button",
             className: "dd-engine-check",
-            disabled: !block.done && taskBlocked,
             "aria-pressed": !!block.done,
             "aria-label": (block.done ? t("Mark not done: ", "برداشتن تیک: ") : t("Mark done: ", "تیک زدن: ")) + (block.name || ""),
             onClick: () => update((b) => setDone(b, !b.done)),
@@ -394,9 +325,9 @@ function EngineRow({ React: R, block, lanes, sources = [], language, measure, se
           block.done ? "✓" : "",
         )
       : h("span", { className: "dd-engine-kind-dot", "aria-hidden": true }, kind === "score" ? "★" : "⏳"),
-    h("div", { className: "dd-engine-main" },
-      stepsOpen && from && onOpenSection && h("button", { className: "dd-engine-source-link", type: "button", onClick: () => onOpenSection(from.id),
-        style: from.tint ? { borderColor: from.tint.line, color: from.tint.ink, background: from.tint.fill } : undefined }, "↗ " + sourcePath(from).short),
+    h(
+      "div",
+      { className: "dd-engine-main" },
       editing
         ? h("input", {
             className: "dd-engine-name-input",
@@ -430,15 +361,9 @@ function EngineRow({ React: R, block, lanes, sources = [], language, measure, se
             },
             block.name || t("Untitled", "بی‌نام"),
           ),
-      h("div", { className: "dd-engine-meta" },
-        taskBlocked && waitingIds.map(id => h("button", { key: id, type: "button", className: "dd-step-blocked", onClick: () => onJump(graph.steps.get(id)) }, t("Waiting for ", "منتظر ") + graph.steps.get(id).step.text)),
-        h("button", { type: "button", className: "dd-engine-move", title: t("Move between Today and Park", "انتقال بین امروز و پارک"),
-          onClick: () => update((b) => DDengineMoveTask(b, lanes)) },
-          lanes.some((l) => l.id === block.lane) ? t("→ Park", "← پارک") : (t("Return to ", "برگردان به ") + (lanes.find(l => l.id === block.parkedFromLane) || lanes[0])?.name)),
-        h("span", { className: "dd-engine-priority", "data-priority": block.pri || 0 }, block.pri ? "P" + block.pri : t("Normal", "عادی")),
-        h("select", { className: "dd-engine-priority-pick dd-engine-tool", value: String(block.pri || 0), "aria-label": t("Priority", "اولویت"),
-          onChange: (event) => update((b) => ({ ...b, pri: Number(event.target.value) })) },
-          [[0, t("Normal", "عادی")], [1, "P1"], [2, "P2"], [3, "P3"]].map(([id, label]) => h("option", { value: id, key: id }, label))),
+      h(
+        "div",
+        { className: "dd-engine-meta" },
         kind !== "time" &&
           h(measure.DDMeasureControl, { React: R, block, language, onChange: update }),
         kind === "time" && Number(block.min) > 0 && h("span", { className: "dd-engine-min" }, measure.DDmeasureText(block, language)),
@@ -461,24 +386,26 @@ function EngineRow({ React: R, block, lanes, sources = [], language, measure, se
           ),
         ),
         // One lane only: picking another lane moves the task there.
-        h("select",
+        h(
+          "select",
           {
             className: "dd-engine-lane dd-engine-tool",
             value: lanes.some((lane) => lane.id === block.lane) ? block.lane : "",
             "aria-label": t("Lane", "لاین"),
             onChange: (event) => {
               const lane = event.target.value;
-              change((day) => ({ ...day, blocks: day.blocks.map((b) => (b.id === block.id ? (lane ? { ...b, lane, parkedFromLane: undefined } : DDengineMoveTask(b, lanes)) : b)) }));
+              change((day) => ({ ...day, blocks: day.blocks.map((b) => (b.id === block.id ? { ...b, lane } : b)) }));
             },
           },
           lanes.map((lane) => h("option", { key: lane.id, value: lane.id }, lane.name || lane.id)),
           h("option", { value: "" }, t("Parked", "پارک‌شده")),
         ),
         // Where the task came from: a Life section, or the main board.
-        h("select",
+        h(
+          "select",
           {
             // A task's source stays in sight (it is read often); "Main board" only with the tools.
-            className: "dd-engine-from dd-engine-tool",
+            className: "dd-engine-from" + (from ? "" : " dd-engine-tool"),
             "data-from": block.from || "",
             value: from ? block.from : "",
             "aria-label": t("Came from", "از کجا آمده") + (from ? ": " + sourcePath(from).full : ""),
@@ -509,18 +436,6 @@ function EngineRow({ React: R, block, lanes, sources = [], language, measure, se
             "◎",
           ),
       ),
-      h("div", { className: "dd-engine-step-head" },
-        h("button", { type: "button", "aria-expanded": stepsOpen, onClick: () => setStepsOpen(!stepsOpen) },
-          (stepsOpen ? "⌄ " : "› ") + t("Steps", "قدم‌ها") + " · " + (taskSteps ? (taskSteps - Math.min(taskSteps, leftSteps)) + "/" + taskSteps : "0"))),
-      stepsOpen && h("div", { className: "dd-engine-step-body" },
-        h(EngineSteps, { React: R, block, graph, items: block.subtasks || [], language, change, toggleStep, onJump }),
-        h("form", { className: "dd-engine-step-add", onSubmit: (event) => {
-          event.preventDefault(); const text = stepDraft.trim(); if (!text) return;
-          update((b) => ({ ...b, done: false, subtasks: [...(b.subtasks || []), { id: makeId(), text, done: false, expanded: true, children: [] }] }));
-          setStepDraft("");
-        } },
-          h("input", { value: stepDraft, dir: "auto", maxLength: 300, placeholder: t("+ Add a step", "+ قدم جدید"),
-            "aria-label": t("Add a step", "افزودن قدم"), onChange: (event) => setStepDraft(event.target.value) }))),
     ),
     h(
       "button",
@@ -563,23 +478,6 @@ function AddTask({ React: R, lane, language, onAdd }) {
   );
 }
 
-function EngineSharedNotes({ React: R, setup, language, onAdd, onEdit }) {
-  const h = R.createElement, t = (en, fa) => language === "fa" ? fa : en,
-    [draft, setDraft] = R.useState(""),
-    notes = DDlifeItems(setup).filter((item) => item.type === "sticky" && item.id.startsWith("lf-engine-note-"));
-  return h("aside", { className: "dd-engine-shared", "aria-label": t("Shared Engine notes", "نوت‌های مشترک انجین") },
-    h("strong", null, t("Shared notes", "نوت‌های مشترک")),
-    h("div", { className: "dd-engine-shared-list" },
-      notes.map((note) => h("textarea", { key: note.id, defaultValue: note.text, dir: "auto", rows: 2,
-        "aria-label": t("Shared note", "نوت مشترک"), onBlur: (event) => {
-          if (event.target.value !== note.text) onEdit?.(note.id, event.target.value);
-        } })),
-      h("form", { onSubmit: (event) => { event.preventDefault(); if (draft.trim()) { onAdd?.(draft.trim()); setDraft(""); } } },
-        h("input", { value: draft, dir: "auto", placeholder: t("+ Note for every section", "+ نوت برای همهٔ سکشن‌ها"),
-          "aria-label": t("New shared note", "نوت مشترک جدید"), onChange: (event) => setDraft(event.target.value) }))),
-    h("small", null, t("Visible in Engine from every section and kept in the shared Feed.", "در انجین همهٔ سکشن‌ها دیده می‌شود و در فید مشترک می‌ماند.")));
-}
-
 // The Engine brought over the board: the board stays behind it, dimmed.
 // E, Esc, the close button or a click on the dimmed board closes it.
 export function DDEngineOverlay({
@@ -590,54 +488,32 @@ export function DDEngineOverlay({
   dateLabel,
   measure,
   setDone,
-  toggleStep,
   onChange,
   onAdd,
   onReveal,
-  onOpenSection,
-  onCapture,
-  onPause,
-  onAddSharedNote,
-  onEditSharedNote,
   onClose,
   days,
   dateFormat,
   makeId,
   sources = [],
-  renderPlan,
-  sectionId = "", todayDate,
 }) {
   const h = R.createElement,
     fa = language === "fa",
     t = (en, f) => (fa ? f : en),
-    weekday = new Intl.DateTimeFormat(fa ? "fa-IR" : "en-US", { weekday: "long", timeZone: "UTC" }).format(new Date((day.date || "2026-01-01") + "T12:00:00Z")),
     lanes = setup?.lanes || [],
-    [jump, setJump] = R.useState(null),
-    [planning, setPlanning] = R.useState(false),
-    [allSections, setAllSections] = R.useState(false),
-    section = sources.find((entry) => entry.id === sectionId),
-    scopedDay = section && !allSections ? { ...day, blocks: day.blocks.filter((task) => task.from === section.id) } : day,
-    groups = DDengineColumns(scopedDay, lanes),
-    graph = DDengineStepGraph(day),
-    progress = DDcompletion(scopedDay, lanes.map((lane) => lane.id)),
-    [filter, setFilter] = R.useState("all"),
+    groups = DDengineGroups(day, lanes),
+    progress = DDcompletion(day, lanes.map((lane) => lane.id)),
     [earlierOpen, setEarlierOpen] = R.useState(false),
     [carryHidden, setCarryHidden] = R.useState(() => DDengineCarryHidden(day.date)),
-    scopedDays = R.useMemo(() => section && !allSections && days ? Object.fromEntries(Object.entries(days).map(([date, record]) => [date, { ...record, blocks: (record.blocks || []).filter(task => task.from === section.id) }])) : days, [days, section?.id, allSections]),
-    carry = scopedDays ? DDengineCarry(scopedDays, scopedDay) : null,
+    carry = days ? DDengineCarry(days, day) : null,
     panel = R.useRef(null);
   R.useEffect(() => {
     const previous = document.activeElement;
     panel.current?.focus({ preventScroll: true });
     return () => previous?.focus?.({ preventScroll: true });
   }, []);
-  function onJump(node) {
-    if (!node) return;
-    if (section && !scopedDay.blocks.some(task => task.id === node.taskId)) setAllSections(true);
-    setFilter("all");
-    setJump({ id: node.id, taskId: node.taskId });
-  }
-  const shown = groups.map((group) => ({ ...group, blocks: group.blocks.filter((b) => filter === "all" || (filter === "done" ? b.done : !b.done)) }));
+  // The empty lanes still show, so a task can be added straight into them.
+  const shown = groups.length ? groups : lanes.map((lane) => ({ lane, blocks: [] }));
   return h(
     "div",
     {
@@ -674,7 +550,7 @@ export function DDEngineOverlay({
         "header",
         { className: "dd-engine-head" },
         h("span", { className: "dd-engine-icon", "aria-hidden": true }, "⚙️"),
-        h("div", { className: "dd-engine-title" }, h("strong", null, section && !allSections ? section.parts.join(" › ") : t("Engine", "انجین")), dateLabel && h("small", null, dateLabel)),
+        h("div", { className: "dd-engine-title" }, h("strong", null, t("Engine", "انجین")), dateLabel && h("small", null, dateLabel)),
         h(
           "div",
           { className: "dd-engine-progress", title: t("Done, weighted by priority", "انجام‌شده، با وزن اولویت") },
@@ -692,10 +568,6 @@ export function DDEngineOverlay({
             },
             t("Earlier Engine", "انجین روزهای قبل"),
           ),
-        renderPlan && h("button", { type: "button", className: "dd-engine-head-action", "aria-pressed": planning,
-          onClick: () => setPlanning(!planning) }, planning ? t("Back to tasks", "بازگشت به کارها") : t("Planning tools", "ابزارهای پلن")),
-        onCapture && h("button", { type: "button", className: "dd-engine-head-action", onClick: onCapture }, t("Capture", "ثبت سریع")),
-        onPause && h("button", { type: "button", className: "dd-engine-head-action", onClick: onPause }, t("Pause the day", "توقف روز")),
         h(
           "button",
           { type: "button", className: "dd-engine-close", onClick: onClose, "aria-label": t("Close Engine", "بستن انجین") },
@@ -704,71 +576,60 @@ export function DDEngineOverlay({
           t("Close", "بستن"),
         ),
       ),
-      planning ? h("div", { className: "dd-engine-planning" }, renderPlan()) : h(R.Fragment, null,
       carry && carry.count > 0 && !carryHidden && !earlierOpen &&
         h(CarryLine, {
           React: R,
           carry,
           language,
           dateFormat,
-          onBring: () => onChange((d) => ({ ...d, blocks: [...d.blocks, ...DDengineCopyMany([...carry.open, ...carry.waiting], makeId)] })),
+          onBring: () => onChange((d) => ({ ...d, blocks: [...d.blocks, ...[...carry.open, ...carry.waiting].map((b) => DDengineCopy(b, makeId))] })),
           onChoose: () => setEarlierOpen(true),
           onHide: () => { DDhideEngineCarry(day.date); setCarryHidden(true); },
         }),
       earlierOpen &&
         h(EarlierEngine, {
           React: R,
-          days: scopedDays,
-          day: scopedDay,
+          days,
+          day,
           lanes,
           language,
           dateFormat,
           onCopy: (blocks) =>
-            onChange((d) => ({ ...d, blocks: [...d.blocks, ...DDengineCopyMany(blocks, makeId)] })),
+            onChange((d) => ({ ...d, blocks: [...d.blocks, ...blocks.map((b) => DDengineCopy(b, makeId))] })),
         }),
-      h("div", { className: "dd-engine-filter", role: "group", "aria-label": t("Filter tasks", "فیلتر کارها") },
-        section && h("select", { value: allSections ? "all" : "here", "aria-label": t("Section scope", "محدودهٔ سکشن"),
-          onChange: (event) => setAllSections(event.target.value === "all") },
-          h("option", { value: "here" }, section.parts.join(" › ")),
-          h("option", { value: "all" }, t("All sections", "همهٔ سکشن‌ها"))),
-        [["all", t("All", "همه")], ["left", t("Left", "مانده")], ["done", t("Done", "انجام‌شده")]].map(([id, label]) =>
-          h("button", { type: "button", key: id, "aria-pressed": filter === id, onClick: () => setFilter(id) }, label))),
       h(
         "div",
         { className: "dd-engine-lanes" },
-        shown.map(({ id, blocks }) =>
+        shown.map(({ lane, blocks }) =>
           h(
             "section",
-            { key: id, className: "dd-engine-lane-col", "data-lane": id, "data-engine-zone": id },
+            { key: lane.id || "parked", className: "dd-engine-lane-col", "data-lane": lane.id || "parked" },
             h(
               "h3",
               null,
-              id === "park" ? t("Park", "پارک") : day.date === todayDate ? t("Today", "امروز") + " · " + weekday : weekday,
-              h("small", null, groups.find((c) => c.id === id).blocks.filter((b) => b.done).length + "/" + groups.find((c) => c.id === id).blocks.length),
+              lane.parked || !lane.id ? t("Parked", "پارک‌شده") : lane.name || lane.id,
+              h("small", null, blocks.filter((b) => b.done).length + "/" + blocks.length),
             ),
             h(
               "ul",
               null,
               blocks.map((block) =>
-                h(EngineRow, { key: block.id, React: R, block, lanes, sources, language, measure, setDone,
-                  toggleStep, graph, makeId,
-                  change: onChange, onReveal, onOpenSection, jump, onJump }),
+                h(EngineRow, { key: block.id, React: R, block, lanes, sources, language, measure, setDone, change: onChange, onReveal }),
               ),
             ),
-            h(AddTask, { React: R, lane: { id: id === "park" ? "" : lanes[0]?.id || "", name: id === "park" ? t("Park", "پارک") : t("Today", "امروز") }, language, onAdd: (name, lane) => { onAdd(name, lane); if (filter === "done") setFilter("left"); } }),
+            h(AddTask, { React: R, lane, language, onAdd }),
           ),
         ),
       ),
-      h(EngineSharedNotes, { React: R, setup, language, onAdd: onAddSharedNote, onEdit: onEditSharedNote }),
       h(
         "footer",
         { className: "dd-engine-foot" },
         t(
-          "Priority brings important open work forward. Steps can run in sequence or parallel, including across tasks.",
-          "کارهای مهم و باز بالاتر می‌آیند. قدم‌ها می‌توانند پشت‌سرهم یا موازی باشند، حتی بین چند کار.",
+          "Same tasks as Plan and Lanes. Each task sits in one lane only.",
+          "همان کارهای پلن و لاین‌ها. هر کار فقط در یک لاین است.",
         ),
       ),
-    )),
+    ),
   );
 }
 
@@ -777,7 +638,7 @@ export const DDengineCSS = `
 .b2-board-focus .dd-engine-backdrop,.b4-focus .dd-engine-backdrop{position:fixed}
 @keyframes dd-engine-in{from{opacity:0}to{opacity:1}}
 .dd-engine{width:min(1080px,100%);max-height:min(82vh,100%);display:flex;flex-direction:column;background:var(--paper,#fff);color:var(--ink,#121211);border-radius:16px;box-shadow:0 24px 60px #0006,0 0 0 1px var(--rule-2,#0002);overflow:hidden;outline:none}
-.dd-engine-planning{overflow:auto;min-height:0;padding:12px 16px}.dd-engine-head{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--rule-2,#0001)}
+.dd-engine-head{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--rule-2,#0001)}
 .dd-engine-icon{font-size:20px}
 .dd-engine-title{display:flex;flex-direction:column;gap:2px;min-width:0}
 .dd-engine-title strong{font-size:16px}
@@ -875,50 +736,9 @@ export const DDengineCSS = `
 .dd-engine-more{flex:none;width:24px;height:22px;margin-inline-start:-2px;border-radius:6px;background:none;color:var(--ink-3,#666);font-size:15px;line-height:1;opacity:0}
 .dd-engine-task:hover .dd-engine-more,.dd-engine-more:focus-visible,.dd-engine-more[aria-expanded=true]{opacity:1}
 .dd-engine-more:hover,.dd-engine-more[aria-expanded=true]{background:var(--wash,#eee);color:var(--ink,#121211)}
-.dd-engine{width:min(1160px,100%);max-height:min(91vh,100%);border-radius:20px}
-.dd-engine-lanes{grid-template-columns:minmax(0,1.8fr) minmax(260px,1fr);gap:12px;align-items:start;padding-top:10px}
-.dd-engine-lane-col{background:color-mix(in srgb,var(--ink,#121211) 3%,var(--paper,#fff));border:1px solid var(--rule-2,#0001);box-shadow:none}
-.dd-engine-lane-col[data-lane=park]{background:var(--wash,#f4f4f2)}
-.dd-engine-lane-col h3{padding:3px 2px 8px;font-size:16px;font-weight:650}
-.dd-engine-task{padding:12px;border:1px solid var(--rule-2,#0001);box-shadow:0 2px 6px #00000005}
-.dd-engine-filter{display:flex;align-items:center;gap:3px;margin:12px 18px 0;padding:3px;width:max-content;border-radius:9px;background:var(--wash,#eee)}
-.dd-engine-filter button{padding:6px 14px;border-radius:7px;background:none;color:var(--ink-2,#555);font-size:12px}
-.dd-engine-filter button[aria-pressed=true]{background:var(--paper,#fff);box-shadow:0 1px 3px #0002;color:var(--ink,#111)}
-.dd-engine-head-action{padding:7px 9px;border-radius:8px;background:transparent;box-shadow:inset 0 0 0 1px var(--rule-2,#0002);font-size:12px;color:var(--ink,#111)}
-.dd-engine-move{border-radius:6px;background:var(--wash,#eee);color:var(--ink-2,#555);padding:4px 7px;font-size:11px}
-.dd-engine-priority{display:inline-flex;align-items:center;border-radius:5px;color:var(--ink-3,#777);font:600 10px/1.6 var(--mono,monospace)}
-.dd-engine-priority[data-priority="1"]{color:#d3443d}.dd-engine-priority[data-priority="2"]{color:#c18622}.dd-engine-priority[data-priority="3"]{color:#547f9d}
-.dd-engine-priority-pick{border:1px solid var(--rule-2,#0002);border-radius:5px;background:var(--paper,#fff);color:var(--ink,#111);font-size:11px}
-.dd-engine-source-link{display:block;align-self:flex-start;border:1px solid var(--rule-2,#0002);border-radius:999px;padding:2px 8px;font-size:11px;max-width:100%;overflow:hidden;text-overflow:ellipsis}
-.dd-engine-step-head{display:flex;gap:10px;align-items:center}
-.dd-engine-step-head button{background:none;color:var(--ink-2,#555);font-size:11px;padding:4px 0}
-.dd-engine-steps{display:flex;flex-direction:column;gap:4px;padding:0 0 0 11px;margin:0;list-style:none;border-inline-start:1px solid var(--rule-2,#0003)}
-.dd-engine-step{position:relative;min-width:0;padding:3px 0 3px 8px}
-.dd-engine-step:before{content:"";position:absolute;width:8px;top:16px;inset-inline-start:-11px;border-top:1px solid var(--rule-2,#0004)}
-.dd-engine-step[data-flow=after]:before{border-color:var(--panel-engine,#F05A28);border-width:2px}
-.dd-engine-step-line{display:flex;align-items:center;min-width:0;gap:6px}
-.dd-step-check{flex:none;width:19px;height:19px;border:1.3px solid var(--ink-3,#999);border-radius:5px;background:none;color:#fff;font-size:11px}
-.dd-step-check[aria-pressed=true]{background:var(--panel-engine,#F05A28);border-color:var(--panel-engine,#F05A28)}
-.dd-step-check:disabled{opacity:.4;cursor:not-allowed}
-.dd-step-text{flex:1;min-width:0;border:0;border-radius:4px;outline:none;color:var(--ink,#111);background:transparent;font:12px/1.5 var(--sans,system-ui);padding:3px 2px}
-.dd-step-text:focus{outline:1px solid var(--panel-engine,#F05A28);background:var(--paper,#fff)}
-.dd-engine-step[data-done=true]>.dd-engine-step-line .dd-step-text{text-decoration:line-through;color:var(--ink-3,#777)}
-.dd-step-flow{width:27px;height:24px;flex:none;border-radius:6px;background:var(--wash,#eee);color:var(--ink-2,#555);font-size:15px}
-.dd-step-flow[aria-pressed=true]{background:color-mix(in srgb,var(--panel-engine,#F05A28) 13%,var(--paper,#fff));color:var(--panel-engine,#F05A28)}
-.dd-step-blocked{font-size:10px;color:#bc7436}
-.dd-engine-step-deps{display:flex;flex-wrap:wrap;gap:3px;margin:3px 0 0 24px;max-width:100%}
-.dd-step-dep{max-width:100%;overflow:hidden;text-overflow:ellipsis;border-radius:5px;background:var(--wash,#eee);color:var(--ink-2,#444);padding:3px 6px;font-size:10px}
-.dd-step-dep-edit{background:none;color:var(--ink-3,#666);font-size:11px;padding:3px 5px}.dd-step-dependency{max-width:135px;padding:3px 4px;border:1px dashed var(--rule-2,#0003);border-radius:5px;background:transparent;color:var(--ink-3,#666);font-size:10px}
-.dd-engine-step-add input{width:100%;border:0;border-bottom:1px dashed var(--rule-2,#0003);background:transparent;color:var(--ink,#111);font-size:12px;padding:6px 2px;outline:none}
-.dd-engine-step-add input:focus{border-color:var(--panel-engine,#F05A28)}
-.dd-engine-shared{padding:10px 18px;border-top:1px solid var(--rule-2,#0001);display:flex;flex-direction:column;gap:8px}
-.dd-engine-shared>strong{font-size:12px}.dd-engine-shared>small{font-size:10px;color:var(--ink-3,#777)}
-.dd-engine-shared-list{display:flex;gap:8px;overflow-x:auto;max-height:110px;padding-bottom:4px;scrollbar-width:thin}
-.dd-engine-shared-list textarea,.dd-engine-shared-list input{width:200px;min-width:180px;box-sizing:border-box;resize:none;padding:9px;border-radius:9px;border:1px solid var(--rule-2,#0002);background:var(--wash,#f7f6f3);color:var(--ink,#111);font:12px/1.45 var(--sans,system-ui)}
-.dd-engine-shared-list form{flex:none}.dd-engine-shared-list input{height:64px;border-style:dashed}
 @media (hover:none){.dd-engine-more{opacity:1;width:32px;height:32px}}
 .dd-engine-foot{padding:10px 18px;font-size:12px;color:var(--ink-3,#666);border-top:1px solid var(--rule-2,#0001)}
-@media (max-width:760px){.dd-engine-carry{flex-wrap:wrap;margin:10px 12px 0}.dd-engine-carry-text{flex-basis:calc(100% - 40px)}.dd-engine-carry-all,.dd-engine-carry-pick{min-height:36px}.dd-engine-backdrop{padding:10px;align-items:stretch}.dd-engine{max-height:none}.dd-engine-head{flex-wrap:wrap}.dd-engine-lanes{grid-template-columns:1fr;padding:12px}.dd-engine-bar{width:64px}.dd-engine-check,.dd-engine-kinds button,.dd-engine-reveal{min-width:28px;min-height:28px}}
+@media (max-width:640px){.dd-engine-carry{flex-wrap:wrap;margin:10px 12px 0}.dd-engine-carry-text{flex-basis:calc(100% - 40px)}.dd-engine-carry-all,.dd-engine-carry-pick{min-height:36px}.dd-engine-backdrop{padding:10px;align-items:stretch}.dd-engine{max-height:none}.dd-engine-lanes{grid-template-columns:1fr;padding:12px}.dd-engine-bar{width:64px}.dd-engine-check,.dd-engine-kinds button,.dd-engine-reveal{min-width:28px;min-height:28px}}
 @media (prefers-reduced-motion:reduce){.dd-engine-backdrop{animation:none}}
 `;
 

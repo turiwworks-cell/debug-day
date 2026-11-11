@@ -1,4 +1,3 @@
-import { DDengineStepGraph } from "./engine-intelligence.js";
 import { DDlifeItems, DDlifeRemoveTree, DDlifeHistory, DDlifeState, DDSectionChip } from "./life-board.js";
 import { DDnoteTags, DDtagText } from "./note-tags.js";
 import { DDmediaTitle } from "./media.js";
@@ -361,11 +360,7 @@ function DDsetSubDone(items, done) {
 }
 // All entry points use the same completion rules: whole tasks cascade down;
 // a subtask updates its branch and recomputes the containing task's status.
-export function DDsetTaskDone(block, done, day) {
-  if (done && day && block.subtasks?.length) {
-    const graph = DDengineStepGraph(day);
-    if ([...graph.steps.values()].some(node => node.taskId === block.id && !node.step.done && !graph.status(node.id).ready)) return block;
-  }
+export function DDsetTaskDone(block, done) {
   const next = structuredClone(block);
   next.done = !!done;
   DDsetSubDone(next.subtasks, next.done);
@@ -376,8 +371,7 @@ export function DDsetTaskDone(block, done, day) {
   }
   return next;
 }
-export function DDtoggleSubtask(block, id, day) {
-  if (day && !DDengineStepGraph(day).canToggle(id)) return block;
+export function DDtoggleSubtask(block, id) {
   const next = structuredClone(block);
   function visit(items) {
     for (const item of items || []) {
@@ -465,8 +459,8 @@ export function DDeditSearchResult(snapshot, row, action, value, ensureDay) {
     if (action === "done") {
       day.blocks[day.blocks.indexOf(block)] =
         row.kind === "subtask"
-          ? DDtoggleSubtask(block, target.id, day)
-          : DDsetTaskDone(block, !block.done, day);
+          ? DDtoggleSubtask(block, target.id)
+          : DDsetTaskDone(block, !block.done);
     } else if (action === "category") block.type = value;
     else if (action === "duration") {
       const minutes = Math.max(
