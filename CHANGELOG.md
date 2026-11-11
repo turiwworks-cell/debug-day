@@ -1,3 +1,7 @@
+## 5.51.1 — 2026-11-11
+Branch: fix/engine-consistency
+- Apply step prerequisites in board, plan and search, remember parked lanes, scope carry to the active section, and clarify dates and prerequisite navigation. Collapse step details and show newly added work.
+
 ## 5.51.0 — 2026-11-11
 Branch: release/5.51.0
 - Publish the reviewed local Engine update: section-scoped Today/Park tasks, nested steps, prerequisites, shared notes, Capture and section shortcuts.

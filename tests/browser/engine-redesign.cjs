@@ -25,6 +25,8 @@ const { start, fixture } = require("./harness.cjs");
       await engine.locator(".dd-engine-planning .plan").waitFor();
       await engine.getByRole("button", { name: language === "fa" ? "بازگشت به کارها" : "Back to tasks" }).click();
       const row = engine.locator('[data-engine-task="writing"]');
+      await row.locator('.dd-engine-step-head button').click();
+      await engine.locator('[data-engine-task="long"] .dd-engine-step-head button').click();
       assert.equal(await row.locator('[data-step="sub"]').count(), 1);
       assert.equal(await row.locator('[data-step="nested"]').count(), 1);
       assert.ok(await row.locator('.dd-engine-priority').innerText() === 'P1');
@@ -40,6 +42,11 @@ const { start, fixture } = require("./harness.cjs");
       state = await read();
       assert.deepEqual(state.blocks.find((b) => b.id === "long").subtasks.at(-1).dependsOn, ["sub"]);
       assert.equal(await engine.locator(`[data-step="${id}"]`).getAttribute("data-blocked"), "true");
+
+      await row.locator('.dd-engine-step-head button').click();
+      await engine.locator(`[data-step="${id}"] .dd-step-dep`).click();
+      await page.waitForFunction(() => document.activeElement?.closest('[data-step]')?.dataset.step === 'sub');
+      assert.deepEqual((await read()).blocks.find(b => b.id === "long").subtasks.at(-1).dependsOn, ["sub"]);
 
       // Park returns to Today without losing the task/step tree.
       await row.locator('.dd-engine-move').click();

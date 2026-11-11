@@ -309,7 +309,7 @@ const KINDS = [
   ["wait", "⏳", "Waiting", "ویتینگ"],
 ];
 
-function EngineSteps({ React: R, block, graph, items, language, change, toggleStep, depth = 0 }) {
+function EngineSteps({ React: R, block, graph, items, language, change, toggleStep, onJump, depth = 0 }) {
   const h = R.createElement,
     fa = language === "fa",
     t = (en, f) => fa ? f : en;
@@ -331,21 +331,26 @@ function EngineSteps({ React: R, block, graph, items, language, change, toggleSt
           onClick: () => change((day) => DDengineSetFlow(day, step.id, step.flow === "after" ? "parallel" : "after")) }, step.flow === "after" ? "↳" : "∥"),
         !state.ready && h("small", { className: "dd-step-blocked" }, t("Waiting", "در انتظار"))),
       h("div", { className: "dd-engine-step-deps" },
-        prereqs.map((id) => { const dep = graph.steps.get(id); return h("button", { type: "button", key: id,
-          title: t("Remove dependency", "حذف وابستگی"), className: "dd-step-dep", onClick: () => change((day) =>
-            step.flow === "after" && node?.previous === id ? DDengineSetFlow(day, step.id, "parallel") : DDengineSetDependency(day, step.id, id, false)) },
-          "← " + (dep?.taskId !== block.id ? (dep?.taskName || "") + " › " : "") + (dep?.step.text || id) + " ×"); }),
+        prereqs.map(id => {
+          const dep = graph.steps.get(id);
+          return h(R.Fragment, { key: id },
+            h("button", { className: "dd-step-dep", type: "button", onClick: () => onJump(dep) }, [dep.taskId !== block.id && dep.taskName, dep.step.text].filter(Boolean).join(" › ")),
+            editingDependency === step.id && h("button", { type: "button", "aria-label": t("Remove prerequisite", "حذف پیش‌نیاز"), onClick: () => change(day => {
+              const next = DDengineSetDependency(day, step.id, id, false);
+              return step.flow === "after" && node.previous === id ? DDengineSetFlow(next, step.id, "parallel") : next;
+            }) }, "×"));
+        }),
         h("button", { type: "button", className: "dd-step-dep-edit", "aria-expanded": editingDependency === step.id,
           onClick: () => setEditingDependency(editingDependency === step.id ? null : step.id) }, t("Prerequisites", "پیش‌نیازها")),
         editingDependency === step.id && h("select", { value: "", className: "dd-step-dependency", "aria-label": t("Add prerequisite to ", "افزودن پیش‌نیاز برای ") + step.text,
           onChange: (event) => { const id = event.target.value; if (id) { change((day) => DDengineSetDependency(day, step.id, id)); setEditingDependency(null); } } },
           h("option", { value: "" }, candidates.length ? t("+ Depends on…", "+ وابسته به…") : t("No available steps", "قدمی برای انتخاب نیست")),
           candidates.map((n) => h("option", { key: n.id, value: n.id }, n.taskName + " › " + n.step.text)))),
-      (step.children || []).length > 0 && h(EngineSteps, { React: R, block, graph, items: step.children, language, change, toggleStep, depth: depth + 1 }));
+      (step.children || []).length > 0 && h(EngineSteps, { React: R, block, graph, items: step.children, language, change, toggleStep, onJump, depth: depth + 1 }));
   }));
 }
 
-function EngineRow({ React: R, block, lanes, sources = [], language, measure, setDone, toggleStep, graph, makeId, change, onReveal, onOpenSection }) {
+function EngineRow({ React: R, block, lanes, sources = [], language, measure, setDone, toggleStep, graph, makeId, change, onReveal, onOpenSection, jump, onJump }) {
   const fa = language === "fa",
     t = (en, f) => (fa ? f : en),
     h = R.createElement,
@@ -353,7 +358,7 @@ function EngineRow({ React: R, block, lanes, sources = [], language, measure, se
     // The kind, lane and "show" controls stay out of sight until the row is
     // hovered or focused, or ⋯ is tapped (5.37): a calm list of names first.
     [tools, setTools] = R.useState(false),
-    [stepsOpen, setStepsOpen] = R.useState(true),
+    [stepsOpen, setStepsOpen] = R.useState(false),
     [stepDraft, setStepDraft] = R.useState(""),
     kind = measure.DDmeasureOf(block),
     from = sources.find((s) => s.id === block.from),
@@ -361,7 +366,17 @@ function EngineRow({ React: R, block, lanes, sources = [], language, measure, se
     update = (fn) => change((day) => ({ ...day, blocks: day.blocks.map((b) => (b.id === block.id ? fn(b) : b)) })),
     taskSteps = [...graph.steps.values()].filter((n) => n.taskId === block.id).length,
     leftSteps = [...graph.steps.values()].filter((n) => n.taskId === block.id && !n.step.done).length,
-    taskBlocked = [...graph.steps.values()].some((n) => n.taskId === block.id && !n.step.done && !graph.status(n.id).ready);
+    waitingIds = [...new Set([...graph.steps.values()].filter(node => node.taskId === block.id && !node.step.done).flatMap(node => graph.status(node.id).waiting))],
+    taskBlocked = waitingIds.length > 0;
+  R.useEffect(() => {
+    if (jump?.taskId !== block.id) return;
+    setStepsOpen(true);
+    const frame = requestAnimationFrame(() => {
+      const field = document.querySelector('[data-step="' + CSS.escape(jump.id) + '"] .dd-step-text');
+      field?.focus(); field?.scrollIntoView({ block: "nearest" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [jump, block.id]);
   return h(
     "li",
     { className: "dd-engine-task", "data-done": !!block.done, "data-kind": kind, "data-engine-task": block.id, "data-tools": tools ? "open" : undefined },
@@ -380,7 +395,7 @@ function EngineRow({ React: R, block, lanes, sources = [], language, measure, se
         )
       : h("span", { className: "dd-engine-kind-dot", "aria-hidden": true }, kind === "score" ? "★" : "⏳"),
     h("div", { className: "dd-engine-main" },
-      from && onOpenSection && h("button", { className: "dd-engine-source-link", type: "button", onClick: () => onOpenSection(from.id),
+      stepsOpen && from && onOpenSection && h("button", { className: "dd-engine-source-link", type: "button", onClick: () => onOpenSection(from.id),
         style: from.tint ? { borderColor: from.tint.line, color: from.tint.ink, background: from.tint.fill } : undefined }, "↗ " + sourcePath(from).short),
       editing
         ? h("input", {
@@ -416,10 +431,10 @@ function EngineRow({ React: R, block, lanes, sources = [], language, measure, se
             block.name || t("Untitled", "بی‌نام"),
           ),
       h("div", { className: "dd-engine-meta" },
-        taskBlocked && h("small", { className: "dd-step-blocked", title: t("A prerequisite is still open", "پیش‌نیازی هنوز باز است") }, t("Blocked", "وابسته")),
+        taskBlocked && waitingIds.map(id => h("button", { key: id, type: "button", className: "dd-step-blocked", onClick: () => onJump(graph.steps.get(id)) }, t("Waiting for ", "منتظر ") + graph.steps.get(id).step.text)),
         h("button", { type: "button", className: "dd-engine-move", title: t("Move between Today and Park", "انتقال بین امروز و پارک"),
           onClick: () => update((b) => DDengineMoveTask(b, lanes)) },
-          lanes.some((l) => l.id === block.lane) ? t("→ Park", "← پارک") : t("→ Today", "← امروز")),
+          lanes.some((l) => l.id === block.lane) ? t("→ Park", "← پارک") : (t("Return to ", "برگردان به ") + (lanes.find(l => l.id === block.parkedFromLane) || lanes[0])?.name)),
         h("span", { className: "dd-engine-priority", "data-priority": block.pri || 0 }, block.pri ? "P" + block.pri : t("Normal", "عادی")),
         h("select", { className: "dd-engine-priority-pick dd-engine-tool", value: String(block.pri || 0), "aria-label": t("Priority", "اولویت"),
           onChange: (event) => update((b) => ({ ...b, pri: Number(event.target.value) })) },
@@ -453,7 +468,7 @@ function EngineRow({ React: R, block, lanes, sources = [], language, measure, se
             "aria-label": t("Lane", "لاین"),
             onChange: (event) => {
               const lane = event.target.value;
-              change((day) => ({ ...day, blocks: day.blocks.map((b) => (b.id === block.id ? { ...b, lane } : b)) }));
+              change((day) => ({ ...day, blocks: day.blocks.map((b) => (b.id === block.id ? (lane ? { ...b, lane, parkedFromLane: undefined } : DDengineMoveTask(b, lanes)) : b)) }));
             },
           },
           lanes.map((lane) => h("option", { key: lane.id, value: lane.id }, lane.name || lane.id)),
@@ -463,7 +478,7 @@ function EngineRow({ React: R, block, lanes, sources = [], language, measure, se
         h("select",
           {
             // A task's source stays in sight (it is read often); "Main board" only with the tools.
-            className: "dd-engine-from",
+            className: "dd-engine-from dd-engine-tool",
             "data-from": block.from || "",
             value: from ? block.from : "",
             "aria-label": t("Came from", "از کجا آمده") + (from ? ": " + sourcePath(from).full : ""),
@@ -498,7 +513,7 @@ function EngineRow({ React: R, block, lanes, sources = [], language, measure, se
         h("button", { type: "button", "aria-expanded": stepsOpen, onClick: () => setStepsOpen(!stepsOpen) },
           (stepsOpen ? "⌄ " : "› ") + t("Steps", "قدم‌ها") + " · " + (taskSteps ? (taskSteps - Math.min(taskSteps, leftSteps)) + "/" + taskSteps : "0"))),
       stepsOpen && h("div", { className: "dd-engine-step-body" },
-        h(EngineSteps, { React: R, block, graph, items: block.subtasks || [], language, change, toggleStep }),
+        h(EngineSteps, { React: R, block, graph, items: block.subtasks || [], language, change, toggleStep, onJump }),
         h("form", { className: "dd-engine-step-add", onSubmit: (event) => {
           event.preventDefault(); const text = stepDraft.trim(); if (!text) return;
           update((b) => ({ ...b, done: false, subtasks: [...(b.subtasks || []), { id: makeId(), text, done: false, expanded: true, children: [] }] }));
@@ -590,13 +605,14 @@ export function DDEngineOverlay({
   makeId,
   sources = [],
   renderPlan,
-  sectionId = "",
+  sectionId = "", todayDate,
 }) {
   const h = R.createElement,
     fa = language === "fa",
     t = (en, f) => (fa ? f : en),
     weekday = new Intl.DateTimeFormat(fa ? "fa-IR" : "en-US", { weekday: "long", timeZone: "UTC" }).format(new Date((day.date || "2026-01-01") + "T12:00:00Z")),
     lanes = setup?.lanes || [],
+    [jump, setJump] = R.useState(null),
     [planning, setPlanning] = R.useState(false),
     [allSections, setAllSections] = R.useState(false),
     section = sources.find((entry) => entry.id === sectionId),
@@ -607,13 +623,20 @@ export function DDEngineOverlay({
     [filter, setFilter] = R.useState("all"),
     [earlierOpen, setEarlierOpen] = R.useState(false),
     [carryHidden, setCarryHidden] = R.useState(() => DDengineCarryHidden(day.date)),
-    carry = days ? DDengineCarry(days, day) : null,
+    scopedDays = R.useMemo(() => section && !allSections && days ? Object.fromEntries(Object.entries(days).map(([date, record]) => [date, { ...record, blocks: (record.blocks || []).filter(task => task.from === section.id) }])) : days, [days, section?.id, allSections]),
+    carry = scopedDays ? DDengineCarry(scopedDays, scopedDay) : null,
     panel = R.useRef(null);
   R.useEffect(() => {
     const previous = document.activeElement;
     panel.current?.focus({ preventScroll: true });
     return () => previous?.focus?.({ preventScroll: true });
   }, []);
+  function onJump(node) {
+    if (!node) return;
+    if (section && !scopedDay.blocks.some(task => task.id === node.taskId)) setAllSections(true);
+    setFilter("all");
+    setJump({ id: node.id, taskId: node.taskId });
+  }
   const shown = groups.map((group) => ({ ...group, blocks: group.blocks.filter((b) => filter === "all" || (filter === "done" ? b.done : !b.done)) }));
   return h(
     "div",
@@ -651,7 +674,7 @@ export function DDEngineOverlay({
         "header",
         { className: "dd-engine-head" },
         h("span", { className: "dd-engine-icon", "aria-hidden": true }, "⚙️"),
-        h("div", { className: "dd-engine-title" }, h("strong", null, t("Engine", "انجین")), dateLabel && h("small", null, dateLabel)),
+        h("div", { className: "dd-engine-title" }, h("strong", null, section && !allSections ? section.parts.join(" › ") : t("Engine", "انجین")), dateLabel && h("small", null, dateLabel)),
         h(
           "div",
           { className: "dd-engine-progress", title: t("Done, weighted by priority", "انجام‌شده، با وزن اولویت") },
@@ -695,8 +718,8 @@ export function DDEngineOverlay({
       earlierOpen &&
         h(EarlierEngine, {
           React: R,
-          days,
-          day,
+          days: scopedDays,
+          day: scopedDay,
           lanes,
           language,
           dateFormat,
@@ -720,7 +743,7 @@ export function DDEngineOverlay({
             h(
               "h3",
               null,
-              id === "park" ? t("Park", "پارک") : t("Today", "امروز") + " · " + weekday,
+              id === "park" ? t("Park", "پارک") : day.date === todayDate ? t("Today", "امروز") + " · " + weekday : weekday,
               h("small", null, groups.find((c) => c.id === id).blocks.filter((b) => b.done).length + "/" + groups.find((c) => c.id === id).blocks.length),
             ),
             h(
@@ -729,10 +752,10 @@ export function DDEngineOverlay({
               blocks.map((block) =>
                 h(EngineRow, { key: block.id, React: R, block, lanes, sources, language, measure, setDone,
                   toggleStep, graph, makeId,
-                  change: onChange, onReveal, onOpenSection }),
+                  change: onChange, onReveal, onOpenSection, jump, onJump }),
               ),
             ),
-            h(AddTask, { React: R, lane: { id: id === "park" ? "" : lanes[0]?.id || "", name: id === "park" ? t("Park", "پارک") : t("Today", "امروز") }, language, onAdd }),
+            h(AddTask, { React: R, lane: { id: id === "park" ? "" : lanes[0]?.id || "", name: id === "park" ? t("Park", "پارک") : t("Today", "امروز") }, language, onAdd: (name, lane) => { onAdd(name, lane); if (filter === "done") setFilter("left"); } }),
           ),
         ),
       ),
