@@ -29,14 +29,20 @@ function DDappendDayBlock(day, block) {
   day.blocks.push(copy);
   return copy;
 }
-export function DDscheduleLater(snapshot, id, date, ensureDay) {
+export function DDscheduleLater(snapshot, id, date, ensureDay, zone) {
   if (!DDlifeDate(date)) return snapshot;
   const data = structuredClone(snapshot),
     block = (data.setup.later || []).find((b) => b.id === id);
   if (!block) return snapshot;
   const day =
     data.days[date] || (data.days[date] = structuredClone(ensureDay(date)));
-  DDappendDayBlock(day, block);
+  const scheduled = DDappendDayBlock(day, block);
+  if (zone === "park") {
+    scheduled.parkedFromLane = scheduled.lane;
+    scheduled.lane = "";
+  } else if (zone === "today" && !data.setup.lanes?.some((lane) => lane.id === scheduled.lane)) {
+    scheduled.lane = data.setup.lanes?.[0]?.id || "";
+  }
   data.setup.later = data.setup.later.filter((b) => b.id !== id);
   return data;
 }

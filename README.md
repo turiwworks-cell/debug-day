@@ -1,5 +1,7 @@
 # Debug Day
 
+> **Local update 5.50.0:** Engine now has Today/Park, inline steps, cross-task dependencies, shared notes, and All/Left/Done. Tab opens section navigation with keyboard shortcuts; Capture is a separate overview, and Pause the day is on the Board. The original Plan implementation is retained internally for compatibility, but its visible navigation entry opens Engine. See [UPDATE-NOTES.md](UPDATE-NOTES.md). This copy has not been uploaded or deployed.
+
 A personal daily planner with a time-scaled board, mind maps, Persian/English UI, private multi-device sync, and an MCP server.
 
 - `public/index.html` — legacy bundled interface and integration points; starts with an empty workspace.

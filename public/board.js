@@ -20,6 +20,9 @@ import {
 import{DDBoardRails,DDinstallRailStyles,DDsetRailRole,DDrailPreferences,DDrailScope}from"./rails.js";
 import{DDstickyDateLabel,DDstickyToday,DDstickySnap,DDstickyFormat,DDstickyTodo,DDStickyText,DDinstallStickyStyles}from"./stickies.js";
 import { DDSectionsFlowchart, DDsectionsBus, DDinstallSectionsFlowStyles } from "./sections-flow.js";
+import { DDfindThisApp, DDreadSectionShortcuts, DDsectionForShortcut } from "./section-shortcuts.js";
+import { DDCaptureHub, DDcaptureHubBus, DDinstallCaptureHubStyles } from "./capture-hub.js";
+import { DDinboxId } from "./capture.js";
 import { DDplaces, DDPlacesBack } from "./places.js";
 import { DDusePen, DDnormalizeStrokes, DDmarksRebase, DDpenCSS } from "./pen.js";
 import { DDuseComments, DDnormalizeComments, DDcommentsTransfer, DDcommentsCSS } from "./comments.js";
@@ -80,6 +83,7 @@ export function DDcreateBoard(deps) {
   DDinstallEngineStyles();
   DDinstallEngineQuietStyles();
   DDinstallSectionsFlowStyles();
+  DDinstallCaptureHubStyles();
   // Comments, pen, note tags and parent notes (5.36).
   if (typeof document !== "undefined" && !document.getElementById("dd-board-tools-css"))
     document.head.append(Object.assign(document.createElement("style"), { id: "dd-board-tools-css", textContent: DDpenCSS + DDcommentsCSS + DDnoteTagsCSS + DDnoteFamilyCSS + DDboardPhotosCSS }));
@@ -104,6 +108,8 @@ export function DDcreateBoard(deps) {
     onUpdateDay: onUpdateDay,
     onUpdateSetup: onUpdateSetup,
     onUpdateDayOnDate,
+    onScheduleLater,
+    renderPlan,
     onToast: onToast,
     matchesFilter: matchesFilter,
     nodeMatches: ddNodeMatches,
@@ -203,6 +209,8 @@ export function DDcreateBoard(deps) {
       [alignPanel, setAlignPanel] = useState(false),
       // The Sections flowchart (Tab, D, the Sections button or Ctrl+Space), with the Life area tools.
       [lifeNav, setLifeNav] = useState(() => DDsectionsBus.take()),
+      [captureHub, setCaptureHub] = useState(() => DDcaptureHubBus.take()),
+      [pendingThisApp, setPendingThisApp] = useState(null),
       // The Engine brought over the board (E, the toolbar or Ctrl+Space).
       [engine, setEngine] = useState(() => DDengineBus.take()),
       // A section's record shows its last 7 days unless this is on.
@@ -2721,8 +2729,11 @@ export function DDcreateBoard(deps) {
       const rel=frame?{x:at.x-frame.x,y:at.y-frame.y-DDlifeHead}:null;
       const parent=rel&&DDlifeParentAt(items,rel.x,rel.y,roomNode?outsideRoom(items):undefined,layout.room||"");
       const inLife=frame && (parent || (rel.x>=0 && rel.y>=0 && rel.x<=frame.w && rel.y<=frame.h-DDlifeHead));
+      const engineFrame = layout.map.get("section:engine");
+      const engineShared = engineFrame && at.x >= engineFrame.x && at.x <= engineFrame.x + engineFrame.w
+        && at.y >= engineFrame.y && at.y <= engineFrame.y + engineFrame.h && !inLife;
       let ref;
-      if(roomNode&&!parent){
+      if(roomNode&&!parent&&!engineShared){
         // A section's own board is all of it: a note made anywhere there belongs
         // to the section and stays where it was made (outside the frame it lives
         // on this board only).
@@ -2734,7 +2745,7 @@ export function DDcreateBoard(deps) {
       }else{
         ref="sticky:"+id;
         commit(d=>{
-          d.notes.push({id,kind:"sticky",x:at.x-width/2,y:at.y-height/2,text:"",color,...media});
+          d.notes.push({id,kind:"sticky",x:at.x-width/2,y:at.y-height/2,text:"",color,...media,...(engineShared ? {engineShared:true} : {})});
           const b=clean(d.canvas?.board4);
           b.styles={...b.styles,[ref]:{width,height,textSize:template.textSize||16,...plain}};
           if(mode==="lanes")b.layouts={...b.layouts,lanes:{...b.layouts.lanes,[ref]:{x:at.x-width/2,y:at.y-height/2}}};
@@ -3263,7 +3274,7 @@ export function DDcreateBoard(deps) {
             if (
               !alignUndo &&
               ot.target.closest(
-                "input,textarea,select,[contenteditable=true],.b6-context,.b6-properties,.b6-camera,.b6-view-panel,.dd-board-timer,.dd-board-search,.b4-help-backdrop,.dd-engine-backdrop,.dd-flow-backdrop,.dd-board-rails,.dd-due-editor",
+                "input,textarea,select,[contenteditable=true],.b6-context,.b6-properties,.b6-camera,.b6-view-panel,.dd-board-timer,.dd-board-search,.b4-help-backdrop,.dd-engine-backdrop,.dd-flow-backdrop,.dd-capture-backdrop,.dd-board-rails,.dd-due-editor",
               ) ||
               (ot.target.closest("[role=dialog]") &&
                 !root.current?.contains(ot.target))
@@ -3297,6 +3308,13 @@ export function DDcreateBoard(deps) {
             }
             if (St && K === "y") {
               (ot.preventDefault(), ot.stopImmediatePropagation(), undo(!0));
+              return;
+            }
+            // Alt+1–9 are user-assigned section jumps; T is reserved for This App.
+            // These run before the generic Alt alignment handling below.
+            if (ot.altKey && !St && /^Digit[1-9]$/.test(ot.code)) {
+              const destination = DDsectionForShortcut(DDlifeItems(setup), ot, DDreadSectionShortcuts());
+              if (destination) { ot.preventDefault(); ot.stopImmediatePropagation(); enterRoom(destination.id); }
               return;
             }
             if (ot.key === "Escape" && lifeNav) {
@@ -3498,11 +3516,22 @@ export function DDcreateBoard(deps) {
             else if (Tt === "g") { ot.preventDefault(); toggleRail(ot.shiftKey ? "note" : "goal"); }
             else if (Tt === "h" && ot.shiftKey) { ot.preventDefault(); toggleRail("habits"); }
             else if (Tt === "h") setTool("hand");
-            else if (Tt === "c" || Tt === "x" || Tt === "l") {connectionStyle.current=Tt==="l"&&!ot.shiftKey?"straight":"elbow";setTool("connector");}
+            else if (Tt === "x" || Tt === "l") {connectionStyle.current=Tt==="l"&&!ot.shiftKey?"straight":"elbow";setTool("connector");}
+            else if (Tt === "c" && !ot.shiftKey) { ot.preventDefault(); finishEdit(); setCaptureHub(true); }
             else if (Tt === "b") setTool("block");
             else if (Tt === "s" && ot.shiftKey) setTool("section");
             else if (Tt === "s") setTool("sticky");
-            else if (Tt === "t") setTool("text");
+            else if (Tt === "t" && ot.shiftKey) setTool("text");
+            else if (Tt === "t") {
+              ot.preventDefault(); finishEdit();
+              const items = DDlifeItems(setup), section = DDfindThisApp(items);
+              if (section) enterRoom(section.id);
+              else {
+                const id = "lf-this-app";
+                lifeChange((list) => list.some((item) => item.id === id) ? list : DDlifeAdd(list, { id, type: "section", parent: "", text: "This App", color: "#A8DAFF" }));
+                setPendingThisApp(id);
+              }
+            }
             // Pen and comments (5.36): P draws, M comments, Shift+M lists the comments.
             else if (Tt === "p" && !ot.shiftKey) { finishEdit(); setSelected(new Set()); setWireId(null); setWireSelection(null); setTool((v) => (v === "pen" ? "select" : "pen")); }
             else if (Tt === "m" && ot.shiftKey) { ot.preventDefault(); finishEdit(); comments.toggleList(); }
@@ -5319,6 +5348,17 @@ export function DDcreateBoard(deps) {
 
     // Ctrl+Space can ask for the Engine while this board is already open.
     useEffect(() => DDengineBus.on(() => DDengineBus.take() && setEngine(true)), []);
+    useEffect(() => {
+      if (!pendingThisApp || !DDlifeItems(setup).some((item) => item.id === pendingThisApp)) return;
+      enterRoom(pendingThisApp);
+      setPendingThisApp(null);
+    }, [pendingThisApp, setup.life]);
+    useEffect(() => {
+      const open = () => setEngine(true);
+      window.addEventListener("debug-day-open-engine", open);
+      return () => window.removeEventListener("debug-day-open-engine", open);
+    }, []);
+    useEffect(() => DDcaptureHubBus.on(() => DDcaptureHubBus.take() && setCaptureHub(true)), []);
     useEffect(() => DDsectionsBus.on(() => DDsectionsBus.take() && setLifeNav(true)), []);
     const selectedNodes = [...selected]
         .map((Y) => layout.map.get(Y))
@@ -5447,6 +5487,8 @@ export function DDcreateBoard(deps) {
             DDUI("Search"),
           ),
           toolButton(t("Go to the Engine (E brings it over the board)", "رفتن به انجین (E آن را روی برد می‌آورد)"),"engine",()=>{finishEdit();setEngine(false);fit(false,"day");},{"data-engine-jump":true},t("Engine","انجین")),
+          toolButton(t("Capture · C", "ثبت ایده · C"),"plus",()=>{finishEdit();setCaptureHub(true);},{"data-capture-jump":true},t("Capture","ثبت ایده")),
+          toolButton(t("Pause the day", "توقف روز"),"pause",()=>window.dispatchEvent(new CustomEvent("debug-day-open-capture",{detail:"pause"})),{"data-pause-day":true},t("Pause","توقف")),
           toolButton(t("Go to Feed", "رفتن به فید"),"leaf",()=>{const first=DDlifeItems(setup).find((i)=>i.type==="section"&&!i.parent);if(first)jumpLife(first.id);else addLifeItem("section");},{"data-life-jump":true},t("Feed","فید")),
           toolButton(t("Sections flowchart (Tab or D)","فلوچارت سکشن‌ها (Tab یا D)"),"sections",()=>{finishEdit();setLifeNav((v)=>!v);},{"aria-expanded":lifeNav,"data-sections-button":true},t("Sections","سکشن‌ها")),
           toolButton(
@@ -5489,6 +5531,8 @@ export function DDcreateBoard(deps) {
       }),
       lifeNav && _.createElement(DDSectionsFlowchart, {
         React: _, items: DDlifeItems(setup), room: layout.room, language: DDlanguage, frame: layout.map.get("section:life"), quiet: [...engineSections],
+        onEngine: () => { setLifeNav(false); setEngine(true); },
+        onCapture: () => { setLifeNav(false); setCaptureHub(true); },
         onShow: (id) => jumpLife(id),
         onEnter: (id) => enterRoom(id),
         onColor: (id, color) => lifeChange((list) => DDsetSectionColor(list, id, color)),
@@ -5496,6 +5540,15 @@ export function DDcreateBoard(deps) {
         onSize: (patch) => resizeLifeArea(patch),
         onCompact: () => commit((d) => { d.__life.items = DDlifeCompact(d.__life.items); delete d.__life.frame.w; delete d.__life.frame.h; return d; }),
         onClose: () => { setLifeNav(false); viewport.current?.focus({ preventScroll: true }); },
+      }),
+      captureHub && _.createElement(DDCaptureHub, {
+        React: _, setup, language: DDlanguage,
+        onClose: () => setCaptureHub(false),
+        onCapture: () => window.dispatchEvent(new CustomEvent("debug-day-open-capture", { detail: "capture" })),
+        onLater: () => window.dispatchEvent(new CustomEvent("debug-day-open-capture", { detail: "later" })),
+        onWorries: () => window.dispatchEvent(new CustomEvent("debug-day-open-capture", { detail: "worry" })),
+        onOpenInbox: () => { if (DDlifeItems(setup).some((i) => i.id === DDinboxId)) enterRoom(DDinboxId); },
+        onPromote: onScheduleLater,
       }),
       (selected.size > 0 || selectedWire || selectedWires.size > 0) &&
         _.createElement(
@@ -5706,6 +5759,8 @@ export function DDcreateBoard(deps) {
                     "g",
                     {
                       key: Y.id,
+                      style: layout.edges.length > 12 && selected.size && Y.automatic && !ct && !selectedWires.has(Y.id) && !selected.has(Y.from) && !selected.has(Y.to)
+                        ? { opacity: 0.18 } : undefined,
                       "data-wire-id": Y.id,
                       ref: (ot) => {
                         ot
@@ -6283,9 +6338,19 @@ export function DDcreateBoard(deps) {
           days: allDays,
           dateFormat: (date) => ie.format(E(date)),
           makeId: C,
+          renderPlan,
+          sectionId: layout.room,
           sources: DDengineSources(DDlifeItems(setup)),
           measure,
           setDone: DDsetTaskDone,
+          toggleStep: DDtoggleSubtask,
+          onOpenSection: (id) => { setEngine(false); enterRoom(id); },
+          onCapture: () => { setEngine(false); setCaptureHub(true); },
+          onPause: () => { setEngine(false); window.dispatchEvent(new CustomEvent("debug-day-open-capture", { detail: "pause" })); },
+          onAddSharedNote: (text) => lifeChange((items) => DDlifeAdd(items, {
+            id: "lf-engine-note-" + C(), type: "sticky", parent: "", text: String(text).slice(0, 4000), color: "#FFE299", role: "note",
+          })),
+          onEditSharedNote: (id, text) => lifeChange((items) => items.map((item) => item.id === id ? { ...item, text: String(text).slice(0, 4000) } : item)),
           onChange: (change) => commit((d) => change(d), t("Engine updated", "انجین به‌روز شد")),
           onAdd: (name, lane) => {
             // Made inside a section's board, the task comes from that section.
