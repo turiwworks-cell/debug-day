@@ -1,4 +1,5 @@
 import { DDlifeItems } from "./life-board.js";
+import { DDflowAdd, DDflowClean, DDflowEdges, DDflowRemove } from "./flow.js";
 // Membership is stored in blocks/subtasks, never in a second Board-only tree.
 const copy = (value) => structuredClone(value);
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -53,6 +54,9 @@ export function DDrelation(from, to, laneIds = []) {
   }
   if (/^(?:b:|sub:)/.test(from) && /^sub:[^:]+:.+$/.test(to))
     return { kind: "step", parent: from, child: to };
+  // A line from one task to another sets their order: `to` comes after `from`.
+  const a = task(from), b = task(to);
+  if (a && b && a !== b) return { kind: "after", before: from, after: to };
   return null;
 }
 export function DDcanonicalEdges(day, laneIds = []) {
@@ -78,6 +82,9 @@ export function DDcanonicalEdges(day, laneIds = []) {
     for (const bug of day.bugs || [])
       if (bug.blockId === block.id) add("b:" + block.id, "bug:" + bug.id);
   }
+  // Order lines come from `after` on tasks and steps (flow.js).
+  for (const { from, to } of DDflowEdges(day))
+    edges.push({ id: "auto:after:" + from + "->" + to, from, to, after: true });
   return edges;
 }
 // Drop stale positions only when membership changed, keeping explicitly moved
@@ -89,7 +96,8 @@ export function DDreconcileDay(
   previousSetup = setup,
 ) {
   if (!value) return value;
-  const day = copy(value),
+  // An order to a task that left the day (deleted, moved, parked) goes with it.
+  const day = copy(DDflowClean(value)),
     board = day.canvas?.board4,
     oldBoard = before?.canvas?.board4;
   if (!board || typeof board !== "object" || Array.isArray(board)) return day;
@@ -276,6 +284,7 @@ export function DDconnectRelation(day, from, to, setup) {
   }
   // Notes remain a real stored link (a note has a single task owner).
   if (r.kind === "note") return null;
+  if (r.kind === "after") return DDreconcileDay(DDflowAdd(day, r.after, r.before), day, setup);
   const child = /^sub:([^:]+):(.+)$/.exec(r.child),
     parent = /^(b|sub):([^:]+)(?::(.+))?$/.exec(r.parent);
   const source = next.blocks?.find((b) => b.id === child?.[1]),
@@ -392,6 +401,8 @@ export function DDdisconnectRelation(day, from, to, setup) {
     return day;
   if (relation.kind === "lane")
     return DDmoveTask(day, relation.blockId, "", setup);
+  if (relation.kind === "after")
+    return DDreconcileDay(DDflowRemove(day, relation.after, relation.before), day, setup);
   if (relation.kind === "feeling") {
     const next = copy(day),
       bug = next.bugs?.find((b) => b.id === relation.bugId);
@@ -436,4 +447,16 @@ export function DDrewireRelation(day, edge, from, to, setup) {
   )
     result = DDdisconnectRelation(result, edge.from, edge.to, setup);
   return DDconnectRelation(result, from, to, setup) || day;
+}
+// Order lines (5.51) are read from `after`, not stored on the board. Removing
+// one removes the order; moving an end or reversing it moves the order too.
+// The tasks and steps themselves are never touched.
+export function DDremoveOrder(day, from, to, setup) {
+  return DDreconcileDay(DDflowRemove(day, to, from), day, setup);
+}
+export function DDmoveOrder(day, edge, from, to, setup) {
+  const removed = DDflowRemove(day, edge.to, edge.from),
+    added = DDflowAdd(removed, to, from);
+  // A move that would loop or repeat an order leaves things as they were.
+  return added === removed ? day : DDreconcileDay(added, day, setup);
 }

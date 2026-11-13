@@ -46,13 +46,21 @@ export function DDengineOrder(blocks = []) {
     .map((entry) => entry.block);
 }
 
-// The first open step of a task, depth first: what to do next on it.
-export function DDengineNextStep(items = []) {
-  for (const item of items || []) {
-    if (item.done) continue;
-    return DDengineNextStep(item.children) || item;
-  }
-  return null;
+// The first open step of a task, depth first: what to do next on it. A step
+// still waiting for another (flow.js) gives way to one that can start now,
+// unless every open step is waiting.
+export function DDengineNextStep(items = [], waiting = () => false) {
+  const open = [];
+  const walk = (list) => {
+    for (const item of list || []) {
+      if (item.done) continue;
+      const before = open.length;
+      walk(item.children);
+      if (open.length === before) open.push(item);
+    }
+  };
+  walk(items);
+  return open.find((item) => !waiting(item)) || open[0] || null;
 }
 export function DDengineStepCount(items = []) {
   let done = 0, total = 0;

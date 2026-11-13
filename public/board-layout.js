@@ -6,6 +6,7 @@ import { DDlifeBounds, DDlifeHead, DDlifeItems, DDlifeAbs, DDlifeVisible, DDlife
 import { DDstickyHeight } from "./stickies.js";
 import { DDnotePhoto, DDphotoHeight } from "./board-photos.js";
 import { DDenergyOf, DDenergyLabel } from "./energy.js";
+import { DDflowEdges } from "./flow.js";
 const life = { DDlifeBounds, DDlifeHead, DDlifeItems };
 
 // Where the Engine was moved to. A new day starts where the last day left it.
@@ -416,6 +417,8 @@ export function DDcreateBoardLayout(deps) {
           dashed: ra,
           automatic: !0,
           style: "curve",
+          // Tree lines stay thin so the order lines (and lines you draw) read first.
+          width: 2,
         });
     if (mode === "mindmap") {
       let Jt = 56;
@@ -539,6 +542,10 @@ export function DDcreateBoardLayout(deps) {
         });
         (yn("day:root", Oa, "#85827A"), (Jt += 30));
       }
+      // Order lines (5.51): dashed arrows from what comes first to what follows,
+      // read from `after` on tasks and steps. Steps folded away show no line.
+      for (const { from, to } of DDflowEdges(day))
+        G.push({ id: `auto:after:${from}->${to}`, from, to, color: "var(--dd-order,#E0602F)", dashed: !0, arrow: !0, automatic: !0, after: !0, style: "curve" });
       ct["day:root"] || (Y[0].y = Math.max(60, Jt / 2 - 35) + shift.y);
       engineFrame(Y, shift);
       Object.assign(shift, { x: 0, y: 0, w: 0, h: 0 });

@@ -1,3 +1,13 @@
+## 5.51.0 — 2026-11-13
+Branch: claude/project-thread-d0zfxj
+- Order between tasks and steps: a task or a step can come "after" another, even a step in another task. Set it with "After…" in a task's ⋯ details or the ⤷ button on a step.
+- Today shows the day in waves when there is an order: Now (what can go side by side), Next, After that. A waiting task has a dashed check and an "After …" chip; it is never locked.
+- "Up next" and each task's "Next:" step skip what is still waiting.
+- Board: orders are drawn as dashed orange arrows. A line drawn from one task to another sets the order; deleting, reversing or moving the line changes the order.
+- Board: tree lines are thinner, and picking a card fades the lines that are not its own, so a busy day stays readable.
+- Orders to a task that leaves the day (deleted, moved, parked) are cleaned away.
+- MCP: update_block takes after_block_ids so Claude can set the order too.
+
 ## 5.50.0 — 2026-11-13
 Branch: claude/project-thread-d0zfxj
 - The Engine (E) is now the one place to plan the day: the separate Plan page is gone and its tab opens the Engine page.
