@@ -11,7 +11,8 @@ const { start, fixture } = require("./harness.cjs");
       f.data.setup.preferences = { ...f.data.setup.preferences, language, boardRailGoal: false, boardRailNote: false, boardRailHabits: false };
       if (mobile) Object.assign(f.data.setup.preferences, { boardRailGoal: true, boardRailNote: true, boardRailHabits: true });
       f.data.setup.habits = [{ id: "draw", name: "Drawing", color: "#E2683C" }];
-      f.data.days[f.date].notes[0].role = "goal";
+      // Off the Engine, so it lives on the main board only (5.53).
+      Object.assign(f.data.days[f.date].notes[0], { role: "goal", x: -900, y: 2400 });
       f.data.days[f.date].notes.push({ id: "scratch", kind: "sticky", text: "Remember to wander", color: "#9DD6FF", x: 430, y: 80 });
       f.data.days[f.date].canvas = { board4: { links: [
         { id: "task", from: "sticky:note", to: "b:writing" },

@@ -22,6 +22,13 @@ export function DDengineShift(saved, allDays, today) {
   return last ? pick(last) : { x: 0, y: 0 };
 }
 
+// Does a day note sit on the Engine (judged by the middle of a default note)?
+// Those notes are the Engine's and show on every section's board too (5.53).
+export function DDnoteOnEngine(engine, note) {
+  if (!engine || !note) return false;
+  const x = (Number.isFinite(note.x) ? note.x : 40) + 120, y = (Number.isFinite(note.y) ? note.y : 40) + 80;
+  return x >= engine.x && x <= engine.x + engine.w && y >= engine.y && y <= engine.y + engine.h;
+}
 export function DDcreateBoardLayout(deps) {
   const { DDUI, DDbugColor, E, de, ee, ie, w, core, playful } = deps, measure = deps.measure;
   let stepTextContext;
@@ -582,10 +589,14 @@ export function DDcreateBoardLayout(deps) {
       for (let i = Y.length - 1; i >= 0; i--)
         if (Y[i] === lf || ["habits", "feelings", "notes"].includes(Y[i].section || Y[i].sectionId)) Y.splice(i, 1);
     }
+    // Notes on the Engine are the Engine's: they stay there in every section's
+    // board too (5.53). Other day notes belong to the main board.
+    const engineBox = roomItem ? Y.find((n) => n.section === "engine") : null,
+      onEngine = (n) => DDnoteOnEngine(engineBox, n);
     for (const Jt of (day.notes || []).filter(
       (n) =>
         n.kind !== "emoji" &&
-        mode !== "lanes" && !roomItem &&
+        mode !== "lanes" && (!roomItem || onEngine(n)) &&
         (!ddNodeMatches ||
           ddNodeMatches.has("note:" + day.date + ":" + n.id)),
     ))

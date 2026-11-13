@@ -2,7 +2,7 @@ import { DDcompletion, DDTaskMetadata, DDTaskTags, DDpriorityLabel } from "./pla
 import { DDreconcileDay, DDrelation, DDconnectRelation, DDdisconnectRelation, DDrewireRelation, DDremoveOrder, DDmoveOrder } from "./relations.js";
 import { DDconnectionGeometry } from "./connections.js";
 import { DDundoRevert } from "./board-history.js";
-import { DDcreateBoardLayout, DDengineShift } from "./board-layout.js";
+import { DDcreateBoardLayout, DDengineShift, DDnoteOnEngine } from "./board-layout.js";
 import { DDengineBus, DDengineTaskFromNote, DDengineSources, DDengineSourceHistory, DDengineStrip, DDinstallEngineStyles, DDengineCarry } from "./engine.js";
 import { DDEngineOverlay } from "./engine-panel.js";
 import { DDengineSectionIds, DDinstallEngineQuietStyles } from "./engine-quiet.js";
@@ -22,6 +22,7 @@ import{DDBoardRails,DDinstallRailStyles,DDsetRailRole,DDrailPreferences,DDrailSc
 import{DDstickyDateLabel,DDstickyToday,DDstickySnap,DDstickyFormat,DDstickyTodo,DDStickyText,DDinstallStickyStyles}from"./stickies.js";
 import { DDSectionsFlowchart, DDsectionsBus, DDinstallSectionsFlowStyles } from "./sections-flow.js";
 import { DDsetSectionKey, DDsectionsVisit } from "./section-keys.js";
+import { DDsectionGo, DDSectionTagField, DDinstallSectionTagStyles } from "./section-tag.js";
 import { DDplaces, DDPlacesBack } from "./places.js";
 import { DDusePen, DDnormalizeStrokes, DDmarksRebase, DDpenCSS } from "./pen.js";
 import { DDuseComments, DDnormalizeComments, DDcommentsTransfer, DDcommentsCSS } from "./comments.js";
@@ -82,6 +83,7 @@ export function DDcreateBoard(deps) {
   DDinstallEngineStyles();
   DDinstallEngineQuietStyles();
   DDinstallSectionsFlowStyles();
+  DDinstallSectionTagStyles();
   // Comments, pen, note tags and parent notes (5.36).
   if (typeof document !== "undefined" && !document.getElementById("dd-board-tools-css"))
     document.head.append(Object.assign(document.createElement("style"), { id: "dd-board-tools-css", textContent: DDpenCSS + DDcommentsCSS + DDnoteTagsCSS + DDnoteFamilyCSS + DDboardPhotosCSS }));
@@ -351,12 +353,15 @@ export function DDcreateBoard(deps) {
         ct -= G.past.shift().bytes;
     }
     // On a section's own board, what is made there stays in that section: a new
-    // day note becomes a note in the section, and nothing drifts out of it.
+    // day note becomes a note in the section, and nothing drifts out of it. A
+    // note made on the Engine stays the Engine's, a note of the day (5.53).
     function keepInRoom(d, before, shared, roomId) {
-      const frame = layoutRef.current.map.get("section:life"), known = new Set((before.notes || []).map((n) => n.id));
+      const frame = layoutRef.current.map.get("section:life"), engine = layoutRef.current.map.get("section:engine"), known = new Set((before.notes || []).map((n) => n.id));
       if (frame) for (const note of (d.notes || []).filter((n) => !known.has(n.id) && n.kind !== "emoji")) {
         const ref = "sticky:" + note.id, { width, height, ...style } = d.canvas?.board4?.styles?.[ref] || {},
-          w = width || 240, h = height || 240, items = d.__life.items, inside = DDlifeDescendants(items, roomId),
+          w = width || 240, h = height || 240;
+        if (DDnoteOnEngine(engine, note)) continue;
+        const items = d.__life.items, inside = DDlifeDescendants(items, roomId),
           target = DDlifeParentAt(items, note.x - frame.x + w / 2, note.y - frame.y - DDlifeHead + h / 2, new Set(items.filter((i) => !inside.has(i.id)).map((i) => i.id)), roomId) || items.find((i) => i.id === roomId),
           base = DDlifeAbs(items, target.id), id = items.some((i) => i.id === note.id) ? "lf-" + C() : note.id;
         d.__life.items = DDlifeAdd(items, { id, type: "sticky", parent: target.id, text: note.text, color: note.color, x: Math.round(note.x - frame.x - base.x), y: Math.round(note.y - frame.y - DDlifeHead - base.y), w, h, style, syncId: note.syncId });
@@ -2746,13 +2751,16 @@ export function DDcreateBoard(deps) {
       const parent=rel&&DDlifeParentAt(items,rel.x,rel.y,roomNode?outsideRoom(items):undefined,layout.room||"");
       const inLife=frame && (parent || (rel.x>=0 && rel.y>=0 && rel.x<=frame.w && rel.y<=frame.h-DDlifeHead));
       let ref;
-      if(roomNode&&!parent){
+      // A note made on the Engine is the Engine's, whatever section you are in,
+      // so it is a note of the day and shows in every section (5.53).
+      const engineArea=roomNode&&layout.map.get("section:engine"), onEngine=engineArea&&at.x>=engineArea.x&&at.y>=engineArea.y&&at.x<=engineArea.x+engineArea.w&&at.y<=engineArea.y+engineArea.h;
+      if(roomNode&&!parent&&!onEngine){
         // A section's own board is all of it: a note made anywhere there belongs
         // to the section and stays where it was made (outside the frame it lives
         // on this board only).
         ref="life:"+id;const base=DDlifeAbs(items,layout.room);
         commit(d=>{d.__life.items=DDlifeAdd(d.__life.items,{id,type:"sticky",parent:layout.room,x:Math.round(rel.x-base.x-width/2),y:Math.round(rel.y-base.y-height/2),w:width,h:height,text:"",color,...media,style:{textSize:template.textSize||16,...plain}});return d;});
-      }else if(inLife){
+      }else if(inLife&&!onEngine){
         const base=parent?DDlifeAbs(items,parent.id):{x:0,y:0};ref="life:"+id;
         commit(d=>{d.__life.items=DDlifeAdd(d.__life.items,{id,type:"sticky",parent:parent?.id || "",x:rel.x-base.x-width/2,y:rel.y-base.y-height/2,w:width,h:height,text:"",color,...media,style:{textSize:template.textSize||16,...plain}});return d;});
       }else{
@@ -4014,7 +4022,8 @@ export function DDcreateBoard(deps) {
         Y.syncId && syncBadge(Y),
         Tt && Y.due && dueBadge(Y),
         // Where the task came from: the section's name, on the card's corner.
-        Y.kind === "block" && Y.from && sectionNames.has(Y.from) && _.createElement(DDSectionChip, { React: _, items: DDlifeItems(setup), id: Y.from, language: DDlanguage }),
+        // A click on it goes into that section (5.53).
+        Y.kind === "block" && Y.from && sectionNames.has(Y.from) && _.createElement(DDSectionChip, { React: _, items: DDlifeItems(setup), id: Y.from, language: DDlanguage, onGo: (id) => enterRoom(id) }),
         Tt && Y.at && _.createElement("time",{className:"dd-sticky-footer",dateTime:Y.at},DDstickyDateLabel(Y.at,DDlanguage)),
         // Under the paper: tags, sub-notes and, when picked, its family (5.36).
         Tt && !ot && noteTools.under(Y, G),
@@ -4481,6 +4490,28 @@ export function DDcreateBoard(deps) {
             },
             "×",
           ),
+        ),
+        // The section tag, first: where this task belongs. Picked with a quick
+        // search, no dragging; a click on it goes into that section.
+        h(
+          "div",
+          { className: "dd-card-field dd-card-section" },
+          h("span", null, t("Section", "سکشن")),
+          h(DDSectionTagField, {
+            React: _,
+            items: DDlifeItems(setup),
+            value: sectionNames.has(block.from) ? block.from : "",
+            here: layout.room || "",
+            language: DDlanguage,
+            disabled: isLocked,
+            onGo: (id) => enterRoom(id),
+            onChange: (id) =>
+              commit((d) => {
+                const b = d.blocks.find((b) => b.id === block.id);
+                if (b) { if (id) b.from = id; else delete b.from; }
+                return d;
+              }, id ? t("Section tag set", "تگ سکشن گذاشته شد") : t("Section tag taken off", "تگ سکشن برداشته شد")),
+          }),
         ),
         h(
           "label",
@@ -5356,6 +5387,12 @@ export function DDcreateBoard(deps) {
     // Ctrl+Space can ask for the Engine while this board is already open.
     useEffect(() => DDengineBus.on(() => DDengineBus.take() && setEngine(true)), []);
     useEffect(() => DDsectionsBus.on(() => DDsectionsBus.take() && setLifeNav(true)), []);
+    // A section tag clicked elsewhere (the Engine page) goes into that section here.
+    useEffect(() => {
+      const go = () => { const id = DDsectionGo.take(); if (id !== null) relay.current.enterRoom(id || null); };
+      go();
+      return DDsectionGo.on(go);
+    }, []);
     const selectedNodes = [...selected]
         .map((Y) => layout.map.get(Y))
         .filter(Boolean),
@@ -6335,6 +6372,11 @@ export function DDcreateBoard(deps) {
           onReveal: (blockId) => {
             setEngine(false);
             revealBoardResult({ id: "b:" + blockId, blockId, kind: "block" });
+          },
+          // A task's section tag goes into that section's board.
+          onOpenSection: (id) => {
+            setEngine(false);
+            enterRoom(id);
           },
           onClose: () => {
             setEngine(false);
