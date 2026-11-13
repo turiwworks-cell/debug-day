@@ -1,3 +1,11 @@
+## 5.55.0 — 2026-11-13
+Branch: claude/project-thread-d0zfxj
+- Capture is its own section: quick ideas land there (the old Inbox, now called Capture; a name you gave it stays).
+- In Tab, Capture sits on its own row above the Main board, drawn apart: an amber dashed box with a tray icon and how many ideas wait there. C goes into it, even before the first idea (it is made on the spot).
+- From a note in Capture, "→ Today" makes it a task of the day and "→ Park" parks it; the note stays and shows where it went. Tasks from Capture get no section tag.
+- The Engine shows "N ideas waiting in Capture" with "Sort them", which opens Capture on the board. Ideas sent to Today or Park no longer count.
+- Pause the day is on the board's top bar, next to the timer. When the day is paused or closed it says so, and a click opens the next-step choices over the board. It is still in the Engine page's "…" too.
+
 ## 5.54.0 — 2026-11-13
 Branch: claude/project-thread-d0zfxj
 - Section tags replace categories. A task with a section tag wears that section's colour on the Board, in Lanes and in the Calendar week, and its card no longer repeats a category name.

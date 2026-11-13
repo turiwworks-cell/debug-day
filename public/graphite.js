@@ -190,7 +190,9 @@ html .dd-review-system{min-width:118px}
    timer, worry, later, pause, day note, find and quick add) step aside: the
    board has its own timer, search and add tools, and the Plan keeps them all.
    The board then fills the window under the header. */
-html main:has(> #b2) > :is(.dayline,.note,.toolbar,.dd-life-root,.dd-mobile-more){display:none}
+html main:has(> #b2) > :is(.dayline,.note,.toolbar,.dd-mobile-more){display:none}
+html main:has(> #b2) > .dd-life-root{display:contents}
+html main:has(> #b2) > .dd-life-root > :is(.dd-life-bar,.dd-pause-status){display:none}
 html main:has(> #b2) > .dd-capture-root > .dd-capture-bar{display:none}
 html main:has(> #b2) > #b2:not(.focus-mode){height:calc(100dvh - 104px);min-height:480px}
 

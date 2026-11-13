@@ -40,7 +40,7 @@ const {start,fixture}=require('./harness.cjs');
     flow=page.locator('.dd-flow'),
     openFlow=async()=>{await page.keyboard.press('Control+Space');await modal.waitFor();await tap(modal.locator('.dd-panel-row[data-panel="sections"] .dd-command-open'));await flow.waitFor();},
     closeFlow=async()=>{await tap(flow.locator('.dd-flow-close'));await flow.waitFor({state:'detached'});},
-    shown=()=>flow.locator('[data-flow-node]').evaluateAll((els)=>els.map((el)=>el.dataset.flowNode)),
+    shown=()=>flow.locator('[data-flow-node]:not(.is-capture)').evaluateAll((els)=>els.map((el)=>el.dataset.flowNode)),
     group=flow.locator('[data-flow-group]');
    await save(f.data);
    // Find the Engine's frame and the Feed's corner on the board, then draw two

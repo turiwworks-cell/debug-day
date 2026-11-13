@@ -1,7 +1,8 @@
 // Quick capture, permanent worry parking and the phone's quiet Today view.
 import { DDTimerMini } from "./timer.js";
 import { DDduration } from "./measure.js";
-import { DDlifeState, DDlifeAdd } from "./life-board.js";
+import { DDlifeState, DDlifeAdd, DDcaptureEnsure } from "./life-board.js";
+import { DDcaptureId } from "./section-keys.js";
 import { DDPlanNudges, DDmoveToDay, DDnextDay } from "./nudges.js";
 import { DDvalidDate } from "./dates.js";
 const DDcaptureDate = DDvalidDate;
@@ -15,17 +16,15 @@ export function DDworry(text, date, tag = "general-friction") {
     convertedTo: "",
   };
 }
-// An idea goes to the Feed, into one "Inbox" section that is made the first
-// time it is needed. Renaming or moving the section keeps it the Inbox.
-export const DDinboxId = "lf-inbox";
+// An idea goes to the Feed, into one "Capture" section (it was the Inbox) that
+// is made the first time it is needed. Renaming or moving it keeps it Capture.
+export const DDinboxId = DDcaptureId;
 export function DDcaptureIdea(snapshot, text, date) {
   const words = String(text || "").trim();
   if (!words || !DDcaptureDate(date)) return snapshot;
   const data = structuredClone(snapshot),
     state = DDlifeState(data.setup);
-  let items = state.items;
-  if (!items.some((i) => i.id === DDinboxId && i.type === "section"))
-    items = DDlifeAdd(items, { id: DDinboxId, type: "section", text: "Inbox", color: "#FFFFFF" });
+  let items = DDcaptureEnsure(state.items);
   items = DDlifeAdd(items, {
     id: "lf-" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-3),
     type: "sticky",
@@ -319,7 +318,7 @@ export function DDCaptureTools({
       setText("");
       setError("");
       setPanel(null);
-      onToast(t("Saved to Inbox in the Feed", "در صندوق ورودی فید ذخیره شد"));
+      onToast(t("Saved to Capture", "در Capture ذخیره شد"));
       return;
     }
     const captureDate = kind === "worry" ? today : target;
@@ -727,8 +726,8 @@ export function DDCaptureTools({
                     "p",
                     null,
                     t(
-                      "It lands as a note in the Feed's Inbox section. Sort it into a section later.",
-                      "به شکل یک نوت در سکشن Inbox فید می‌نشیند. بعداً هر وقت خواستی جابه‌جاش کن.",
+                      "It lands as a note in Capture. Send it to Today or Park, or into a section, when you are ready.",
+                      "به شکل یک نوت در Capture می‌نشیند. هر وقت آماده بودی بفرستش به امروز یا پارک، یا ببرش توی یک سکشن.",
                     ),
                   ),
                 kind === "task" &&

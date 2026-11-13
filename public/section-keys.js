@@ -6,6 +6,7 @@
 // Keys are single letters. D stays the flowchart's own (it closes it, like Tab),
 // and numbers go to the recent boards, so neither can be given away.
 // "-" on a section means "no key, please", so This App can let go of its T.
+// Capture (5.55) has C the same way.
 
 const RESERVED = new Set(["d"]);
 const NONE = "-";
@@ -27,7 +28,12 @@ export function DDsectionKeyOf(event) {
   return DDsectionKeyFree(key) ? key : "";
 }
 
+// The one Capture section, where quick ideas land (capture.js). It keeps this
+// id when it is renamed or moved.
+export const DDcaptureId = "lf-inbox";
 const isThisApp = (section) => String(section.text || "").trim().toLowerCase() === THIS_APP;
+// The letter a section has until told otherwise.
+const ownKey = (section) => (section.id === DDcaptureId ? "c" : isThisApp(section) ? "t" : "");
 
 // Every key in use: { byKey: Map(key → id), byId: Map(id → key) }. The first
 // section on the board wins when two share a key (a linked copy, an old backup).
@@ -38,9 +44,9 @@ export function DDsectionKeys(items = []) {
     const key = DDsectionKeyClean(s.key);
     if (key && key !== NONE && !byKey.has(key)) byKey.set(key, s.id), byId.set(s.id, key);
   }
-  if (!byKey.has("t")) {
-    const app = sections.find((s) => isThisApp(s) && !DDsectionKeyClean(s.key));
-    if (app) byKey.set("t", app.id), byId.set(app.id, "t");
+  for (const s of sections) {
+    const key = ownKey(s);
+    if (key && !byKey.has(key) && !byId.has(s.id) && !DDsectionKeyClean(s.key)) byKey.set(key, s.id), byId.set(s.id, key);
   }
   return { byKey, byId };
 }
@@ -53,8 +59,8 @@ export function DDsetSectionKey(items, id, key) {
     if (i.type !== "section") return i;
     if (i.id === id) {
       const { key: _old, ...rest } = i;
-      // This App keeps its T unless told otherwise, so clearing it is remembered.
-      if (!k || k === NONE) return isThisApp(i) ? { ...rest, key: NONE } : rest;
+      // This App keeps its T (Capture its C) unless told otherwise, so clearing it is remembered.
+      if (!k || k === NONE) return ownKey(i) ? { ...rest, key: NONE } : rest;
       return { ...rest, key: k };
     }
     if (k && k !== NONE && DDsectionKeyClean(i.key) === k) {

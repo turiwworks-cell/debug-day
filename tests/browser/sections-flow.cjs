@@ -33,7 +33,7 @@ const {start,fixture}=require('./harness.cjs');
     flow=page.locator('.dd-flow'),
     box=(id)=>flow.locator(`[data-flow-node="${id}"]`),
     pill=(id)=>box(id).locator('.dd-flow-pill'),
-    shown=()=>flow.locator('[data-flow-node]').evaluateAll((els)=>els.map((el)=>el.dataset.flowNode)),
+    shown=()=>flow.locator('[data-flow-node]:not(.is-capture)').evaluateAll((els)=>els.map((el)=>el.dataset.flowNode)),
     links=()=>flow.locator('[data-flow-link]').evaluateAll((els)=>els.map((el)=>el.dataset.flowLink)),
     marked=(cls)=>flow.locator('[data-flow-node].'+cls).evaluateAll((els)=>els.map((el)=>el.dataset.flowNode)),
     bar=page.locator('.dd-room-bar'),
@@ -198,7 +198,7 @@ const {start,fixture}=require('./harness.cjs');
    await find.fill('hands');
    await page.waitForFunction(()=>document.querySelectorAll('.dd-flow [data-flow-node].is-found').length===1);
    assert.deepEqual(await marked('is-found'),['e']);
-   assert.deepEqual(await marked('is-dim'),['','a','c','d','b','g']);
+   assert.deepEqual(await marked('is-dim'),['','a','c','d','b','g','lf-inbox'],'Capture dims too');
    assert.equal(await box('e').locator('mark').innerText(),'Hands');
    assert.match(await flow.locator('.dd-flow-count').innerText(),/(1|۱)/);
    await find.fill('nothing like it');

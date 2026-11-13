@@ -13,7 +13,7 @@ import { DDnormalizeStrokes } from "./pen.js";
 import { DDbudgetOf, DDgoalClean } from "./budgets.js";
 import { DDtrashClean } from "./trash.js";
 import { DDdueClean } from "./deadlines.js";
-import { DDsectionKeyClean } from "./section-keys.js";
+import { DDsectionKeyClean, DDcaptureId } from "./section-keys.js";
 export const DDlifeHead = 90;
 export const DDlifeColors = DDstickyColors;
 const legacyFamilyColors = ["#FFE08A", "#9DD6FF", "#D3B8FF", "#FFA799", "#FFA6D9", "#E6E6E6", "#A8E6B8"];
@@ -117,7 +117,8 @@ function lifeItems(raw) {
       y: limit(r.y, -1e5, 1e5, 0),
       w: limit(r.w, 60, 2e4, section ? 480 : 240),
       h: limit(r.h, 40, 2e4, section ? 320 : 240),
-      text: typeof r.text === "string" ? r.text.slice(0, 4000) : "",
+      // The Inbox became Capture (5.55); a name the person gave it stays.
+      text: typeof r.text === "string" ? (section && r.id === DDcaptureId && r.text === "Inbox" ? "Capture" : r.text.slice(0, 4000)) : "",
       collapsed: section && !!r.collapsed,
       ...(!section && /^\d{4}-\d{2}-\d{2}$/.test(r.at||"") ? {at:r.at} : {}),
       ...(!section && Number.isFinite(r.baseW) ? {baseW:Math.max(160,r.baseW)} : {}),
@@ -383,6 +384,12 @@ export function DDlifeAdd(items, spec) {
   // Like FigJam, something placed by hand may hang over its section's edge;
   // only an automatically chosen spot grows the section around it.
   return placed ? [...items, item] : DDlifeFit([...items, item], item.parent);
+}
+
+// Capture (5.55): one section for quick ideas, made the first time it is needed.
+export function DDcaptureEnsure(items = []) {
+  if (items.some((i) => i.id === DDcaptureId && i.type === "section")) return items;
+  return DDlifeAdd(items, { id: DDcaptureId, type: "section", text: "Capture", color: "#FFFFFF" });
 }
 
 // "Send to section…": things go into a section at a free spot inside it, with

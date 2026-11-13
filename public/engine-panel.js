@@ -27,6 +27,7 @@ import {
   DDengineStepCount,
   DDengineParked,
   DDengineLaneFor,
+  DDcaptureWaiting,
 } from "./engine.js";
 import { DDcompletion, DDpriorityLabel, DDTaskMetadata, DDTaskTags } from "./planner.js";
 import { DDmeasureOf, DDmeasureText, DDMeasureControl, DDsetMeasure, DDplanMinutes, DDduration } from "./measure.js";
@@ -34,6 +35,7 @@ import { DDenergyOf, DDsetEnergy, DDenergyLabel } from "./energy.js";
 import { DDsetTaskDone, DDtoggleSubtask, DDcleanBoard } from "./search.js";
 import { DDPlanNudges } from "./nudges.js";
 import { DDshortPath } from "./life-board.js";
+import { DDcaptureId } from "./section-keys.js";
 import { DDflowItems, DDflowCanAdd, DDflowAdd, DDflowRemove, DDflowWaitingOn, DDflowWaves, DDflowStepRef, DDflowTaskRef } from "./flow.js";
 
 const words = (fa) => (en, f) => (fa ? f : en);
@@ -938,6 +940,15 @@ export function DDEnginePanel(props) {
         dateFormat,
         onCopy: (list) => onChange((d) => ({ ...d, blocks: [...d.blocks, ...list.map((b) => DDengineCopy(b, makeId))] })),
       }),
+    // Capture, Today and Park work together (5.55): ideas caught on the go wait
+    // in Capture until you send each one to Today or to Park.
+    onOpenSection && day.date === today && ((waiting) => waiting.length > 0 &&
+      h("div", { className: "dd-engine-capture", role: "group", "aria-label": t("Capture", "Capture"), "data-capture-waiting": waiting.length },
+        h("svg", { className: "dd-engine-capture-icon", viewBox: "0 0 16 16", "aria-hidden": true }, h("path", { d: "M2.5 9.5h3l1 2h3l1-2h3M2.5 9.5l1.8-5h7.4l1.8 5v3.5h-11z" })),
+        h("div", { className: "dd-engine-capture-text" },
+          h("b", null, waiting.length === 1 ? t("1 idea waiting in Capture", "۱ ایده در Capture منتظر است") : t(`${waiting.length} ideas waiting in Capture`, `${digits(waiting.length, true)} ایده در Capture منتظرند`)),
+          h("small", { dir: "auto", title: waiting.map((i) => i.text).join(" · ") }, waiting.map((i) => String(i.text).split("\n")[0]).join(" · "))),
+        h("button", { type: "button", className: "dd-engine-capture-go", "data-capture-open": true, title: t("Open Capture and send each idea to Today or Park", "Capture را باز کن و هر ایده را به امروز یا پارک بفرست"), onClick: () => onOpenSection(DDcaptureId) }, t("Sort them", "مرتبشون کن"))))(DDcaptureWaiting(setup, days, day)),
     day.date >= today &&
       h(DDPlanNudges, {
         React: R,
@@ -1161,6 +1172,13 @@ button.dd-engine-tag{cursor:pointer}
 .dd-engine-earlier-name{flex:1;min-width:0;overflow-wrap:anywhere}
 .dd-engine-copy{padding:3px 8px;border-radius:6px;background:var(--wash,#eee);color:var(--ink,#121211);font-size:12px;white-space:nowrap}
 .dd-engine-here{font-size:11px;color:var(--ink-3,#666);white-space:nowrap}
+.dd-engine-capture{display:flex;align-items:center;gap:10px;margin:12px 18px 0;padding:8px 8px 8px 12px;border-radius:12px;border:1.5px dashed #D98A1C;background:color-mix(in srgb,#FFE299 30%,var(--paper,#fff));flex:none;min-width:0}
+.dd-engine-capture-icon{flex:none;width:16px;height:16px;fill:none;stroke:#B86E0B;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.dd-engine-capture-text{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.dd-engine-capture-text b{font:600 13px/1.3 var(--sans);color:var(--ink,#121211)}
+.dd-engine-capture-text small{font-size:12px;color:var(--ink-3,#77746b);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dd-engine-capture-go{flex:none;height:30px;padding:0 12px;border:0;border-radius:999px;background:var(--ink,#121211);color:var(--paper,#fff);font:500 12px/1 var(--sans);cursor:pointer}
+@media (pointer:coarse){.dd-engine-capture-go{height:44px}}
 .dd-engine-carry{display:flex;align-items:center;gap:10px;margin:12px 18px 0;padding:8px 8px 8px 12px;border-radius:12px;background:color-mix(in srgb,var(--panel-engine,#F05A28) 7%,var(--wash,#f1efe9));flex:none;min-width:0}
 .dd-engine-carry-icon{font-size:16px;color:color-mix(in srgb,var(--panel-engine,#F05A28) 75%,var(--ink,#121211))}
 .dd-engine-carry-text{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
