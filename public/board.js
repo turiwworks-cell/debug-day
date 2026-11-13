@@ -20,7 +20,7 @@ import {
 import{DDBoardRails,DDinstallRailStyles,DDsetRailRole,DDrailPreferences,DDrailScope}from"./rails.js";
 import{DDstickyDateLabel,DDstickyToday,DDstickySnap,DDstickyFormat,DDstickyTodo,DDStickyText,DDinstallStickyStyles}from"./stickies.js";
 import { DDSectionsFlowchart, DDsectionsBus, DDinstallSectionsFlowStyles } from "./sections-flow.js";
-import { DDplaces, DDPlacesBack } from "./places.js";
+import { DDplaces, DDPlacesBack, DDsectionsRoom } from "./places.js";
 import { DDusePen, DDnormalizeStrokes, DDmarksRebase, DDpenCSS } from "./pen.js";
 import { DDuseComments, DDnormalizeComments, DDcommentsTransfer, DDcommentsCSS } from "./comments.js";
 import { DDnoteTagsCSS } from "./note-tags.js";
@@ -5320,6 +5320,8 @@ export function DDcreateBoard(deps) {
     // Ctrl+Space can ask for the Engine while this board is already open.
     useEffect(() => DDengineBus.on(() => DDengineBus.take() && setEngine(true)), []);
     useEffect(() => DDsectionsBus.on(() => DDsectionsBus.take() && setLifeNav(true)), []);
+    // A section's tag or its shortcut can ask for that section's own board (5.50).
+    useEffect(() => DDsectionsRoom.on(() => { const id = DDsectionsRoom.take(); id && enterRoom(id); }), []);
     const selectedNodes = [...selected]
         .map((Y) => layout.map.get(Y))
         .filter(Boolean),

@@ -8,11 +8,18 @@
 // The day you are looking at is not part of a place: going back never changes the date.
 
 const LIST = "debug-day:places", ROOM = "debug-day:board-room", VIEW = "debug-day:board-view:";
-const VIEWS = ["plan", "board", "calendar", "stats", "insights", "setup"];
+const VIEWS = ["engine", "plan", "board", "calendar", "stats", "insights", "capture", "this-app", "setup"];
 // A jump right after arriving (a section opening, then its note coming into view)
 // is one move, not two places.
 const SETTLE = 600, SEAL = 1500, KEEP = 300;
-const NAMES = { plan: "Plan", board: "Board", calendar: "Calendar", stats: "Stats", insights: "Insights", setup: "Settings" };
+// Engine and Plan are one page now (5.50), and Capture and This app are pages of
+// their own; the old names still find their place in the trail.
+const NAMES = { engine: "Today", plan: "Today", board: "Board", calendar: "Calendar", stats: "Stats", insights: "Insights", capture: "Capture", "this-app": "This app", setup: "Settings" };
+// Section shortcuts (5.50): a section's own key opens its board. The tabs list
+// keeps the keys; this only checks the shape, so storage can never add an odd key.
+function keys() {
+  try { const v = JSON.parse(localStorage.getItem("debug-day:tab-keys") || "{}"); return v && typeof v === "object" ? v : {}; } catch { return {}; }
+}
 
 let list = [], index = 0, started = false, setView = null, board = null, sealedAt = 0, arrivedAt = 0;
 const watchers = new Set();
@@ -93,7 +100,10 @@ function onPop(event) {
   restore(list[index]);
 }
 function stepTab(direction) {
-  const tabs = [...document.querySelectorAll('.views [role="tab"]')].filter((b) => !b.disabled && b.getClientRects().length);
+  // The tab bar (5.50) lives in the header, not in `.views`: read it first and
+  // fall back to the old in-view tabs so older saved documents still step.
+  const bar = [...document.querySelectorAll('.dd-tabbar [role="tab"]')];
+  const tabs = (bar.length ? bar : [...document.querySelectorAll('.views [role="tab"]')]).filter((b) => !b.disabled && b.getClientRects().length);
   if (!tabs.length) return;
   const at = tabs.findIndex((b) => b.getAttribute("aria-selected") === "true");
   const next = at < 0 ? (direction > 0 ? 0 : tabs.length - 1) : (at + direction + tabs.length) % tabs.length;
@@ -111,6 +121,55 @@ function onKey(event) {
   else if (move === "forward") DDplaces.forward();
   else stepTab(move === "next-tab" ? 1 : -1);
 }
+
+// A section's own shortcut (5.50). It opens the section's board from anywhere,
+// exactly like picking it in the Tabs sheet. Typing in a field never counts, and
+// a plain key with no modifier only, so browser and app shortcuts stay whole.
+function sectionKey(event) {
+  if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return null;
+  const key = String(event.key || "").toLowerCase();
+  if (!/^[a-z0-9]$/.test(key)) return null;
+  const table = keys(), id = Object.keys(table).find((section) => table[section] === key);
+  if (!id) return null;
+  return id;
+}
+function onSectionKey(event) {
+  const target = event.target;
+  if (target?.isContentEditable || target?.closest?.("input,textarea,select,[contenteditable=true]")) return;
+  if (document.querySelector('[role=dialog][aria-modal=true], .dd-engine-backdrop, .dd-tabs-sheet')) return;
+  const id = sectionKey(event);
+  if (!id) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  if (!setView) return;
+  // The board tab, then that section: one place, like the Sections flowchart.
+  setView("board");
+  setTimeout(() => DDsectionsRoom.open(id), 60);
+}
+
+// Ask the Board to open one section's own board (5.50). The tag pill on a task,
+// the Tabs sheet and a section's shortcut all use this; a request made before a
+// Board is on screen waits for one, exactly like the Engine's bus.
+export const DDsectionsRoom = {
+  pending: "",
+  request(id) {
+    this.pending = String(id || "");
+    for (const listener of [...this.listeners]) listener(this.pending);
+  },
+  open(id) {
+    this.request(id);
+  },
+  take() {
+    const pending = this.pending;
+    this.pending = "";
+    return pending;
+  },
+  on(listener) {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  },
+  listeners: new Set(),
+};
 
 export const DDplaces = {
   // The app starts the trail with the tab it opened on.
@@ -137,6 +196,7 @@ export const DDplaces = {
     }
     window.addEventListener("popstate", onPop);
     window.addEventListener("keydown", onKey, true);
+    window.addEventListener("keydown", onSectionKey, true);
   },
   // Another tab is another place (unless it is the place you just went back to).
   view(view) {

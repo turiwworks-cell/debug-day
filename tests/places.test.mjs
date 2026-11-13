@@ -16,7 +16,11 @@ test("Alt+arrows: left/right walk the trail, up/down step through the tabs", () 
 });
 
 test("a place is named by its tab and, on the board, its section", () => {
-  assert.equal(DDplaceName({ view: "plan" }), "Plan");
+  // Plan is the Engine's page now, and it is called Today (5.50).
+  assert.equal(DDplaceName({ view: "plan" }), "Today");
+  assert.equal(DDplaceName({ view: "engine" }), "Today");
+  assert.equal(DDplaceName({ view: "capture" }), "Capture");
+  assert.equal(DDplaceName({ view: "this-app" }), "This app");
   assert.equal(DDplaceName({ view: "board", room: null }), "Board");
   assert.equal(DDplaceName({ view: "board", room: "a", roomName: "Creative life" }), "Board · Creative life");
   assert.equal(DDplaceName({ view: "setup" }), "Settings");
