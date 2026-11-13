@@ -37,15 +37,15 @@ const { start, fixture } = require("./harness.cjs");
     // Day tools with nothing in them wait behind "…".
     const tools = page.locator("main > .dayline");
     assert.equal(await tools.getByRole("button", { name: "Worry parking" }).isVisible(), false);
-    assert.equal(await tools.getByRole("button", { name: "Park" }).isVisible(), false);
+    assert.equal(await tools.getByRole("button", { name: "Park", exact: true }).isVisible(), false);
     assert.equal(await tools.getByRole("button", { name: "Pause the day" }).isVisible(), false);
     assert.equal(await tools.locator(".dchip", { hasText: "Template" }).isVisible(), false, "one template needs no chip");
     await tools.getByRole("button", { name: "More day tools" }).click();
     for (const name of ["Worry parking", "Park", "Pause the day"])
-      assert.equal(await tools.getByRole("button", { name }).isVisible(), true, name + " shows after …");
+      assert.equal(await tools.getByRole("button", { name, exact: true }).isVisible(), true, name + " shows after …");
     assert.equal(await tools.locator(".dchip", { hasText: "Template" }).isVisible(), true);
     await tools.getByRole("button", { name: "Fewer day tools" }).click();
-    assert.equal(await tools.getByRole("button", { name: "Park" }).isVisible(), false);
+    assert.equal(await tools.getByRole("button", { name: "Park", exact: true }).isVisible(), false);
     assert.deepEqual(errors, []);
     await context.close();
     console.log("calm plan: one line per task, steps on demand, quiet day tools");
