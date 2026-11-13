@@ -1,3 +1,10 @@
+## 5.56.0 — 2026-11-13
+Branch: claude/project-thread-d0zfxj
+- Daily routine: a "Routine" button in the Engine sets what each new day does by itself. Nothing is on until you choose it.
+- Each morning, tasks still open from the last day can be brought into Today by themselves, parked, or left for you to choose (the default, the Engine's carry line). It runs once a day and never brings a task twice.
+- A task can repeat every day: its ⋯ has Repeat, "Just today" or "Every day". It is kept in the day templates, so each new day starts with it. The Routine panel lists what repeats, with Stop.
+- The routine choice syncs with the rest of your preferences.
+
 ## 5.55.0 — 2026-11-13
 Branch: claude/project-thread-d0zfxj
 - Capture is its own section: quick ideas land there (the old Inbox, now called Capture; a name you gave it stays).

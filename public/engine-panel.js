@@ -36,6 +36,7 @@ import { DDsetTaskDone, DDtoggleSubtask, DDcleanBoard } from "./search.js";
 import { DDPlanNudges } from "./nudges.js";
 import { DDshortPath } from "./life-board.js";
 import { DDcaptureId } from "./section-keys.js";
+import { DDrepeats, DDsetRepeat, DDRoutinePanel, DDinstallRoutineStyles } from "./routine.js";
 import { DDflowItems, DDflowCanAdd, DDflowAdd, DDflowRemove, DDflowWaitingOn, DDflowWaves, DDflowStepRef, DDflowTaskRef } from "./flow.js";
 
 const words = (fa) => (en, f) => (fa ? f : en);
@@ -372,7 +373,7 @@ function StepsTree({ React: R, block, language, flow, onChange, makeId, onClose 
 
 // The quiet details of one task, opened with ⋯: kind, priority, energy, time,
 // section, lane, note and the actions that move it.
-function Details({ React: R, block, place, lanes, sources, language, flow, onChange, actions }) {
+function Details({ React: R, block, place, lanes, sources, language, flow, onChange, actions, repeat }) {
   const h = R.createElement,
     fa = language === "fa",
     t = words(fa),
@@ -442,6 +443,8 @@ function Details({ React: R, block, place, lanes, sources, language, flow, onCha
       ),
     ),
     flow && field(t("After", "بعد از"), h(AfterEditor, { React: R, flow, refId: DDflowTaskRef(block.id), language })),
+    // Repeat every day (routine.js, 5.56): kept in the day templates.
+    repeat && field(t("Repeat", "تکرار"), chips(t("Repeat", "تکرار"), [["", t("Just today", "فقط امروز")], ["daily", t("Every day", "هر روز"), t("Each new day starts with it", "هر روز تازه با این کار شروع می‌شود")]], repeat.on ? "daily" : "", (v) => repeat.set(v === "daily"))),
     place === "today" &&
       lanes.length > 1 &&
       field(
@@ -516,6 +519,7 @@ function TaskRow(props) {
       makeId,
       flow,
       wave,
+      repeat,
       Emoji,
     } = props,
     h = R.createElement,
@@ -632,6 +636,7 @@ function TaskRow(props) {
           language,
           flow,
           onChange,
+          repeat,
           actions: [
             ["move", today ? t("→ Park", "→ پارک") : t("← Today", "← امروز"), () => onMove(block.id)],
             today && onTomorrow && ["tomorrow", t("Tomorrow", "فردا"), () => onTomorrow(block.id)],
@@ -709,8 +714,10 @@ export function DDEnginePanel(props) {
     [opened, setOpened] = R.useState(() => new Set(remembered("debug-day:engine-steps", []))),
     [earlierOpen, setEarlierOpen] = R.useState(false),
     [carryHidden, setCarryHidden] = R.useState(() => DDengineCarryHidden(day.date)),
+    [routineOpen, setRoutineOpen] = R.useState(false),
     panel = R.useRef(null);
   DDinstallEnginePanelStyles();
+  DDinstallRoutineStyles();
   R.useEffect(() => {
     if (!focusId) return;
     const row = panel.current?.querySelector?.(`[data-engine-task="${CSS.escape(focusId)}"]`);
@@ -827,6 +834,7 @@ export function DDEnginePanel(props) {
         onFocusTimer,
         onOpenSection,
         flow: place === "today" ? flow : null,
+        repeat: place === "today" && Array.isArray(setup.templates) && setup.templates.length ? { on: DDrepeats(setup, block), set: (on) => onSetup((s) => DDsetRepeat(s, block, on)) } : null,
       }),
     // One list, so a task keeps its open details when its wave changes; each
     // wave starts with a small heading and its tasks carry the wave's rail.
@@ -881,6 +889,9 @@ export function DDEnginePanel(props) {
         left > 0 && h("small", null, DDduration(left, language) + t(" left", " مانده")),
       ),
       days && h("button", { type: "button", className: "dd-engine-earlier-toggle", "aria-expanded": earlierOpen, onClick: () => setEarlierOpen(!earlierOpen) }, t("Earlier Engine", "انجین روزهای قبل")),
+      // How mornings start and what repeats every day (routine.js, 5.56).
+      onSetup && h("button", { type: "button", className: "dd-engine-routine-toggle", "data-routine-toggle": true, "aria-expanded": routineOpen, title: t("What each new day does by itself", "هر روز تازه خودش چه کند"), onClick: () => setRoutineOpen(!routineOpen) }, t("Routine", "روال")),
+      routineOpen && onSetup && h(DDRoutinePanel, { React: R, setup, language, onSetup, onClose: () => setRoutineOpen(false) }),
       onClose && h("button", { type: "button", className: "dd-engine-close", onClick: onClose, "aria-label": t("Close Engine", "بستن انجین") }, h("kbd", null, "E"), " ", t("Close", "بستن")),
     ),
     h(
