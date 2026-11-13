@@ -21,6 +21,7 @@ import {
 import{DDBoardRails,DDinstallRailStyles,DDsetRailRole,DDrailPreferences,DDrailScope}from"./rails.js";
 import{DDstickyDateLabel,DDstickyToday,DDstickySnap,DDstickyFormat,DDstickyTodo,DDStickyText,DDinstallStickyStyles}from"./stickies.js";
 import { DDSectionsFlowchart, DDsectionsBus, DDinstallSectionsFlowStyles } from "./sections-flow.js";
+import { DDsetSectionKey, DDsectionsVisit } from "./section-keys.js";
 import { DDplaces, DDPlacesBack } from "./places.js";
 import { DDusePen, DDnormalizeStrokes, DDmarksRebase, DDpenCSS } from "./pen.js";
 import { DDuseComments, DDnormalizeComments, DDcommentsTransfer, DDcommentsCSS } from "./comments.js";
@@ -2684,6 +2685,8 @@ export function DDcreateBoard(deps) {
       roomCams.current[layout.room || ""] = { ...cam.current };
       if (it?.collapsed) lifeChange((list) => list.map((i) => (i.id === id ? { ...i, collapsed: false } : i)));
       if (id && mode !== "mindmap") setMode("mindmap");
+      // Remembered for the Tab flowchart's "Back to" row (1 goes back here).
+      if ((layout.room || "") !== (id || "")) DDsectionsVisit(layout.room || "", id || "");
       setRoom(id || null);
       try { id ? sessionStorage.setItem("debug-day:board-room", id) : sessionStorage.removeItem("debug-day:board-room"); } catch {}
       setSelected(new Set()); setWireId(null); setConnecting(null); setMenu(null);
@@ -3324,6 +3327,18 @@ export function DDcreateBoard(deps) {
               ot.preventDefault();
               ot.stopImmediatePropagation();
               setLifeNav(false);
+              return;
+            }
+            // Tab then a key, typed fast: the flowchart is up but has not taken the
+            // keys yet, so this one goes to it (a section's letter, 1-4) and never
+            // to the board's own tools.
+            if (lifeNav && !St && !ot.altKey && ot.key.length === 1) {
+              const pill = document.querySelector(".dd-flow .dd-flow-pill[tabindex='0']");
+              if (pill) {
+                ot.preventDefault(); ot.stopImmediatePropagation();
+                pill.focus({ preventScroll: true });
+                pill.dispatchEvent(new KeyboardEvent("keydown", { key: ot.key, code: ot.code, shiftKey: ot.shiftKey, bubbles: true, cancelable: true }));
+              }
               return;
             }
             if (ot.key === "Escape" && engine) {
@@ -5512,7 +5527,9 @@ export function DDcreateBoard(deps) {
         React: _, items: DDlifeItems(setup), room: layout.room, language: DDlanguage, frame: layout.map.get("section:life"), quiet: [...engineSections],
         onShow: (id) => jumpLife(id),
         onEnter: (id) => enterRoom(id),
+        onEngine: (id) => { enterRoom(id); setEngine(true); },
         onColor: (id, color) => lifeChange((list) => DDsetSectionColor(list, id, color)),
+        onKey: (id, key) => lifeChange((list) => DDsetSectionKey(list, id, key)),
         onEnlarge: () => { const area = layout.map.get("section:life"); if (area) resizeLifeArea({ w: area.w * 1.25, h: area.h * 1.25 }); },
         onSize: (patch) => resizeLifeArea(patch),
         onCompact: () => commit((d) => { d.__life.items = DDlifeCompact(d.__life.items); delete d.__life.frame.w; delete d.__life.frame.h; return d; }),

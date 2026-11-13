@@ -19,6 +19,8 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 | **Engine**: the day's tasks (E on the Board, and the Engine tab), in two columns: Today and Park | today box, Plan (the old page) |
 | **Park**: tasks that are not for today and stay from day to day | Later tray, backlog |
 | **After**: the order between tasks or steps ("Colour pass after Sketch"); a waiting task is never locked | depends on, blocked by, dependency |
+| **Shortcut key**: one letter a section keeps for the Tab flowchart (Tab, then T for This App); Shift with it opens that section's Engine too | hotkey, binding |
+| **Back to**: the boards you were on last, 1 to 4 in the Tab flowchart | history, recents |
 | **Focus**: the timer | Stillness |
 | **Pause the day**: the "life happened" pause | Life happened |
 | **Lane**: a row in Board Lanes (Work, Life…, the person's own names) | track |

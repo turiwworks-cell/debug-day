@@ -1,3 +1,12 @@
+## 5.52.0 — 2026-11-13
+Branch: claude/project-thread-d0zfxj
+- Tab flowchart: every section can have a shortcut key. Tab, then the letter, goes straight into that section's board; Shift with the letter also brings its Engine over the board.
+- "This App" has T until another section takes it.
+- Give a key with Alt+letter on a section, or "Shortcut key…" in its right-click menu (press a letter, Delete clears, Esc cancels). Keys live on the section, so they sync like its name.
+- A new row at the top of the flowchart: "Back to" (the boards you were on last, keys 1 to 4) and "Keys" (every section with a key). On a phone the same chips are tappable.
+- Each section box shows its key on a small badge.
+- Tab and a letter typed fast now reach the flowchart, never the board's own tools.
+
 ## 5.51.0 — 2026-11-13
 Branch: claude/project-thread-d0zfxj
 - Order between tasks and steps: a task or a step can come "after" another, even a step in another task. Set it with "After…" in a task's ⋯ details or the ⤷ button on a step.
