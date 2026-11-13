@@ -606,14 +606,16 @@ export function DDsectionPath(items, id, max = 28, fallback = "Section") {
 // the task, so a rename, a move or a new color shows here at once.
 const chipCSS = `.dd-plan-from,.dd-room-history-from,.dd-search-from{display:inline-block;flex:none;max-width:min(240px,60%);vertical-align:middle;padding:0 7px;border:1px solid;border-radius:999px;font-size:11px;font-weight:500;line-height:1.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dd-plan-from{margin-inline-start:6px}.dd-room-history-from{margin-inline-start:auto}.dd-search-from{margin-top:3px;max-width:100%}`;
-export function DDSectionChip({ React: R, items, id, language, className = "dd-task-from", prefix = "↖ ", max = 28 }) {
+// With `onGo` it is a button that goes into that section (5.53).
+export function DDSectionChip({ React: R, items, id, language, className = "dd-task-from", prefix = "↖ ", max = 28, onGo }) {
   const tint = id ? DDsectionTint(items, id) : null;
   if (!tint) return null;
   if (typeof document !== "undefined" && !document.getElementById("dd-chip-css"))
     document.head.append(Object.assign(document.createElement("style"), { id: "dd-chip-css", textContent: chipCSS }));
   const fa = language === "fa", path = DDsectionPath(items, id, max, fa ? "سکشن" : "Section"),
-    label = (fa ? "آمده از " : "Came from ") + path.full;
-  return R.createElement("span", {
+    label = (onGo ? (fa ? "رفتن به " : "Go to ") : fa ? "آمده از " : "Came from ") + path.full;
+  return R.createElement(onGo ? "button" : "span", {
+    ...(onGo ? { type: "button", "data-go-section": id, onPointerDown: (e) => e.stopPropagation(), onClick: (e) => { e.stopPropagation(); onGo(id); } } : {}),
     className, dir: "auto", title: label, "aria-label": label, "data-from": id, "data-root": tint.root,
     style: { background: tint.fill, color: tint.ink, borderColor: tint.line },
   }, prefix + path.short);

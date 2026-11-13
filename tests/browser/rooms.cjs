@@ -9,6 +9,8 @@ const {start,fixture}=require('./harness.cjs');
   for(const [language,mobile] of [['en',false],['en',true]]){
    const {page,errors}=await h.context(mobile),f=await fixture(page,h.origin),t=(en,fa)=>language==='fa'?fa:en;
    f.data.setup.preferences.language=language;
+   // A day note off the Engine (5.53: notes on the Engine show in every section).
+   Object.assign(f.data.days[f.date].notes[0],{x:-900,y:2400});
    f.data.setup.life={v:2,items:[
     {id:'a',type:'section',parent:'',x:40,y:60,w:900,h:620,text:'Creative life',color:'#9DD6FF'},
     {id:'c',type:'section',parent:'a',x:420,y:80,w:420,h:320,text:'Sketches',color:'#D3B8FF'},
@@ -33,7 +35,7 @@ const {start,fixture}=require('./harness.cjs');
    assert.match(await bar.innerText(),new RegExp(t('Main board','برد اصلی')+'[\\s\\S]*Creative life'));
    for(const id of ['a','c','n','k'])assert.equal(await page.locator(`[data-board-id="life:${id}"]`).count(),1,id+' shows inside');
    for(const id of ['b','m'])assert.equal(await page.locator(`[data-board-id="life:${id}"]`).count(),0,id+' stays on the main board');
-   assert.equal(await page.locator('[data-board-id="sticky:note"]').count(),0,'day notes stay on the main board');
+   assert.equal(await page.locator('[data-board-id="sticky:note"]').count(),0,'day notes off the Engine stay on the main board');
    assert.equal(await page.locator('[data-board-id="section:habits"]').count(),0);
    // Today's Engine is there too, beside the section.
    const area=page.locator('[data-board-id="section:engine"]');await area.waitFor();

@@ -1,3 +1,9 @@
+## 5.53.0 — 2026-11-13
+Branch: claude/project-thread-d0zfxj
+- Section tag in the task panel: the first field of a task's card details on the Board. "+ Section tag" opens a quick search over every section's path; Enter picks, × takes it off. No dragging needed.
+- A click on a section tag goes into that section's board: on the Board card, in the Engine over the board (E) and on the Engine page.
+- Notes on the Engine stay the Engine's: they show on every section's board, and a note made on the Engine inside a section is a note of the day, not of that section.
+
 ## 5.52.0 — 2026-11-13
 Branch: claude/project-thread-d0zfxj
 - Tab flowchart: every section can have a shortcut key. Tab, then the letter, goes straight into that section's board; Shift with the letter also brings its Engine over the board.
