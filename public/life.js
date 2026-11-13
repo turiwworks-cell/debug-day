@@ -527,26 +527,6 @@ export function DDLifeTools({
                       h(
                         "label",
                         null,
-                        t("Category", "دسته"),
-                        h(
-                          "select",
-                          {
-                            value: block.type,
-                            onChange: (e) =>
-                              edit(block.id, { type: e.target.value }),
-                          },
-                          data.setup.types.map((type) =>
-                            h(
-                              "option",
-                              { value: type.id, key: type.id },
-                              type.name,
-                            ),
-                          ),
-                        ),
-                      ),
-                      h(
-                        "label",
-                        null,
                         t("Lane", "بخش"),
                         h(
                           "select",

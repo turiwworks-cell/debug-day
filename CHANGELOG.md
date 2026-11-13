@@ -1,3 +1,10 @@
+## 5.54.0 — 2026-11-13
+Branch: claude/project-thread-d0zfxj
+- Section tags replace categories. A task with a section tag wears that section's colour on the Board, in Lanes and in the Calendar week, and its card no longer repeats a category name.
+- No more category pickers on tasks: removed from the Board card panel, the properties panel, the Engine's ⋯ details, the parked task editor and the search actions. The task editor shows the section tag field instead.
+- Search finds tasks by their section's path, and shows it in the result line.
+- Nothing is deleted: each task keeps its saved category, old tasks without a section keep their old colour, and categories stay in Settings.
+
 ## 5.53.0 — 2026-11-13
 Branch: claude/project-thread-d0zfxj
 - Section tag in the task panel: the first field of a task's card details on the Board. "+ Section tag" opens a quick search over every section's path; Enter picks, × takes it off. No dragging needed.

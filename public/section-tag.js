@@ -39,6 +39,7 @@ export function DDsectionChoices(items = [], { query = "", here = "", fallback =
 }
 
 export function DDSectionTagField({ React: R, items = [], value = "", here = "", language, disabled = false, onChange, onGo }) {
+  DDinstallSectionTagStyles();
   const h = R.createElement,
     fa = language === "fa",
     t = (en, f) => (fa ? f : en),

@@ -52,7 +52,9 @@ const { start, fixture } = require("./harness.cjs");
       await page.locator('[data-board-id="b:writing"] .b4-node-body').click();
       const details = page.locator(".dd-card-details");
       await details.waitFor();
-      assert.equal(await details.getByRole("combobox", { name: language === "fa" ? "دسته" : "Category", exact: true }).inputValue(), "writing");
+      // Section tags replaced categories (5.54): the panel starts with the tag.
+      assert.equal(await details.getByRole("combobox", { name: language === "fa" ? "دسته" : "Category", exact: true }).count(), 0);
+      await details.locator(".dd-card-section [data-section-tag-add]").waitFor({ state: "attached" });
       await details.locator("textarea").fill("Draft the intro first");
       assert.equal((await read()).blocks[0].note, "Draft the intro first");
       assert.equal(await details.locator(".dd-card-steps li").count(), 2);

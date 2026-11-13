@@ -7,6 +7,7 @@ import { DDstickyHeight } from "./stickies.js";
 import { DDnotePhoto, DDphotoHeight } from "./board-photos.js";
 import { DDenergyOf, DDenergyLabel } from "./energy.js";
 import { DDflowEdges } from "./flow.js";
+import { DDtaskLook } from "./task-look.js";
 const life = { DDlifeBounds, DDlifeHead, DDlifeItems };
 
 // Where the Engine was moved to. A new day starts where the last day left it.
@@ -36,13 +37,7 @@ export function DDcreateBoardLayout(deps) {
     const t = (en, fa) => (DDlanguage === "fa" ? fa : en),
       finite = (Y, G = 0) =>
         Number.isFinite(Y) ? Math.max(-1e5, Math.min(1e5, Y)) : G,
-      typeFor = (Y) =>
-        setup.types.find((G) => G.id === Y) || {
-          id: Y,
-          name: "Other",
-          color: "#8E8A80",
-          icon: "dot",
-        },
+      lifeItems = DDlifeItems(setup),
       laneIds = setup.lanes.map((Y) => Y.id),
       isScheduled = (Y) => laneIds.includes(Y.lane);
     // Steps wrap instead of hiding words, so their card grows with the text.
@@ -216,9 +211,8 @@ export function DDcreateBoardLayout(deps) {
         return DDstickyHeight(width,m&&m.w===width&&m.text===note.text?m.h:String(note.text||"").split("\n").reduce((sum,l)=>sum+Math.max(1,Math.ceil(l.length/25)),0)*24+80);
       };
       const cardSection = (block, x, y, laneId) => {
-        const type = block.color
-            ? { ...typeFor(block.type), color: block.color }
-            : typeFor(block.type),
+        // A task wears its section's colour (task-look.js, 5.54).
+        const type = DDtaskLook(block, setup, lifeItems),
           ref = "b:" + block.id,
           stats = de(block.subtasks || []),
           inner = CARD - 20,
@@ -492,9 +486,7 @@ export function DDcreateBoardLayout(deps) {
           if (!St.has(Fn.id)) continue;
           const Ga = Jt,
             Xa = `b:${Fn.id}`,
-            Dl = Fn.color
-              ? { ...typeFor(Fn.type), color: Fn.color }
-              : typeFor(Fn.type);
+            Dl = DDtaskLook(Fn, setup, lifeItems);
           Fn.expanded !== !1 && Fn.subtasks?.length
             ? On(Fn.subtasks, Xa, Fn, 1, Dl.color)
             : (Jt += 82);
@@ -504,9 +496,8 @@ export function DDcreateBoardLayout(deps) {
             kind: "block",
             title: Fn.name || DDUI("Untitled"),
             subtitle:
+              // The section tag on the card says where it belongs (5.54).
               measure.DDmeasureText(Fn, DDlanguage, w) +
-              " \xB7 " +
-              DDUI(Dl.name) +
               (Pa.total
                 ? ` \xB7 ${Pa.done}/${Pa.total} ${t("steps", "\u0642\u062F\u0645")}`
                 : "") +

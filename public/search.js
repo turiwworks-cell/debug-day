@@ -1,4 +1,4 @@
-import { DDlifeItems, DDlifeRemoveTree, DDlifeHistory, DDlifeState, DDSectionChip } from "./life-board.js";
+import { DDlifeItems, DDlifeRemoveTree, DDlifeHistory, DDlifeState, DDSectionChip, DDsectionPath } from "./life-board.js";
 import { DDnoteTags, DDtagText } from "./note-tags.js";
 import { DDmediaTitle } from "./media.js";
 import { DDpanelGlyph } from "./panels.js";
@@ -133,13 +133,17 @@ export function DDbuildSearchIndex(data, today) {
   const index = [],
     setup = data.setup || {},
     types = new Map((setup.types || []).map((t) => [t.id, t.name])),
-    lanes = new Map((setup.lanes || []).map((l) => [l.id, l.name]));
+    lanes = new Map((setup.lanes || []).map((l) => [l.id, l.name])),
+    // A task is found by its section tag's path too (5.54).
+    lifeItems = DDlifeItems(setup),
+    sectionOf = (id) => (id && lifeItems.some((i) => i.id === id && i.type === "section") ? DDsectionPath(lifeItems, id, 200).full : "");
   function add(row) {
     row.searchText = DDsearchText(
       [
         row.title,
         row.detail,
         row.note,
+        row.section,
         row.category,
         row.type,
         types.get(row.type),
@@ -152,7 +156,7 @@ export function DDbuildSearchIndex(data, today) {
         .join(" "),
     );
     row.categoryText = DDsearchText(
-      [row.type, types.get(row.type), row.category, row.tag, ...(row.tags || [])]
+      [row.type, types.get(row.type), row.section, row.category, row.tag, ...(row.tags || [])]
         .filter(Boolean)
         .join(" "),
     );
@@ -171,11 +175,12 @@ export function DDbuildSearchIndex(data, today) {
         blockId: block.id,
         type: block.type,
         lane: block.lane,
+        section: sectionOf(block.from),
         priority: block.pri || 0,
         tags: block.tags || [],
         detail: [
           date,
-          types.get(block.type) || block.type,
+          sectionOf(block.from) || types.get(block.type) || block.type,
           lanes.get(block.lane),
           block.measure === "count"
             ? (block.count || 0) + "/" + (block.times || 1) + "×"
@@ -866,7 +871,8 @@ export function DDCommandPalette(props) {
           onClose();
         },
       });
-    if (["block", "subtask", "bug", "later"].includes(row.kind))
+    // Tasks take a section tag instead of a category (5.54); feelings keep theirs.
+    if (row.kind === "bug")
       list.push({
         key: "category",
         label: t("Change category", "تغییر دسته"),

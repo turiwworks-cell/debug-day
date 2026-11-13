@@ -47,6 +47,13 @@ const {start,fixture}=require('./harness.cjs');
    // The card shows the same tag at once.
    const chip=card.locator('button.dd-task-from[data-from="c"]');
    await chip.waitFor();
+   // Tags replaced categories (5.54): the card wears its section's colour, and
+   // the panel has no category to pick.
+   await page.waitForFunction(()=>document.querySelector('[data-board-id="b:writing"]')?.style.getPropertyValue('--node-color'));
+   const nodeColor=await card.evaluate((el)=>el.style.getPropertyValue('--node-color').toLowerCase());
+   const tint=await page.evaluate(async()=>{const {DDsectionTint}=await import('/life-board.js');return DDsectionTint(JSON.parse(localStorage.getItem('debug-day:v2')).setup.life.items,'c').fill.toLowerCase();});
+   assert.equal(nodeColor,tint,'the card is the colour of Sketches');
+   assert.equal(await panel.getByRole('combobox',{name:'Category',exact:true}).count(),0);
    // Change it from the list, then take it off and put it back.
    await tap(panel.locator('[data-section-tag-change]'));
    await tap(panel.locator('[data-section-choice="b"]'));
@@ -65,7 +72,11 @@ const {start,fixture}=require('./harness.cjs');
 
     // 3. A note made on the Engine inside Sketches is the Engine's: a day note,
     // and it is still there on the main board and in Clients.
-    const area=await page.locator('[data-board-id="section:engine"]').boundingBox();
+    // The camera glides into the section; wait until the Engine stops moving
+    // (a slow CI frame can start the glide late) before drawing on it.
+    const stableBox=async(loc)=>{let a=await loc.boundingBox(),same=0;for(let i=0;i<80&&same<3;i++){await page.evaluate(()=>new Promise((r)=>requestAnimationFrame(()=>requestAnimationFrame(r))));await page.waitForTimeout(30);const b=await loc.boundingBox();same=b&&a&&Math.abs(a.x-b.x)<.5&&Math.abs(a.y-b.y)<.5&&Math.abs(a.width-b.width)<.5?same+1:0;a=b;}return a;};
+    await page.waitForTimeout(400);
+    const area=await stableBox(page.locator('[data-board-id="section:engine"]'));
     const notes0=(await day()).notes.length;
     await view.focus();await page.keyboard.press('s');await page.locator('.dd-sticky-colors').waitFor();
     await page.mouse.move(area.x+area.width-90,area.y+area.height-70);await page.mouse.click(area.x+area.width-90,area.y+area.height-70);

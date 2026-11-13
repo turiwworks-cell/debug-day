@@ -23,6 +23,7 @@ import{DDstickyDateLabel,DDstickyToday,DDstickySnap,DDstickyFormat,DDstickyTodo,
 import { DDSectionsFlowchart, DDsectionsBus, DDinstallSectionsFlowStyles } from "./sections-flow.js";
 import { DDsetSectionKey, DDsectionsVisit } from "./section-keys.js";
 import { DDsectionGo, DDSectionTagField, DDinstallSectionTagStyles } from "./section-tag.js";
+import { DDtaskLook } from "./task-look.js";
 import { DDplaces, DDPlacesBack } from "./places.js";
 import { DDusePen, DDnormalizeStrokes, DDmarksRebase, DDpenCSS } from "./pen.js";
 import { DDuseComments, DDnormalizeComments, DDcommentsTransfer, DDcommentsCSS } from "./comments.js";
@@ -324,14 +325,7 @@ export function DDcreateBoard(deps) {
       const timer = setTimeout(() => setStatus(""), 2600);
       return () => clearTimeout(timer);
     }, [status]);
-    const typeFor = (Y) =>
-        setup.types.find((G) => G.id === Y) || {
-          id: Y,
-          name: "Other",
-          color: "#8E8A80",
-          icon: "dot",
-        },
-      laneIds = setup.lanes.map((Y) => Y.id),
+    const laneIds = setup.lanes.map((Y) => Y.id),
       locked = new Set(model.locked),
       selectedWires = new Set(
         wireSelection && wireSelection.sel === selected
@@ -4413,8 +4407,7 @@ export function DDcreateBoard(deps) {
       if (!["block", "subtask"].includes(selectedNode.kind)) return null;
       const block = day.blocks.find((b) => b.id === selectedNode.blockId);
       if (!block) return null;
-      const type = typeFor(block.type),
-        color = block.color || type.color,
+      const color = DDtaskLook(block, setup).color,
         ownRefs = new Set([
           "b:" + block.id,
           ...layout.nodes
@@ -4513,36 +4506,7 @@ export function DDcreateBoard(deps) {
               }, id ? t("Section tag set", "تگ سکشن گذاشته شد") : t("Section tag taken off", "تگ سکشن برداشته شد")),
           }),
         ),
-        h(
-          "label",
-          { className: "dd-card-field" },
-          h("span", null, t("Category", "دسته")),
-          h(
-            "select",
-            {
-              value: block.type,
-              "aria-label": t("Category", "دسته"),
-              disabled: isLocked,
-              onChange: (event) => {
-                const value = event.target.value;
-                commit(
-                  (d) => {
-                    const b = d.blocks.find((b) => b.id === block.id);
-                    if (b) {
-                      b.type = value;
-                      delete b.color;
-                    }
-                    return d;
-                  },
-                  t("Category changed", "دسته تغییر کرد"),
-                );
-              },
-            },
-            setup.types.map((type) =>
-              h("option", { key: type.id, value: type.id }, DDUI(type.name)),
-            ),
-          ),
-        ),
+        // Section tags replaced categories (5.54): the tag above is the task's kind.
         h("label", { className: "dd-card-field" }, h("span", null, t("Lane", "لاین")),
           h("select", { value: laneIds.includes(block.lane) ? block.lane : "", disabled: isLocked, "aria-label": t("Task lane", "لاین کار"), onChange: (e) => { const lane = e.target.value; changeMeasure((b) => ({ ...b, lane })); } },
             ...setup.lanes.map((l) => h("option", { key: l.id, value: l.id }, l.name)), h("option", { value: "" }, t("Parked", "پارک‌شده")))),
@@ -6004,26 +5968,6 @@ export function DDcreateBoard(deps) {
           },
           onWirePreview: previewWire,
           onPosition: placeSelection,
-          category:
-            selectedNode?.kind === "block"
-              ? {
-                  value: day.blocks.find((b) => b.id === selectedNode.blockId)
-                    ?.type,
-                  options: setup.types,
-                }
-              : null,
-          onCategory: (type) =>
-            commit(
-              (d) => {
-                const b = d.blocks.find((b) => b.id === selectedNode.blockId);
-                if (b && !locked.has(selectedNode.id)) {
-                  b.type = type;
-                  delete b.color;
-                }
-                return d;
-              },
-              t("Category changed", "دسته تغییر کرد"),
-            ),
           onClose: () => {
             restoreStylePreview();
             setProperties(false);
