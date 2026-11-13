@@ -16,12 +16,12 @@ import {
   DDlifeItems,
   DDlifeParentAt,
   DDlifeState, DDlifeHistory, DDlifeCompact, DDlifeMoveBy, DDlifeRemove, DDlifeDescendants, DDlifeAdopt, DDlifePath, DDlifeKeepIn, DDlifeInFrame, DDlifeShown, DDlifeHome, DDlifeRelease,
-  DDSectionChip, DDsetSectionColor, DDsectionPath, DDsectionPalette, DDlifeSendTo, DDlifeTakeOut,
+  DDSectionChip, DDsetSectionColor, DDsectionPath, DDsectionPalette, DDlifeSendTo, DDlifeTakeOut, DDcaptureEnsure,
 } from "./life-board.js";
 import{DDBoardRails,DDinstallRailStyles,DDsetRailRole,DDrailPreferences,DDrailScope}from"./rails.js";
 import{DDstickyDateLabel,DDstickyToday,DDstickySnap,DDstickyFormat,DDstickyTodo,DDStickyText,DDinstallStickyStyles}from"./stickies.js";
 import { DDSectionsFlowchart, DDsectionsBus, DDinstallSectionsFlowStyles } from "./sections-flow.js";
-import { DDsetSectionKey, DDsectionsVisit } from "./section-keys.js";
+import { DDsetSectionKey, DDsectionsVisit, DDcaptureId } from "./section-keys.js";
 import { DDsectionGo, DDSectionTagField, DDinstallSectionTagStyles } from "./section-tag.js";
 import { DDtaskLook } from "./task-look.js";
 import { DDplaces, DDPlacesBack } from "./places.js";
@@ -290,7 +290,7 @@ export function DDcreateBoard(deps) {
       cardCache = useRef({ epoch: null, map: new Map() }),
       // The board's newest functions. A kept card calls them through `relay`, so it
       // never acts on an old selection, tool or day.
-      live = useRef(null), relay = useRef(null);
+      live = useRef(null), relay = useRef(null), wantRoom = useRef(null);
     // Writing zoomed out: where the board was before it came closer, and the glide.
     const editReturn = useRef(null), glide = useRef(0), glideTo = useRef(null);
     selectionState.current = { selected, wireId, selectedWires: wireSelection?.ids || [] };
@@ -2993,10 +2993,27 @@ export function DDcreateBoard(deps) {
       const already = noteOnDay(Y);
       if (already) { setSelected(new Set(["b:" + already.id])); onSelectBlock?.(already.id); setStatus(t("Already on this day", "همین حالا در این روز هست")); return; }
       const parsed = DDengineTaskFromNote(Y.title, setup.lanes[0]?.id || "", setup, C), ct = C(),
-        from = DDlifeItems(setup).find((i) => i.id === Y.lifeId)?.parent || layout.room || "";
+        // Capture is where ideas wait, not a project: its tasks get no section tag.
+        home = DDlifeItems(setup).find((i) => i.id === Y.lifeId)?.parent || layout.room || "",
+        from = home === DDcaptureId ? "" : home;
       commit((d) => ({ ...d, blocks: [...d.blocks, { ...parsed, id: ct, name: parsed.name || DDUI("ایده از برد"), min: prefs.defaultMinutes, ...(from ? { from } : {}), noteRef: Y.lifeId }] }),
         t("Added to this day · the note stays in the Feed", "به این روز اضافه شد · نوت در فید می‌مونه"));
       setSelected(new Set(["b:" + ct])); onSelectBlock?.(ct);
+    }
+    // Capture (5.55): an idea waiting there can go to Park too, the tasks
+    // without a day. The note stays and says where it went.
+    function inCapture(Y) {
+      return !!Y?.lifeId && DDlifeItems(setup).find((i) => i.id === Y.lifeId)?.parent === DDcaptureId;
+    }
+    function noteInPark(Y) {
+      return Y?.lifeId ? (setup.later || []).find((b) => b.noteRef === Y.lifeId) : null;
+    }
+    function sendToPark(Y) {
+      if (!Y?.lifeId || !onUpdateSetup) return;
+      if (noteInPark(Y)) { setStatus(t("Already in Park", "همین حالا در پارک هست")); return; }
+      const parsed = DDengineTaskFromNote(Y.title, setup.lanes[0]?.id || "", setup, C);
+      onUpdateSetup((s) => ({ ...s, later: [...(s.later || []), { ...parsed, id: C(), name: parsed.name || DDUI("ایده از برد"), min: prefs.defaultMinutes, noteRef: Y.lifeId }] }));
+      setStatus(t("Parked · the note stays in Capture", "به پارک رفت · نوت در Capture می‌مونه"));
     }
     function selectBranch() {
       if (!selectedNode) return;
@@ -4140,6 +4157,11 @@ export function DDcreateBoard(deps) {
                               },
                               Y.lifeId ? (noteOnDay(Y) ? (noteOnDay(Y).done ? "✓ " : "● ") + t("Today", "امروز") : t("→ Today", "→ امروز")) : DDUI("→ پلن"),
                             ),
+                            inCapture(Y) && _.createElement("button", {
+                              type: "button", "data-note-park": noteInPark(Y) ? "parked" : "",
+                              title: noteInPark(Y) ? t("This idea is in Park", "این ایده در پارک است") : t("Send to Park, the tasks without a day; the note stays", "به پارک بفرست، کارهای بی‌روز؛ نوت می‌مونه"),
+                              onClick: () => sendToPark(Y),
+                            }, noteInPark(Y) ? "● " + t("Park", "پارک") : t("→ Park", "→ پارک")),
                           ),
                           _.createElement(
                             "div",
@@ -5357,6 +5379,11 @@ export function DDcreateBoard(deps) {
       go();
       return DDsectionGo.on(go);
     }, []);
+    // A section that is being made (Capture's first visit) is entered once it is there.
+    useEffect(() => {
+      const id = wantRoom.current;
+      if (id && DDlifeItems(setup).some((i) => i.id === id && i.type === "section")) { wantRoom.current = null; enterRoom(id); }
+    });
     const selectedNodes = [...selected]
         .map((Y) => layout.map.get(Y))
         .filter(Boolean),
@@ -5475,6 +5502,15 @@ export function DDcreateBoard(deps) {
             disabled: !history.current.past.length,
           }),
           onTimerChange && _.createElement(DDBoardTimerButton,{React:_,Icon:controls.Icon,language:DDlanguage,timer,open:timerOpen,onOpenChange:setTimerOpen,buttonRef:timerButton}),
+          // Pause the day lives on the board (5.55): when life happens, stop the
+          // timer and choose what to do with the rest of the day, right here.
+          ((paused, closed) => toolButton(
+            paused ? t("Day paused · choose the next step", "روز متوقف است · قدم بعدی را انتخاب کن") : closed ? t("Today is closed · choose the next step", "امروز بسته است · قدم بعدی را انتخاب کن") : t("Pause the day", "روز را نگه دار"),
+            "pauseDay",
+            () => { finishEdit(); window.dispatchEvent(new CustomEvent("debug-day-open-capture", { detail: paused || closed ? "resume" : "pause" })); },
+            { "data-pause-day": paused ? "paused" : closed ? "closed" : "", "aria-pressed": paused || closed },
+            paused ? t("Day paused", "روز متوقف است") : closed ? t("Today is closed", "امروز بسته است") : t("Pause the day", "روز را نگه دار"),
+          ))(!!day.pause?.active, !!day.pause?.closed),
           _.createElement("span", { className: "b2-sep" }),
           toolButton(
             DDUI("Search board"),
@@ -5529,6 +5565,7 @@ export function DDcreateBoard(deps) {
         onShow: (id) => jumpLife(id),
         onEnter: (id) => enterRoom(id),
         onEngine: (id) => { enterRoom(id); setEngine(true); },
+        onCapture: () => { wantRoom.current = DDcaptureId; lifeChange((list) => DDcaptureEnsure(list)); },
         onColor: (id, color) => lifeChange((list) => DDsetSectionColor(list, id, color)),
         onKey: (id, key) => lifeChange((list) => DDsetSectionKey(list, id, key)),
         onEnlarge: () => { const area = layout.map.get("section:life"); if (area) resizeLifeArea({ w: area.w * 1.25, h: area.h * 1.25 }); },

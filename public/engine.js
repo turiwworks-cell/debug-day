@@ -2,7 +2,8 @@
 // It is not a copy: it reads and writes day.blocks and setup.later, the same data
 // the Board and its Lanes view show, so a change here is the same change
 // everywhere. The Engine's screen is in engine-panel.js.
-import { DDsectionTint, DDlifePath } from "./life-board.js";
+import { DDsectionTint, DDlifePath, DDlifeItems } from "./life-board.js";
+import { DDcaptureId } from "./section-keys.js";
 import { DDcleanBoard } from "./search.js";
 
 // Ask the Board to bring the Engine up. The request waits until a Board is
@@ -333,4 +334,17 @@ button.dd-task-from{font-family:inherit;font-weight:500;cursor:pointer}button.dd
 export function DDinstallEngineStyles() {
   if (typeof document === "undefined" || document.getElementById("dd-engine-css")) return;
   document.head.append(Object.assign(document.createElement("style"), { id: "dd-engine-css", textContent: DDengineCSS }));
+}
+
+// Capture (5.55): the ideas still waiting there, oldest first. One that went to
+// a day or to Park (a task remembers its note as noteRef) is sorted already.
+export function DDcaptureWaiting(setup = {}, days = {}, day = null) {
+  const sent = new Set();
+  const look = (list) => { for (const b of list || []) if (b?.noteRef) sent.add(b.noteRef); };
+  look(setup.later);
+  for (const d of Object.values(days || {})) look(d?.blocks);
+  look(day?.blocks);
+  return DDlifeItems(setup)
+    .filter((i) => i.type === "sticky" && i.parent === DDcaptureId && !sent.has(i.id) && String(i.text || "").trim())
+    .sort((a, b) => String(a.at || "").localeCompare(String(b.at || "")));
 }

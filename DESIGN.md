@@ -21,9 +21,10 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 | **After**: the order between tasks or steps ("Colour pass after Sketch"); a waiting task is never locked | depends on, blocked by, dependency |
 | **Shortcut key**: one letter a section keeps for the Tab flowchart (Tab, then T for This App); Shift with it opens that section's Engine too | hotkey, binding |
 | **Section tag**: the path of the section a task belongs to, on top of the task; a click goes into that section. It replaced categories: a task wears its section's colour | category, type, came from, folder, project |
+| **Capture**: the one section where quick ideas land and wait until each goes to Today or Park; drawn apart in Tab (C) | Inbox (its old name), dump, queue |
 | **Back to**: the boards you were on last, 1 to 4 in the Tab flowchart | history, recents |
 | **Focus**: the timer | Stillness |
-| **Pause the day**: the "life happened" pause | Life happened |
+| **Pause the day**: the "life happened" pause, on the Board's top bar | Life happened |
 | **Lane**: a row in Board Lanes (Work, Life…, the person's own names) | track |
 
 - "Life" is only ever a lane name the person chose. Do not use it for app features.

@@ -5,7 +5,7 @@
 // and on the board at once.
 import { DDlifePath, DDlifeDescendants, DDsectionTint, DDsectionPath, DDsectionPalette } from "./life-board.js";
 import { DDsearchBoardText } from "./board-experience.js";
-import { DDsectionKeys, DDsectionKeyOf, DDsectionsRecent } from "./section-keys.js";
+import { DDsectionKeys, DDsectionKeyOf, DDsectionsRecent, DDcaptureId } from "./section-keys.js";
 
 // Ask the Board to open the flowchart. The request waits until a Board is on
 // screen (Ctrl+Space can ask from Plan or Calendar), like the Engine's bus.
@@ -37,13 +37,18 @@ const estimate = (text) => [...String(text)].length * 7.4;
 // `quiet` sections (the Engine's own, 5.37) leave the main tree and come last,
 // in one folded group; it opens when asked, when a search finds one of them, or
 // when you are inside one.
-export function DDsectionsFlow(items = [], { folded = [], room = "", query = "", measure = estimate, phone = false, rtl = false, mainLabel = "Main board", quiet = [], quietOpen = false } = {}) {
+// Capture (5.55) is not one of your sections: where quick ideas land sits on
+// its own row above the Main board, drawn differently. With `capture` set it is
+// there even before the first idea, as a dashed space that makes it on a click.
+export function DDsectionsFlow(items = [], { folded = [], room = "", query = "", measure = estimate, phone = false, rtl = false, mainLabel = "Main board", quiet = [], quietOpen = false, capture = false, captureLabel = "Capture" } = {}) {
   const ROW = phone ? 56 : 42, H = phone ? 44 : 30, GAP = phone ? 64 : 78, PAD = phone ? 16 : 22,
     sections = items.filter((i) => i.type === "section"),
     ids = new Set(sections.map((s) => s.id)),
     quietIds = new Set([...quiet].filter((id) => sections.some((s) => s.id === id && !s.parent))),
     quietAll = new Set([...quietIds].flatMap((id) => [...DDlifeDescendants(items, id)])),
-    kids = (parent) => sections.filter((s) => (s.parent || "") === parent && !(parent === "" && quietIds.has(s.id))).sort(byBoard),
+    captureTop = sections.some((s) => s.id === DDcaptureId && !s.parent && !quietIds.has(s.id)),
+    captureAll = new Set(ids.has(DDcaptureId) ? DDlifeDescendants(items, DDcaptureId) : []),
+    kids = (parent) => sections.filter((s) => (s.parent || "") === parent && !(parent === "" && (quietIds.has(s.id) || (captureTop && s.id === DDcaptureId)))).sort(byBoard),
     notes = (id) => items.filter((i) => i.type === "sticky" && (i.parent || "") === id).length,
     inside = (id) => kids(id).reduce((n, k) => n + 1 + inside(k.id), 0),
     words = DDsearchBoardText(query).split(" ").filter(Boolean),
@@ -70,9 +75,9 @@ export function DDsectionsFlow(items = [], { folded = [], room = "", query = "",
       all = kids(id).filter((k) => !seen.has(k.id)),
       shut = !!id && all.length > 0 && closed.has(id),
       node = {
-        id, parent: id ? s.parent || "" : null, depth, name, notes: count, children: all.length, folded: shut, quiet: quietAll.has(id),
+        id, parent: id ? s.parent || "" : null, depth, name, notes: count, children: all.length, folded: shut, quiet: quietAll.has(id), capture: captureAll.has(id),
         hidden: shut ? inside(id) : 0, here: id === here, trail: trail.has(id), found: hits.has(id), dim: words.length > 0 && !hits.has(id),
-        w: Math.round(Math.max(phone ? 96 : 84, Math.min(240, 50 + measure(name || " ", depth) + (count ? 22 : 0)))), h: H,
+        w: Math.round(Math.max(phone ? 96 : 84, Math.min(240, 50 + measure(name || " ", depth) * (id === DDcaptureId ? 1.08 : 1) + (count ? 22 : 0) + (id === DDcaptureId ? 18 : 0)))), h: H,
       };
     nodes.push(node);
     widths[depth] = Math.max(widths[depth] || 0, node.w);
@@ -83,6 +88,14 @@ export function DDsectionsFlow(items = [], { folded = [], room = "", query = "",
     }
     return node;
   };
+  if (captureTop) place(DDcaptureId, 0, new Set([DDcaptureId]));
+  else if (capture && !ids.has(DDcaptureId)) {
+    const node = { id: DDcaptureId, parent: null, depth: 0, name: captureLabel, notes: 0, children: 0, folded: false, quiet: false, capture: true, ghost: true,
+      hidden: 0, here: false, trail: false, found: false, dim: words.length > 0 && !words.every((w) => DDsearchBoardText(captureLabel).includes(w)),
+      w: Math.round(Math.max(phone ? 96 : 84, Math.min(240, 50 + measure(captureLabel, 0) * 1.08 + 34))), h: H, y: PAD + row++ * ROW };
+    nodes.push(node);
+    widths[0] = Math.max(widths[0] || 0, node.w);
+  }
   place("", 0, new Set());
   let group = null;
   if (quietIds.size) {
@@ -90,6 +103,8 @@ export function DDsectionsFlow(items = [], { folded = [], room = "", query = "",
     group = { count: quietIds.size, open, y: PAD + row++ * ROW, h: H, names: sections.filter((s) => quietIds.has(s.id)).sort(byBoard).map((s) => String(s.text || "").trim()) };
     if (open) for (const s of sections.filter((s) => quietIds.has(s.id)).sort(byBoard)) place(s.id, 1, new Set([s.id]));
   }
+  // Capture is drawn on top but read after the Main board's tree.
+  nodes.sort((a, b) => (a.capture && !a.quiet) - (b.capture && !b.quiet));
   const left = [];
   widths.forEach((w, d) => (left[d] = d ? left[d - 1] + widths[d - 1] + GAP : PAD));
   const width = left[widths.length - 1] + widths[widths.length - 1] + PAD + 44,
@@ -166,7 +181,7 @@ function textWidth(text, phone) {
   } catch { return estimate(text); }
 }
 
-export function DDSectionsFlowchart({ React: R, items = [], room = null, language, frame = null, quiet = [], onShow, onEnter, onEngine, onColor, onKey, onClose, onEnlarge, onSize, onCompact }) {
+export function DDSectionsFlowchart({ React: R, items = [], room = null, language, frame = null, quiet = [], onShow, onEnter, onEngine, onColor, onKey, onClose, onEnlarge, onSize, onCompact, onCapture }) {
   const h = R.createElement,
     fa = language === "fa",
     t = (en, f) => (fa ? f : en),
@@ -190,7 +205,7 @@ export function DDSectionsFlowchart({ React: R, items = [], room = null, languag
     press = R.useRef({ timer: null, long: false }),
     sections = items.filter((i) => i.type === "section"),
     here = room && sections.some((s) => s.id === room) ? room : "",
-    flow = DDsectionsFlow(items, { folded, room: here, query, phone, rtl: fa, mainLabel: t("Main board", "برد اصلی"), measure: (text) => textWidth(text, phone), quiet, quietOpen }),
+    flow = DDsectionsFlow(items, { folded, room: here, query, phone, rtl: fa, mainLabel: t("Main board", "برد اصلی"), measure: (text) => textWidth(text, phone), quiet, quietOpen, capture: !!onCapture, captureLabel: t("Capture", "Capture") }),
     byId = new Map(flow.nodes.map((n) => [n.id, n])),
     active = byId.has(focus) ? focus : here,
     hotTrail = new Set(hot !== null && byId.has(hot) ? ["", ...DDlifePath(items, hot).map((i) => i.id)] : []),
@@ -199,7 +214,9 @@ export function DDSectionsFlowchart({ React: R, items = [], room = null, languag
     keys = DDsectionKeys(items),
     recent = DDsectionsRecent(items, here),
     nameOf = (id) => (id ? sections.find((s) => s.id === id)?.text || t("Section", "سکشن") : t("Main board", "برد اصلی")),
-    keyed = [...keys.byKey].sort(([a], [b]) => a.localeCompare(b));
+    keyed = [...keys.byKey].sort(([a], [b]) => a.localeCompare(b)),
+    // Capture has C even before its first idea.
+    ghostKey = flow.nodes.some((n) => n.ghost) && !keys.byKey.has("c");
 
   R.useEffect(() => {
     const media = globalThis.matchMedia?.("(max-width: 700px)"), change = () => setPhone(phoneQuery());
@@ -250,7 +267,9 @@ export function DDSectionsFlowchart({ React: R, items = [], room = null, languag
     setTick((n) => n + 1);
   }
   function go(id) {
-    onEnter?.(id || null);
+    // Capture before its first idea: make it, then go in.
+    if (id === DDcaptureId && !sections.some((s) => s.id === id)) onCapture?.();
+    else onEnter?.(id || null);
     onClose?.();
   }
   // Shift with a section's key: into its board with its Engine over it.
@@ -271,7 +290,7 @@ export function DDSectionsFlowchart({ React: R, items = [], room = null, languag
     focusNode(id);
   }
   function show(id) {
-    if (!id) return go("");
+    if (!id || !sections.some((s) => s.id === id)) return go(id || "");
     onShow?.(id);
     onClose?.();
   }
@@ -337,6 +356,7 @@ export function DDSectionsFlowchart({ React: R, items = [], room = null, languag
       const back = /^Digit([1-4])$/.exec(event.code || "")?.[1] || (/^[1-4]$/.test(event.key) ? event.key : "");
       if (back && !event.shiftKey && recent[back - 1] !== undefined) { event.preventDefault(); return go(recent[back - 1]); }
       if (letter && keys.byKey.has(letter)) { event.preventDefault(); const id = keys.byKey.get(letter); return event.shiftKey ? engine(id) : go(id); }
+      if (letter === "c" && ghostKey && !event.shiftKey) { event.preventDefault(); return go(DDcaptureId); }
     }
     // The Engine's row: up goes back to the Main board, down into the group.
     if (event.target.closest?.("[data-flow-group]")) {
@@ -447,12 +467,14 @@ export function DDSectionsFlowchart({ React: R, items = [], room = null, languag
       path = node.id ? DDsectionPath(items, node.id, 80, t("Section", "سکشن")).full : label,
       lit = hotTrail.has(node.id),
       notes = node.notes ? t(node.notes === 1 ? " · 1 note" : ` · ${node.notes} notes`, ` · ${num(node.notes)} یادداشت`) : "",
+      catcher = node.capture && node.id === DDcaptureId,
+      about = catcher ? (node.ghost ? t(" · where quick ideas land · click to make it", " · جای ایده‌های سریع · با کلیک ساخته می‌شود") : t(" · where quick ideas land", " · جای ایده‌های سریع")) : "",
       inside = node.children ? t(` · ${node.children} inside`, ` · ${num(node.children)} سکشن داخلش`) : "",
       fold = node.children > 0 && node.id,
       endX = fa ? -18 : node.w + 2;
     return h("div", {
         key: node.id || "main",
-        className: "dd-flow-node" + (keying === node.id ? " is-keying" : "") + (node.here ? " is-here" : "") + (node.trail ? " is-trail" : "") + (lit ? " is-lit" : "") + (node.dim ? " is-dim" : "") + (node.found ? " is-found" : "") + (node.quiet ? " is-quiet" : ""),
+        className: "dd-flow-node" + (keying === node.id ? " is-keying" : "") + (node.here ? " is-here" : "") + (node.trail ? " is-trail" : "") + (lit ? " is-lit" : "") + (node.dim ? " is-dim" : "") + (node.found ? " is-found" : "") + (node.quiet ? " is-quiet" : "") + (node.capture ? " is-capture" : "") + (catcher ? " is-catcher" : "") + (node.ghost ? " is-ghost" : ""),
         "data-flow-node": node.id,
         "data-depth": node.depth,
         style: { left: node.x, top: node.y, width: node.w, height: node.h },
@@ -463,35 +485,39 @@ export function DDSectionsFlowchart({ React: R, items = [], room = null, languag
           type: "button",
           className: "dd-flow-pill",
           tabIndex: node.id === active ? 0 : -1,
-          title: path + notes + (node.id ? t(" · Shift+click shows it on the board · right-click for color", " · Shift+کلیک: نشان دادن روی برد · کلیک راست: رنگ") : ""),
-          "aria-label": path + notes + inside,
+          title: path + notes + about + (node.id && !node.ghost ? t(" · Shift+click shows it on the board · right-click for color", " · Shift+کلیک: نشان دادن روی برد · کلیک راست: رنگ") : ""),
+          "aria-label": (node.ghost ? label : path) + notes + inside + about,
           "aria-keyshortcuts": node.id && keys.byId.has(node.id) ? keys.byId.get(node.id).toUpperCase() : undefined,
           "aria-current": node.here ? "location" : undefined,
           "aria-expanded": fold ? !node.folded : undefined,
-          "aria-haspopup": node.id ? "menu" : undefined,
+          "aria-haspopup": node.id && !node.ghost ? "menu" : undefined,
           onFocus: () => { setFocus(node.id); setHot(node.id); },
           onBlur: () => setHot((v) => (v === node.id ? null : v)),
           onPointerDown: (event) => {
             press.current.long = false;
             clearTimeout(press.current.timer);
-            if (node.id && event.pointerType === "touch") press.current.timer = setTimeout(() => { press.current.long = true; openMenu(node.id); }, 480);
+            if (node.id && !node.ghost && event.pointerType === "touch") press.current.timer = setTimeout(() => { press.current.long = true; openMenu(node.id); }, 480);
           },
           onPointerUp: () => clearTimeout(press.current.timer),
           onPointerLeave: () => clearTimeout(press.current.timer),
           onPointerCancel: () => clearTimeout(press.current.timer),
-          onContextMenu: (event) => { if (!node.id) return; event.preventDefault(); clearTimeout(press.current.timer); openMenu(node.id); },
+          onContextMenu: (event) => { if (!node.id || node.ghost) return; event.preventDefault(); clearTimeout(press.current.timer); openMenu(node.id); },
           onClick: (event) => {
             if (press.current.long) return (press.current.long = false);
             event.shiftKey ? show(node.id) : go(node.id);
           },
         },
-        node.id
-          ? h("span", { className: "dd-flow-dot", style: { background: fill, borderColor: tint.line } })
-          : h("span", { className: "dd-flow-board", "aria-hidden": true }),
+        catcher
+          ? h("svg", { className: "dd-flow-catch", viewBox: "0 0 16 16", "aria-hidden": true }, h("path", { d: "M2.5 9.5h3l1 2h3l1-2h3M2.5 9.5l1.8-5h7.4l1.8 5v3.5h-11z" }))
+          : node.id
+            ? h("span", { className: "dd-flow-dot", style: { background: fill, borderColor: tint.line } })
+            : h("span", { className: "dd-flow-board", "aria-hidden": true }),
         h("bdi", { className: "dd-flow-label" }, node.id ? marked(label) : label),
+        node.ghost && h("span", { className: "dd-flow-ghost-add", "aria-hidden": true }, "+"),
         node.notes > 0 && h("span", { className: "dd-flow-notes", "aria-hidden": true }, num(node.notes)),
         keying === node.id
           ? h("kbd", { className: "dd-flow-kbd is-waiting", "aria-hidden": true }, "?")
+          : node.ghost && ghostKey ? h("kbd", { className: "dd-flow-kbd", "data-flow-kbd": "c", "aria-hidden": true }, "C")
           : node.id && keys.byId.has(node.id) && h("kbd", { className: "dd-flow-kbd", "data-flow-kbd": keys.byId.get(node.id), "aria-hidden": true }, keys.byId.get(node.id).toUpperCase())),
       fold
         ? h("button", {
@@ -689,6 +715,15 @@ body:has(.dd-flow-backdrop.is-phone) .dd-floating-capture{visibility:hidden}
 .dd-flow-hidden{position:absolute;top:50%;margin-top:-9px;padding:0 6px;border-radius:999px;background:var(--wash,#0000000d);color:var(--ink-2,#4a4843);font-size:11.5px;line-height:18px;font-variant-numeric:tabular-nums;pointer-events:none}
 .dd-flow-node.is-quiet .dd-flow-pill{border-style:dashed;border-width:1px;background:transparent;color:var(--ink-3,#7f7c75)!important;font-weight:400}
 .dd-flow-node.is-quiet .dd-flow-dot{opacity:.6}
+.dd-flow-node.is-capture .dd-flow-pill{--dd-catch:#D98A1C;border-radius:9px;border-style:dashed;border-color:var(--dd-catch);background:color-mix(in srgb,#FFE299 42%,var(--paper,#fff))}
+.dd-flow-node.is-capture .dd-flow-pill:hover,.dd-flow-node.is-capture.is-lit .dd-flow-pill{background:color-mix(in srgb,#FFE299 70%,var(--paper,#fff))}
+.dd-flow-node.is-catcher .dd-flow-pill{border-width:2px;font-weight:600}
+.dd-flow-node.is-capture.is-here .dd-flow-pill{background:var(--dd-catch);border-color:var(--dd-catch);border-style:solid;color:#fff!important}
+.dd-flow-node.is-ghost .dd-flow-pill{background:transparent;color:var(--ink-2,#4a4843)!important;font-weight:500}
+.dd-flow-catch{flex:none;width:15px;height:15px;fill:none;stroke:var(--dd-catch);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.dd-flow-node.is-here .dd-flow-catch{stroke:#fff}
+.dd-flow-ghost-add{flex:none;color:var(--dd-catch);font-weight:600}
+.dd-flow-node.is-capture .dd-flow-notes{padding:0 6px;border-radius:999px;background:var(--dd-catch);color:#fff;opacity:1;line-height:17px}
 .dd-flow-group{position:absolute;display:inline-flex;align-items:center;gap:6px;padding:0 12px;border:1px dashed color-mix(in srgb,var(--ink,#121211) 26%,transparent);border-radius:999px;background:transparent;color:var(--ink-3,#7f7c75)!important;font-size:12px!important;white-space:nowrap;overflow:hidden;cursor:pointer}
 .dd-flow-group:hover{background:var(--wash,#0000000d);color:var(--ink-2,#4a4843)!important}
 .dd-flow-group:focus-visible{outline:2px solid var(--dd-flow-line);outline-offset:2px}
