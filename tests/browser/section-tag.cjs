@@ -47,6 +47,13 @@ const {start,fixture}=require('./harness.cjs');
    // The card shows the same tag at once.
    const chip=card.locator('button.dd-task-from[data-from="c"]');
    await chip.waitFor();
+   // Tags replaced categories (5.54): the card wears its section's colour, and
+   // the panel has no category to pick.
+   await page.waitForFunction(()=>document.querySelector('[data-board-id="b:writing"]')?.style.getPropertyValue('--node-color'));
+   const nodeColor=await card.evaluate((el)=>el.style.getPropertyValue('--node-color').toLowerCase());
+   const tint=await page.evaluate(async()=>{const {DDsectionTint}=await import('/life-board.js');return DDsectionTint(JSON.parse(localStorage.getItem('debug-day:v2')).setup.life.items,'c').fill.toLowerCase();});
+   assert.equal(nodeColor,tint,'the card is the colour of Sketches');
+   assert.equal(await panel.getByRole('combobox',{name:'Category',exact:true}).count(),0);
    // Change it from the list, then take it off and put it back.
    await tap(panel.locator('[data-section-tag-change]'));
    await tap(panel.locator('[data-section-choice="b"]'));

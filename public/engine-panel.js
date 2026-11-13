@@ -370,7 +370,7 @@ function StepsTree({ React: R, block, language, flow, onChange, makeId, onClose 
 
 // The quiet details of one task, opened with ⋯: kind, priority, energy, time,
 // section, lane, note and the actions that move it.
-function Details({ React: R, block, place, lanes, types = [], sources, language, flow, onChange, actions }) {
+function Details({ React: R, block, place, lanes, sources, language, flow, onChange, actions }) {
   const h = R.createElement,
     fa = language === "fa",
     t = words(fa),
@@ -458,15 +458,6 @@ function Details({ React: R, block, place, lanes, types = [], sources, language,
           lanes.map((lane) => h("option", { key: lane.id, value: lane.id }, lane.name || lane.id)),
         ),
       ),
-    types.length > 1 &&
-      field(
-        t("Type", "نوع کار"),
-        h(
-          "select",
-          { className: "dd-engine-type", value: block.type || "", "aria-label": t("Type", "نوع کار"), onChange: (event) => { const type = event.target.value; onChange((b) => ({ ...b, type })); } },
-          types.map((type) => h("option", { key: type.id, value: type.id }, (type.emo ? type.emo + " " : "") + (type.name || type.id))),
-        ),
-      ),
     place === "today" &&
       field(
         t("At (optional)", "ساعت (اختیاری)"),
@@ -508,7 +499,6 @@ function TaskRow(props) {
       next,
       focused,
       lanes,
-      types,
       sources,
       language,
       stepsOpen,
@@ -636,7 +626,6 @@ function TaskRow(props) {
           block,
           place,
           lanes,
-          types,
           sources,
           language,
           flow,
@@ -821,7 +810,6 @@ export function DDEnginePanel(props) {
         next: place === "today" && block === upNext,
         focused: block.id === focusId,
         lanes,
-        types: setup.types || [],
         Emoji,
         sources,
         language,

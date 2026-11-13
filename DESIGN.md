@@ -20,7 +20,7 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 | **Park**: tasks that are not for today and stay from day to day | Later tray, backlog |
 | **After**: the order between tasks or steps ("Colour pass after Sketch"); a waiting task is never locked | depends on, blocked by, dependency |
 | **Shortcut key**: one letter a section keeps for the Tab flowchart (Tab, then T for This App); Shift with it opens that section's Engine too | hotkey, binding |
-| **Section tag**: the path of the section a task belongs to, on top of the task; a click goes into that section | came from, folder, project |
+| **Section tag**: the path of the section a task belongs to, on top of the task; a click goes into that section. It replaced categories: a task wears its section's colour | category, type, came from, folder, project |
 | **Back to**: the boards you were on last, 1 to 4 in the Tab flowchart | history, recents |
 | **Focus**: the timer | Stillness |
 | **Pause the day**: the "life happened" pause | Life happened |

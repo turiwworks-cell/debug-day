@@ -481,8 +481,6 @@ export function DDcreateBoardControls(core) {
         onWirePreview,
         onPosition,
         onClose,
-        category,
-        onCategory,
       } = props,
       { h, t } = ui(R, language),
       node = nodes.length === 1 ? nodes[0] : null,
@@ -829,28 +827,6 @@ export function DDcreateBoardControls(core) {
             "details",
             { className: "b6-property-section" },
             h("summary", null, t("Position & text", "موقعیت و متن")),
-            category &&
-              h(
-                "label",
-                { className: "b6-label" },
-                t("Task category", "دستهٔ کار"),
-                h(
-                  "select",
-                  {
-                    "aria-label": t("Task category", "دستهٔ کار"),
-                    value: category.value,
-                    disabled: locked,
-                    onChange: (e) => onCategory(e.target.value),
-                  },
-                  category.options.map((item) =>
-                    h(
-                      "option",
-                      { key: item.id, value: item.id },
-                      item.name || item.id,
-                    ),
-                  ),
-                ),
-              ),
             h(
               "div",
               { className: "b6-field-grid" },
