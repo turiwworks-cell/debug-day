@@ -13,6 +13,7 @@ import { DDnormalizeStrokes } from "./pen.js";
 import { DDbudgetOf, DDgoalClean } from "./budgets.js";
 import { DDtrashClean } from "./trash.js";
 import { DDdueClean } from "./deadlines.js";
+import { DDsectionKeyClean } from "./section-keys.js";
 export const DDlifeHead = 90;
 export const DDlifeColors = DDstickyColors;
 const legacyFamilyColors = ["#FFE08A", "#9DD6FF", "#D3B8FF", "#FFA799", "#FFA6D9", "#E6E6E6", "#A8E6B8"];
@@ -132,6 +133,8 @@ function lifeItems(raw) {
       ...(!section && DDmediaList(r.media).length ? { media: DDmediaList(r.media) } : {}),
       ...(r.style && typeof r.style === "object" ? { style: Object.fromEntries(Object.entries(r.style).filter(([k,v]) => (["textSize","opacity"].includes(k) && Number.isFinite(v)) || (k==="textAlign"&&["start","center","end"].includes(v)) || (k==="plain"&&v===true) || (k==="textColor"&&typeof v==="string"&&/^#[0-9a-f]{6}$/i.test(v)))) } : {}),
       ...(typeof r.color === "string" && /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(r.color) ? { color: r.color, ...(section && r.ownColor === true ? { ownColor: true } : {}) } : {}),
+      // A shortcut key for the Tab flowchart (section-keys.js).
+      ...(section && DDsectionKeyClean(r.key) ? { key: DDsectionKeyClean(r.key) } : {}),
       // A top section placed on the board outside the Feed.
       ...(section && r.out === true ? { out: true } : {}),
       // Linked copies: the copies of one note or section share a syncId; the

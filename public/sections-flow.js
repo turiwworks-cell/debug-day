@@ -5,6 +5,7 @@
 // and on the board at once.
 import { DDlifePath, DDlifeDescendants, DDsectionTint, DDsectionPath, DDsectionPalette } from "./life-board.js";
 import { DDsearchBoardText } from "./board-experience.js";
+import { DDsectionKeys, DDsectionKeyOf, DDsectionsRecent } from "./section-keys.js";
 
 // Ask the Board to open the flowchart. The request waits until a Board is on
 // screen (Ctrl+Space can ask from Plan or Calendar), like the Engine's bus.
@@ -165,7 +166,7 @@ function textWidth(text, phone) {
   } catch { return estimate(text); }
 }
 
-export function DDSectionsFlowchart({ React: R, items = [], room = null, language, frame = null, quiet = [], onShow, onEnter, onColor, onClose, onEnlarge, onSize, onCompact }) {
+export function DDSectionsFlowchart({ React: R, items = [], room = null, language, frame = null, quiet = [], onShow, onEnter, onEngine, onColor, onKey, onClose, onEnlarge, onSize, onCompact }) {
   const h = R.createElement,
     fa = language === "fa",
     t = (en, f) => (fa ? f : en),
@@ -180,6 +181,7 @@ export function DDSectionsFlowchart({ React: R, items = [], room = null, languag
     [menu, setMenu] = R.useState(null),
     [draft, setDraft] = R.useState(null),
     [tools, setTools] = R.useState(false),
+    [keying, setKeying] = R.useState(null),
     [, setTick] = R.useState(0),
     root = R.useRef(null),
     backdrop = R.useRef(null),
@@ -192,7 +194,12 @@ export function DDSectionsFlowchart({ React: R, items = [], room = null, languag
     byId = new Map(flow.nodes.map((n) => [n.id, n])),
     active = byId.has(focus) ? focus : here,
     hotTrail = new Set(hot !== null && byId.has(hot) ? ["", ...DDlifePath(items, hot).map((i) => i.id)] : []),
-    found = flow.nodes.filter((n) => n.found);
+    found = flow.nodes.filter((n) => n.found),
+    // Shortcut keys and the boards you were on last (section-keys.js, 5.52).
+    keys = DDsectionKeys(items),
+    recent = DDsectionsRecent(items, here),
+    nameOf = (id) => (id ? sections.find((s) => s.id === id)?.text || t("Section", "سکشن") : t("Main board", "برد اصلی")),
+    keyed = [...keys.byKey].sort(([a], [b]) => a.localeCompare(b));
 
   R.useEffect(() => {
     const media = globalThis.matchMedia?.("(max-width: 700px)"), change = () => setPhone(phoneQuery());
@@ -246,6 +253,23 @@ export function DDSectionsFlowchart({ React: R, items = [], room = null, languag
     onEnter?.(id || null);
     onClose?.();
   }
+  // Shift with a section's key: into its board with its Engine over it.
+  function engine(id) {
+    if (!id || !onEngine) return go(id);
+    onEngine(id);
+    onClose?.();
+  }
+  function setKey(id, key) {
+    onKey?.(id, key);
+    setKeying(null);
+    focusNode(id);
+  }
+  function askKey(id) {
+    setMenu(null);
+    setDraft(null);
+    setKeying(id);
+    focusNode(id);
+  }
   function show(id) {
     if (!id) return go("");
     onShow?.(id);
@@ -277,8 +301,23 @@ export function DDSectionsFlowchart({ React: R, items = [], room = null, languag
   function keyDown(event) {
     const typing = event.target.closest?.("input"),
       el = event.target.closest?.("[data-flow-node]"),
-      node = el ? byId.get(el.dataset.flowNode) : null;
-    if (event.ctrlKey || event.metaKey || event.altKey) return;
+      node = el ? byId.get(el.dataset.flowNode) : null,
+      letter = DDsectionKeyOf(event);
+    if (event.ctrlKey || event.metaKey) return;
+    // Waiting for a section's new key: a letter gives it, Delete takes it away.
+    if (keying !== null) {
+      event.stopPropagation();
+      if (event.key === "Escape") { event.preventDefault(); const id = keying; setKeying(null); return focusNode(id); }
+      if (event.key === "Backspace" || event.key === "Delete") { event.preventDefault(); return setKey(keying, ""); }
+      if (letter && !event.altKey) { event.preventDefault(); return setKey(keying, letter); }
+      if (event.key !== "Tab" && event.key.length === 1) event.preventDefault();
+      return;
+    }
+    // Alt with a letter on a section gives it that key at once.
+    if (event.altKey) {
+      if (node?.id && letter && !typing) { event.preventDefault(); event.stopPropagation(); setKey(node.id, letter); }
+      return;
+    }
     event.stopPropagation();
     if (event.key === "Escape") {
       event.preventDefault();
@@ -292,6 +331,12 @@ export function DDSectionsFlowchart({ React: R, items = [], room = null, languag
       if (event.key === "ArrowDown") { event.preventDefault(); focusNode((found[0] || byId.get(here) || flow.nodes[0]).id); }
       else if (event.key === "Enter") { event.preventDefault(); const first = found[0]; if (first) event.shiftKey ? show(first.id) : go(first.id); }
       return;
+    }
+    if (!event.target.closest?.(".dd-flow-menu, .dd-flow-tools")) {
+      // 1 to 4: the boards you were on last. A section's letter goes into it.
+      const back = /^Digit([1-4])$/.exec(event.code || "")?.[1] || (/^[1-4]$/.test(event.key) ? event.key : "");
+      if (back && !event.shiftKey && recent[back - 1] !== undefined) { event.preventDefault(); return go(recent[back - 1]); }
+      if (letter && keys.byKey.has(letter)) { event.preventDefault(); const id = keys.byKey.get(letter); return event.shiftKey ? engine(id) : go(id); }
     }
     // The Engine's row: up goes back to the Main board, down into the group.
     if (event.target.closest?.("[data-flow-group]")) {
@@ -336,7 +381,7 @@ export function DDSectionsFlowchart({ React: R, items = [], room = null, languag
     return out;
   }
   // The menu opens below a section, or above it near the bottom; the stage grows if neither fits.
-  const MENU_H = phone ? 300 : 222;
+  const MENU_H = phone ? 300 : 256;
   function menuTop(node) {
     const below = node.y + node.h + 6, above = node.y - 6 - MENU_H;
     return below + MENU_H <= flow.height || above < 0 ? below : above;
@@ -355,6 +400,10 @@ export function DDSectionsFlowchart({ React: R, items = [], room = null, languag
       },
       h("button", { type: "button", role: "menuitem", "data-flow-open": node.id, onClick: () => go(node.id) }, "↗ " + t("Open its board", "باز کردن برد سکشن")),
       h("button", { type: "button", role: "menuitem", "data-flow-show": node.id, onClick: () => show(node.id) }, "◎ " + t("Show on the board", "نشان دادن روی برد")),
+      // Keys are for a keyboard; a phone gets the same sections as chips above the map.
+      !phone && h("button", { type: "button", role: "menuitem", "data-flow-key-set": node.id, onClick: () => askKey(node.id) },
+        "⌨ " + (keys.byId.has(node.id) ? t("Shortcut key: ", "کلید میانبر: ") : t("Shortcut key…", "کلید میانبر…")),
+        keys.byId.has(node.id) && h("kbd", { className: "dd-flow-kbd" }, keys.byId.get(node.id).toUpperCase())),
       h("div", { className: "dd-flow-colors", role: "group", "aria-label": t("Color", "رنگ") },
         DDsectionPalette.map((color, i) => h("button", {
           key: color,
@@ -403,7 +452,7 @@ export function DDSectionsFlowchart({ React: R, items = [], room = null, languag
       endX = fa ? -18 : node.w + 2;
     return h("div", {
         key: node.id || "main",
-        className: "dd-flow-node" + (node.here ? " is-here" : "") + (node.trail ? " is-trail" : "") + (lit ? " is-lit" : "") + (node.dim ? " is-dim" : "") + (node.found ? " is-found" : "") + (node.quiet ? " is-quiet" : ""),
+        className: "dd-flow-node" + (keying === node.id ? " is-keying" : "") + (node.here ? " is-here" : "") + (node.trail ? " is-trail" : "") + (lit ? " is-lit" : "") + (node.dim ? " is-dim" : "") + (node.found ? " is-found" : "") + (node.quiet ? " is-quiet" : ""),
         "data-flow-node": node.id,
         "data-depth": node.depth,
         style: { left: node.x, top: node.y, width: node.w, height: node.h },
@@ -416,6 +465,7 @@ export function DDSectionsFlowchart({ React: R, items = [], room = null, languag
           tabIndex: node.id === active ? 0 : -1,
           title: path + notes + (node.id ? t(" · Shift+click shows it on the board · right-click for color", " · Shift+کلیک: نشان دادن روی برد · کلیک راست: رنگ") : ""),
           "aria-label": path + notes + inside,
+          "aria-keyshortcuts": node.id && keys.byId.has(node.id) ? keys.byId.get(node.id).toUpperCase() : undefined,
           "aria-current": node.here ? "location" : undefined,
           "aria-expanded": fold ? !node.folded : undefined,
           "aria-haspopup": node.id ? "menu" : undefined,
@@ -439,7 +489,10 @@ export function DDSectionsFlowchart({ React: R, items = [], room = null, languag
           ? h("span", { className: "dd-flow-dot", style: { background: fill, borderColor: tint.line } })
           : h("span", { className: "dd-flow-board", "aria-hidden": true }),
         h("bdi", { className: "dd-flow-label" }, node.id ? marked(label) : label),
-        node.notes > 0 && h("span", { className: "dd-flow-notes", "aria-hidden": true }, num(node.notes))),
+        node.notes > 0 && h("span", { className: "dd-flow-notes", "aria-hidden": true }, num(node.notes)),
+        keying === node.id
+          ? h("kbd", { className: "dd-flow-kbd is-waiting", "aria-hidden": true }, "?")
+          : node.id && keys.byId.has(node.id) && h("kbd", { className: "dd-flow-kbd", "data-flow-kbd": keys.byId.get(node.id), "aria-hidden": true }, keys.byId.get(node.id).toUpperCase())),
       fold
         ? h("button", {
             type: "button",
@@ -475,6 +528,35 @@ export function DDSectionsFlowchart({ React: R, items = [], room = null, languag
       h("span", { className: "dd-flow-group-label" }, label),
       !group.open && h("bdi", { className: "dd-flow-group-names" }, names),
       h("span", { className: "dd-flow-group-fold", "aria-hidden": true }, group.open ? "▾" : fa ? "◂" : "▸"));
+  }
+  // Above the map: the boards you were on last (1–4) and every section with a
+  // key, so a long list of sections is still one key away. While a section waits
+  // for its new key, the row says so instead.
+  function quickRow() {
+    if (keying !== null) return h("div", { className: "dd-flow-quick is-keying", role: "status", "data-flow-keying": keying },
+      h("span", null, t("Press a letter for ", "یک حرف بزن برای ")), h("bdi", null, nameOf(keying)),
+      h("span", { className: "dd-flow-quick-note" }, t("Delete clears · Esc cancels", "Delete پاک می‌کند · Esc لغو")));
+    if (!recent.length && !keyed.length) return null;
+    const chip = (id, key, kind, label) => h("button", {
+        key: kind + ":" + id,
+        type: "button",
+        className: "dd-flow-chip",
+        ["data-flow-" + kind]: kind === "recent" ? id : key,
+        title: label + (kind === "key" && onEngine ? t(" · Shift opens its Engine too", " · با Shift انجینش هم باز می‌شود") : ""),
+        "aria-keyshortcuts": key.toUpperCase(),
+        onClick: (event) => (kind === "key" && event.shiftKey ? engine(id) : go(id)),
+        onContextMenu: (event) => { if (kind !== "key") return; event.preventDefault(); openMenu(id); },
+      },
+      h("kbd", { className: "dd-flow-kbd" }, key.toUpperCase()),
+      id ? h("span", { className: "dd-flow-dot", style: { background: DDsectionTint(items, id).fill } }) : h("span", { className: "dd-flow-board", "aria-hidden": true }),
+      h("bdi", { className: "dd-flow-chip-label" }, label));
+    return h("div", { className: "dd-flow-quick", role: "group", "aria-label": t("Quick ways in", "دسترسی سریع") },
+      recent.length > 0 && h("div", { className: "dd-flow-quick-set", "data-flow-quick": "recent" },
+        h("span", { className: "dd-flow-quick-title" }, t("Back to", "برگشت به")),
+        recent.map((id, i) => chip(id, String(i + 1), "recent", nameOf(id)))),
+      keyed.length > 0 && h("div", { className: "dd-flow-quick-set", "data-flow-quick": "keys" },
+        h("span", { className: "dd-flow-quick-title" }, phone ? t("Quick", "سریع") : t("Keys", "کلیدها")),
+        keyed.map(([key, id]) => chip(id, key, "key", nameOf(id)))));
   }
   const sizeInput = (key) => h("label", { key },
     key === "w" ? t("Width", "عرض") : t("Height", "ارتفاع"),
@@ -525,6 +607,7 @@ export function DDSectionsFlowchart({ React: R, items = [], room = null, languag
       h("button", { type: "button", onClick: onEnlarge }, t("Enlarge Feed +25%", "بزرگ‌تر کردن فید +۲۵٪")),
       h("div", { className: "dd-life-dimensions" }, ["w", "h"].map(sizeInput)),
       h("button", { type: "button", onClick: onCompact }, t("Compact layout", "جمع‌وجور کن"))),
+    quickRow(),
     h("div", { className: "dd-flow-canvas", ref: canvas },
       h("div", { className: "dd-flow-stage", role: "group", "aria-label": t("Sections", "سکشن‌ها"), style: { width: flow.width, height: menuNode?.id ? Math.max(flow.height, menuTop(menuNode) + MENU_H + 8) : flow.height } },
         h("svg", { className: "dd-flow-lines", width: flow.width, height: flow.height, viewBox: `0 0 ${flow.width} ${flow.height}`, "aria-hidden": true },
@@ -540,7 +623,7 @@ export function DDSectionsFlowchart({ React: R, items = [], room = null, languag
         menuNode && menuNode.id && colorMenu(menuNode))),
     sections.length === 0 && h("p", { className: "dd-flow-empty" }, t("No sections yet. Draw one on the board with Shift+S.", "هنوز سکشنی نداری. با Shift+S روی برد یکی بکش.")),
     query.trim() && !found.length && sections.length > 0 && h("p", { className: "dd-flow-empty" }, t("No section matches.", "سکشنی پیدا نشد.")),
-    !phone && h("p", { className: "dd-flow-hint" }, t("Click to go in · Shift+click shows it on the board · right-click for color · Tab closes", "کلیک: ورود · Shift+کلیک: نشان دادن روی برد · کلیک راست: رنگ · Tab: بستن")));
+    !phone && h("p", { className: "dd-flow-hint" }, t("Click to go in · Shift+click shows it on the board · right-click for color and a shortcut key · Alt+letter gives one · Tab closes", "کلیک: ورود · Shift+کلیک: نشان دادن روی برد · کلیک راست: رنگ و کلید میانبر · Alt+حرف: کلید میانبر · Tab: بستن")));
   return h("div", {
       className: "dd-flow-backdrop" + (phone ? " is-phone" : ""),
       ref: backdrop,
@@ -643,6 +726,28 @@ body:has(.dd-flow-backdrop.is-phone) .dd-floating-capture{visibility:hidden}
 .dd-flow.is-phone .dd-flow-menu>button,.dd-flow.is-phone .dd-flow-tools>button{min-height:44px}
 .dd-flow.is-phone .dd-flow-colors button{width:36px;height:36px}
 .dd-flow.is-phone .dd-flow-custom,.dd-flow.is-phone .dd-flow-shade{height:40px}
+.dd-flow-pill{position:relative}
+.dd-flow-kbd{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 4px;border:1px solid color-mix(in srgb,var(--ink,#121211) 30%,transparent);border-bottom-width:2px;border-radius:5px;background:var(--paper,#fff);color:var(--ink,#121211);font:600 11px/1 var(--mono,ui-monospace,SFMono-Regular,Menlo,monospace);text-transform:uppercase;white-space:nowrap}
+.dd-flow-pill .dd-flow-kbd{position:absolute;top:-9px;inset-inline-end:10px;pointer-events:none}
+.dd-flow-kbd.is-waiting{border-color:var(--dd-flow-line);color:var(--dd-flow-blue);animation:dd-flow-wait 1s ease-in-out infinite alternate}
+@keyframes dd-flow-wait{from{opacity:.45}to{opacity:1}}
+.dd-flow-node.is-keying .dd-flow-pill{outline:2px dashed var(--dd-flow-line);outline-offset:3px}
+.dd-flow-menu>button .dd-flow-kbd{margin-inline-start:4px;vertical-align:1px}
+.dd-flow-quick{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;padding:8px 14px;border-bottom:1px solid var(--rule,#0001)}
+.dd-flow-quick-set{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0}
+.dd-flow-quick-title{font-size:11.5px;color:var(--ink-3,#7f7c75)}
+.dd-flow-chip{display:inline-flex;align-items:center;gap:6px;max-width:210px;height:28px;padding:0 10px 0 4px;border:1px solid var(--rule-2,#0002);border-radius:999px;background:var(--paper,#fff);cursor:pointer}
+[dir=rtl] .dd-flow-chip{padding:0 4px 0 10px}
+.dd-flow-chip:hover{background:var(--wash,#0000000d)}
+.dd-flow-chip:focus-visible{outline:2px solid var(--dd-flow-line);outline-offset:2px}
+.dd-flow-chip .dd-flow-dot{width:9px;height:9px;border:0}
+.dd-flow-chip-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dd-flow-quick.is-keying{gap:4px;color:var(--dd-flow-blue);font-weight:500}
+.dd-flow-quick-note{margin-inline-start:auto;color:var(--ink-3,#7f7c75);font-weight:400;font-size:12px}
+.dd-flow.is-phone .dd-flow-quick{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding:8px 12px}
+.dd-flow.is-phone .dd-flow-quick-set{flex-wrap:nowrap;flex:none}
+.dd-flow.is-phone .dd-flow-chip{height:40px;font-size:15px}
+.dd-flow.is-phone .dd-flow-quick-note{display:none}
 @media (prefers-reduced-motion:reduce){.dd-flow{animation:none}}
 `;
 
