@@ -64,7 +64,7 @@ const {join}=require("node:path");
    const paused=await duration.inputValue();assert.ok(["00:02","00:03"].includes(paused),paused);
    await page.getByRole("button",{name:"Close timer",exact:true}).click();
    await page.getByRole("button",{name:"Exit full screen",exact:true}).click();
-   await page.locator('.views button[data-panel="plan"]').click();
+   await page.locator('.views button[data-panel="engine"]').click();
    await page.locator('.views button[data-panel="board"]').click();
    await page.getByRole("button",{name:"Board timer",exact:true}).click();
    assert.equal(await duration.inputValue(),paused,"Plan and Board keep the same paused clock");
@@ -87,7 +87,7 @@ const {join}=require("node:path");
    await page.getByRole("checkbox",{name:"Open board in full screen",exact:true}).check();
    await page.getByRole("button",{name:"Close canvas settings",exact:true}).click();
    await page.getByRole("button",{name:"Exit full screen",exact:true}).click();
-   await page.locator('.views button[data-panel="plan"]').click();
+   await page.locator('.views button[data-panel="engine"]').click();
    await page.locator('.views button[data-panel="board"]').click();
    assert.equal(await page.locator(".b6.focus-mode").count(),1,"saved preference opens Board full screen");
 

@@ -247,9 +247,12 @@ const { start, fixture } = require("./harness.cjs");
               exact: true,
             })
             .click();
+        // The Engine page shows the same steps, one tap away (5.50).
+        const steps = page.locator('.dd-engine [data-engine-task="writing"] .dd-engine-steps-toggle');
+        if ((await steps.getAttribute("aria-expanded")) !== "true") await steps.click();
         await page
           .getByRole("button", {
-            name: "Mark sub-step Nested outline not done",
+            name: "Mark step not done: Nested outline",
             exact: true,
           })
           .click();

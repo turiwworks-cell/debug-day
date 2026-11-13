@@ -1,4 +1,4 @@
-// Gentle nudges at the top of Plan (5.45). Each one is a single calm line with
+// Gentle nudges at the top of the Engine (5.45). Each one is a single calm line with
 // one button and a way to say "not today". Nothing is red and nothing moves on
 // its own; the person decides.
 import { DDengineCarry, DDengineCopy, DDengineCarryHidden, DDhideEngineCarry } from "./engine.js";
@@ -41,14 +41,15 @@ const icon = (h, d) => h("svg", { className: "dd-nudge-icon", viewBox: "0 0 16 1
 const hidden = (key, date) => { try { return localStorage.getItem(key) === date; } catch { return false; } };
 const hide = (key, date) => { try { localStorage.setItem(key, date); } catch {} };
 
-export function DDPlanNudges({ React: R, day, days, date, today, language, makeId, onUpdateDay, onMove, dateLabel }) {
+export function DDPlanNudges({ React: R, day, days, date, today, language, makeId, onUpdateDay, onMove, dateLabel, without = [] }) {
   const h = R.createElement, fa = language === "fa", t = (en, f) => (fa ? f : en),
     num = (n) => (fa ? n.toLocaleString("fa-IR") : String(n)),
     [, redraw] = R.useState(0);
   if (!day || !date || date < today) return null;
   const lines = [];
   // 1. Yesterday's leftovers, first thing on today's Plan.
-  const carry = date === today && days ? DDengineCarry(days, day) : null;
+  // The Engine shows its own carry line (with "Choose…"), so it passes without: ["carry"].
+  const carry = date === today && days && !without.includes("carry") ? DDengineCarry(days, day) : null;
   if (carry?.count > 0 && !DDengineCarryHidden(date)) {
     const all = [...carry.open, ...carry.waiting], when = carry.date ? (dateLabel ? dateLabel(carry.date) : shortDate(carry.date, language)) : "";
     lines.push(h("div", { key: "carry", className: "dd-nudge", "data-nudge": "carry", role: "group", "aria-label": t("Still open", "هنوز باز") },
@@ -62,7 +63,7 @@ export function DDPlanNudges({ React: R, day, days, date, today, language, makeI
   }
   // 2. A very full day: offer to move one task to tomorrow.
   const load = DDdayLoad(day), pick = DDmoveCandidate(day);
-  if (DDdayFull(day) && pick && !hidden(FULL_KEY, date)) {
+  if (onMove && DDdayFull(day) && pick && !hidden(FULL_KEY, date)) {
     const size = load.minutes > DDfullMinutes ? DDduration(load.minutes, language) : t(load.open.length + " tasks", num(load.open.length) + " کار");
     lines.push(h("div", { key: "full", className: "dd-nudge", "data-nudge": "full", role: "group", "aria-label": t("A full day", "روز پر") },
       icon(h, "M2.5 4.5h11M2.5 8h11M2.5 11.5h7"),

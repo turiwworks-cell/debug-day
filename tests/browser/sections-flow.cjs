@@ -267,6 +267,9 @@ const {start,fixture}=require('./harness.cjs');
    // In the Engine the picker shows the path and the same shade.
    await page.locator('.b2-viewport').focus();await page.keyboard.press('e');
    const engine=page.getByRole('dialog',{name:t('Engine','انجین')});await engine.waitFor();
+   // The tag on the row reads the same path; the picker sits behind ⋯.
+   assert.match(await engine.locator('[data-engine-task="writing"] .dd-engine-tag').innerText(),/Sketches/);
+   await tap(engine.locator('[data-engine-task="writing"] .dd-engine-more'));
    const from=engine.locator('[data-engine-task="writing"] select.dd-engine-from');
    assert.match(await from.locator('option:checked').innerText(),/Creative life › Sketches/);
    assert.equal(await from.evaluate((el)=>getComputedStyle(el).backgroundColor),rgb(childFill));
@@ -285,11 +288,11 @@ const {start,fixture}=require('./harness.cjs');
    await page.waitForFunction((b)=>Number(document.querySelector('.dd-flow [aria-label] input[type=number], .dd-flow input[type=number]')?.value)>b,before);
    await close();
 
-   // Renaming the root on the board updates Plan's chips, the board chip and the flowchart
-   // at once, without a reload. (Plan no longer lists the Feed itself, 5.28.)
+   // Renaming the root on the board updates the Engine's tags, the board chip and the flowchart
+   // at once, without a reload. (The Engine page does not list the Feed itself, 5.28.)
    await page.locator('.b2-viewport').focus();await page.keyboard.press('Control+Shift+F');await page.locator('.b2.focus-mode').waitFor({state:'detached'});
    await page.locator('.views button').nth(0).click();
-   const planChip=page.locator('.dd-plan-from[data-from="c"]');
+   const planChip=page.locator('#plan .dd-engine-tag[data-from="c"]');
    await planChip.first().waitFor({state:'attached'});
    assert.match(await planChip.first().textContent(),/Creative life › Sketches/,'Plan shows the path');
    assert.equal(await planChip.first().evaluate((el)=>getComputedStyle(el).backgroundColor),rgb(childFill),'in the same shade');
@@ -301,7 +304,7 @@ const {start,fixture}=require('./harness.cjs');
    assert.equal(await field.inputValue(),'Creative life');
    await field.fill('Studio life');await field.press('Enter');
    await page.locator('.views button').nth(0).click();
-   await page.waitForFunction(()=>/Studio life › Sketches/.test(document.querySelector('.dd-plan-from[data-from="c"]')?.innerText||''));
+   await page.waitForFunction(()=>/Studio life › Sketches/.test(document.querySelector('#plan .dd-engine-tag[data-from="c"]')?.innerText||''));
    await page.locator('.views button').nth(1).click();
    await chip.first().waitFor({state:'attached'});
    assert.match(await chip.first().innerText(),/Studio life › Sketches/,'the board chip follows the rename');

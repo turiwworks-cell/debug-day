@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict');
 const {start,fixture}=require('./harness.cjs');
 // Upkeep and gentle nudges (5.45): yesterday's leftovers and a very full day
-// show as one calm line at the top of Plan; Feed deletes wait in Recently
+// show as one calm line at the top of the Engine; Feed deletes wait in Recently
 // deleted; an empty note goes away when you close it; days stop keeping copies
 // of Feed places; Settings shows the space used.
 (async()=>{
@@ -29,12 +29,14 @@ const {start,fixture}=require('./harness.cjs');
    await page.reload();await page.waitForSelector('#qa',{state:'attached'});
    const read=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2'))),
     nudge=(id)=>page.locator(`[data-nudge="${id}"]:visible`);
-   // 1. Yesterday's leftovers come first on today's Plan.
-   await nudge('carry').waitFor();
-   assert.match(await nudge('carry').innerText(),/1 left from[\s\S]*Old sketch/);
-   await nudge('carry').getByRole('button',{name:'Bring it'}).click();
+   // 1. Yesterday's leftovers come first: the Engine's carry line on desktop,
+   //    the calm Today card's nudge on a phone.
+   const carry=mobile?nudge('carry'):page.locator('#plan .dd-engine-carry');
+   await carry.waitFor();
+   assert.match(await carry.innerText(),mobile?/1 left from[\s\S]*Old sketch/:/1 still open from[\s\S]*Old sketch/);
+   await carry.getByRole('button',{name:'Bring it'}).click();
    await page.waitForFunction((date)=>JSON.parse(localStorage.getItem('debug-day:v2')).days[date].blocks.some((b)=>b.name==='Old sketch'),f.date);
-   await nudge('carry').waitFor({state:'detached'});
+   await carry.waitFor({state:'detached'});
    let data=await read();
    assert.equal(data.days[f.last].blocks[0].done,false,'yesterday is left as it was');
    assert.deepEqual(data.days[f.date].canvas.board4.layouts.mindmap,{},'the saved day no longer keeps Feed places');

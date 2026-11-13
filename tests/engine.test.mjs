@@ -2,9 +2,15 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   DDengineBus,
-  DDengineGroups,
   DDengineTask,
-  DDEngineOverlay,
+  DDengineOrder,
+  DDengineShows,
+  DDengineNextStep,
+  DDengineStepCount,
+  DDenginePark,
+  DDengineUnpark,
+  DDengineLaneFor,
+  DDengineParked,
   DDengineTaskFromNote,
   DDengineEarlierDay,
   DDengineCopy,
@@ -13,6 +19,7 @@ import {
   DDengineSourceHistory,
   DDengineStrip,
 } from "../public/engine.js";
+import { DDEngineOverlay, DDEnginePanel, DDengineDayName } from "../public/engine-panel.js";
 import {
   DDmeasures,
   DDmeasureOf,
@@ -30,20 +37,74 @@ const lanes = [
   { id: "life", name: "Life" },
 ];
 
-test("the Engine groups today's tasks by their one lane, parked last", () => {
-  const day = {
-    blocks: [
-      { id: "a", lane: "life" },
-      { id: "b", lane: "work" },
-      { id: "c", lane: "gone" },
-      { id: "d", lane: "" },
-    ],
-  };
-  const groups = DDengineGroups(day, lanes);
-  assert.deepEqual(groups.map((g) => g.lane.id), ["work", "life", ""]);
-  assert.deepEqual(groups.map((g) => g.blocks.map((b) => b.id)), [["b"], ["a"], ["c", "d"]]);
-  assert.equal(groups[2].lane.parked, true);
-  assert.deepEqual(DDengineGroups({ blocks: [] }, lanes).map((g) => g.blocks.length), [0, 0], "empty lanes still show");
+test("Today shows the most important open work first, waiting after it, done last", () => {
+  const blocks = [
+    { id: "a", pri: 0 },
+    { id: "b", pri: 2 },
+    { id: "c", pri: 1, done: true },
+    { id: "d", pri: 1, measure: "wait" },
+    { id: "e", pri: 1 },
+    { id: "f", pri: 3 },
+    { id: "g", pri: 0 },
+  ];
+  assert.deepEqual(DDengineOrder(blocks).map((b) => b.id), ["e", "b", "f", "a", "g", "d", "c"]);
+  assert.deepEqual(blocks.map((b) => b.id).join(""), "abcdefg", "the day itself is not reordered");
+});
+
+test("All, Left and Done, and find looks in names, notes, tags and steps", () => {
+  const task = { name: "Poster", note: "for the gallery", tags: ["print"], done: false, subtasks: [{ text: "Pick a palette", children: [{ text: "warm ۳ colours" }] }] };
+  assert.equal(DDengineShows(task, "all"), true);
+  assert.equal(DDengineShows(task, "left"), true);
+  assert.equal(DDengineShows(task, "done"), false);
+  assert.equal(DDengineShows({ ...task, done: true }, "left"), false);
+  assert.equal(DDengineShows(task, "all", "gallery"), true);
+  assert.equal(DDengineShows(task, "all", "PRINT"), true);
+  assert.equal(DDengineShows(task, "all", "palette poster"), true, "every word must match");
+  assert.equal(DDengineShows(task, "all", "3 colours"), true, "Persian digits match Latin ones");
+  assert.equal(DDengineShows(task, "all", "website"), false);
+});
+
+test("the next step is the first open one, depth first, and steps are counted at every depth", () => {
+  const steps = [
+    { id: "1", text: "Sketch", done: true, children: [] },
+    { id: "2", text: "Colour", done: false, children: [{ id: "2a", text: "Palette", done: true }, { id: "2b", text: "Fill", done: false }] },
+    { id: "3", text: "Print", done: false, children: [] },
+  ];
+  assert.equal(DDengineNextStep(steps).id, "2b");
+  assert.equal(DDengineNextStep([{ id: "x", done: true }]), null);
+  assert.deepEqual(DDengineStepCount(steps), { done: 2, total: 5 });
+});
+
+test("parking moves the same task off the day to the shelf, and back into its old lane", () => {
+  const date = "2026-11-13",
+    data = {
+      setup: { lanes, later: [] },
+      days: {
+        [date]: {
+          date,
+          blocks: [{ id: "a", name: "Ink", lane: "life", bx: 4, by: 5, subtasks: [{ id: "s", text: "Line", children: [] }] }, { id: "b", name: "Mail", lane: "work" }],
+          canvas: { board4: { links: [{ from: "b:a", to: "b:b" }, { from: "sub:a:s", to: "x" }], layouts: { mindmap: { "b:a": { x: 1 }, "b:b": { x: 2 } } } } },
+        },
+      },
+    };
+  const parked = DDenginePark(data, date, "a");
+  assert.deepEqual(parked.days[date].blocks.map((b) => b.id), ["b"]);
+  assert.deepEqual(DDengineParked(parked.setup).map((b) => [b.id, b.parkedLane, "bx" in b]), [["a", "life", false]]);
+  assert.deepEqual(parked.days[date].canvas.board4.links, [], "its lines on the day's board go with it");
+  assert.deepEqual(Object.keys(parked.days[date].canvas.board4.layouts.mindmap), ["b:b"]);
+  assert.equal(data.days[date].blocks.length, 2, "the old snapshot is not changed");
+  assert.equal(DDenginePark(data, date, "nope"), data);
+  const back = DDengineUnpark(parked, "a", "2026-11-14");
+  assert.equal(back.setup.later.length, 0);
+  assert.deepEqual(back.days["2026-11-14"].blocks.map((b) => [b.id, b.lane, "parkedLane" in b]), [["a", "life", false]], "it can come back on any day, in its old lane");
+  assert.equal(DDengineLaneFor({ parkedLane: "gone", lane: "gone" }, lanes), "work", "a lane that is gone falls back to the first");
+  assert.equal(DDengineLaneFor({ lane: "life" }, lanes), "life");
+});
+
+test("the Today column is named after the day", () => {
+  assert.equal(DDengineDayName("2026-11-13", "2026-11-13", "en"), "Friday");
+  assert.equal(DDengineDayName("2026-11-14", "2026-11-13", "en"), "Saturday 14 Nov");
+  assert.equal(DDengineDayName("2026-11-13", "2026-11-13", "fa"), "جمعه");
 });
 
 test("a new Engine task has one lane and the usual defaults", () => {
@@ -130,7 +191,7 @@ test("the kind picker offers tick, score and waiting, and keeps an old counted c
 });
 
 test("the overlay is a labelled dialog that closes on E or Escape but not while typing", () => {
-  const hooks = { useRef: () => ({ current: null }), useEffect() {}, useState: (v) => [v, () => {}] };
+  const hooks = { useRef: () => ({ current: null }), useEffect() {}, useState: (v) => [typeof v === "function" ? v() : v, () => {}] };
   let closed = 0;
   const overlay = DDEngineOverlay({
     React: { ...R, ...hooks },
@@ -143,7 +204,8 @@ test("the overlay is a labelled dialog that closes on E or Escape but not while 
     onAdd() {},
     onClose: () => closed++,
   });
-  const dialog = find(overlay, (n) => n.props.role === "dialog")[0];
+  const panelNode = find(overlay, (n) => n.type === DDEnginePanel)[0];
+  const dialog = find(DDEnginePanel({ ...panelNode.props, React: { ...R, ...hooks } }), (n) => n.props.role === "dialog")[0];
   assert.equal(dialog.props["aria-label"], "انجین");
   const key = (key, target = { closest: () => null }) =>
     overlay.props.onKeyDown({ key, code: "", target, preventDefault() {}, stopPropagation() {} });
@@ -284,7 +346,7 @@ test("the 14-day strip marks each day as none, done, some or open", () => {
 });
 
 test("an Engine row shows where the task came from and can change it", () => {
-  const hooks = { useRef: () => ({ current: null }), useEffect() {}, useState: (v) => [v, () => {}] };
+  const hooks = { useRef: () => ({ current: null }), useEffect() {}, useState: (v) => [typeof v === "function" ? v() : v, () => {}] };
   let changed;
   const overlay = DDEngineOverlay({
     React: { ...R, ...hooks },
@@ -298,9 +360,16 @@ test("an Engine row shows where the task came from and can change it", () => {
     onAdd() {},
     onClose() {},
   });
-  const rowNode = find(overlay, (n) => typeof n.type === "function" && n.props.block?.id === "a")[0];
-  const row = rowNode.type({ ...rowNode.props, React: { ...R, ...hooks } });
-  const picker = find(row, (n) => n.props.className === "dd-engine-from")[0];
+  const panelNode = find(overlay, (n) => n.type === DDEnginePanel)[0];
+  const panel = DDEnginePanel({ ...panelNode.props, React: { ...R, ...hooks } });
+  const rowNode = find(panel, (n) => typeof n.type === "function" && n.props.block?.id === "a")[0];
+  const open = { ...hooks, useState: (v) => [v === false ? true : v, () => {}] };
+  const row = rowNode.type({ ...rowNode.props, React: { ...R, ...open } });
+  const detailsNode = find(row, (n) => typeof n.type === "function" && n.props.actions)[0];
+  const tag = find(row, (n) => n.props.className === "dd-engine-tag")[0];
+  assert.equal(tag.props["data-from"], "ink", "the section shows on the row");
+  const details = detailsNode.type({ ...detailsNode.props, React: { ...R, ...open } });
+  const picker = find(details, (n) => n.props.className === "dd-engine-from")[0];
   assert.equal(picker.props.value, "ink");
   assert.deepEqual(find(picker, (n) => n.type === "option").map((o) => o.children.join("")), ["↖ Main board", "↖ Creative life", "↖ Creative life › Ink", "↖ Creative life › Sketches", "↖ Home"], "every option shows the whole path");
   assert.equal(picker.props.style.background, DDengineSources(life).find((s) => s.id === "ink").tint.fill, "the picker wears its root's tint");

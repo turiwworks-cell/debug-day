@@ -6,18 +6,9 @@ export const DDpanelList = [
     icon: "⚙️",
     color: "#F05A28",
     name: ["Engine", "انجین"],
-    about: ["Bring today's Engine over the board: tick, score and add tasks", "انجین امروز را روی برد بیاور: تیک، نمره و افزودن کار"],
-    words: "engine today tasks tick score quick انجین موتور امروز تیک نمره",
+    about: ["Today and Park: tasks, steps and priority. On the Board, E brings it over the board", "امروز و پارک: کارها، قدم‌ها و اولویت. روی برد، E آن را روی برد می‌آورد"],
+    words: "engine today park plan tasks steps tick score quick lanes cards انجین موتور امروز پارک پلن کار قدم تیک نمره لاین",
     isolate: false,
-  },
-  {
-    id: "plan",
-    icon: "📋",
-    color: "#3F8CFF",
-    name: ["Plan", "پلن"],
-    about: ["Today's tasks in lanes, with steps and time", "کارهای امروز در لاین‌ها، با قدم‌ها و زمان"],
-    words: "today tasks cards lanes blocks امروز کار کارت لاین",
-    isolate: true,
   },
   {
     id: "board",
@@ -81,7 +72,7 @@ export function DDpanelCounts(day = {}, setup = {}, language) {
     habits = setup.habits || [],
     ticked = habits.filter((habit) => day.habits?.[habit.id]?.done).length;
   return {
-    plan: fa ? num(blocks.length) + " کارت" : blocks.length + (blocks.length === 1 ? " card" : " cards"),
+    engine: fa ? num(blocks.length) + " کار" : blocks.length + (blocks.length === 1 ? " task" : " tasks"),
     habits: habits.length ? (fa ? num(ticked) + " از " + num(habits.length) + " امروز" : ticked + " of " + habits.length + " today") : null,
   };
 }
@@ -120,7 +111,6 @@ export function DDpanelCommands(language, open) {
 // a fallback for any panel without a line icon.
 const DDpanelLines = {
   engine: '<circle cx="8" cy="8" r="2.4"/><path d="M8 1.8v1.8M8 12.4v1.8M1.8 8h1.8M12.4 8h1.8M3.6 3.6l1.3 1.3M11.1 11.1l1.3 1.3M3.6 12.4l1.3-1.3M11.1 4.9l1.3-1.3"/>',
-  plan: '<path d="M2.8 4.2l.9.9 1.6-1.8M2.8 8.7l.9.9 1.6-1.8M7.5 4.5h5.7M7.5 9h5.7M7.5 13h5.7M3 13h1.5"/>',
   board: '<circle cx="4" cy="8" r="1.9"/><circle cx="12" cy="3.8" r="1.7"/><circle cx="12" cy="12.2" r="1.7"/><path d="M5.7 7.1l4.6-2.4M5.7 8.9l4.6 2.4"/>',
   habits: '<path d="M3.2 12.8C3.2 7 6.8 3.6 12.8 3.2c-.4 6-3.8 9.6-9.6 9.6z"/><path d="M3.2 12.8 8.2 7.8"/>',
   calendar: '<rect x="2.5" y="3.3" width="11" height="10.2" rx="2"/><path d="M2.5 6.8h11M5.4 1.9v2.6M10.6 1.9v2.6"/>',

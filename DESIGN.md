@@ -16,10 +16,11 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 | **Section**: a group in the Feed | room, folder |
 | **Note**: a sticky note | sticky (in labels) |
 | **Feed**: the board area that is the same on every day | Life (that was its old name) |
-| **Engine**: today's tasks frame on the Board | today box |
+| **Engine**: the day's tasks (E on the Board, and the Engine tab), in two columns: Today and Park | today box, Plan (the old page) |
+| **Park**: tasks that are not for today and stay from day to day | Later tray, backlog |
 | **Focus**: the timer | Stillness |
 | **Pause the day**: the "life happened" pause | Life happened |
-| **Lane**: a row in Plan and Board Lanes (Work, Life…, the person's own names) | track |
+| **Lane**: a row in Board Lanes (Work, Life…, the person's own names) | track |
 
 - "Life" is only ever a lane name the person chose. Do not use it for app features.
 - Old labels that still pass through `DDUI` are rewritten in `public/words.js`.
@@ -38,7 +39,7 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 - A task may be light or heavy (`energy.js`), never required. A tired day (😫 😕) offers the light ones first.
 - The Week view and its look back count what happened; they never score it. Next week's focus is one line.
 - Help text fades away: show a hint once, then rely on `?` and tooltips.
-- A task in Plan is one line. Details open on click, steps open when asked.
+- A task in the Engine is one line. Details open with ⋯, steps open when asked.
 
 ## 3. Color
 
@@ -82,5 +83,5 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 
 ## 9. Sync
 
-- No view keeps its own copy of the truth. If Board can change it, Plan, Lanes,
+- No view keeps its own copy of the truth. If Board can change it, the Engine, Lanes,
   Calendar and the Feed show the change at once (see `CLAUDE.md` › 0).
