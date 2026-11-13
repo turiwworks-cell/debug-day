@@ -7,7 +7,7 @@ import { DDsyncCopies } from "../public/linked.js";
 import { oauth, oauthRoute, oauthAccess } from "./oauth.js";
 const MAX_BYTES = 1500000;
 const VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"];
-const INFO = { name: "debug-day", title: "Debug Day", version: "5.49.1" };
+const INFO = { name: "debug-day", title: "Debug Day", version: "5.50.0" };
 class HttpError extends Error {
   constructor(status, message) {
     super(message);
@@ -295,7 +295,7 @@ const WRITE_TOOLS = [
   },["expected_revision","item_id"],true),
   tool(
     "add_later",
-    "Add an unscheduled task to the Later tray. Read get_setup first. Requires explicit user intent to capture it.",
+    "Add a task to Park (the Engine's shelf for tasks that are not for today; stored as setup.later). Read get_setup first. Requires explicit user intent to capture it.",
     {
       expected_revision: revisionSchema,
       name: { type: "string", minLength: 1, maxLength: 300 },
@@ -312,7 +312,7 @@ const WRITE_TOOLS = [
   ),
   tool(
     "schedule_later",
-    "Move a task from the Later tray into a day, creating the day if needed. Read get_setup first. Requires explicit user intent to schedule it.",
+    "Move a task from Park (setup.later) into a day, creating the day if needed. Read get_setup first. Requires explicit user intent to schedule it.",
     { expected_revision: revisionSchema, block_id: string, date: daySchema },
     ["expected_revision", "block_id", "date"],
     true,

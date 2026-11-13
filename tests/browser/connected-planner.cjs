@@ -168,44 +168,27 @@ const { start, fixture } = require("./harness.cjs");
             .count(),
           0,
         );
+        // The Engine page shows the same task, with its lane kept for the Lanes view.
         await nav(0);
-        assert.equal(
-          await page
-            .locator('[data-lane-id="life"] .item[data-block-id="writing"]')
-            .count(),
-          1,
-        );
-        if (
-          (await page
-            .locator('.item[data-block-id="writing"] .rn')
-            .getAttribute("aria-expanded")) !== "true"
-        )
-          await page.locator('.item[data-block-id="writing"] .rn').click();
-        const ed = page.locator(".ed");
-        await ed.waitFor();
-        await ed
+        const row = page.locator('.dd-engine [data-engine-task="writing"]');
+        await row.waitFor();
+        await row.locator(".dd-engine-more").click();
+        await row
           .getByRole("combobox", { name: t("Lane", "لاین"), exact: true })
           .selectOption("work");
-        await ed.getByRole("button", { name: /^P1 ·/ }).click();
-        await ed
-          .getByRole("textbox", { name: t("New tag", "تگ جدید"), exact: true })
-          .fill("پروژه");
-        await ed
-          .getByRole("textbox", { name: t("New tag", "تگ جدید"), exact: true })
-          .press("Enter");
-        await ed
-          .getByRole("textbox", { name: t("New tag", "تگ جدید"), exact: true })
-          .fill("cancel-me");
-        await ed
-          .getByRole("textbox", { name: t("New tag", "تگ جدید"), exact: true })
-          .press("Escape");
+        await row.getByRole("button", { name: /^P1 ·/ }).click();
+        const tagInput = row.getByRole("textbox", { name: t("New tag", "تگ جدید"), exact: true });
+        await tagInput.fill("پروژه");
+        await tagInput.press("Enter");
+        await tagInput.fill("cancel-me");
+        await tagInput.press("Escape");
         assert.deepEqual((await read()).blocks[0].tags, ["پروژه"]);
         assert.equal((await read()).blocks[0].lane, "work");
         assert.equal(
           (await read()).canvas.board4.layouts.mindmap["b:writing"],
           undefined,
         );
-        await page.locator('.item[data-block-id="writing"] .row>.sq').click();
+        await row.locator(".dd-engine-check").click();
         assert.equal((await read()).blocks[0].done, true);
         assert.equal(
           (await read()).blocks[0].subtasks[0].children[0].done,
@@ -213,7 +196,7 @@ const { start, fixture } = require("./harness.cjs");
         );
         assert.equal(
           await page
-            .locator(".totals [data-completion]")
+            .locator(".dd-engine-progress[data-completion]")
             .getAttribute("data-completion"),
           "80",
         );
@@ -408,12 +391,7 @@ const { start, fixture } = require("./harness.cjs");
           .click();
         assert.equal((await read()).blocks[0].lane, "life");
         await nav(0);
-        assert.equal(
-          await page
-            .locator('[data-lane-id="life"] .item[data-block-id="writing"]')
-            .count(),
-          1,
-        );
+        await page.locator('.dd-engine [data-engine-task="writing"]').waitFor();
         if (process.env.DEBUG_DAY_SCREENSHOTS) {
           mkdirSync(process.env.DEBUG_DAY_SCREENSHOTS, { recursive: true });
           await page.screenshot({

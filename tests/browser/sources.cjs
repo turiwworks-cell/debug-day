@@ -74,13 +74,16 @@ const {start,fixture}=require('./harness.cjs');
    // In the Engine, every task shows where it came from and it can be changed.
    await page.locator('.b2-viewport').focus();await page.keyboard.press('e');
    const engine=page.getByRole('dialog',{name:t('Engine','انجین')});await engine.waitFor();
+   // The row shows the section; its details (⋯) can change it.
+   assert.equal(await engine.locator('[data-engine-task="writing"] .dd-engine-tag').getAttribute('data-from'),'c');
+   await engine.locator('[data-engine-task="writing"] .dd-engine-more').click();
    const from=engine.locator('[data-engine-task="writing"] select.dd-engine-from');
    assert.equal(await from.inputValue(),'c');
    assert.equal(await from.locator('option').count(),4,'main board plus three sections');
    await from.selectOption('a');
    assert.equal((await block('writing')).from,'a');
    // A task added inside a section's board comes from that section.
-   const add=engine.locator('[data-lane="work"] .dd-engine-add input');
+   const add=engine.locator('[data-col="today"] > .dd-engine-add input');
    await add.fill('Colour script');await add.press('Enter');
    await page.waitForFunction((date)=>JSON.parse(localStorage.getItem('debug-day:v2')).days[date].blocks.some(b=>b.name==='Colour script'),f.date);
    const made=(await read()).days[f.date].blocks.find(b=>b.name==='Colour script');
@@ -113,6 +116,7 @@ const {start,fixture}=require('./harness.cjs');
    assert.match(await strip('c').textContent(),new RegExp('1/'+(1+fromSketches)));
    // Moving a task back to the main board takes it out of the record.
    await page.locator('.b2-viewport').focus();await page.keyboard.press('e');await engine.waitFor();
+   await engine.locator('[data-engine-task="writing"] .dd-engine-more').click();
    await engine.locator('[data-engine-task="writing"] select.dd-engine-from').selectOption('');
    assert.equal('from' in (await block('writing')),false);
    await page.keyboard.press('Escape');await engine.waitFor({state:'detached'});

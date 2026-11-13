@@ -26,13 +26,13 @@ const { start, fixture } = require("./harness.cjs");
     assert.equal(waiting.measure, "wait");
     assert.ok(waiting.waitSince);
 
-    // Plan rows: a tally instead of a duration, and "Arrived" for a wait.
-    const countRow = page.locator(`.item[data-block-id="${counted.id}"]`);
+    // Engine rows: a tally instead of a duration, and "Arrived" for a wait.
+    const countRow = page.locator(`.dd-engine [data-engine-task="${counted.id}"]`);
     await countRow.locator(".dd-tally button").last().click();
     assert.equal((await card("Call the printer")).count, 1);
     assert.equal(await countRow.locator(".dd-tally-dots i[data-on=true]").count(), 1);
     assert.equal(await countRow.locator(".duration-scroll").count(), 0);
-    const waitRow = page.locator(`.item[data-block-id="${waiting.id}"]`);
+    const waitRow = page.locator(`.dd-engine [data-engine-task="${waiting.id}"]`);
     await waitRow.locator(".dd-waiting button").click();
     assert.equal((await card("Reply from client")).done, true);
 

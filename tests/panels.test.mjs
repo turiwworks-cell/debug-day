@@ -41,7 +41,8 @@ test("Ctrl+Space rows isolate a panel, or open the pages that have no isolate", 
   assert.equal(rows.find((row) => row.panel.id === "calendar").showWithRest, null);
   assert.equal(DDpanelCommands("fa", () => {})[0].title, "انجین", "the Engine comes first in Ctrl+Space");
   assert.equal(DDpanelCommands("fa", () => {})[1].title, "سکشن‌ها", "then the Section Drawer");
-  assert.equal(DDpanelCommands("fa", () => {})[2].title, "پلن");
+  assert.equal(DDpanelCommands("fa", () => {})[2].title, "برد", "Plan is part of the Engine now (5.50)");
+  assert.equal(DDpanelOf("plan"), null);
 });
 
 test("map counts read the day without changing it", () => {
@@ -53,11 +54,11 @@ test("map counts read the day without changing it", () => {
     setup = { habits: [{ id: "write" }, { id: "walk" }], feedbacks: [{ done: false }, { done: true }] },
     before = JSON.stringify({ day, setup });
   assert.deepEqual(DDpanelCounts(day, setup, "en"), {
-    plan: "2 cards",
+    engine: "2 tasks",
     habits: "1 of 2 today",
   });
-  assert.equal(DDpanelCounts(day, setup, "fa").plan, "۲ کارت");
-  assert.deepEqual(DDpanelCounts({}, {}, "en"), { plan: "0 cards", habits: null });
+  assert.equal(DDpanelCounts(day, setup, "fa").engine, "۲ کار");
+  assert.deepEqual(DDpanelCounts({}, {}, "en"), { engine: "0 tasks", habits: null });
   assert.equal(JSON.stringify({ day, setup }), before);
 });
 
@@ -69,7 +70,7 @@ test("Stats lives inside Calendar and Feelings is gone, so the app map shows one
     assert.ok(DDpanelOf(panel.partOf), panel.id);
     assert.ok(!cards.includes(panel.id), panel.id);
   }
-  assert.deepEqual(cards, ["engine", "plan", "board", "habits", "calendar"]);
+  assert.deepEqual(cards, ["engine", "board", "habits", "calendar"]);
   assert.equal(DDpanelOf("lab"), null, "App changes was removed (5.28)");
   assert.equal(DDpanelOf("feelings"), null, "the Feelings panel was removed");
   const calendar = map.children[cards.indexOf("calendar")],

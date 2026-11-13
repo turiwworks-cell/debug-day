@@ -12,29 +12,51 @@ const {start,fixture}=require('./harness.cjs');
    await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),f.data);
    await page.reload();await page.waitForSelector('#qa',{state:'attached'});
    const day=async()=>(await page.evaluate((date)=>JSON.parse(localStorage.getItem('debug-day:v2')).days[date],f.date));
-   // Ctrl+Space: the Engine is the first row and opens the Board with the Engine on top.
+   // Ctrl+Space: the Engine is the first row. Off the Board it opens the Engine
+   // page (the old Plan page); Plan is no longer a panel of its own (5.50).
    await page.keyboard.press('Control+Space');
    const first=page.locator('[role=option]').first();await first.waitFor();
    assert.match(await first.innerText(),new RegExp(t('Engine','انجین')),'Engine is the first command');
    assert.equal(await page.locator('[role=option]',{hasText:t('Feelings','احساسات')}).count(),0,'no Feelings panel row');
    await first.click();
+   // (On a phone the quiet Today card stands in front of it until "full day".)
+   await page.locator('.dd-engine[data-mode=page]').waitFor({state:mobile?'attached':'visible'});
+   assert.equal(await page.locator('[role=tab][data-view=plan]').getAttribute('aria-selected'),'true');
+   // On the Board, E brings the same Engine over the dimmed board.
+   await page.locator('[role=tab][data-panel=board]').click();
+   await page.locator('.b2-viewport').waitFor();
+   await page.locator('.b2-viewport').focus();await page.keyboard.press('e');
    const engine=page.getByRole('dialog',{name:t('Engine','انجین')});await engine.waitFor();
-   assert.ok(await page.locator('.b2-viewport').count(),'the Board is open behind it');
-   // Tick a task; Plan and the Board share the change.
+   // Today is one list named after the day, and Park sits beside it.
+   const todayCol=engine.locator('[data-col=today]'),parkCol=engine.locator('[data-col=park]');
+   assert.match(await todayCol.locator('h3').innerText(),new RegExp(t('Today','امروز')));
+   assert.equal(await engine.locator('[data-lane]').count(),0,'lanes no longer split the Engine');
+   // Tick a task; the Board shares the change.
    const row=engine.locator('[data-engine-task="writing"]');
    await row.locator('.dd-engine-check').click();
    assert.equal((await day()).blocks.find(b=>b.id==='writing').done,true);
-   // Score: switch kind, pick 8.
+   // Score: switch kind in the task's details, pick 8.
+   await row.locator('.dd-engine-more').click();
    await row.getByRole('button',{name:t('Score','نمره‌ای'),exact:true}).click();
    await row.getByRole('button',{name:t('Score 8','نمره 8'),exact:true}).click();
    let w=(await day()).blocks.find(b=>b.id==='writing');
    assert.equal(w.measure,'score');assert.equal(w.score,8);assert.equal(w.done,true);
-   // One lane only: moving it to Life takes it out of Work.
+   // The lane stays on the task for the Board's Lanes view.
    await row.locator('select.dd-engine-lane').selectOption('life');
    assert.equal((await day()).blocks.find(b=>b.id==='writing').lane,'life');
-   assert.equal(await engine.locator('[data-lane="life"] [data-engine-task="writing"]').count(),1);
-   // Add a task straight into a lane.
-   const add=engine.locator('[data-lane="work"] .dd-engine-add input');
+   // Park it: it leaves the day and waits on the shelf, then comes back to its lane.
+   await row.locator('.dd-engine-move').click();
+   await parkCol.locator('[data-engine-task="writing"]').waitFor();
+   let saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2')));
+   assert.ok(!saved.days[f.date].blocks.some(b=>b.id==='writing'),'parked tasks are not today');
+   assert.equal(saved.setup.later.find(b=>b.id==='writing').parkedLane,'life');
+   await parkCol.locator('[data-engine-task="writing"] .dd-engine-move').click();
+   await todayCol.locator('[data-engine-task="writing"]').waitFor();
+   saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2')));
+   assert.equal(saved.days[f.date].blocks.find(b=>b.id==='writing').lane,'life','back in its own lane');
+   assert.equal(saved.setup.later.length,0);
+   // Add a task to today.
+   const add=todayCol.locator('.dd-engine-add input');
    await add.fill('Ink the keyframes');await add.press('Enter');
    const added=(await day()).blocks.find(b=>b.name==='Ink the keyframes');
    assert.ok(added,'new task saved');assert.equal(added.lane,'work');

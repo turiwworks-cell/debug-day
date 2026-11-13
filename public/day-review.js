@@ -1270,7 +1270,7 @@ function DDReviewTasks({
       h(
         "button",
         { type: "button", className: "btn", onClick: () => onOpenPlan(date) },
-        t("Open this day in Plan", "باز کردن این روز در پلن"),
+        t("Open this day in the Engine", "باز کردن این روز در انجین"),
       ),
     ),
     !day.blocks.length &&
@@ -1476,7 +1476,7 @@ function DDReviewReminders({
             h(
               "button",
               { type: "button", onClick: () => onScheduleReminder(item, date) },
-              t("Make a task in Plan", "تبدیل به کار در پلن"),
+              t("Make a task in the Engine", "تبدیل به کار در انجین"),
             ),
           h(
             "button",

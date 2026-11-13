@@ -33,11 +33,11 @@ const {start,fixture}=require('./harness.cjs');
    const shots=process.env.DEBUG_DAY_SCREENSHOTS,shot=async(name)=>{if(shots){require('node:fs').mkdirSync(shots,{recursive:true});await page.screenshot({path:require('node:path').join(shots,name+(mobile?'-phone':'')+'.png')});}};
 
    // 1. Nothing to go back to yet; one tab later, Back goes there in one click.
-   assert.equal(await selected(),'plan');
+   assert.equal(await selected(),'engine');
    assert.equal(await back.isDisabled(),true,'nothing behind the first place');
    await tap(tab('board'));await view.waitFor();
    assert.equal(await back.isDisabled(),false);
-   assert.equal(await back.getAttribute('aria-label'),'Back to Plan');
+   assert.equal(await back.getAttribute('aria-label'),'Back to Engine');
    if(mobile){
     const bb=await back.boundingBox(),vb=await page.locator('.views').boundingBox();
     assert.ok(Math.abs((bb.y+bb.height/2)-(vb.y+vb.height/2))<4,'on a phone Back sits on the tabs row');
@@ -45,7 +45,7 @@ const {start,fixture}=require('./harness.cjs');
    }
    await shot('back-button');
    await tap(back);
-   await page.waitForFunction(()=>document.querySelector('.views [aria-selected=true]')?.dataset.panel==='plan');
+   await page.waitForFunction(()=>document.querySelector('.views [aria-selected=true]')?.dataset.panel==='engine');
    assert.equal(await back.isDisabled(),true,'back at the start');
    // Alt+→ (or the mouse's forward button) goes forward again.
    await alt('ArrowRight');
@@ -99,7 +99,7 @@ const {start,fixture}=require('./harness.cjs');
    await alt('ArrowDown');
    assert.equal(await selected(),'calendar');
    await alt('ArrowDown');
-   assert.equal(await selected(),'plan','the tabs go round');
+   assert.equal(await selected(),'engine','the tabs go round');
    await alt('ArrowUp');
    assert.equal(await selected(),'calendar');
    // From another tab, Back opens the board in the section, where you were.
@@ -112,16 +112,16 @@ const {start,fixture}=require('./harness.cjs');
    assert.equal(await camera(),before,'the board reopens with the same view');
 
    // 5. In a text field Alt+arrows stay with the text.
-   await tap(tab('plan'));
+   await tap(tab('engine'));
    const input=page.locator('#qa');
    if(await input.isVisible()){
     await input.focus();await page.keyboard.press('Alt+ArrowLeft');await page.waitForTimeout(250);
-    assert.equal(await selected(),'plan','typing keeps its keys');
+    assert.equal(await selected(),'engine','typing keeps its keys');
    }
 
    // 6. A reload keeps the trail.
    await page.reload();await page.waitForSelector('#qa',{state:'attached'});
-   assert.equal(await selected(),'plan');
+   assert.equal(await selected(),'engine');
    assert.equal(await back.getAttribute('aria-label'),'Back to Board · Sketches');
    await tap(back);
    await page.waitForFunction(()=>/Sketches/.test(document.querySelector('.dd-room-bar')?.innerText||''));

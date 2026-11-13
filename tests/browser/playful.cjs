@@ -30,7 +30,7 @@ async function scenario(h,mobile,language){
     await page.evaluate(()=>{window.__bursts=0;new MutationObserver(records=>{for(const record of records)for(const node of record.addedNodes)if(node.classList?.contains("dd-playful-burst"))window.__bursts++;}).observe(document.body,{childList:true});});
     // On the phone the Plan list opens from the Focus card first.
     if(mobile) await page.locator(".dd-current-task>.textbtn").click();
-    const check=page.locator('[data-block-id="writing"] .row>.sq, .cap-item[data-block-id="writing"]>.sq').first();
+    const check=page.locator('[data-playful-task="writing"] .dd-engine-check, .cap-item[data-block-id="writing"]>.sq').first();
     await check.click();
     await page.waitForFunction(()=>window.__bursts===1);
     assert.equal((await read(page,f.date)).blocks[0].done,true);

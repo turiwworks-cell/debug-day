@@ -3,7 +3,8 @@ import { DDreconcileDay, DDrelation, DDconnectRelation, DDdisconnectRelation, DD
 import { DDconnectionGeometry } from "./connections.js";
 import { DDundoRevert } from "./board-history.js";
 import { DDcreateBoardLayout, DDengineShift } from "./board-layout.js";
-import { DDEngineOverlay, DDengineBus, DDengineTask, DDengineTaskFromNote, DDengineSources, DDengineSourceHistory, DDengineStrip, DDinstallEngineStyles, DDengineCarry } from "./engine.js";
+import { DDengineBus, DDengineTaskFromNote, DDengineSources, DDengineSourceHistory, DDengineStrip, DDinstallEngineStyles, DDengineCarry } from "./engine.js";
+import { DDEngineOverlay } from "./engine-panel.js";
 import { DDengineSectionIds, DDinstallEngineQuietStyles } from "./engine-quiet.js";
 import { DDboardShortcuts, DDboardSearchRows, DDrootSelection, DDmarqueeSelection, DDselectionToolbar, DDBoardSearch, DDBoardTimer, DDBoardTimerButton, DDinstallBoardExperience, DDinstallZoomLock } from "./board-experience.js";
 import {
@@ -104,6 +105,10 @@ export function DDcreateBoard(deps) {
     onUpdateDay: onUpdateDay,
     onUpdateSetup: onUpdateSetup,
     onUpdateDayOnDate,
+    // The Engine's quick add reads "Portfolio > Sketch 90m p1" like everywhere else,
+    // and moves a task to tomorrow through the app.
+    parseTask,
+    onMoveTask,
     onToast: onToast,
     matchesFilter: matchesFilter,
     nodeMatches: ddNodeMatches,
@@ -306,6 +311,7 @@ export function DDcreateBoard(deps) {
       onUpdateDay: onUpdateDay,
       onUpdateSetup: onUpdateSetup,
       onUpdateDayOnDate, allDays,
+      parseTask, onMoveTask,
       onToast: onToast,
     }),
       (editingRef.current = editing),
@@ -2127,7 +2133,7 @@ export function DDcreateBoard(deps) {
             setStatus(t("This relationship is already set, locked or would create a cycle", "این رابطه وجود دارد، قفل است یا یک چرخه ایجاد می‌کند"));
             return;
           }
-          commit(() => relation, t("Relationship updated in Plan and Board", "رابطه در پلن و برد تغییر کرد"));
+          commit(() => relation, t("Relationship updated in the Engine and Board", "رابطه در انجین و برد تغییر کرد"));
           setWireId(null);
           return;
         }
@@ -2156,7 +2162,7 @@ export function DDcreateBoard(deps) {
           setStatus(t("This relationship is already set, locked or would create a cycle", "این رابطه وجود دارد، قفل است یا یک چرخه ایجاد می‌کند"));
           return;
         }
-        commit(() => relation, t("Relationship updated in Plan and Board", "رابطه در پلن و برد تغییر کرد"));
+        commit(() => relation, t("Relationship updated in the Engine and Board", "رابطه در انجین و برد تغییر کرد"));
         setWireId(null); setSelected(new Set());
         return;
       }
@@ -6277,6 +6283,7 @@ export function DDcreateBoard(deps) {
         _.createElement(DDEngineOverlay, {
           React: _,
           day,
+          today: DDstickyToday(),
           setup,
           language: DDlanguage,
           dateLabel: ie.format(E(day.date)),
@@ -6284,14 +6291,13 @@ export function DDcreateBoard(deps) {
           dateFormat: (date) => ie.format(E(date)),
           makeId: C,
           sources: DDengineSources(DDlifeItems(setup)),
-          measure,
-          setDone: DDsetTaskDone,
+          parseTask: propsRef.current.parseTask,
+          Emoji: B,
+          // Made inside a section's board, a new task comes from that section.
+          from: layout.room || "",
           onChange: (change) => commit((d) => change(d), t("Engine updated", "انجین به‌روز شد")),
-          onAdd: (name, lane) => {
-            // Made inside a section's board, the task comes from that section.
-            const task = DDengineTask(name, lane, { ...setup, preferences: { ...setup.preferences, defaultMinutes: prefs.defaultMinutes } }, C(), layout.room || "");
-            commit((d) => { d.blocks.push(task); return d; }, t("Added to the Engine", "به انجین اضافه شد"));
-          },
+          onSetup: (change) => propsRef.current.onUpdateSetup?.(change),
+          onTomorrow: propsRef.current.onMoveTask ? (id) => propsRef.current.onMoveTask(day.date, id) : undefined,
           onReveal: (blockId) => {
             setEngine(false);
             revealBoardResult({ id: "b:" + blockId, blockId, kind: "block" });

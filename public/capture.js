@@ -805,7 +805,7 @@ export function DDCaptureTools({
                         );
                       },
                     },
-                    t("Open Later tray", "باز کردن سبد بعداً"),
+                    t("Open Park", "باز کردن پارک"),
                   ),
                 ),
               )

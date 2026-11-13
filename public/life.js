@@ -292,7 +292,7 @@ export function DDLifeTools({
           onClick: () => setPanel("later"),
         },
         DDlifeIcon(h, "tray"),
-        t("Later tray", "سبد بعداً"),
+        t("Park", "پارک"),
         later.length > 0 && h("b", { className: "dd-count" }, later.length),
       ),
       (view === "plan" || view === "board") &&
@@ -357,7 +357,7 @@ export function DDLifeTools({
             "aria-label":
               panel === "pause"
                 ? t("Pause the day", "روز را نگه دار")
-                : t("Later tray", "سبد بعداً"),
+                : t("Park", "پارک"),
             onClick: (e) => e.stopPropagation(),
             onKeyDown: key,
           },
@@ -369,7 +369,7 @@ export function DDLifeTools({
               null,
               panel === "pause"
                 ? t("Pause the day", "روز را نگه دار")
-                : t("Later tray", "سبد بعداً"),
+                : t("Park", "پارک"),
             ),
             h(
               "button",
@@ -441,8 +441,8 @@ export function DDLifeTools({
                     onChange: (e) => setText(e.target.value),
                     dir: "auto",
                     maxLength: 4000,
-                    "aria-label": t("Later task", "کار برای بعداً"),
-                    placeholder: t("Something for later…", "کاری برای بعداً…"),
+                    "aria-label": t("Parked task", "کار پارک‌شده"),
+                    placeholder: t("Something not for today…", "کاری که برای امروز نیست…"),
                   }),
                   h(
                     "button",
@@ -451,7 +451,7 @@ export function DDLifeTools({
                       className: "btn solid",
                       disabled: !text.trim(),
                     },
-                    t("Add to Later", "افزودن به بعداً"),
+                    t("Park it", "پارکش کن"),
                   ),
                 ),
                 h(
@@ -470,7 +470,7 @@ export function DDLifeTools({
                   h(
                     "p",
                     null,
-                    t("Nothing in Later.", "کاری در سبد بعداً نیست."),
+                    t("Park is empty.", "پارک خالی است."),
                   ),
                 later.map((block) =>
                   h(
@@ -496,7 +496,7 @@ export function DDLifeTools({
                           dir: "auto",
                           onChange: (e) =>
                             edit(block.id, { name: e.target.value }),
-                          "aria-label": t("Later task name", "نام کار بعداً"),
+                          "aria-label": t("Parked task name", "نام کار پارک‌شده"),
                         }),
                       ),
                       h(
@@ -519,8 +519,8 @@ export function DDLifeTools({
                               edit(block.id, { min: value });
                           },
                           "aria-label": t(
-                            "Later task minutes",
-                            "مدت کار بعداً",
+                            "Parked task minutes",
+                            "مدت کار پارک‌شده",
                           ),
                         }),
                       ),
@@ -574,8 +574,8 @@ export function DDLifeTools({
                           onChange: (e) =>
                             edit(block.id, { at: e.target.value }),
                           "aria-label": t(
-                            "Later anchor time",
-                            "ساعت ثابت کار بعداً",
+                            "Parked task anchor time",
+                            "ساعت ثابت کار پارک‌شده",
                           ),
                         }),
                       ),

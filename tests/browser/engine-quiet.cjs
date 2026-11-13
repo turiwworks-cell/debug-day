@@ -146,28 +146,21 @@ const {start,fixture}=require('./harness.cjs');
     await chip.waitFor({state:'detached'});
    }
 
-   // Calm rows: kind, lane and "show" wait for hover or ⋯; the source stays in sight.
+   // Calm rows: kind, lane and section wait for ⋯; the source stays in sight as a tag.
    await page.locator('.b2-viewport').focus();await page.keyboard.press('e');await engine.waitFor();
    const row=engine.locator(`[data-engine-task="${ink.id}"]`),lane=row.locator('select.dd-engine-lane');
    if(!mobile){await page.mouse.move(2,2);}
    assert.equal(await lane.isVisible(),false,'lane picker out of sight');
    assert.equal(await row.locator('.dd-engine-kinds').isVisible(),false);
-   assert.equal(await row.locator('select.dd-engine-from').isVisible(),true,'where it came from stays in sight');
-   assert.equal(await engine.locator(`[data-engine-task="${reply.id}"] select.dd-engine-from`).isVisible(),false,'"Main board" only with the tools');
-   if(!mobile){
-    await row.hover();
-    assert.equal(await lane.isVisible(),true,'hover shows the tools');
-    await page.mouse.move(2,2);
-    assert.equal(await lane.isVisible(),false);
-   }
+   assert.equal(await row.locator('.dd-engine-tag').isVisible(),true,'where it came from stays in sight');
+   assert.equal(await engine.locator(`[data-engine-task="${reply.id}"] .dd-engine-tag`).count(),0,'"Main board" needs no tag');
    const more=row.locator('.dd-engine-more');
    await tap(more);
    assert.equal(await more.getAttribute('aria-expanded'),'true');
    if(!mobile)await page.mouse.move(2,2);
    assert.equal(await lane.isVisible(),true,'⋯ keeps the tools open');
    await lane.selectOption('life');
-   assert.equal((await read()).days[f.date].blocks.find((b)=>b.id===ink.id).lane,'life');
-   await engine.locator(`[data-lane="life"] [data-engine-task="${ink.id}"]`).waitFor();
+   await page.waitForFunction(([date,id])=>JSON.parse(localStorage.getItem('debug-day:v2')).days[date].blocks.find((b)=>b.id===id).lane==='life',[f.date,ink.id]);
    await page.keyboard.press('Escape');await engine.waitFor({state:'detached'});
 
    // "Not today" puts the line away for the rest of the day, on this device.

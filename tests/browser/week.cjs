@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict');
 const {start,fixture}=require('./harness.cjs');
 // Light and heavy tasks, deadlines and the Week view (5.46): a task can be
-// marked light or heavy in Plan; a tired day offers the light ones first; a
+// marked light or heavy in the Engine; a tired day offers the light ones first; a
 // Feed note or section can carry a deadline; the Calendar shows section colors,
 // deadlines and a Week view with a short look back and next week's focus.
 (async()=>{
@@ -30,15 +30,15 @@ const {start,fixture}=require('./harness.cjs');
    const read=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2'))),
     nudge=(id)=>page.locator(`[data-nudge="${id}"]:visible`);
    if(!mobile){
-    // 1. Light or heavy, from the task's menu in Plan.
-    const row=page.locator('#plan .item[data-block-id="b"]');
-    await row.locator('.rn').click({button:'right'});
-    const energy=page.locator('[data-energy-row]');await energy.waitFor();
-    await energy.getByRole('button',{name:'light',exact:true}).click();
+    // 1. Light or heavy, from the task's details in the Engine.
+    const row=page.locator('.dd-engine [data-engine-task="b"]');
+    await row.locator('.dd-engine-more').click();
+    await row.getByRole('group',{name:'Energy'}).getByRole('button',{name:'light',exact:true}).click();
     await page.waitForFunction((d)=>JSON.parse(localStorage.getItem('debug-day:v2')).days[d].blocks.find((b)=>b.id==='b').energy==='light',f.date);
-    assert.equal(await row.locator('.dd-energy').innerText(),'light');
-    await page.locator('#plan .item[data-block-id="a"] .rn').click({button:'right'});
-    await page.locator('[data-energy-row]').getByRole('button',{name:'heavy',exact:true}).click();
+    assert.equal(await row.locator('.dd-engine-meta .dd-energy').innerText(),'light');
+    const other=page.locator('.dd-engine [data-engine-task="a"]');
+    await other.locator('.dd-engine-more').click();
+    await other.getByRole('group',{name:'Energy'}).getByRole('button',{name:'heavy',exact:true}).click();
     await page.waitForFunction((d)=>JSON.parse(localStorage.getItem('debug-day:v2')).days[d].blocks.find((b)=>b.id==='a').energy==='heavy',f.date);
    }
    // 2. A tired day points to the light tasks and can put them first.

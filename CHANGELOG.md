@@ -1,3 +1,15 @@
+## 5.50.0 — 2026-11-13
+Branch: claude/project-thread-d0zfxj
+- The Engine (E) is now the one place to plan the day: the separate Plan page is gone and its tab opens the Engine page.
+- Life and Work columns are replaced by two calm columns: Today (with the day's name) and Park, the shelf for tasks that are not for today.
+- Park is the old Later tray, renamed; one tap (→ / ←) moves a task between Today and Park, and all views see the same task.
+- Tasks are ordered by priority on their own: P1 first, waiting tasks after open ones, done tasks last; the first open task is marked "Up next".
+- Steps show inside the Engine: a count with the next step on each task, and an open tree to tick, rename, nest or remove steps.
+- All / Left / Done filter and a find box for tasks and steps (remembered on this device).
+- Each task shows its section as a coloured tag; ⋯ opens kind, energy, time, section, lane, type, time of day, priority, tags, photos, note and actions.
+- The Engine page and the board overlay are the same component, so they always match; yesterday's carry line and the "very full" nudge sit on top.
+- Phone: steps and task details use the full card width.
+
 ## 5.49.1 — 2026-11-11
 Branch: fix/pen-direction-and-selection
 - Lock Shift drawing to the initial direction and project movement onto that line.

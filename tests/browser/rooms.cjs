@@ -56,7 +56,7 @@ const {start,fixture}=require('./harness.cjs');
    if(!mobile){
     await page.locator('.b2-viewport').focus();await page.keyboard.press('e');
     const engine=page.getByRole('dialog',{name:t('Engine','انجین')});await engine.waitFor();
-    const add=engine.locator('[data-lane="work"] .dd-engine-add input');await add.fill('Made inside a section');await add.press('Enter');
+    const add=engine.locator('[data-col="today"] > .dd-engine-add input');await add.fill('Made inside a section');await add.press('Enter');
     assert.equal((await read()).days[f.date].blocks.find(b=>b.name==='Made inside a section')?.from,'a','the Engine is the same everywhere, and the task knows its section');
     await page.keyboard.press('Escape');await engine.waitFor({state:'detached'});
     // A note made outside the section lands inside it.

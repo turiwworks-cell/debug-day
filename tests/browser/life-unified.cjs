@@ -78,7 +78,7 @@ const {start,fixture}=require("./harness.cjs");
    assert.equal((await read()).setup.life.items.some((i)=>i.id==="n"),true,"Undo works on another day");
    assert.equal(await page.locator('[data-board-id="section:life"]').evaluate((e)=>e.style.top),"1200px","frame position is shared across days");
    await page.locator(".views button").first().click();
-   await page.locator("section.plan").waitFor();
+   await page.locator(".dd-engine[data-mode=page]").waitFor();
    assert.equal(await page.locator(".dd-plan-life").count(),0,"the Feed lives on the Board only (5.28)");
    await page.keyboard.press("Control+Space");
    await page.getByRole("combobox",{name:t("Search everything","جست‌وجوی همه‌چیز"),exact:true}).fill("Shared idea");

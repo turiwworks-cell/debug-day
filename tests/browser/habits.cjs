@@ -113,7 +113,7 @@ const { start, fixture } = require("./harness.cjs");
     assert.equal(after.setup.habits[0].goal, 60);
     assert.equal(after.days[f.date].habits.write.min, 20);
     assert.equal(await page.evaluate(() => [document.documentElement.lang, document.documentElement.dir].join()), "en,ltr");
-    assert.ok((await page.locator(".views").innerText()).includes("Plan"));
+    assert.ok((await page.locator(".views").innerText()).includes("Engine"));
 
     assert.deepEqual(errors, []);
     console.log("Habits section passed");

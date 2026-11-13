@@ -266,7 +266,7 @@ async function scenario(h, mobile, language) {
     .filter({ hasText: "Weekly reminder" });
   await activate(
     reminder.getByRole("button", {
-      name: t("Make a task in Plan", "تبدیل به کار در پلن"),
+      name: t("Make a task in the Engine", "تبدیل به کار در انجین"),
       exact: true,
     }),
   );
@@ -282,7 +282,7 @@ async function scenario(h, mobile, language) {
   assert.equal(
     await reminder
       .getByRole("button", {
-        name: t("Make a task in Plan", "تبدیل به کار در پلن"),
+        name: t("Make a task in the Engine", "تبدیل به کار در انجین"),
         exact: true,
       })
       .count(),
@@ -295,7 +295,7 @@ async function scenario(h, mobile, language) {
   assert.equal(
     await reminder
       .getByRole("button", {
-        name: t("Make a task in Plan", "تبدیل به کار در پلن"),
+        name: t("Make a task in the Engine", "تبدیل به کار در انجین"),
         exact: true,
       })
       .count(),
@@ -313,7 +313,7 @@ async function scenario(h, mobile, language) {
   assert.equal(
     await reminder
       .getByRole("button", {
-        name: t("Make a task in Plan", "تبدیل به کار در پلن"),
+        name: t("Make a task in the Engine", "تبدیل به کار در انجین"),
         exact: true,
       })
       .count(),

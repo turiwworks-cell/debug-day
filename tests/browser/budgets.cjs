@@ -81,14 +81,14 @@ const {start,fixture}=require('./harness.cjs');
    const until=new Date(Date.parse(f.date+'T12:00:00Z')+9*864e5).toISOString().slice(0,10);
    await counter.getByLabel('Until').fill(until);
    await page.waitForFunction(()=>/9 days left/.test(document.querySelector('[data-goal-counter="goal"] b')?.textContent||''));
-   // 5. A reload keeps all of it, and the task in Plan is the same task.
+   // 5. A reload keeps all of it, and the task in the Engine is the same task.
    await page.reload();await page.waitForSelector('#qa',{state:'attached'});
    data=await read();
    assert.equal(data.days[f.date].blocks.find((b)=>b.id===made.id).noteRef,'idea');
    assert.deepEqual(data.setup.life.items.find((i)=>i.id==='goal').goal,{n:4,of:35,until});
-   await page.locator('.views button',{hasText:'Plan'}).click();await settle();
-   const row=page.locator(`#plan .item[data-block-id="${made.id}"]`);await row.waitFor({state:'attached'});
-   if(!mobile)assert.equal(await row.isVisible(),true,'Plan shows the task from the note');
+   await page.locator('.views button',{hasText:'Engine'}).click();await settle();
+   const row=page.locator(`.dd-engine [data-engine-task="${made.id}"]`);await row.waitFor({state:'attached'});
+   if(!mobile)assert.equal(await row.isVisible(),true,'the Engine shows the task from the note');
    const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth);
    assert.equal(overflow,false);
    assert.deepEqual(errors,[]);

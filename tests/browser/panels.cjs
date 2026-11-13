@@ -20,7 +20,7 @@ const { start, fixture } = require("./harness.cjs");
     // View tabs and section headings carry the panel's icon and color. Feelings and Stats are inside Calendar.
     assert.deepEqual(
       await page.locator(".views button").evaluateAll((tabs) => tabs.map((tab) => tab.dataset.panel)),
-      ["plan", "board", "calendar"],
+      ["engine", "board", "calendar"],
     );
     assert.equal(await page.locator(".views button .dd-panel-icon").count(), 3);
     const color = (selector) => page.locator(selector).first().evaluate((node) => getComputedStyle(node).getPropertyValue("--pc").trim());
@@ -39,7 +39,7 @@ const { start, fixture } = require("./harness.cjs");
     const modal = page.locator(".dd-command-modal");
     const first = modal.locator(".dd-result-group").first();
     assert.equal(await first.getAttribute("data-group"), "panels");
-    assert.equal(await first.locator(".dd-panel-row").count(), 7, "the panels, with Sections right after the Engine");
+    assert.equal(await first.locator(".dd-panel-row").count(), 6, "the panels, with Sections right after the Engine");
     assert.equal(await first.locator(".dd-panel-row").nth(1).getAttribute("data-panel"), "sections");
     const ids = await modal.locator(".dd-command-row").evaluateAll((rows) => rows.map((row) => row.id + row.textContent));
     assert.equal(new Set(ids.map((text) => text.replace(/^dd-result-\d+/, ""))).size, ids.length, "nothing is listed twice on the first page");
@@ -47,22 +47,22 @@ const { start, fixture } = require("./harness.cjs");
     await page.keyboard.press("ArrowDown");
     await page.keyboard.press("ArrowDown");
     await page.keyboard.press("ArrowDown");
-    await page.keyboard.press("ArrowDown");
     await page.keyboard.press("Enter");
     await modal.waitFor({ state: "hidden" });
     await banner.locator('.dd-panel-icon[data-panel="habits"]').waitFor();
     assert.equal(await page.locator(".dd-habits").count(), 1);
-    assert.equal(await page.locator("section.plan").count(), 0);
+    assert.equal(await page.locator(".dd-engine").count(), 0);
     assert.equal(await page.locator('[data-section-id="bugs"]').count(), 0);
 
-    // Typing finds a panel first.
+    // Typing finds a panel first. "plan" finds the Engine, which holds the old Plan (5.50).
     await page.keyboard.press("Control+Space");
     await modal.getByRole("combobox").fill("plan");
     assert.equal(await modal.locator(".dd-result-group").first().getAttribute("data-group"), "panels");
+    assert.equal(await modal.locator(".dd-panel-row").first().getAttribute("data-panel"), "engine");
     await page.keyboard.press("Enter");
-    await banner.locator('.dd-panel-icon[data-panel="plan"]').waitFor();
-    assert.equal(await page.locator("section.plan").count(), 1);
-    assert.equal(await page.locator(".dd-habits").count(), 0);
+    await banner.waitFor({ state: "detached" });
+    await page.locator(".dd-engine[data-mode=page]").waitFor();
+    assert.equal(await page.locator(".dd-habits").count(), 1, "the Engine page keeps Habits below it, as Plan did");
     // App changes was removed (5.28), so search no longer offers it.
     await page.keyboard.press("Control+Space");
     await modal.getByRole("combobox").fill("app changes");
@@ -74,25 +74,25 @@ const { start, fixture } = require("./harness.cjs");
     await page.locator(".dd-panel-map").waitFor();
     assert.deepEqual(
       await page.locator(".dd-panel-map .app-map-card").evaluateAll((cards) => cards.map((card) => card.dataset.panel)),
-      ["engine", "plan", "board", "habits", "calendar"],
+      ["engine", "board", "habits", "calendar"],
     );
     assert.match(await page.locator('.app-map-card[data-panel="habits"] small').innerText(), /0 of 1 today/);
     await page.keyboard.press("Digit0");
     await banner.waitFor({ state: "detached" });
     await page.keyboard.press("Alt+KeyM");
-    await page.keyboard.press("Shift+Digit4");
+    await page.keyboard.press("Shift+Digit3");
     await page.locator(".dd-panel-map").waitFor({ state: "detached" });
     assert.equal(await banner.count(), 0);
-    assert.equal(await page.locator("section.plan").count(), 1);
+    assert.equal(await page.locator(".dd-engine[data-mode=page]").count(), 1);
     await page.keyboard.press("Alt+KeyM");
-    await page.keyboard.press("Digit3");
+    await page.keyboard.press("Digit2");
     await page.locator(".b4").waitFor();
     await banner.locator('.dd-panel-icon[data-panel="board"]').waitFor();
     assert.equal(await page.locator('[data-board-id^="bug:"]').count(), 0, "no feelings on the Board");
 
     // Calendar reads the day note; there is no Feelings section any more.
     await page.keyboard.press("Alt+KeyM");
-    await page.keyboard.press("Digit5");
+    await page.keyboard.press("Digit4");
     const day = page.locator("#dd-calendar-day");
     await day.waitFor();
     assert.equal(await banner.count(), 0);

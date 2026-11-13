@@ -116,7 +116,7 @@ const {start,fixture}=require('./harness.cjs');
    await page.screenshot({path:join(out,'timer-board-bar.png')});
    await panel.getByRole('button',{name:'Numbers',exact:true}).click();
    await page.keyboard.press('Escape');
-   await page.locator('.views button[data-panel="plan"]').click();
+   await page.locator('.views button[data-panel="engine"]').click();
    await options().click();
    await page.waitForTimeout(300);
    await page.screenshot({path:join(out,'timer-plan.png')});

@@ -12,7 +12,7 @@ const VIEWS = ["plan", "board", "calendar", "stats", "insights", "setup"];
 // A jump right after arriving (a section opening, then its note coming into view)
 // is one move, not two places.
 const SETTLE = 600, SEAL = 1500, KEEP = 300;
-const NAMES = { plan: "Plan", board: "Board", calendar: "Calendar", stats: "Stats", insights: "Insights", setup: "Settings" };
+const NAMES = { plan: "Engine", board: "Board", calendar: "Calendar", stats: "Stats", insights: "Insights", setup: "Settings" };
 
 let list = [], index = 0, started = false, setView = null, board = null, sealedAt = 0, arrivedAt = 0;
 const watchers = new Set();
