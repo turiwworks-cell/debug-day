@@ -72,7 +72,11 @@ const {start,fixture}=require('./harness.cjs');
 
     // 3. A note made on the Engine inside Sketches is the Engine's: a day note,
     // and it is still there on the main board and in Clients.
-    const area=await page.locator('[data-board-id="section:engine"]').boundingBox();
+    // The camera glides into the section; wait until the Engine stops moving
+    // (a slow CI frame can start the glide late) before drawing on it.
+    const stableBox=async(loc)=>{let a=await loc.boundingBox(),same=0;for(let i=0;i<80&&same<3;i++){await page.evaluate(()=>new Promise((r)=>requestAnimationFrame(()=>requestAnimationFrame(r))));await page.waitForTimeout(30);const b=await loc.boundingBox();same=b&&a&&Math.abs(a.x-b.x)<.5&&Math.abs(a.y-b.y)<.5&&Math.abs(a.width-b.width)<.5?same+1:0;a=b;}return a;};
+    await page.waitForTimeout(400);
+    const area=await stableBox(page.locator('[data-board-id="section:engine"]'));
     const notes0=(await day()).notes.length;
     await view.focus();await page.keyboard.press('s');await page.locator('.dd-sticky-colors').waitFor();
     await page.mouse.move(area.x+area.width-90,area.y+area.height-70);await page.mouse.click(area.x+area.width-90,area.y+area.height-70);
