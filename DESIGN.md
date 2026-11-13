@@ -18,6 +18,7 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 | **Feed**: the board area that is the same on every day | Life (that was its old name) |
 | **Engine**: the day's tasks (E on the Board, and the Engine tab), in two columns: Today and Park | today box, Plan (the old page) |
 | **Park**: tasks that are not for today and stay from day to day | Later tray, backlog |
+| **After**: the order between tasks or steps ("Colour pass after Sketch"); a waiting task is never locked | depends on, blocked by, dependency |
 | **Focus**: the timer | Stillness |
 | **Pause the day**: the "life happened" pause | Life happened |
 | **Lane**: a row in Board Lanes (Work, Life…, the person's own names) | track |

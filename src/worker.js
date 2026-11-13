@@ -1,13 +1,14 @@
 import { arenaRead } from "./arena.js";
 import { DDtags, DDcompletion } from "../public/planner.js";
 import { DDreconcileDay } from "../public/relations.js";
+import { DDflowItems, DDflowCanAdd, DDflowSetAfter, DDflowTaskRef } from "../public/flow.js";
 import { DDlifeState, DDlifeAdd, DDlifeUpdate, DDlifeRemove, DDnormalizeLife } from "../public/life-board.js";
 import { DDmarksRebase } from "../public/pen.js";
 import { DDsyncCopies } from "../public/linked.js";
 import { oauth, oauthRoute, oauthAccess } from "./oauth.js";
 const MAX_BYTES = 1500000;
 const VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"];
-const INFO = { name: "debug-day", title: "Debug Day", version: "5.50.0" };
+const INFO = { name: "debug-day", title: "Debug Day", version: "5.51.0" };
 class HttpError extends Error {
   constructor(status, message) {
     super(message);
@@ -396,6 +397,12 @@ const WRITE_TOOLS = [
         type: "string",
         pattern: "^(?:(?:[01]\\d|2[0-3]):[0-5]\\d)?$",
       },
+      after_block_ids: {
+        type: "array",
+        maxItems: 12,
+        items: string,
+        description: "Blocks of the same day this block comes after (the Engine shows the order in waves). An empty list clears the order.",
+      },
     },
     ["date", "expected_revision", "block_id"],
     true,
@@ -781,6 +788,17 @@ async function callTool(name, args, env, access) {
     }))
       if (Object.hasOwn(args, k))
         b[field] = k === "name" ? args[k].trim() : k === "tags" ? DDtags(args[k]) : args[k];
+    if (Object.hasOwn(args, "after_block_ids")) {
+      // Same rules as the Engine: tasks of this day, never itself, never a loop.
+      const cleared = DDflowSetAfter(day, DDflowTaskRef(id), []),
+        items = DDflowItems(cleared),
+        refs = [...new Set(args.after_block_ids)].map(DDflowTaskRef);
+      for (const ref of refs)
+        if (!DDflowCanAdd(items, DDflowTaskRef(id), ref)) throw Error("Cannot order after " + ref.slice(2) + ": missing, itself, or a loop");
+      const ordered = DDflowSetAfter(cleared, DDflowTaskRef(id), refs).blocks.find((x) => x.id === id);
+      if (ordered.after) b.after = ordered.after;
+      else delete b.after;
+    }
     if (Object.hasOwn(args, "done")) {
       function complete(items) {
         for (const item of items || []) {

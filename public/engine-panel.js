@@ -5,6 +5,10 @@
 //   Park             tasks that are not for today. The shelf stays from day to
 //                    day (setup.later), so nothing waits on an old day.
 //
+// Order (5.51): a task or step can come "after" another, even in another task.
+// When the day has an order, Today shows it in waves: what can go side by side
+// now, then what follows. A waiting task is shown as waiting, never locked.
+//
 // The same screen is the Engine tab (the old Plan page) and the Engine that E
 // brings over the Board. It keeps no copy: every change goes through onChange
 // (the day) or onSetup (Park, lanes), so the Board, its Lanes view, Calendar and
@@ -30,8 +34,79 @@ import { DDenergyOf, DDsetEnergy, DDenergyLabel } from "./energy.js";
 import { DDsetTaskDone, DDtoggleSubtask, DDcleanBoard } from "./search.js";
 import { DDPlanNudges } from "./nudges.js";
 import { DDshortPath } from "./life-board.js";
+import { DDflowItems, DDflowCanAdd, DDflowAdd, DDflowRemove, DDflowWaitingOn, DDflowWaves, DDflowStepRef, DDflowTaskRef } from "./flow.js";
 
 const words = (fa) => (en, f) => (fa ? f : en);
+
+// How a task or step is named in an order: "Task" or "Task › Step".
+const flowName = (item, fa) => {
+  const task = item.block.name || (fa ? "بی‌نام" : "Untitled");
+  return DDshortPath(item.step ? [task, item.step.text || (fa ? "قدم" : "Step")] : [task], 44).short;
+};
+const flowNames = (list, fa) => list.map((item) => flowName(item, fa)).join(fa ? "، " : ", ");
+
+// "After …": what a task or step comes after, each one removable, and a picker
+// for one more. The picker lists today's tasks with their steps under them,
+// leaving out anything that would go round in a circle.
+function AfterEditor({ React: R, flow, refId, language, compact, onDone }) {
+  const h = R.createElement,
+    fa = language === "fa",
+    t = words(fa),
+    item = flow.items.get(refId);
+  if (!item) return null;
+  const choices = [...flow.items.values()].filter((other) => DDflowCanAdd(flow.items, refId, other.ref)),
+    groups = [];
+  for (const other of choices) {
+    const last = groups.at(-1);
+    if (last && last.block === other.block) last.list.push(other);
+    else groups.push({ block: other.block, list: [other] });
+  }
+  return h(
+    "span",
+    { className: "dd-engine-after-edit" + (compact ? " is-compact" : "") },
+    !compact &&
+      item.after.map((ref) => {
+        const before = flow.items.get(ref);
+        return (
+          before &&
+          h(
+            "span",
+            { key: ref, className: "dd-engine-after-chip", "data-before": ref, "data-done": before.done || undefined, dir: "auto" },
+            (before.done ? "✓ " : "") + flowName(before, fa),
+            h("button", { type: "button", "aria-label": t("No longer after ", "دیگر بعد از ") + flowName(before, fa), onClick: () => flow.remove(refId, ref) }, "×"),
+          )
+        );
+      }),
+    choices.length > 0 &&
+      h(
+        "select",
+        {
+          className: "dd-engine-after-pick",
+          value: "",
+          autoFocus: compact,
+          "aria-label": t("Do after…", "انجام بعد از…"),
+          onChange: (event) => {
+            const value = event.target.value;
+            if (value) flow.add(refId, value);
+            onDone?.();
+          },
+          onBlur: () => compact && onDone?.(),
+          onKeyDown: (event) => {
+            event.stopPropagation();
+            if (event.key === "Escape") onDone?.();
+          },
+        },
+        h("option", { value: "" }, t("+ After…", "+ بعد از…")),
+        groups.map((group) =>
+          h(
+            "optgroup",
+            { key: group.block.id, label: group.block.name || t("Untitled", "بی‌نام") },
+            group.list.map((other) => h("option", { key: other.ref, value: other.ref }, other.step ? "  · " + (other.step.text || t("Step", "قدم")) : group.block.name || t("Untitled", "بی‌نام"))),
+          ),
+        ),
+      ),
+  );
+}
 const digits = (n, fa) => (fa ? Number(n).toLocaleString("fa-IR") : String(n));
 
 // "Friday", or "Saturday 14 Nov" for a day that is not today.
@@ -134,14 +209,19 @@ function CarryLine({ React: R, carry, language, dateFormat, onBring, onChoose, o
 }
 
 // One step and the steps inside it. Tap the circle to tick, the text to rename.
-function StepItem({ React: R, step, depth, language, onTick, onRename, onRemove, onAddInside }) {
+function StepItem({ React: R, step, depth, language, blockId, flow, onTick, onRename, onRemove, onAddInside }) {
   const h = R.createElement,
-    t = words(language === "fa"),
+    fa = language === "fa",
+    t = words(fa),
     [editing, setEditing] = R.useState(false),
-    [adding, setAdding] = R.useState(false);
+    [adding, setAdding] = R.useState(false),
+    [ordering, setOrdering] = R.useState(false),
+    ref = DDflowStepRef(blockId, step.id),
+    item = flow?.items.get(ref),
+    waiting = item && !step.done ? DDflowWaitingOn(flow.items, ref) : [];
   return h(
     "li",
-    { className: "dd-engine-step", "data-step": step.id, "data-done": !!step.done, style: { "--depth": depth } },
+    { className: "dd-engine-step", "data-step": step.id, "data-done": !!step.done, "data-waiting": waiting.length > 0 || undefined, style: { "--depth": depth } },
     h(
       "div",
       { className: "dd-engine-step-row" },
@@ -172,14 +252,22 @@ function StepItem({ React: R, step, depth, language, onTick, onRename, onRemove,
             },
           })
         : h("button", { type: "button", className: "dd-engine-step-text", dir: "auto", title: t("Rename", "تغییر نام"), onClick: () => setEditing(true) }, step.text || t("Untitled step", "قدم بی‌نام")),
+      flow && h("button", { type: "button", className: "dd-engine-step-tool", "data-step-order": step.id, title: t("Do after another task or step", "انجام بعد از یک کار یا قدم دیگر"), "aria-label": t("Do after…: ", "انجام بعد از…: ") + (step.text || ""), "aria-expanded": ordering, onClick: () => setOrdering(!ordering) }, "⤷"),
       h("button", { type: "button", className: "dd-engine-step-tool", title: t("Add a step inside", "افزودن قدم داخل"), "aria-label": t("Add a step inside: ", "افزودن قدم داخل: ") + (step.text || ""), onClick: () => setAdding(!adding) }, "+"),
       h("button", { type: "button", className: "dd-engine-step-tool", title: t("Remove step", "حذف قدم"), "aria-label": t("Remove step: ", "حذف قدم: ") + (step.text || ""), onClick: () => onRemove(step.id) }, "×"),
     ),
+    item?.after.length > 0 &&
+        h(
+          "span",
+          { className: "dd-engine-step-after", "data-waiting": waiting.length > 0 || undefined, dir: "auto", title: t("After ", "بعد از ") + flowNames(item.after.map((r) => flow.items.get(r)).filter(Boolean), fa) },
+          (waiting.length ? "↳ " : "✓ ") + t("after ", "بعد از ") + flowNames(waiting.length ? waiting : item.after.map((r) => flow.items.get(r)).filter(Boolean), fa),
+        ),
+    ordering && h("div", { className: "dd-engine-step-order" }, h(AfterEditor, { React: R, flow, refId: ref, language, onDone: () => setOrdering(false) })),
     (step.children?.length > 0 || adding) &&
       h(
         "ul",
         { className: "dd-engine-steps" },
-        (step.children || []).map((child) => h(StepItem, { key: child.id, React: R, step: child, depth: depth + 1, language, onTick, onRename, onRemove, onAddInside })),
+        (step.children || []).map((child) => h(StepItem, { key: child.id, React: R, step: child, depth: depth + 1, language, blockId, flow, onTick, onRename, onRemove, onAddInside })),
         adding && h(AddLine, { React: R, className: "dd-engine-step-add", placeholder: t("+ Step", "+ قدم"), label: t("New step inside ", "قدم تازه داخل ") + (step.text || ""), autoFocus: true, onAdd: (text) => onAddInside(step.id, text), onDone: () => setAdding(false) }),
       ),
   );
@@ -221,12 +309,12 @@ function AddLine({ React: R, className, placeholder, label, autoFocus, onAdd, on
 
 // A task's steps: the toggle shows how many are done and the next open one,
 // so the steps are in sight without opening anything.
-function StepsToggle({ React: R, block, language, open, onToggle }) {
+function StepsToggle({ React: R, block, language, flow, open, onToggle }) {
   const h = R.createElement,
     fa = language === "fa",
     t = words(fa),
     count = DDengineStepCount(block.subtasks),
-    next = DDengineNextStep(block.subtasks);
+    next = DDengineNextStep(block.subtasks, (step) => flow && DDflowWaitingOn(flow.items, DDflowStepRef(block.id, step.id)).length > 0);
   return h(
     "button",
     {
@@ -244,7 +332,7 @@ function StepsToggle({ React: R, block, language, open, onToggle }) {
 }
 
 // The steps themselves, nested, each one ticked, renamed or removed in place.
-function StepsTree({ React: R, block, language, onChange, makeId, onClose }) {
+function StepsTree({ React: R, block, language, flow, onChange, makeId, onClose }) {
   const h = R.createElement,
     t = words(language === "fa"),
     setSteps = (fn) => onChange((b) => ({ ...b, subtasks: fn(b.subtasks || []) })),
@@ -259,6 +347,8 @@ function StepsTree({ React: R, block, language, onChange, makeId, onClose }) {
         step,
         depth: 0,
         language,
+        blockId: block.id,
+        flow,
         onTick: (id) => onChange((b) => DDtoggleSubtask(b, id)),
         onRename: (id, text) => setSteps((items) => mapSteps(items, id, (s) => ({ ...s, text }))),
         onRemove: (id) => setSteps((items) => dropStep(items, id)),
@@ -280,7 +370,7 @@ function StepsTree({ React: R, block, language, onChange, makeId, onClose }) {
 
 // The quiet details of one task, opened with ⋯: kind, priority, energy, time,
 // section, lane, note and the actions that move it.
-function Details({ React: R, block, place, lanes, types = [], sources, language, onChange, actions }) {
+function Details({ React: R, block, place, lanes, types = [], sources, language, flow, onChange, actions }) {
   const h = R.createElement,
     fa = language === "fa",
     t = words(fa),
@@ -349,6 +439,7 @@ function Details({ React: R, block, place, lanes, types = [], sources, language,
         sources.map((s) => h("option", { key: s.id, value: s.id, style: s.tint ? { background: s.tint.fill, color: s.tint.ink } : undefined }, "↖ " + sourcePath(s).short)),
       ),
     ),
+    flow && field(t("After", "بعد از"), h(AfterEditor, { React: R, flow, refId: DDflowTaskRef(block.id), language })),
     place === "today" &&
       lanes.length > 1 &&
       field(
@@ -431,6 +522,8 @@ function TaskRow(props) {
       onFocusTimer,
       onOpenSection,
       makeId,
+      flow,
+      wave,
       Emoji,
     } = props,
     h = R.createElement,
@@ -438,6 +531,8 @@ function TaskRow(props) {
     t = words(fa),
     [editing, setEditing] = R.useState(false),
     [tools, setTools] = R.useState(false),
+    after = flow ? (flow.items.get(DDflowTaskRef(block.id))?.after || []).map((ref) => flow.items.get(ref)).filter(Boolean) : [],
+    waiting = flow && !block.done ? DDflowWaitingOn(flow.items, DDflowTaskRef(block.id)) : [],
     kind = DDmeasureOf(block),
     today = place === "today",
     pri = Number(block.pri) || 0,
@@ -452,6 +547,8 @@ function TaskRow(props) {
       // Ticking a task here gets the same small reaction as everywhere (playful.js).
       ...(place === "today" ? { "data-playful-task": block.id } : {}),
       "data-place": place,
+      "data-wave": wave,
+      "data-waiting-on": waiting.length ? waiting.map((item) => item.ref).join(" ") : undefined,
       "data-done": !!block.done,
       "data-kind": kind,
       "data-pri": pri || undefined,
@@ -507,7 +604,14 @@ function TaskRow(props) {
         { className: "dd-engine-meta" },
         today && kind !== "time" && h(DDMeasureControl, { React: R, block, language, onChange }),
         kind === "time" && Number(block.min) > 0 && h("span", { className: "dd-engine-min" }, DDmeasureText(block, language)),
-        h(StepsToggle, { React: R, block, language, open: stepsOpen, onToggle: onToggleSteps }),
+        h(StepsToggle, { React: R, block, language, flow, open: stepsOpen, onToggle: onToggleSteps }),
+        // What this task waits for (its own order, or a step's in another task).
+        (waiting.length > 0 || after.length > 0) &&
+          h(
+            "span",
+            { className: "dd-engine-after", "data-waiting": waiting.length > 0 || undefined, dir: "auto", title: t("After ", "بعد از ") + flowNames(waiting.length ? waiting : after, fa) },
+            (waiting.length ? "↳ " + t("After ", "بعد از ") : "✓ " + t("After ", "بعد از ")) + flowNames(waiting.length ? waiting : after, fa),
+          ),
         from &&
           h(
             onOpenSection ? "button" : "span",
@@ -525,7 +629,7 @@ function TaskRow(props) {
         h(DDTaskTags, { React: R, task: block, language }),
         block.at && h("span", { className: "dd-engine-min" }, block.at),
       ),
-      stepsOpen && h(StepsTree, { React: R, block, language, onChange, makeId, onClose: onToggleSteps }),
+      stepsOpen && h(StepsTree, { React: R, block, language, flow, onChange, makeId, onClose: onToggleSteps }),
       tools &&
         h(Details, {
           React: R,
@@ -535,6 +639,7 @@ function TaskRow(props) {
           types,
           sources,
           language,
+          flow,
           onChange,
           actions: [
             ["move", today ? t("→ Park", "→ پارک") : t("← Today", "← امروز"), () => onMove(block.id)],
@@ -636,7 +741,16 @@ export function DDEnginePanel(props) {
     shown = (list) => DDengineOrder(list.filter((b) => DDengineShows(b, show, query))),
     todayList = shown(blocks),
     parkList = shown(parked),
-    upNext = DDengineOrder(blocks).find((b) => !b.done && DDmeasureOf(b) !== "wait"),
+    // Order between today's tasks and steps (flow.js), changed for the whole day.
+    flow = {
+      items: DDflowItems(day),
+      add: (ref, before) => onChange((d) => DDflowAdd(d, ref, before)),
+      remove: (ref, before) => onChange((d) => DDflowRemove(d, ref, before)),
+    },
+    waitsNow = (b) => DDflowWaitingOn(flow.items, DDflowTaskRef(b.id)).length > 0,
+    upNext = DDengineOrder(blocks).find((b) => !b.done && DDmeasureOf(b) !== "wait" && !waitsNow(b)),
+    // With an order in the day, Today reads in waves: now, then, after that.
+    waves = show === "done" ? [] : DDflowWaves(day, blocks),
     // A change to one task of the day, or to one parked task.
     changeToday = (id) => (fn) => onChange((d) => ({ ...d, blocks: d.blocks.map((b) => (b.id === id ? fn(b) : b)) })),
     changePark = (id) => (fn) => onSetup((s) => ({ ...s, later: DDengineParked(s).map((b) => (b.id === id ? fn(b) : b)) })),
@@ -697,12 +811,13 @@ export function DDEnginePanel(props) {
         const copy = DDengineCopy(d.blocks[index], makeId);
         return { ...d, blocks: [...d.blocks.slice(0, index + 1), copy, ...d.blocks.slice(index + 1)] };
       }),
-    row = (block, place) =>
+    row = (block, place, wave) =>
       h(TaskRow, {
         key: block.id,
         React: R,
         block,
         place,
+        wave,
         next: place === "today" && block === upNext,
         focused: block.id === focusId,
         lanes,
@@ -721,7 +836,34 @@ export function DDEnginePanel(props) {
         onReveal,
         onFocusTimer,
         onOpenSection,
+        flow: place === "today" ? flow : null,
       }),
+    // One list, so a task keeps its open details when its wave changes; each
+    // wave starts with a small heading and its tasks carry the wave's rail.
+    todayRows = () => {
+      if (waves.length < 2) return h("ul", { className: "dd-engine-list" }, todayList.map((block) => row(block, "today")));
+      const visible = new Set(todayList.map((b) => b.id)),
+        names = [t("Now", "اکنون"), t("Next", "بعدی"), t("After that", "بعد از آن"), t("Later", "بعدتر")],
+        items = [];
+      waves.forEach((wave, index) => {
+        const list = DDengineOrder(wave.filter((b) => visible.has(b.id)));
+        if (!list.length) return;
+        const name = names[Math.min(index, 3)];
+        items.push(
+          h(
+            "li",
+            { key: "wave-" + index, className: "dd-engine-wave-head", "data-wave-head": index, role: "presentation" },
+            h("b", null, name),
+            list.length > 1 && h("span", { className: "dd-engine-wave-side", title: t("These can go side by side", "این‌ها می‌توانند هم‌زمان پیش بروند") }, "⇉ " + digits(list.length, fa) + t(" side by side", " هم‌زمان")),
+            index > 0 && list.length === 1 && h("span", { className: "dd-engine-wave-side" }, t("one after another", "پشت سر هم")),
+          ),
+          ...list.map((block) => row(block, "today", index)),
+        );
+      });
+      const done = todayList.filter((b) => b.done);
+      if (done.length) items.push(h("li", { key: "wave-done", className: "dd-engine-wave-head", "data-wave-head": "done", role: "presentation" }, h("b", null, t("Done", "انجام‌شده"))), ...done.map((block) => row(block, "today")));
+      return h("ul", { className: "dd-engine-list dd-engine-flow" }, items);
+    },
     emptyLine = (list, all, text) =>
       !list.length && h("p", { className: "dd-engine-empty" }, all.length ? t("Nothing here with this filter.", "با این فیلتر چیزی نیست.") : text),
     dayName = DDengineDayName(day.date, today, language);
@@ -834,7 +976,7 @@ export function DDEnginePanel(props) {
           h("span", null, day.date === today ? t("Today", "امروز") : t("Day", "روز"), h("em", null, " · " + dayName)),
           h("small", null, digits(blocks.filter((b) => b.done).length, fa) + "/" + digits(blocks.length, fa)),
         ),
-        h("ul", { className: "dd-engine-list" }, todayList.map((block) => row(block, "today"))),
+        todayRows(),
         emptyLine(todayList, blocks, t("Nothing planned yet. Add a task, or bring one from Park.", "هنوز کاری نیست. یک کار اضافه کن یا از پارک بیار.")),
         h(AddLine, { React: R, placeholder: t("+ New task", "+ کار تازه"), label: t("New task today", "کار تازه برای امروز"), onAdd: addToday }),
       ),
@@ -972,13 +1114,33 @@ export const DDenginePanelCSS = `
 .dd-engine-step-add input{font-size:12.5px;padding:5px 8px}
 .dd-engine-tag{flex:none;max-width:min(240px,70%);padding:1px 8px;border:1px solid;border-radius:999px;font:inherit;font-size:11px;font-weight:500;line-height:1.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:none}
 button.dd-engine-tag{cursor:pointer}
+.dd-engine-after,.dd-engine-step-after{flex:none;max-width:min(260px,80%);padding:1px 8px;border-radius:999px;font-size:11px;line-height:1.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-3,#666);background:var(--wash,#f1efe9)}
+.dd-engine-after[data-waiting],.dd-engine-step-after[data-waiting]{color:color-mix(in srgb,var(--panel-engine,#F05A28) 80%,var(--ink,#121211));background:color-mix(in srgb,var(--panel-engine,#F05A28) 10%,transparent)}
+.dd-engine-step-after{display:inline-block;max-width:calc(100% - 26px);margin:0 0 2px;margin-inline-start:26px}
+.dd-engine-task[data-waiting-on] .dd-engine-check{border-style:dashed;opacity:.7}
+.dd-engine-step[data-waiting=true]>.dd-engine-step-row .dd-engine-step-check{border-style:dashed}
+.dd-engine-after-edit{display:flex;flex-wrap:wrap;align-items:center;gap:5px;min-width:0}
+.dd-engine-after-chip{display:inline-flex;align-items:center;gap:2px;max-width:100%;padding:1px 3px 1px 9px;border-radius:999px;font-size:12px;background:color-mix(in srgb,var(--panel-engine,#F05A28) 10%,var(--paper,#fff));color:var(--ink,#121211);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--panel-engine,#F05A28) 25%,transparent)}
+.dd-engine-after-chip[data-done]{opacity:.6}
+.dd-engine-after-chip button{width:20px;height:20px;border-radius:50%;background:none;color:var(--ink-3,#666);font-size:13px;line-height:1}
+.dd-engine-after-chip button:hover{background:var(--wash,#eee)}
+.dd-engine-after-pick{max-width:220px;font:inherit;font-size:12px;padding:3px 8px;border-radius:999px;border:1px dashed var(--rule-2,#0003);background:transparent;color:var(--ink-2,#444)}
+.dd-engine-step-order{padding:2px 0 4px calc(22px + var(--depth,0) * 0px)}
+.dd-engine-flow>.dd-engine-task[data-wave]{margin-inline-start:14px}
+.dd-engine-flow>.dd-engine-task[data-wave]::before{content:"";position:absolute;inset-inline-start:-10px;top:-6px;bottom:-6px;border-inline-start:2px solid color-mix(in srgb,var(--panel-engine,#F05A28) 28%,transparent)}
+.dd-engine-wave-head{position:relative;display:flex;align-items:baseline;gap:8px;margin:8px 0 0;padding-inline-start:14px;font-size:12px;font-weight:500;color:var(--ink-2,#444)}
+.dd-engine-wave-head:first-child{margin-top:0}
+.dd-engine-wave-head::before{content:"";position:absolute;inset-inline-start:0;top:4px;width:10px;height:10px;border-radius:50%;background:color-mix(in srgb,var(--panel-engine,#F05A28) 55%,var(--paper,#fff))}
+.dd-engine-wave-head[data-wave-head=done]::before{background:var(--ok,#2E8B3A);opacity:.5}
+.dd-engine-wave-head b{font-weight:600;color:var(--ink,#121211)}
+.dd-engine-wave-side{font-size:11px;color:var(--ink-3,#666)}
 .dd-engine-emo{flex:none;align-self:center}
 .dd-engine-meta .dd-task-tags{display:inline-flex;flex-wrap:wrap;gap:6px;font-size:11px;color:var(--ink-3,#666)}
 .dd-engine-side{display:flex;align-items:center;gap:2px;flex:none}
 .dd-engine-move,.dd-engine-more{flex:none;width:26px;height:24px;border-radius:6px;background:none;color:var(--ink-3,#666);font-size:15px;line-height:1;opacity:0}
 .dd-engine-task:hover .dd-engine-move,.dd-engine-task:hover .dd-engine-more,.dd-engine-move:focus-visible,.dd-engine-more:focus-visible,.dd-engine-more[aria-expanded=true],.dd-engine-task[data-tools=open] .dd-engine-move{opacity:1}
 .dd-engine-move:hover,.dd-engine-more:hover,.dd-engine-more[aria-expanded=true]{background:var(--wash,#eee);color:var(--ink,#121211)}
-@media (hover:none){.dd-engine-move,.dd-engine-more{opacity:1;width:34px;height:34px}.dd-engine-steps-toggle[data-steps="0"]:not([aria-expanded=true]){opacity:1}.dd-engine-step-tool{display:none;opacity:1;width:30px;height:30px}.dd-engine-step-row:focus-within .dd-engine-step-tool{display:inline-block}}
+@media (hover:none){.dd-engine-move,.dd-engine-more{opacity:1;width:34px;height:34px}.dd-engine-steps-toggle[data-steps="0"]:not([aria-expanded=true]){opacity:1}.dd-engine-step-tool{opacity:1;width:30px;height:30px}}
 .dd-engine-details{display:flex;flex-direction:column;gap:8px;margin-top:2px;padding:10px;border-radius:9px;background:var(--wash,#f1efe9)}
 .dd-engine-field{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px}
 .dd-engine-field-label{min-width:84px;color:var(--ink-3,#666)}

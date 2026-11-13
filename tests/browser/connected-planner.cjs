@@ -292,10 +292,12 @@ const { start, fixture } = require("./harness.cjs");
         await page.locator(".b2-viewport").focus(); await page.keyboard.press("x");
         await page.locator('[data-board-id="b:writing"] .b4-node-body').click();
         await page.locator('[data-board-id="b:long"] .b4-node-body').click();
-        const line = (await read()).canvas.board4.links.find(
-          (l) => l.from === "b:writing" && l.to === "b:long",
-        );
-        assert.ok(line);
+        // A line from one task to another sets their order (5.51): Long comes
+        // after Writing, stored on the task, drawn as a dashed arrow.
+        assert.deepEqual((await read()).blocks.find((b) => b.id === "long").after, ["b:writing"]);
+        assert.equal((await read()).canvas.board4.links.some((l) => l.from === "b:writing" && l.to === "b:long"), false, "no separate board-only line");
+        const line = { id: "auto:after:b:long->b:writing" };
+        await page.locator('[data-wire-id="auto:after:b:writing->b:long"][data-wire-kind="order"]').waitFor();
         if (process.env.DEBUG_DAY_SCREENSHOTS) {
           mkdirSync(process.env.DEBUG_DAY_SCREENSHOTS, { recursive: true });
           await page.screenshot({
@@ -305,18 +307,13 @@ const { start, fixture } = require("./harness.cjs");
             ),
           });
         }
+        // Reversing an order line reverses the order: Writing now comes after Long.
         await page.locator(".b4-selectionbar").getByRole("button", { name: t("Reverse direction", "برعکس کردن جهت"), exact: true }).click();
-        const reversed = (await read()).canvas.board4.links.find(
-          (item) => item.id === line.id,
-        );
-        assert.equal(reversed.from, "b:writing");
-        assert.equal(reversed.to, "b:long");
-        // Reversing swaps the arrowheads: the one at the end moves to the start.
-        assert.equal(reversed.arrowStart, true);
-        assert.ok(!reversed.arrow);
+        await page.waitForFunction((date) => JSON.parse(localStorage.getItem("debug-day:v2")).days[date].blocks[0].after?.[0] === "b:long", f.date);
+        assert.equal("after" in (await read()).blocks.find((b) => b.id === "long"), false);
         assert.equal(
           await page
-            .locator('[data-wire-id="' + line.id + '"] [marker-start]')
+            .locator('[data-wire-id="' + line.id + '"] [marker-end]')
             .count(),
           1,
         );

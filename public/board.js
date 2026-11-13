@@ -1,5 +1,5 @@
 import { DDcompletion, DDTaskMetadata, DDTaskTags, DDpriorityLabel } from "./planner.js";
-import { DDreconcileDay, DDrelation, DDconnectRelation, DDdisconnectRelation, DDrewireRelation } from "./relations.js";
+import { DDreconcileDay, DDrelation, DDconnectRelation, DDdisconnectRelation, DDrewireRelation, DDremoveOrder, DDmoveOrder } from "./relations.js";
 import { DDconnectionGeometry } from "./connections.js";
 import { DDundoRevert } from "./board-history.js";
 import { DDcreateBoardLayout, DDengineShift } from "./board-layout.js";
@@ -2118,6 +2118,15 @@ export function DDcreateBoard(deps) {
     }
     function patchWire(Y, G, ct) {
       const current = layoutRef.current.edges.find((e) => e.id === Y);
+      // An order line: reversing it or moving an end changes which comes first.
+      if (current?.after && (Object.hasOwn(G, "from") || Object.hasOwn(G, "to"))) {
+        const from = G.from ?? current.from, to = G.to ?? current.to,
+          next = DDmoveOrder(dayRef.current, current, from, to, setup);
+        if (next === dayRef.current) { setStatus(t("This order is already set or would go round in a circle", "این ترتیب وجود دارد یا دور خودش می‌چرخد")); return; }
+        commit(() => next, t("Order updated in the Engine and Board", "ترتیب در انجین و برد تغییر کرد"));
+        setWireId("auto:after:" + from + "->" + to);
+        return;
+      }
       // Visual arrow direction is independent of the task's real parent.
       // Reversing swaps the two ends: a two-way line stays two-way.
       if (current && G.from === current.to && G.to === current.from) {
@@ -2162,8 +2171,10 @@ export function DDcreateBoard(deps) {
           setStatus(t("This relationship is already set, locked or would create a cycle", "این رابطه وجود دارد، قفل است یا یک چرخه ایجاد می‌کند"));
           return;
         }
-        commit(() => relation, t("Relationship updated in the Engine and Board", "رابطه در انجین و برد تغییر کرد"));
-        setWireId(null); setSelected(new Set());
+        const order = DDrelation(Y, G, laneIds)?.kind === "after";
+        commit(() => relation, order ? t("Order set: the second task comes after the first", "ترتیب ثبت شد: کار دوم بعد از اولی") : t("Relationship updated in the Engine and Board", "رابطه در انجین و برد تغییر کرد"));
+        // A new order line stays picked, like any line you draw (FigJam).
+        setWireId(order ? "auto:after:" + Y + "->" + G : null); setSelected(new Set());
         return;
       }
       if (layout.edges.some((St) => St.from === Y && St.to === G)) {
@@ -2207,6 +2218,10 @@ export function DDcreateBoard(deps) {
     }
     function deleteWire(Y = wireId) {
       const edge = layoutRef.current.edges.find((e) => e.id === Y);
+      if (edge?.after) {
+        commit(() => DDremoveOrder(dayRef.current, edge.from, edge.to, setup), t("Order removed; tasks kept", "ترتیب برداشته شد؛ کارها حفظ شدند"));
+        setWireId(null); return;
+      }
       if (edge?.automatic) {
         const next = DDdisconnectRelation(dayRef.current, edge.from, edge.to, setup);
         if (JSON.stringify(next) === JSON.stringify(dayRef.current)) {
@@ -5713,6 +5728,7 @@ export function DDcreateBoard(deps) {
                     {
                       key: Y.id,
                       "data-wire-id": Y.id,
+                      "data-wire-kind": Y.after ? "order" : Y.automatic ? "tree" : undefined,
                       ref: (ot) => {
                         ot
                           ? wireRefs.current.set(Y.id, ot)
@@ -5764,7 +5780,8 @@ export function DDcreateBoard(deps) {
                       // FigJam lines are grey and keep their weight relative to the canvas.
                       stroke: Y.color || "var(--dd-wire,#757575)",
                       // Width is set in CSS from --w so it never gets too thin on screen.
-                      style: { "--w": Y.width || 3, opacity: Y.opacity ?? 1 },
+                      // With cards picked, their own lines stay clear and the rest step back.
+                      style: { "--w": Y.width || 3, opacity: (Y.opacity ?? 1) * (selected.size && !ct && !selected.has(Y.from) && !selected.has(Y.to) ? 0.3 : 1) },
                       strokeDasharray:
                         Y.pattern === "dotted"
                           ? "1 5"
