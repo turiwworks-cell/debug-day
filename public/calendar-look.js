@@ -163,11 +163,85 @@ export const DDcalendarLookCSS = `
 .dd-review-root .dd-review-overview h2{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:15px}
 .dd-cal-load-word{padding:2px 10px;border-radius:999px;background:var(--paper);box-shadow:inset 0 0 0 1px var(--rule-2);font-size:12px;font-weight:500;color:var(--ink)}
 .dd-review-root .dd-review-overview .dd-cal-meter{height:8px;margin:12px 0 0}
-.dd-review-root .dd-review-overview dl{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0 0}
+.dd-review-root .dd-review-overview dl{grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:10px;margin:12px 0 0}
 .dd-review-root .dd-review-overview dd{font-size:20px;line-height:1.3;margin:2px 0 0;font-weight:600;font-variant-numeric:tabular-nums}
 .dd-review-root .dd-review-overview .dd-review-focus{grid-column:1/-1}
 .dd-review-root .dd-review-overview .dd-review-focus dd{font-size:15px;font-weight:500}
 .dd-cal-hint{margin:10px 0 0!important;font-size:12.5px;color:var(--ink-2,var(--muted))}
+/* reminders (5.58): a list beside the month, and a chip on each day */
+.dd-review-root{--rem:#7A5AF8;--rem-ink:color-mix(in srgb,#7A5AF8 72%,var(--ink))}
+.dd-review-root .dd-review-columns.dd-cal-three>.dd-review-calendar{grid-area:month}
+.dd-review-root .dd-review-columns.dd-cal-three>.dd-cal-reminders{grid-area:list}
+.dd-review-root .dd-review-columns.dd-cal-three>.dd-review-day{grid-area:day}
+.dd-review-root .dd-review-columns.dd-cal-three{grid-template-areas:"month day" "list day";grid-template-rows:auto 1fr}
+@media (min-width:1280px){
+ .dd-review-root{max-width:none}
+ .dd-review-root .dd-review-columns.dd-cal-three{width:min(1440px,calc(100vw - 48px));margin-inline:calc((100% - min(1440px,calc(100vw - 48px))) / 2);grid-template-columns:236px minmax(0,1fr) 340px;grid-template-areas:"list month day";grid-template-rows:auto}
+ .dd-review-root .dd-review-columns.dd-cal-three>.dd-cal-reminders{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;scrollbar-width:thin}
+}
+.dd-cal-reminders{align-self:start;display:flex;flex-direction:column;gap:8px;padding:14px 12px;border:1px solid var(--rule-2);border-radius:16px;background:var(--paper);box-shadow:0 1px 2px #0000000d}
+.dd-cal-reminders header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 4px}
+.dd-review-root .dd-cal-reminders h2{display:flex;align-items:center;gap:7px;font-size:15px}
+.dd-cal-reminders h2 svg{width:15px;height:15px;color:var(--rem)}
+.dd-cal-count{min-width:22px;padding:0 7px;border-radius:999px;background:color-mix(in srgb,var(--rem) 16%,transparent);color:var(--rem-ink);font-size:12px;font-weight:600;text-align:center;line-height:20px}
+.dd-cal-reminders ol{display:flex;flex-direction:column;gap:2px;margin:0;padding:0;list-style:none}
+.dd-review-root .dd-cal-reminders li button{display:flex;flex-direction:column;align-items:stretch;gap:1px;width:100%;min-height:0;padding:7px 8px;border:0;border-radius:10px;background:none;color:var(--ink);text-align:start;line-height:1.35}
+.dd-review-root .dd-cal-reminders li button:hover{background:var(--wash)}
+.dd-review-root .dd-cal-reminders li button[aria-pressed=true]{background:color-mix(in srgb,var(--rem) 13%,transparent);color:var(--ink);border:0}
+.dd-cal-reminders time{font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--muted)}
+.dd-cal-reminders li[data-today] time{color:var(--rem-ink)}
+.dd-cal-reminders li[data-past]{opacity:.55}
+.dd-cal-reminder{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13.5px;font-weight:500}
+.dd-cal-reminder i{font-style:normal;color:var(--muted);font-weight:400}
+.dd-cal-reminder[data-done]{text-decoration:line-through;color:var(--muted)}
+.dd-review-root .dd-cal-reminders-empty{margin:0;padding:0 4px;font-size:12.5px;color:var(--muted)}
+.dd-cal-rem{display:flex;align-items:center;gap:4px;min-width:0;padding:2px 6px;border-radius:6px;background:color-mix(in srgb,var(--rem) 15%,var(--paper));color:var(--rem-ink);font-size:11px;font-weight:600;line-height:1.35}
+.dd-cal-rem svg{flex:none}
+.dd-cal-rem span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dd-cal-rem b{flex:none;font-weight:600;opacity:.8}
+.dd-cal-rem[data-done]{opacity:.55}
+.dd-cal-rem[data-done] span{text-decoration:line-through}
+/* the day beside the month: compact cards */
+.dd-review-root .dd-review-day{display:flex;flex-direction:column;gap:12px}
+.dd-review-root .dd-review-day>section,.dd-review-root .dd-review-day>.dd-review-overview{margin:0}
+.dd-review-root .dd-review-tasks,.dd-review-root .dd-review-reminders,.dd-review-root .dd-review-notes,.dd-review-root .dd-review-worries{padding:14px 16px;border-radius:14px;line-height:1.5;box-shadow:0 1px 2px #0000000d}
+.dd-review-root .dd-review-day h2{font-size:15px;line-height:1.4}
+.dd-review-root .dd-review-section-heading{margin-bottom:4px;align-items:center;gap:8px}
+.dd-review-root .dd-review-section-heading .btn{min-height:30px;padding:0 10px;font-size:12px;border-radius:8px}
+.dd-review-root .dd-review-task{padding:4px 0;border-top:1px solid var(--rule,var(--rule-2))}
+.dd-review-root .dd-review-task:first-of-type{border-top:0}
+.dd-review-root .dd-review-task-main{gap:8px}
+.dd-review-root .dd-review-check{display:grid;place-items:center;width:22px;height:22px;min-height:0;padding:0;border:1.5px solid var(--ink-3,var(--muted));border-radius:50%;color:transparent;font-size:12px;line-height:1}
+.dd-review-root .dd-review-check[aria-pressed=true]{background:#2BA672;border-color:#2BA672;color:#fff}
+.dd-review-root .dd-review-task-name{min-height:32px;padding:4px 2px!important;font-size:14px!important;background:none}
+.dd-review-root .dd-review-task-name:hover{background:none;text-decoration:underline;text-underline-offset:3px}
+.dd-review-root .dd-review-minutes{padding:1px 8px;border-radius:999px;background:var(--wash);font-size:11.5px;font-variant-numeric:tabular-nums}
+.dd-review-root .dd-review-task-options{padding-inline-start:30px}
+.dd-review-root .dd-review-task-options summary{min-height:0;padding:0 0 4px;font-size:11.5px}
+.dd-review-root .dd-review-task-options[open]{padding-bottom:6px}
+.dd-review-root .dd-review-move label{font-size:12px}
+.dd-review-root .dd-review-move input,.dd-review-root .dd-review-move button{min-height:34px;padding:4px 10px;font-size:12.5px;border-radius:8px}
+.dd-review-root .dd-review-task-add{flex-wrap:nowrap;align-items:center;gap:8px;margin-top:10px}
+.dd-review-root .dd-review-task-add label{flex:1;gap:0;font-size:0}
+.dd-review-root .dd-review-task-add input,.dd-review-root .dd-review-reminder-add input,.dd-review-root .dd-review-reminder-add select{min-height:36px;padding:6px 10px;font-size:13.5px;border-radius:9px}
+.dd-review-root .dd-review-task-add>button{width:auto;min-height:36px;padding:0 14px;border-radius:9px;white-space:nowrap}
+.dd-review-root .dd-review-empty{padding:2px 0 6px;font-size:13px}
+.dd-review-root .dd-review-reminders h2{margin-bottom:6px}
+.dd-review-root .dd-review-reminder{margin:6px 0;padding:6px 0 6px 10px;border:0;border-inline-start:3px solid var(--rem);border-radius:2px}
+.dd-review-root .dd-review-reminder strong{font-size:14px;font-weight:600}
+.dd-review-root .dd-review-reminder small{font-size:11.5px}
+.dd-review-root .dd-review-item-actions{margin-top:6px;gap:4px}
+.dd-review-root .dd-review-item-actions button{min-height:28px;padding:0 10px;font-size:11.5px;border-radius:999px}
+.dd-review-root .dd-review-reminders details>summary,.dd-review-root .dd-review-notes details>summary{min-height:0;padding:6px 0 0;font-size:12.5px}
+.dd-review-root .dd-review-reminder-add{gap:8px;margin-top:8px}
+.dd-review-root .dd-review-reminder-add label{font-size:12px;gap:4px}
+.dd-review-root .dd-review-reminder-add button{min-height:34px;padding:0 12px;border-radius:9px}
+.dd-review-root .dd-review-notes p{margin:4px 0;font-size:13.5px}
+@media (pointer:coarse){
+ .dd-review-root .dd-review-check{width:30px;height:30px}
+ .dd-review-root .dd-review-item-actions button,.dd-review-root .dd-review-section-heading .btn{min-height:38px}
+ .dd-review-root .dd-cal-reminders li button{min-height:44px}
+}
 @media (max-width:1100px){.dd-review-root .dd-review-columns{grid-template-columns:minmax(0,1fr) minmax(280px,330px)}.dd-review-root .dd-review-month-grid button.dd-review-date{min-height:92px;padding:8px}}
 @media (max-width:900px){
  .dd-review-root .dd-review-columns{display:flex;flex-direction:column}
@@ -191,7 +265,8 @@ export const DDcalendarLookCSS = `
  .dd-review-root .dd-review-month-grid button.dd-review-date{min-height:64px;padding:6px 4px 5px;border-radius:9px;gap:3px}
  .dd-review-root .dd-review-date strong{font-size:14px}
  .dd-review-root .dd-review-month-grid .dd-review-date.today strong{min-width:22px;height:22px;margin:-3px 0;padding:0 3px}
- .dd-cal-alt,.dd-cal-meta,.dd-cal-word{display:none}
+ .dd-cal-alt,.dd-cal-meta,.dd-cal-word,.dd-cal-rem span,.dd-cal-rem b{display:none}
+ .dd-cal-rem{justify-content:center;padding:1px 0}
  .dd-review-root .dd-review-date-mood{font-size:11px}
  .dd-review-root .dd-review-date-top{flex-direction:column;align-items:center;gap:2px}
  .dd-cal-marks{min-height:12px}

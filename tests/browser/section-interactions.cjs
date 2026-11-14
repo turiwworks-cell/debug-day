@@ -45,6 +45,10 @@ const {join}=require('node:path');
     assert.equal(await note.locator('textarea').count(),0,'short touch drags do not enter edit mode');
     await page.locator('[data-sections-button]').click();
     await page.locator('.dd-flow [data-flow-node="b"] .dd-flow-pill').dispatchEvent('contextmenu');
+    // The menu focuses its first item and scrolls itself into view a frame later; tap once it has settled,
+    // or a slow runner taps where the button was before the scroll.
+    await page.waitForFunction(()=>document.activeElement?.closest('.dd-flow-menu'));
+    await page.evaluate(()=>new Promise((r)=>requestAnimationFrame(()=>requestAnimationFrame(r))));
     await page.locator('.dd-flow [data-flow-show="b"]').tap();await page.locator('.dd-flow').waitFor({state:'detached'});
     assert.equal(await page.locator('[data-life-id="b"]').getAttribute('aria-selected'),'true','section navigator is reachable on phones');
    }else{

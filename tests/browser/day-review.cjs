@@ -117,6 +117,14 @@ async function scenario(h, mobile, language) {
   assert.match(await todayCell.getAttribute("aria-label"), /0 of 2 tasks done/);
   assert.equal(await todayCell.locator(".dd-cal-meter").count(), 1);
   assert.match(await page.locator(".dd-cal-summary").innerText(), /tasks done/);
+  // Reminders (5.58): a list beside the month names each one, the day shows a chip, and a click picks the day.
+  const list = page.locator(".dd-cal-reminders");
+  assert.match(await list.innerText(), /Weekly reminder/);
+  assert.match(await todayCell.locator(".dd-cal-rem").textContent(), /Weekly reminder/, "the name is in the chip (phones show only the bell)");
+  assert.equal(await todayCell.getAttribute("data-reminders"), "1");
+  await activate(list.locator(`[data-cal-reminder-day="${f.last}"]`));
+  await page.waitForFunction((date) => document.querySelector(".dd-review-day time")?.dateTime === date, f.last);
+  assert.deepEqual(await read(page), baseline, "picking a reminder day changes nothing");
   await select(f.last);
   if (mobile)
     await page.waitForFunction(
