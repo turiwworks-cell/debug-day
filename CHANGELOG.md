@@ -1,3 +1,7 @@
+## 5.77.2 — 2026-11-14
+Branch: claude/project-thread-n79ngv
+- Going to the Board from the Calendar, from search (Ctrl+Space) or from a Sections or Engine row no longer turns on full screen on a computer. The Board opens as it is; full screen comes only when you press Full screen (on a phone the Board still starts full screen).
+
 ## 5.77.1 — 2026-11-14
 Branch: claude/project-thread-n79ngv
 - Settings: the Park button no longer floats up over the Board and Calendar tabs and the full-screen button. Settings has no Park tray now; Park is still in the Engine.
