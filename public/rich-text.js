@@ -19,6 +19,8 @@ function lineRange(text, start, end) {
 }
 function eachLine(text, start, end, fn) {
   const [a, b] = lineRange(text, start, end), lines = text.slice(a, b).split("\n"), value = fn(lines).join("\n");
+  // With nothing chosen, the caret stays with its words (5.63).
+  if (start === end) { const at = Math.max(a, start + value.length - (b - a)); return { text: text.slice(0, a) + value + text.slice(b), start: at, end: at }; }
   return { text: text.slice(0, a) + value + text.slice(b), start: a, end: a + value.length };
 }
 function wrap(text, start, end, mark) {
@@ -62,7 +64,7 @@ export function DDrichFormat(text, start, end, kind, arg) {
   if (kind in PREFIX) {
     const prefix = PREFIX[kind];
     return eachLine(text, start, end, (lines) => {
-      const all = prefix && lines.filter((l) => l.trim()).every((l) => l.replace(/^\s*/, "").startsWith(prefix) && !(prefix === "# " && l.trim().startsWith("## ")));
+      const all = prefix && lines.some((l) => l.trim()) && lines.filter((l) => l.trim()).every((l) => l.replace(/^\s*/, "").startsWith(prefix) && !(prefix === "# " && l.trim().startsWith("## ")));
       return lines.map((l) => {
         if (!l.trim() && lines.length > 1) return l;
         const m = l.match(/^(\s*)/), lead = m[1], body = l.slice(lead.length).replace(/^(#{1,2} |-# |> )/, "");

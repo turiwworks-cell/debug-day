@@ -33,6 +33,7 @@ import { DDuseBoardPhotos, DDboardPhotosCSS } from "./board-photos.js";
 import { DDshapeCSS, DDShapeLayer, DDshapeSVG, DDshapeTextBox, DDshapeKind, DDshapeLast, DDshapeRemember, DDshapeRow, DDShapeIcon, DDShapePicker, DDShapeColors } from "./shapes.js";
 import { DDRichText, DDrichFormat, DDrichKey, DDrichEnter, DDrichTab, DDrichPlain, DDrichShortcuts, DDrichCSS } from "./rich-text.js";
 import { DDuseEyedropper, DDdropperCSS, DDdropperScreen, DDdropperScreenPick } from "./eyedropper.js";
+import { DDDocCard, DDDocumentView, DDdocCSS, DDdocSize, DDdocFromNote } from "./documents.js";
 import { DDtrashAdd, DDtrashRestore, DDtrashLabel } from "./trash.js";
 import { DDcanvasTidy } from "./upkeep.js";
 import { DDdueText, DDdueDate, DDdueDaysLeft, DDdueSet, DDDueEditor } from "./deadlines.js";
@@ -90,7 +91,7 @@ export function DDcreateBoard(deps) {
   DDinstallSectionTagStyles();
   // Comments, pen, note tags and parent notes (5.36).
   if (typeof document !== "undefined" && !document.getElementById("dd-board-tools-css"))
-    document.head.append(Object.assign(document.createElement("style"), { id: "dd-board-tools-css", textContent: DDpenCSS + DDcommentsCSS + DDnoteTagsCSS + DDnoteFamilyCSS + DDboardPhotosCSS + DDshapeCSS + DDdropperCSS + DDrichCSS }));
+    document.head.append(Object.assign(document.createElement("style"), { id: "dd-board-tools-css", textContent: DDpenCSS + DDcommentsCSS + DDnoteTagsCSS + DDnoteFamilyCSS + DDboardPhotosCSS + DDshapeCSS + DDdropperCSS + DDdocCSS + DDrichCSS }));
   DDinstallLinkedStyles();
   // The note being written keeps its own text while you type, so a key redraws
   // only this box and not the whole board (5.47). The board hears each key
@@ -253,6 +254,8 @@ export function DDcreateBoard(deps) {
       // Shapes (5.59): the shape the tool draws, and which shape menu is open.
       [shapeKind, setShapeKind] = useState(() => DDshapeLast().shape),
       [shapeMenu, setShapeMenu] = useState(null),
+      // The document open full size (5.63), by its board id.
+      [docOpen, setDocOpen] = useState(null),
       // Text formatting (5.61): the Text style menu and the link box.
       [textMenu, setTextMenu] = useState(null),
       [linkPop, setLinkPop] = useState(null),
@@ -2538,6 +2541,8 @@ export function DDcreateBoard(deps) {
     function openEdit(Y) {
       flushNote();
       const G = layout.map.get(Y);
+      // A document opens full size to read and write (5.63).
+      if (G?.doc) { setConnecting(null); setTool("select"); setWireId(null); setDocOpen(Y); return; }
       !G ||
         G.kind === "frame" ||
         G.kind === "lane" ||
@@ -2804,6 +2809,36 @@ export function DDcreateBoard(deps) {
       if (kind) DDshapeRemember({ shape: k.id });
       return addSticky(center, { w, h, color: last.fill, textSize: 16, look });
     }
+    // A new document (5.63): a card on the board, open full size to write in.
+    function addDocument(at) {
+      const ref = addSticky(at, { w: DDdocSize.card.width, h: DDdocSize.card.height, color: "#FFFFFF", textSize: 16, look: { doc: true } });
+      setDocOpen(ref);
+      return ref;
+    }
+    // A note becomes a document and back; its words stay as they are.
+    function toggleDocument(node) {
+      if (!node || locked.has(node.id)) return;
+      const toDoc = !node.doc;
+      commit((d) => {
+        const next = core.setStyle(d, [node], toDoc ? { doc: true, plain: null, width: Math.max(node.w, DDdocSize.card.width), height: Math.max(node.h, DDdocSize.card.height) } : { doc: null, docView: null });
+        if (toDoc) {
+          const note = node.lifeId ? next.__life?.items.find((i) => i.id === node.lifeId) : next.notes?.find((n) => n.id === node.noteId);
+          if (note) note.text = DDdocFromNote(note.text);
+        }
+        return next;
+      }, toDoc ? t("Now a document · double-click to open it", "حالا یک داکیومنت است") : t("Now a note", "حالا یک نوت است"));
+    }
+    // The words of a document, written in its full-size view.
+    function setDocumentText(ref, text) {
+      const node = layout.map.get(ref);
+      if (!node || locked.has(ref)) return;
+      commit((d) => {
+        const note = node.lifeId ? d.__life.items.find((i) => i.id === node.lifeId) : d.notes.find((n) => n.id === node.noteId);
+        if (!note || note.text === text) return null;
+        note.text = text;
+        return d;
+      }, null);
+    }
     // A text object can grow to 640 wide before it wraps; its box hugs the words.
     function addText(point) {
       return addSticky(point, { w: 640, h: 40, textSize: 24, plain: true });
@@ -2841,7 +2876,7 @@ export function DDcreateBoard(deps) {
       }
       // A photo lands picked, not open for typing (double-click adds a caption).
       // A shape lands picked too: Enter or a double-click writes in it.
-      if(template.media||template.look?.shape){setSelected(new Set([ref]));setTool("select");return ref;}
+      if(template.media||template.look?.shape||template.look?.doc){setSelected(new Set([ref]));setTool("select");return ref;}
       setSelected(new Set([ref]));setTool("select");setEditing({ref,value:""});
       revealEdit({kind:"sticky",x:at.x-width/2,y:at.y-height/2,w:width,h:height,textSize:template.textSize||16});
       return ref;
@@ -3390,7 +3425,7 @@ export function DDcreateBoard(deps) {
             if (
               !alignUndo &&
               ot.target.closest(
-                "input,textarea,select,[contenteditable=true],.dd-note-tag-editor,.dd-note-tags,.b6-context,.b6-properties,.b6-camera,.b6-view-panel,.dd-board-timer,.dd-board-search,.b4-help-backdrop,.dd-engine-backdrop,.dd-flow-backdrop,.dd-board-rails,.dd-due-editor",
+                "input,textarea,select,[contenteditable=true],.dd-doc-backdrop,.dd-note-tag-editor,.dd-note-tags,.b6-context,.b6-properties,.b6-camera,.b6-view-panel,.dd-board-timer,.dd-board-search,.b4-help-backdrop,.dd-engine-backdrop,.dd-flow-backdrop,.dd-board-rails,.dd-due-editor",
               ) ||
               (ot.target.closest("[role=dialog]") &&
                 !root.current?.contains(ot.target))
@@ -4120,7 +4155,7 @@ export function DDcreateBoard(deps) {
           tabIndex: Y.lifeId ? 0 : St ? -1 : 0,
           className:
             "b4-node b4-" +
-            Y.kind + (Y.lifeSection ? " b4-frame" : "") + (Y.plain ? " b4-plain" + (Y.fixed ? "" : " b4-fit") : "") + (Tt && Y.shape ? " b4-shape" : "") +
+            Y.kind + (Y.lifeSection ? " b4-frame" : "") + (Y.plain ? " b4-plain" + (Y.fixed ? "" : " b4-fit") : "") + (Tt && Y.shape ? " b4-shape" : "") + (Tt && Y.doc ? " b4-doc" + (Y.docView === "icon" ? " b4-doc-icon" : "") : "") +
             (G ? " selected" : "") +
             (ct ? " locked" : "") +
             (connecting === Y.id ? " connecting" : ""),
@@ -4237,6 +4272,8 @@ export function DDcreateBoard(deps) {
                               Kt.stopPropagation()));
                         },
                       })
+                    : Tt && Y.doc
+                      ? _.createElement(DDDocCard, { React: _, node: Y, language: DDlanguage })
                     : Tt
                       ? _.createElement(
                           _.Fragment,
@@ -5273,6 +5310,7 @@ export function DDcreateBoard(deps) {
           item("arena", "From Are.na…", "از Are.na…", "photo", () => photos.arena()),
           item("photo", "Photo or video…", "عکس یا ویدیو…", "photo", () => photos.pick()),
           item("eyedropper", "Eyedropper", "قطره‌چکان", "eyedropper", () => startDropper(null), { shortcut: "I" }),
+          item("document", "Document", "داکیومنت", "document", () => addDocument(null)),
           sep("tools-view-sep"),
           item("view", "Canvas settings…", "تنظیمات بوم…", "settings", () => { setViewPanel(true); setProperties(false); setInspector(false); }),
         ];
@@ -5426,6 +5464,9 @@ export function DDcreateBoard(deps) {
         ].filter(Boolean) : [];
         const dueItem = (sticky || selectedNode?.lifeSection) && selectedNodes.length === 1 && item("deadline", selectedNode.due ? "Deadline · " + DDdueDate(selectedNode.due, "en") : "Deadline…", selectedNode.due ? "ددلاین · " + DDdueDate(selectedNode.due, "fa") : "ددلاین…", "deadline", () => setDueEdit({ ref: selectedNode.id, x: menu.x, y: menu.y }), { checked: !!selectedNode.due });
         const more = [
+          // Documents (5.63): a note becomes a document and back; a document shows as a card or an icon.
+          sticky && selectedNodes.length === 1 && !selectedNode.shape && !selectedNode.photo && item("doc-convert", selectedNode.doc ? "Convert to note" : "Convert to document", selectedNode.doc ? "تبدیل به نوت" : "تبدیل به داکیومنت", "document", () => toggleDocument(selectedNode), { disabled: allLocked }),
+          sticky && selectedNode.doc && item("doc-view", selectedNode.docView === "icon" ? "Show as card" : "Show as icon", selectedNode.docView === "icon" ? "نمایش به شکل کارت" : "نمایش به شکل آیکون", "document", () => applyStyle({ docView: selectedNode.docView === "icon" ? null : "icon" }), { disabled: allLocked }),
           !selectedNode?.lifeId && dueItem,
           sticky && item("text-style", "Text style", "سبک متن", "bold", null, {
             disabled: allLocked,
@@ -6257,6 +6298,11 @@ export function DDcreateBoard(deps) {
       comments.screen(),
       noteTools.screen(),
       photos.screen(),
+      docOpen && layout.map.get(docOpen) && _.createElement(DDDocumentView, {
+        React: _, key: docOpen, text: layout.map.get(docOpen).title, language: DDlanguage, readOnly: locked.has(docOpen),
+        onChange: (text) => setDocumentText(docOpen, text),
+        onClose: () => { setDocOpen(null); setSelected(new Set([docOpen])); viewport.current?.focus({ preventScroll: true }); },
+      }),
       child &&
         _.createElement(
           "form",

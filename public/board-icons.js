@@ -133,6 +133,8 @@ export const DDboardIcons = {
   listNumber: "M8.5 5h8.5M8.5 10h8.5M8.5 15h8.5M3 3.5l1.2-.7V7M2.8 9.6a1 1 0 012 .3c0 .8-2 1.5-2 2.6h2.1M2.8 13.6h1.9l-1 1.2a1 1 0 11-.9 1.5",
   // The eyedropper (5.60): take a color from the board.
   eyedropper: "M13.5 3.2a2 2 0 012.8 2.8l-1.9 1.9.9.9-1.4 1.4-.9-.9-6.1 6.1H4.5v-2.4l6.1-6.1-.9-.9 1.4-1.4.9.9zM8.9 8.7l2.4 2.4",
+  // Documents (5.63): a page with a folded corner and lines.
+  document: "M5.5 2.5h6l4 4v11h-10zM11.5 2.5v4h4M8 10h5M8 13h5",
 };
 // Older names still used across the Board, and what each now draws.
 export const DDboardIconAliases = {

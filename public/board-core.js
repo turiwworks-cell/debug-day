@@ -1,5 +1,6 @@
 import{DDstickySnap}from"./stickies.js";
 import { DDshapeLook } from "./shapes.js";
+import { DDdocLook } from "./documents.js";
 // Pure board operations. View preferences stay on this device; object styles sync with the day.
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const finite = (value, fallback = 0) =>
@@ -241,6 +242,8 @@ export const DDboardCore = {
     if (p.fixed === true) next.fixed = true;
     // A shape is a note with a shape and its own fill and stroke (shapes.js).
     Object.assign(next, DDshapeLook(p));
+    // A document is a note for long writing (documents.js).
+    Object.assign(next, DDdocLook(p));
     return next;
   },
   styles(raw) {
@@ -269,7 +272,7 @@ export const DDboardCore = {
     for (const node of nodes) {
       let patch={...requestedPatch};
       if (locked.has(node.id)) continue;
-      if(node.kind === "sticky" && !node.plain && !node.shape && Number.isFinite(patch.width)) {
+      if(node.kind === "sticky" && !node.plain && !node.shape && !node.doc && Number.isFinite(patch.width)) {
         const item=node.lifeId?next.__life?.items.find(i=>i.id===node.lifeId):next.notes.find(i=>i.id===node.noteId);
         patch.width=DDstickySnap(patch.width,item?.baseW||240);
       }
