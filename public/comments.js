@@ -28,7 +28,8 @@ export function DDnormalizeComments(list, { life = false } = {}) {
       const text = typeof m.text === "string" ? m.text.slice(0, 2000) : "";
       if (!text.trim()) continue;
       ids.add(m.id);
-      thread.push({ id: m.id, text, at: stamp(m.at), ...(stamp(m.edited) ? { edited: stamp(m.edited) } : {}) });
+      const reactions = Array.isArray(m.reactions) ? [...new Set(m.reactions.filter((e) => typeof e === "string" && e && e.length <= 16))].slice(0, 12) : [];
+      thread.push({ id: m.id, text, at: stamp(m.at), ...(stamp(m.edited) ? { edited: stamp(m.edited) } : {}), ...(reactions.length ? { reactions } : {}) });
       if (thread.length >= 200) break;
     }
     if (!thread.length) continue;
@@ -102,43 +103,72 @@ function writeList(d, life, list) {
   d.canvas = { ...(d.canvas || {}), board4: board };
 }
 
-function Thread({ React: R, comment, place, sheet, side, drop, onPost, onEdit, onRemove, onResolve, onDelete, onClose }) {
-  const h = R.createElement, [text, setText] = R.useState(""), [edit, setEdit] = R.useState(null), box = R.useRef(null), list = R.useRef(null);
-  const fresh = !comment.thread.length;
-  R.useEffect(() => { box.current?.focus({ preventScroll: true }); }, [comment.id]);
+// Reactions, after Milanote: pick one from a short row; a click on it again takes it off.
+export const DDcommentReactions = ["👍", "❤️", "😂", "😮", "🎉", "👀", "🙏", "✨"];
+export function DDcommentReact(message, emoji) {
+  const list = Array.isArray(message?.reactions) ? message.reactions : [];
+  const next = list.includes(emoji) ? list.filter((e) => e !== emoji) : [...list, emoji];
+  const { reactions: _old, ...rest } = message || {};
+  return next.length ? { ...rest, reactions: next } : rest;
+}
+
+const icon = (h, d, size = 16) => h("svg", { width: size, height: size, viewBox: "0 0 20 20", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true }, h("path", { d }));
+const SMILE = "M10 17.5a7.5 7.5 0 100-15 7.5 7.5 0 000 15zM7 11.8c.8 1 1.8 1.5 3 1.5s2.2-.5 3-1.5M7.5 8h.01M12.5 8h.01";
+
+// One comment: its messages, reactions, Reply and Send.
+// `card`: a free comment drawn as a card on the board (Milanote). Unpicked it
+// shows its messages and a Reply button; picked it shows its tools and the box.
+function Thread({ React: R, comment, place, sheet, side, drop, card, picked, focus, unsent, texts, onPick, onPost, onEdit, onRemove, onReact, onResolve, onDelete, onClose }) {
+  const h = R.createElement, [text, setTextState] = R.useState(() => texts.get(comment.id) || ""), [edit, setEdit] = R.useState(null), [picker, setPicker] = R.useState(null);
+  const box = R.useRef(null), list = R.useRef(null);
+  const fresh = !comment.thread.length, full = !card || picked;
+  const setText = (v) => { setTextState(v); if (v) texts.set(comment.id, v); else texts.delete(comment.id); };
+  // A picked card waits for Reply (so Delete still deletes it); a new comment or a reply starts typing.
+  R.useEffect(() => { if (full && (!card || sheet || fresh || focus)) box.current?.focus({ preventScroll: true }); }, [comment.id, full, focus]);
   R.useEffect(() => { if (list.current) list.current.scrollTop = list.current.scrollHeight; }, [comment.thread.length]);
   const post = () => { if (!text.trim()) return; onPost(text.trim()); setText(""); };
+  const saveEdit = () => { if (!edit.text.trim()) return; onEdit(edit.id, edit.text.trim()); setEdit(null); };
   const keys = (e, send) => {
     e.stopPropagation();
     if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); }
     else if (e.key === "Escape") { e.preventDefault(); if (edit) setEdit(null); else onClose(); }
   };
-  return h("section", { className: "dd-thread" + (sheet ? " dd-thread-sheet" : ""), "data-side": side, "data-drop": drop || undefined, role: "dialog", "aria-label": fresh ? "New comment" : "Comment",
-    "data-comment-thread": comment.id, onPointerDown: (e) => e.stopPropagation(), onDoubleClick: (e) => e.stopPropagation(), onContextMenu: (e) => e.stopPropagation(), onWheel: (e) => e.stopPropagation() },
-    h("header", null,
-      h("small", { dir: "auto" }, place),
+  const stop = (e) => e.stopPropagation();
+  return h("section", { className: "dd-thread" + (sheet ? " dd-thread-sheet" : "") + (card ? " dd-comment-card" : ""), "data-side": card ? undefined : side, "data-drop": (!card && drop) || undefined,
+    "data-picked": (card && picked) || undefined, "data-unsent": unsent || undefined, role: card && !picked ? "group" : "dialog", "aria-label": fresh ? "New comment" : "Comment",
+    "data-comment-thread": comment.id, onPointerDown: card ? undefined : stop, onDoubleClick: stop, onContextMenu: stop, onWheel: card ? undefined : stop },
+    full && h("header", null,
+      h("small", { dir: "auto" }, unsent ? "Not sent yet · " + place : place),
       !fresh && h("button", { type: "button", className: "dd-thread-icon", "data-resolve": true, "aria-pressed": !!comment.done, title: comment.done ? "Reopen" : "Resolve · hides it from the board", "aria-label": comment.done ? "Reopen comment" : "Resolve comment", onClick: onResolve },
-        h("svg", { width: 16, height: 16, viewBox: "0 0 20 20", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true }, h("path", { d: "M4 10.5l4 4 8-9" }))),
+        icon(h, "M4 10.5l4 4 8-9")),
       !fresh && h("button", { type: "button", className: "dd-thread-icon", "data-delete-thread": true, title: "Delete comment", "aria-label": "Delete comment", onClick: onDelete },
-        h("svg", { width: 16, height: 16, viewBox: "0 0 20 20", fill: "none", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true }, h("path", { d: "M3.5 5.5h13M8 5.5V3h4v2.5M5.5 5.5l1 12h7l1-12" }))),
+        icon(h, "M3.5 5.5h13M8 5.5V3h4v2.5M5.5 5.5l1 12h7l1-12")),
       h("button", { type: "button", className: "dd-thread-icon", title: "Close", "aria-label": "Close comment", onClick: onClose }, "×")),
-    comment.thread.length > 0 && h("ol", { ref: list },
+    comment.thread.length > 0 && h("ol", { ref: list, onWheel: card ? (e) => { const el = list.current; if (el && el.scrollHeight > el.clientHeight + 1) e.stopPropagation(); } : undefined },
       comment.thread.map((m) => h("li", { key: m.id, "data-message-id": m.id },
         edit?.id === m.id
-          ? h("form", { className: "dd-thread-edit", onSubmit: (e) => { e.preventDefault(); if (edit.text.trim()) onEdit(m.id, edit.text.trim()); setEdit(null); } },
-              h("textarea", { autoFocus: true, dir: "auto", value: edit.text, rows: 2, maxLength: 2000, "aria-label": "Edit message", onChange: (e) => setEdit({ ...edit, text: e.target.value }),
-                onKeyDown: (e) => keys(e, () => { if (edit.text.trim()) onEdit(m.id, edit.text.trim()); setEdit(null); }) }),
-              h("span", null, h("button", { type: "button", onClick: () => setEdit(null) }, "Cancel"), h("button", { type: "submit", className: "solid" }, "Save")))
+          ? h("form", { className: "dd-thread-edit", onSubmit: (e) => { e.preventDefault(); saveEdit(); } },
+              h("textarea", { autoFocus: true, dir: "auto", value: edit.text, rows: 2, maxLength: 2000, "aria-label": "Edit message", onPointerDown: stop, onChange: (e) => setEdit({ ...edit, text: e.target.value }),
+                onKeyDown: (e) => keys(e, saveEdit) }),
+              h("span", null, h("button", { type: "button", onClick: () => setEdit(null) }, "Cancel"), h("button", { type: "submit", className: "solid", disabled: !edit.text.trim(), title: edit.text.trim() ? "" : "A comment can't be empty" }, "Save")))
           : h(R.Fragment, null,
               h("p", { dir: "auto" }, m.text),
+              m.reactions?.length > 0 && h("div", { className: "dd-reactions", role: "group", "aria-label": "Reactions" },
+                m.reactions.map((emo) => h("button", { type: "button", key: emo, "aria-pressed": true, "aria-label": "Remove reaction " + emo, title: "Take it off", onClick: () => onReact(m.id, emo) }, emo))),
+              picker === m.id && h("div", { className: "dd-reaction-pick", role: "group", "aria-label": "Pick a reaction" },
+                DDcommentReactions.map((emo) => h("button", { type: "button", key: emo, "aria-pressed": !!m.reactions?.includes(emo), "aria-label": "React " + emo, onClick: () => { onReact(m.id, emo); setPicker(null); } }, emo))),
               h("footer", null,
                 h("time", { dateTime: m.at, title: m.at ? new Date(m.at).toLocaleString() : undefined }, DDcommentTime(m.at) + (m.edited ? " · edited" : "")),
-                h("button", { type: "button", "aria-label": "Edit message", onClick: () => setEdit({ id: m.id, text: m.text }) }, "Edit"),
+                h("button", { type: "button", className: "dd-react-btn", "aria-label": "Add reaction", "aria-expanded": picker === m.id, title: "Reaction", onClick: () => setPicker(picker === m.id ? null : m.id) }, icon(h, SMILE, 14)),
+                h("button", { type: "button", "aria-label": "Edit message", onClick: () => { onPick?.(); setEdit({ id: m.id, text: m.text }); } }, "Edit"),
                 h("button", { type: "button", "aria-label": "Delete message", onClick: () => onRemove(m.id) }, "Delete")))))),
-    h("form", { className: "dd-thread-new", onSubmit: (e) => { e.preventDefault(); post(); } },
-      h("textarea", { ref: box, dir: "auto", rows: fresh ? 2 : 1, value: text, maxLength: 2000, placeholder: fresh ? "Write a comment…" : "Reply…", "aria-label": fresh ? "Write a comment" : "Reply",
-        onChange: (e) => setText(e.target.value), onKeyDown: (e) => keys(e, post) }),
-      h("button", { type: "submit", className: "solid", disabled: !text.trim() }, fresh ? "Post" : "Reply")));
+    full
+      ? h("form", { className: "dd-thread-new", onSubmit: (e) => { e.preventDefault(); post(); } },
+          h("textarea", { ref: box, dir: "auto", rows: fresh ? 2 : 1, value: text, maxLength: 2000, placeholder: fresh ? "Write a comment…" : "Reply…", "aria-label": fresh ? "Write a comment" : "Reply",
+            onPointerDown: stop, onChange: (e) => setText(e.target.value), onKeyDown: (e) => keys(e, post) }),
+          h("button", { type: "submit", className: "solid", disabled: !text.trim(), title: "Send · Enter" }, "Send"))
+      : h("footer", { className: "dd-card-foot" },
+          h("button", { type: "button", className: "dd-reply-btn", "aria-label": unsent ? "Finish comment" : "Reply to comment", onClick: () => onPick?.() }, unsent ? "Not sent · finish" : text ? "Reply · draft" : "Reply")));
 }
 
 // The comments on a board. `ctx` comes from the board.
@@ -148,6 +178,10 @@ export function DDuseComments(ctx) {
     [listOpen, setListOpen] = R.useState(false),
     [resolvedTab, setResolvedTab] = R.useState(false),
     [drag, setDrag] = R.useState(null),
+    // Comments typed but not sent yet (Milanote keeps nothing until Send).
+    [unsent, setUnsent] = R.useState([]),
+    [ghost, setGhost] = R.useState(null),
+    texts = R.useRef(new Map()).current,
     pending = R.useRef(null), ctxRef = R.useRef(ctx);
   ctxRef.current = ctx;
   const active = ctx.tool === "comment";
@@ -182,6 +216,14 @@ export function DDuseComments(ctx) {
     return o ? { x: o.x + c.x, y: o.y + c.y } : null;
   }
   const openKey = open?.key, openComment = open?.draft || all.find((c) => keyOf(c) === openKey) || null;
+  // Closing keeps what was typed: a new comment with words stays on the board as "not sent yet".
+  function closeOpen() {
+    const d = open?.draft;
+    if (d && (texts.get(d.id) || "").trim()) setUnsent((list) => [...list.filter((x) => x.id !== d.id), d]);
+    else if (d) setUnsent((list) => list.filter((x) => x.id !== d.id));
+    setOpen(null);
+  }
+  const reopenDraft = (d) => { ctxRef.current.clearBoardSelection(); setUnsent((list) => list.filter((x) => x.id !== d.id)); setOpen({ draft: d }); };
   // A comment that vanished (deleted elsewhere, undone) closes.
   R.useEffect(() => { if (open?.key && !openComment) setOpen(null); }, [open, openComment]);
   // A jump waits until its board has drawn, then comes to the pin and opens it.
@@ -207,6 +249,7 @@ export function DDuseComments(ctx) {
     if (open.draft) {
       const { draft, life, ...anchor } = c;
       write(life, (list) => [...list, { ...anchor, thread: [message] }], "Comment added");
+      setUnsent((list) => list.filter((x) => x.id !== c.id));
       setOpen({ key: (life ? "L:" : "D:") + c.id });
       ctxRef.current.setTool("select");
     } else patchComment(c, (x) => ({ ...x, thread: [...x.thread, message] }), null);
@@ -233,26 +276,38 @@ export function DDuseComments(ctx) {
     if (!owner) return null;
     return owner.life ? { life: true, parent: owner.parent, x: num(point.x - owner.x), y: num(point.y - owner.y) } : { life: false, x: num(point.x), y: num(point.y) };
   }
+  // A free spot (no card): the section it is in, or the day's board.
+  function freeAt(point) {
+    const c = ctxRef.current, owner = DDmarkOwner(c.layout, point, c.mode);
+    if (!owner) return null;
+    return owner.life ? { life: true, parent: owner.parent, x: num(point.x - owner.x), y: num(point.y - owner.y) } : { life: false, x: num(point.x), y: num(point.y) };
+  }
   function startAt(clientX, clientY) {
     const c = ctxRef.current, point = c.toWorld(clientX, clientY), anchor = anchorAt(clientX, clientY, point);
     if (!anchor) { c.setStatus("In Lanes, comment on a card or inside a section, or switch to the Mind map"); return; }
     c.clearBoardSelection();
-    setOpen({ draft: { id: newId("c-"), thread: [], draft: true, ...anchor } });
+    openDraft({ id: newId("c-"), thread: [], draft: true, ...anchor });
+  }
+  // A new comment; one still open with words in it waits on the board as "not sent yet".
+  function openDraft(d) {
+    const was = open?.draft;
+    if (was && (texts.get(was.id) || "").trim()) setUnsent((list) => [...list.filter((x) => x.id !== was.id), was]);
+    setOpen({ draft: d });
   }
   // Right-click "Add comment": on a card, at its top corner; on the canvas, at the spot.
   function addOn(ref) {
     const c = ctxRef.current, n = c.layout.map.get(ref), card = cardRef(n);
     if (!n) return;
-    if (card) setOpen({ draft: { id: newId("c-"), thread: [], draft: true, life: card.startsWith("life:"), on: card, fx: 1, fy: 0 } });
+    if (card) openDraft({ id: newId("c-"), thread: [], draft: true, life: card.startsWith("life:"), on: card, fx: 1, fy: 0 });
     else {
       const p = { x: n.x + n.w / 2, y: n.y + Math.min(n.h, 60) / 2 }, owner = DDmarkOwner(c.layout, p, c.mode);
-      if (owner) setOpen({ draft: { id: newId("c-"), thread: [], draft: true, ...(owner.life ? { life: true, parent: owner.parent, x: num(p.x - owner.x), y: num(p.y - owner.y) } : { life: false, x: num(p.x), y: num(p.y) }) } });
+      if (owner) openDraft({ id: newId("c-"), thread: [], draft: true, ...(owner.life ? { life: true, parent: owner.parent, x: num(p.x - owner.x), y: num(p.y - owner.y) } : { life: false, x: num(p.x), y: num(p.y) }) });
     }
   }
   function addAt(point) {
-    const c = ctxRef.current, owner = DDmarkOwner(c.layout, point, c.mode);
-    if (!owner) { c.setStatus("In Lanes, comment on a card or inside a section, or switch to the Mind map"); return; }
-    setOpen({ draft: { id: newId("c-"), thread: [], draft: true, ...(owner.life ? { life: true, parent: owner.parent, x: num(point.x - owner.x), y: num(point.y - owner.y) } : { life: false, x: num(point.x), y: num(point.y) }) } });
+    const anchor = freeAt(point);
+    if (!anchor) { ctxRef.current.setStatus("In Lanes, comment on a card or inside a section, or switch to the Mind map"); return; }
+    openDraft({ id: newId("c-"), thread: [], draft: true, ...anchor });
   }
   // From the Comments list: go where the comment is, then open it. Back (Alt+←) returns.
   function jump(c) {
@@ -287,16 +342,25 @@ export function DDuseComments(ctx) {
     window.addEventListener("click", eat, true);
     setTimeout(drop, 450);
   }
-  function pinDown(e, c) {
+  // Drag a comment, after Milanote: held over a card it shrinks to a small
+  // marker and, dropped there, sticks to that card and moves with it. Dropped
+  // on the empty board it is a comment card again. A tap opens or picks it.
+  function pinDown(e, c, asCard) {
     if (e.pointerType === "mouse" && e.button !== 0) return;
-    e.stopPropagation(); e.preventDefault();
-    const start = { x: e.clientX, y: e.clientY }, id = e.pointerId, key = keyOf(c);
+    if (asCard && e.target.closest?.("button,textarea,input,a,form,[role=group] button")) { e.stopPropagation(); return; }
+    e.stopPropagation(); if (!asCard) e.preventDefault();
+    const start = { x: e.clientX, y: e.clientY }, id = e.pointerId, key = c.draft ? "draft:" + c.id : keyOf(c);
+    const startAtWorld = ctxRef.current.toWorld(e.clientX, e.clientY), home = spot(c) || startAtWorld;
+    const grab = asCard ? { x: startAtWorld.x - home.x, y: startAtWorld.y - home.y } : { x: 0, y: 0 };
     let moved = false;
     const mv = (ev) => {
       if (ev.pointerId !== id) return;
       if (!moved && Math.hypot(ev.clientX - start.x, ev.clientY - start.y) < 5) return;
+      if (!moved) document.getSelection?.()?.removeAllRanges?.();
       moved = true;
-      setDrag({ key, at: ctxRef.current.toWorld(ev.clientX, ev.clientY) });
+      const p = ctxRef.current.toWorld(ev.clientX, ev.clientY), over = anchorAt(ev.clientX, ev.clientY, p);
+      const shrink = !!over?.on;
+      setDrag({ key, at: shrink || !asCard ? p : { x: p.x - grab.x, y: p.y - grab.y }, shrink, card: asCard });
     };
     const stop = () => { window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", end); window.removeEventListener("pointercancel", end); };
     const end = (ev) => {
@@ -304,17 +368,57 @@ export function DDuseComments(ctx) {
       stop(); setDrag(null);
       if (ev.type === "pointercancel") return;
       if (ev.pointerType !== "mouse") swallowClick();
-      if (!moved) { setOpen(openKey === key ? null : { key }); return; }
-      const point = ctxRef.current.toWorld(ev.clientX, ev.clientY), anchor = anchorAt(ev.clientX, ev.clientY, point);
+      if (!moved) {
+        if (c.draft) { reopenDraft(c); return; }
+        if (asCard) { if (openKey !== key) { ctxRef.current.clearBoardSelection(); setOpen({ key }); } return; }
+        setOpen(openKey === key ? null : { key }); return;
+      }
+      const point = ctxRef.current.toWorld(ev.clientX, ev.clientY);
+      let anchor = anchorAt(ev.clientX, ev.clientY, point);
+      if (anchor && !anchor.on) anchor = freeAt(asCard ? { x: point.x - grab.x, y: point.y - grab.y } : point);
       if (!anchor) return;
+      if (c.draft) {
+        const next = { id: c.id, thread: [], draft: true, ...anchor };
+        if (open?.draft?.id === c.id) setOpen({ draft: next });
+        else setUnsent((list) => list.map((x) => (x.id === c.id ? next : x)));
+        return;
+      }
       const { life, ...where } = anchor, { id: cid, done, thread } = c;
       const next = { id: cid, ...where, ...(done ? { done } : {}), thread };
       ctxRef.current.commit((d) => {
         writeList(d, c.life, readList(d, c.life).filter((x) => x.id !== cid));
         writeList(d, life, [...readList(d, life), next]);
         return d;
-      }, "Comment moved");
+      }, anchor.on ? "Comment attached · it moves with the card" : "Comment moved");
       setOpen(null);
+    };
+    window.addEventListener("pointermove", mv);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+  }
+  // Drag a comment out of the dock onto the board (a click still turns the comment tool on).
+  function dockDown(e) {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    const start = { x: e.clientX, y: e.clientY }, id = e.pointerId;
+    let moved = false;
+    const mv = (ev) => {
+      if (ev.pointerId !== id) return;
+      if (!moved && Math.hypot(ev.clientX - start.x, ev.clientY - start.y) < 6) return;
+      moved = true;
+      setGhost({ x: ev.clientX, y: ev.clientY });
+    };
+    const stop = () => { window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", end); window.removeEventListener("pointercancel", end); };
+    const end = (ev) => {
+      if (ev.pointerId !== id) return;
+      stop(); setGhost(null);
+      if (!moved || ev.type === "pointercancel") return;
+      swallowClick();
+      const view = ctxRef.current.viewport.current?.getBoundingClientRect?.();
+      if (!view || ev.clientX < view.left || ev.clientX > view.right || ev.clientY < view.top || ev.clientY > view.bottom) return;
+      const under = document.elementFromPoint(ev.clientX, ev.clientY);
+      if (under?.closest?.("[data-dock],.b2-dock,.dd-comments-panel")) return;
+      ctxRef.current.finishEdit?.();
+      startAt(ev.clientX, ev.clientY);
     };
     window.addEventListener("pointermove", mv);
     window.addEventListener("pointerup", end);
@@ -324,26 +428,54 @@ export function DDuseComments(ctx) {
   R.useEffect(() => {
     if (!open && !listOpen) return;
     const key = (e) => {
-      if (e.key !== "Escape" || e.target?.closest?.("input,textarea")) return;
+      if (e.target?.closest?.("input,textarea,[contenteditable=true]")) return;
+      // A picked comment card goes with Delete, like any card.
+      if (open?.key && openComment && !openComment.on && (e.key === "Delete" || e.key === "Backspace")) { e.preventDefault(); e.stopImmediatePropagation(); removeComment(openComment); return; }
+      if (e.key !== "Escape") return;
       e.preventDefault(); e.stopImmediatePropagation();
-      if (open) setOpen(null); else setListOpen(false);
+      if (open) closeOpen(); else setListOpen(false);
     };
     window.addEventListener("keydown", key, true);
     return () => window.removeEventListener("keydown", key, true);
-  }, [open, listOpen]);
+  });
+  // A click on the board away from the comment puts it down.
+  R.useEffect(() => {
+    if (!open) return;
+    const down = (e) => {
+      if (e.target?.closest?.(".dd-pin,.dd-thread,.dd-comments-panel,.dd-comment-capture,[role=menu]")) return;
+      if (!ctxRef.current.viewport.current?.contains(e.target)) return;
+      closeOpen();
+    };
+    window.addEventListener("pointerdown", down, true);
+    return () => window.removeEventListener("pointerdown", down, true);
+  });
+  // Words not sent yet: the browser asks before the page goes away.
+  R.useEffect(() => {
+    const leave = (e) => { if ([...texts.values()].some((v) => v.trim())) { e.preventDefault(); e.returnValue = ""; } };
+    window.addEventListener("beforeunload", leave);
+    return () => window.removeEventListener("beforeunload", leave);
+  }, []);
 
   const phone = typeof matchMedia === "function" && matchMedia("(max-width:700px)").matches;
-  const thread = (c, sheet, side, drop) => h(Thread, {
-    React: R, key: keyOf(c), comment: c, place: placeOf(c), sheet, side, drop,
+  const thread = (c, sheet, side, drop, card, picked) => h(Thread, {
+    React: R, key: (c.draft ? "draft:" : "") + keyOf(c), comment: c, place: placeOf(c), sheet, side, drop, card, picked, texts,
+    unsent: !!c.draft && !(open?.draft?.id === c.id),
+    focus: !!open?.focus,
+    onPick: () => { if (c.draft) reopenDraft(c); else { ctxRef.current.clearBoardSelection(); setOpen({ key: keyOf(c), focus: true }); } },
     onPost: post,
     onEdit: (mid, text) => patchComment(c, (x) => ({ ...x, thread: x.thread.map((m) => (m.id === mid ? { ...m, text, edited: nowStamp() } : m)) }), null),
     onRemove: (mid) => (c.thread.length <= 1 ? removeComment(c) : patchComment(c, (x) => ({ ...x, thread: x.thread.filter((m) => m.id !== mid) }), "Message deleted")),
+    onReact: (mid, emoji) => patchComment(c, (x) => ({ ...x, thread: x.thread.map((m) => (m.id === mid ? DDcommentReact(m, emoji) : m)) }), null),
     onResolve: () => { patchComment(c, (x) => { const { done, ...rest } = x; return done ? rest : { ...rest, done: true }; }, c.done ? "Comment reopened" : "Comment resolved · find it in Comments"); if (!c.done) setOpen(null); },
     onDelete: () => removeComment(c),
-    onClose: () => setOpen(null),
+    onClose: closeOpen,
   });
+  const dragKey = (c) => (c.draft ? "draft:" + c.id : keyOf(c));
   const shownPins = all.filter((c) => !c.done || keyOf(c) === openKey).map((c) => ({ c, at: drag?.key === keyOf(c) ? drag.at : spot(c) })).filter((p) => p.at);
-  if (open?.draft) { const at = spot(open.draft); if (at) shownPins.push({ c: open.draft, at }); }
+  for (const d of [...(open?.draft ? [open.draft] : []), ...unsent.filter((x) => x.id !== open?.draft?.id)]) {
+    const at = drag?.key === dragKey(d) ? drag.at : spot(d);
+    if (at) shownPins.push({ c: d, at });
+  }
   const sideOf = (at) => {
     const cam = ctx.getCamera(), view = ctx.viewport.current, w = view?.clientWidth || 1200;
     // Open away from the right edge and from an open side panel (Today's habits…).
@@ -367,17 +499,23 @@ export function DDuseComments(ctx) {
     isOpen: !!open,
     openList: () => setListOpen(true),
     toggleList: () => setListOpen((v) => !v),
-    addOn, addAt,
-    close: () => setOpen(null),
+    addOn, addAt, dockDown,
+    close: closeOpen,
     // Inside the board's world: the pins, each with its thread when open (desktop).
     world: () => h("div", { className: "dd-pins", "aria-label": "Comments" },
       shownPins.map(({ c, at }) => {
-        const key = keyOf(c), isOpen = open?.draft ? c === open.draft : open?.key === key;
-        return h("div", { key, className: "dd-pin", "data-comment-id": c.id, "data-comment-home": c.life ? "feed" : "day", "data-open": isOpen || undefined, "data-done": c.done || undefined, style: { left: at.x, top: at.y } },
+        const key = dragKey(c), isOpen = c.draft ? open?.draft?.id === c.id : open?.key === key;
+        const dragging = drag?.key === key, shrink = dragging && drag.shrink;
+        // A comment that is not on a card is a card of its own (Milanote); one on a card is a small marker.
+        const asCard = !c.on && !shrink && !(dragging && !drag.card);
+        if (asCard) return h("div", { key, className: "dd-pin dd-pin-card", "data-comment-id": c.id, "data-comment-home": c.life ? "feed" : "day", "data-open": isOpen || undefined, "data-done": c.done || undefined, "data-dragging": dragging || undefined,
+            style: { left: at.x, top: at.y }, onPointerDown: (e) => pinDown(e, c, true), onContextMenu: (e) => { e.preventDefault(); e.stopPropagation(); } },
+          thread(c, false, "end", false, true, isOpen && !phone));
+        return h("div", { key, className: "dd-pin", "data-comment-id": c.id, "data-comment-home": c.life ? "feed" : "day", "data-open": isOpen || undefined, "data-done": c.done || undefined, "data-dragging": dragging || undefined, "data-shrink": shrink || undefined, style: { left: at.x, top: at.y } },
           h("button", { type: "button", className: "dd-pin-dot", "aria-label": c.draft ? "New comment" : "Comment: " + short(c.thread[0]?.text, 60) + (c.thread.length > 1 ? " · " + c.thread.length + " messages" : ""), "aria-expanded": isOpen,
-            title: c.draft ? "" : short(c.thread[0]?.text, 80), onPointerDown: (e) => (c.draft ? e.stopPropagation() : pinDown(e, c)), onKeyDown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen(isOpen ? null : { key }); } }, onContextMenu: (e) => { e.preventDefault(); e.stopPropagation(); } },
+            title: c.draft ? "" : short(c.thread[0]?.text, 80), onPointerDown: (e) => (c.draft && isOpen ? e.stopPropagation() : pinDown(e, c)), onKeyDown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (c.draft) reopenDraft(c); else setOpen(isOpen ? null : { key }); } }, onContextMenu: (e) => { e.preventDefault(); e.stopPropagation(); } },
             c.thread.length > 1 ? h("b", null, c.thread.length) : h("svg", { width: 14, height: 14, viewBox: "0 0 20 20", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true }, h("path", { d: "M5 6h10M5 10h6" }))),
-          isOpen && !phone && thread(openComment, false, sideOf(at), dropOf(at)));
+          isOpen && !phone && !dragging && thread(openComment, false, sideOf(at), dropOf(at)));
       })),
     // Over the board while the comment tool is on: a click places a comment.
     capture: () => active && h("div", { className: "dd-comment-capture", "aria-hidden": true,
@@ -392,6 +530,7 @@ export function DDuseComments(ctx) {
       onContextMenu: (e) => e.preventDefault() }),
     // Phone: the open thread is a sheet at the bottom. Everywhere: the Comments list.
     screen: () => h(R.Fragment, null,
+      ghost && h("div", { className: "dd-comment-ghost", "aria-hidden": true, style: { left: ghost.x, top: ghost.y } }, "Comment"),
       phone && openComment && thread(openComment, true, "end"),
       listOpen && h("aside", { className: "dd-comments-panel", role: "dialog", "aria-label": "Comments", onPointerDown: (e) => e.stopPropagation(), onWheel: (e) => e.stopPropagation(), onContextMenu: (e) => e.stopPropagation() },
         h("header", null, h("strong", null, "Comments"), h("button", { type: "button", "aria-label": "Close comments", onClick: () => { setListOpen(false); ctx.viewport.current?.focus({ preventScroll: true }); } }, "×")),
@@ -440,6 +579,29 @@ export const DDcommentsCSS = `
 .dd-thread form button{border:1px solid var(--rule-2,#0002);border-radius:9px;background:var(--paper);padding:6px 12px;cursor:pointer}
 .dd-thread form button.solid{background:var(--ink);color:var(--paper);border-color:var(--ink)}
 .dd-thread form button:disabled{opacity:.4;cursor:default}
+/* A free comment is a card on the board (Milanote): it grows with the board like other cards. */
+.dd-pin-card{transform:none;width:260px;height:auto;pointer-events:auto;cursor:grab;touch-action:none}
+.dd-pin-card[data-dragging]{cursor:grabbing;opacity:.92}
+.dd-pin-card[data-dragging] .dd-comment-card{box-shadow:0 18px 40px -12px #0008}
+.dd-comment-card{position:relative;left:0;bottom:auto;top:0;width:100%;max-height:none;border-radius:12px;box-shadow:0 2px 10px -4px #0004;border-color:var(--rule-2,#0002)}
+.dd-comment-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--board-accent,#0D99FF);opacity:.75}
+.dd-comment-card[data-picked]{outline:2px solid var(--board-accent,#0D99FF);outline-offset:1px;cursor:auto}
+.dd-comment-card[data-unsent]{border-style:dashed}
+.dd-comment-card ol{max-height:340px}
+.dd-comment-card li footer button{opacity:0}
+.dd-comment-card:hover li footer button{opacity:.6}
+.dd-card-foot{display:flex;justify-content:flex-start;padding:4px 8px 8px 12px}
+.dd-reply-btn{all:unset;cursor:pointer;font:600 12px/1 var(--sans);color:var(--board-accent,#0D99FF);padding:6px 8px;border-radius:7px}
+.dd-reply-btn:hover,.dd-reply-btn:focus-visible{background:color-mix(in srgb,var(--board-accent,#0D99FF) 12%,transparent)}
+.dd-reactions,.dd-reaction-pick{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.dd-reactions button,.dd-reaction-pick button{all:unset;cursor:pointer;font-size:13px;line-height:1;padding:3px 7px;border-radius:999px;border:1px solid var(--rule-2,#0002);background:var(--wash,var(--paper))}
+.dd-reactions button{border-color:color-mix(in srgb,var(--board-accent,#0D99FF) 45%,transparent);background:color-mix(in srgb,var(--board-accent,#0D99FF) 10%,var(--paper))}
+.dd-reaction-pick{padding:4px;border:1px solid var(--rule-2,#0002);border-radius:12px;background:var(--paper);box-shadow:0 6px 18px -8px #0006;width:max-content;max-width:100%}
+.dd-reaction-pick button{border-color:transparent;background:none;font-size:16px;padding:4px 5px}
+.dd-reaction-pick button:hover,.dd-reaction-pick button[aria-pressed=true]{background:color-mix(in srgb,var(--board-accent,#0D99FF) 14%,transparent)}
+.dd-thread li footer .dd-react-btn{display:inline-grid;place-items:center}
+.dd-pin[data-shrink] .dd-pin-dot{transform:scale(.8);background:var(--board-accent,#0D99FF);color:#fff;transition:transform .12s}
+.dd-comment-ghost{position:fixed;z-index:200;pointer-events:none;transform:translate(-14px,-14px);padding:8px 12px;border-radius:12px 12px 12px 3px;background:var(--paper);color:var(--ink);border:1.5px solid var(--board-accent,#0D99FF);box-shadow:0 10px 24px -8px #0007;font:600 12px var(--sans)}
 .dd-thread-sheet{position:absolute;left:8px;right:8px;bottom:70px;top:auto;width:auto;max-height:min(60%,460px);z-index:110}
 .dd-comment-capture{position:absolute;inset:0;z-index:40;cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26'%3E%3Cpath d='M3 3h18a2 2 0 012 2v11a2 2 0 01-2 2H9l-6 5z' fill='%23fff' stroke='%230D99FF' stroke-width='2'/%3E%3C/svg%3E") 3 23,crosshair;touch-action:none}
 .dd-comments-panel{position:absolute;z-index:105;top:72px;right:16px;width:340px;max-width:calc(100% - 32px);max-height:calc(100% - 170px);display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--paper);color:var(--ink);border:1px solid var(--rule-2,#0002);border-radius:14px;box-shadow:0 6px 24px #0002;overflow:auto;overscroll-behavior:contain;font:13px/1.45 var(--sans)}

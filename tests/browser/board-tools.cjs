@@ -316,18 +316,81 @@ const {start,fixture}=require('./harness.cjs');
    await panel.locator('[data-comment-group="feed"] .dd-comment-row').click();
    await settle(700);
    assert.notEqual(JSON.stringify(await camera()),JSON.stringify(before),'the board went to the comment');
-   assert.equal(await page.locator('.dd-thread').count(),1,'and opened it');
+   assert.equal(await page.locator('.dd-thread[role=dialog]').count(),1,'and opened it');
    await page.getByRole('button',{name:'Close comment',exact:true}).click();await settle();
    if(await panel.count())await panel.getByRole('button',{name:'Close comments'}).click();
    await tap(back);await settle(700);
    const returned=await camera();
    assert.ok(Math.abs(returned.x-before.x)<3&&Math.abs(returned.y-before.y)<3&&Math.abs(returned.z-before.z)<0.01,'Back returns from the comment');
+   // A free comment is a card on the board (Milanote): its words show without opening it.
+   const feedCard=page.locator('.dd-pin-card[data-comment-home="feed"]');
+   assert.equal(await feedCard.count(),1,'the free Feed comment is a card');
+   assert.match(await feedCard.locator('.dd-comment-card li p').first().innerText(),/Feed thought/);
+   assert.equal(await feedCard.getByRole('button',{name:'Reply to comment'}).count(),1,'with a Reply button');
+   // Go to it (Comments list), then react, reply with Send, delete and undo.
+   const jumpFeed=async()=>{
+    await key('Shift+M');await panel.waitFor();
+    await panel.locator('[data-comment-group="feed"] .dd-comment-row').click();await settle(700);
+    if(await panel.count())await panel.getByRole('button',{name:'Close comments'}).click();
+   };
+   await jumpFeed();
+   const dlg=page.locator('.dd-thread[role=dialog]');
+   await tap(dlg.locator('li').first().getByRole('button',{name:'Add reaction'}));
+   await tap(dlg.getByRole('button',{name:'React 👍'}));await settle();
+   assert.deepEqual((await life()).comments[0].thread[0].reactions,['👍'],'a reaction is saved');
+   assert.equal(await feedCard.getByRole('button',{name:'Remove reaction 👍'}).count(),1,'and shows on the card');
+   await shot('comment-card');
+   await tap(dlg.getByRole('button',{name:'Remove reaction 👍'}));await settle();
+   assert.equal((await life()).comments[0].thread[0].reactions,undefined,'a second click takes it off');
+   const reply2=dlg.getByRole('textbox',{name:'Reply',exact:true});
+   await reply2.fill('Second thought');
+   await tap(dlg.getByRole('button',{name:'Send',exact:true}));await settle();
+   assert.equal((await life()).comments[0].thread.length,2,'Send posts the reply');
    // Delete a thread, undo brings it back.
-   await tap(page.locator('.dd-pin[data-comment-home="feed"] .dd-pin-dot'));
-   await page.locator('[data-delete-thread]').click();await settle();
+   await tap(dlg.locator('[data-delete-thread]'));await settle();
    assert.equal((await life()).comments,undefined);
    await undo();
    assert.equal((await life()).comments.length,1);
+   await tap(back);await settle(700);
+   // Desktop: drag a free comment card onto a note: it shrinks to a marker and sticks to the note.
+   if(!mobile){
+    await jumpFeed();await page.getByRole('button',{name:'Close comment',exact:true}).click();await settle();
+    const cardBox=await feedCard.boundingBox(),target=await node('life:k').boundingBox();
+    await page.mouse.move(cardBox.x+cardBox.width/2,cardBox.y+12);await page.mouse.down();
+    await page.mouse.move(target.x+target.width/2,target.y+target.height/2,{steps:8});
+    assert.equal(await page.locator('.dd-pin[data-shrink]').count(),1,'over a card it shrinks to a marker');
+    await page.mouse.up();await settle();
+    assert.equal((await life()).comments[0].on,'life:k','dropped there, it sticks to the note');
+    assert.equal(await page.locator('.dd-pin-card[data-comment-home="feed"]').count(),0,'now a marker, not a card');
+    await undo();
+    assert.equal((await life()).comments[0].on,undefined,'undo puts it back');
+    // Drag a comment out of the dock onto the empty board; nothing is saved until Send.
+    const dockBtn=page.getByRole('button',{name:'Comment tool'}),db=await dockBtn.boundingBox(),vb=await view.boundingBox(),drop={x:vb.x+vb.width*0.72,y:vb.y+vb.height*0.3};
+    await page.mouse.move(db.x+db.width/2,db.y+db.height/2);await page.mouse.down();
+    await page.mouse.move(drop.x,drop.y,{steps:10});
+    assert.equal(await page.locator('.dd-comment-ghost').count(),1,'a comment follows the pointer');
+    await page.mouse.up();await settle();
+    assert.equal(await page.locator('.dd-comment-capture').count(),0,'the drag did not turn the comment tool on');
+    const nb=page.getByRole('textbox',{name:'Write a comment',exact:true});
+    await nb.fill('Unsent words');
+    const before2=((await today()).canvas.board4.comments||[]).length;
+    // A click away keeps the words: the card waits as "not sent yet".
+    const away={x:vb.x+vb.width*0.75,y:vb.y+vb.height*0.7};await page.mouse.click(away.x,away.y);await settle();
+    assert.equal(((await today()).canvas.board4.comments||[]).length,before2,'nothing saved before Send');
+    const waiting=page.locator('.dd-comment-card[data-unsent]');
+    assert.equal(await waiting.count(),1,'the unsent comment stays on the board');
+    await waiting.getByRole('button',{name:'Finish comment'}).click();await settle();
+    assert.equal(await nb.inputValue(),'Unsent words','its words came back');
+    await page.getByRole('button',{name:'Send',exact:true}).click();await settle();
+    assert.equal(((await today()).canvas.board4.comments||[]).length,before2+1,'Send saves it');
+    // A picked comment card goes with Delete.
+    await page.getByRole('button',{name:'Close comment',exact:true}).click();await settle();
+    const sent=page.locator('.dd-pin-card[data-comment-home="day"]').filter({hasText:'Unsent words'});
+    await sent.locator('li p').click();await settle();
+    await page.keyboard.press('Delete');await settle();
+    assert.equal(((await today()).canvas.board4.comments||[]).length,before2,'Delete removes a picked comment card');
+    await undo();
+   }
    // A deleted card takes its comments along.
    await pick('sticky:c2');await page.locator('[data-board-id="sticky:c2"].selected').waitFor();
    await key('Delete');await settle(500);
