@@ -5,7 +5,7 @@
 // sub-notes (5.39); a click on it shows the family. Nothing sits under a note:
 // its tags sit above it, in their own colours.
 
-import { DDTagChips, DDTagEditor, DDnoteTags, DDsetNoteTags, DDallTags, DDtagList, DDtagKey } from "./note-tags.js";
+import { DDTagChips, DDTagEditor, DDnoteTags, DDsetNoteTags, DDtagCounts, DDtagList, DDtagKey, DDtagSwapDay, DDtagSwapList } from "./note-tags.js";
 
 // Which end an arrow points at (older links keep one arrow flipped by arrowReverse).
 export function DDarrowEnds(wire) {
@@ -60,9 +60,22 @@ export function DDsetParentLook(value) {
 // On a note: its tags above it, and a badge on its corner when it holds
 // sub-notes (or, while picked, belongs to a parent). A click on the badge
 // shows the family; a click there goes to that note. The paper stays as it is.
-export function DDNoteUnder({ React: R, node, tags, family, titleOf, selected, editing, suggestions, colors, onColor, onJump, onTags, onTagsDone, onPick }) {
+export function DDNoteUnder({ React: R, node, tags, family, titleOf, selected, editing, suggestions, counts, colors, onColor, onJump, onTags, onTagsDone, onPick, everywhere }) {
   const h = R.createElement, kids = family?.children || [], parents = family?.parents || [], [open, setOpen] = R.useState(false);
+  const edit = R.useRef(null), [place, setPlace] = R.useState(null);
   R.useEffect(() => { if (!selected) setOpen(false); }, [selected]);
+  // The tag menu opens under the note; where the screen ends (or the dock
+  // sits) it opens beside the note instead, so all of it can be reached.
+  R.useLayoutEffect(() => {
+    if (!editing) { setPlace(null); return; }
+    const el = edit.current, view = el?.closest(".b2-viewport");
+    if (!el || !view) return;
+    const box = el.getBoundingClientRect(), v = view.getBoundingClientRect(), note = el.parentElement.getBoundingClientRect();
+    if (box.bottom <= v.bottom - 84) return;
+    const rtl = getComputedStyle(el).direction === "rtl";
+    const after = rtl ? note.left - box.width - 12 >= v.left : note.right + box.width + 12 <= v.right;
+    setPlace(after ? "side" : "other-side");
+  }, [editing]);
   const badge = kids.length > 0 || (selected && parents.length > 0);
   if (!tags.length && !badge && !editing) return null;
   const name = (ref) => {
@@ -75,11 +88,12 @@ export function DDNoteUnder({ React: R, node, tags, family, titleOf, selected, e
   const label = kids.length ? (kids.length === 1 ? "Holds 1 sub-note" : "Holds " + kids.length + " sub-notes") : "Part of " + name(parents[0]);
   return h(R.Fragment, null,
     tags.length > 0 && !editing && h("div", { className: "dd-note-above", "data-note-under": node.id, onPointerDown: stop, onDoubleClick: stop },
-      h(DDTagChips, { React: R, tags, onPick, colors, onColor })),
+      // A picked note's tags have a × (and Delete on a focused tag), as on Milanote.
+      h(DDTagChips, { React: R, tags, onPick, colors, onColor, dot: false, onRemove: selected ? (tag) => onTags(tags.filter((t) => DDtagKey(t) !== DDtagKey(tag))) : undefined })),
     // While you add tags the field opens just under the note, so it is never
     // hidden behind the top bar; it goes away when you are done.
-    editing && h("div", { className: "dd-note-tag-edit", "data-note-under": node.id, onPointerDown: stop, onDoubleClick: stop },
-      h(DDTagEditor, { React: R, tags, suggestions, colors, onColor, onChange: onTags, onClose: onTagsDone })),
+    editing && h("div", { ref: edit, className: "dd-note-tag-edit", "data-place": place || undefined, "data-note-under": node.id, onPointerDown: stop, onDoubleClick: stop },
+      h(DDTagEditor, { React: R, tags, suggestions, counts, colors, onColor, ...everywhere, onChange: onTags, onClose: onTagsDone })),
     badge && h("button", { type: "button", className: "dd-subnote-count dd-family-badge", "data-family-badge": node.id, "aria-expanded": open, title: label, "aria-label": label,
       onPointerDown: stop, onDoubleClick: stop, onClick: (e) => { e.stopPropagation(); setOpen(!open); } },
       kids.length
@@ -103,7 +117,10 @@ export function DDuseNoteTools(ctx) {
     return m;
   }, [ctx.day.notes, lifeItems]);
   const family = R.useMemo(() => DDnoteFamily(ctx.layout.edges, (ref) => ctx.layout.map.get(ref)?.kind === "sticky"), [ctx.layout]);
-  const suggestions = R.useMemo(() => (editing || group ? DDallTags({ ...(ctx.days || {}), [ctx.day.date]: ctx.day }, ctx.setup) : []), [editing, group]);
+  // Every tag and how often it is used, kept fresh while the tag menu is open.
+  const open = !!(editing || group);
+  const counts = R.useMemo(() => (open ? DDtagCounts({ ...(ctx.days || {}), [ctx.day.date]: ctx.day }, ctx.setup) : []), [open, ctx.days, ctx.day, ctx.setup]);
+  const suggestions = R.useMemo(() => counts.map((t) => t.tag), [counts]);
   const colors = ctx.setup?.life?.tagColors || {};
   // A note that went away stops being edited.
   R.useEffect(() => { if (editing && !ctx.layout.map.has(editing)) setEditing(null); }, [ctx.layout, editing]);
@@ -147,6 +164,32 @@ export function DDuseNoteTools(ctx) {
       return d;
     }, null);
   }
+  // Rename a tag (or, with no name, delete it) everywhere: this day and the
+  // Feed in one step you can undo, then every other day and Later.
+  function retag(from, to) {
+    const c = ctxRef.current, name = to ? DDtagList([to])[0] : null, key = DDtagKey(from);
+    if (to && (!name || name === from)) return;
+    const n = counts.find((t) => DDtagKey(t.tag) === key)?.n || 0;
+    c.commit((d) => {
+      const day = DDtagSwapDay(d, from, name);
+      d.blocks = day.blocks; d.notes = day.notes;
+      d.__life.items = DDtagSwapList(d.__life.items || [], from, name);
+      const colors = { ...(d.__life.tagColors || {}) }, own = colors[key];
+      delete colors[key];
+      if (name && own && !colors[DDtagKey(name)]) colors[DDtagKey(name)] = own;
+      d.__life.tagColors = colors;
+      return d;
+    }, name ? "Renamed #" + from + " to #" + name : n > 1 ? "#" + from + " taken off " + n + " things" : "Deleted #" + from);
+    for (const [date, day] of Object.entries(c.days || {})) {
+      if (date !== c.day.date && DDtagSwapDay(day, from, name) !== day) c.onUpdateDayOnDate?.(date, (now) => DDtagSwapDay(now, from, name));
+    }
+    if (DDtagSwapList(c.setup?.later, from, name) !== c.setup?.later) c.onUpdateSetup?.((s) => ({ ...s, later: DDtagSwapList(s.later, from, name) }));
+  }
+  const everywhere = {
+    onRename: (from, to) => retag(from, to),
+    onDelete: (tag) => retag(tag, null),
+    onFind: (tag) => { const c = ctxRef.current; setEditing(null); setGroup(null); c.search("#" + tag); },
+  };
   function jump(ref) {
     const c = ctxRef.current, lifeId = ref.startsWith("life:") ? ref.slice(5) : undefined;
     c.mark();
@@ -166,7 +209,7 @@ export function DDuseNoteTools(ctx) {
     attrs: (node) => (family.get(node.id)?.children.length && look !== "badge" ? { "data-parent-look": look } : {}),
     // On the note: tags above it, the family badge on its corner.
     under: (node, selected) => h(DDNoteUnder, {
-      React: R, node, tags: tags.get(node.id) || [], family: family.get(node.id), titleOf, selected, editing: editing === node.id && !phone, suggestions, colors, onColor: setColor,
+      React: R, node, tags: tags.get(node.id) || [], family: family.get(node.id), titleOf, selected, editing: editing === node.id && !phone, suggestions, counts, everywhere, colors, onColor: setColor,
       onJump: jump, onTags: (next) => setTags(node.id, next), onTagsDone: doneTags,
       onPick: (tag) => ctxRef.current.search("#" + tag),
     }),
@@ -174,11 +217,11 @@ export function DDuseNoteTools(ctx) {
     screen: () => group ? h("section", { className: phone ? "dd-note-tag-sheet" : "dd-note-tag-group", "data-tag-group": group.length, role: "dialog", "aria-label": "Tags for " + group.length + " notes",
       onPointerDown: (e) => e.stopPropagation(), onWheel: (e) => e.stopPropagation(), onContextMenu: (e) => e.stopPropagation() },
       h("header", null, h("small", null, "Tags"), h("b", null, group.length + " notes")),
-      h(DDTagEditor, { React: R, key: group.join("|"), label: "Tags for these notes", tags: groupTags(group), suggestions, colors, onColor: setColor, onChange: (next) => setGroupTags(group, next), onClose: doneTags }))
+      h(DDTagEditor, { React: R, key: group.join("|"), label: "Tags for these notes", tags: groupTags(group), suggestions, counts, ...everywhere, colors, onColor: setColor, onChange: (next) => setGroupTags(group, next), onClose: doneTags }))
     : phone && editing && ctx.layout.map.has(editing) && h("section", { className: "dd-note-tag-sheet", role: "dialog", "aria-label": "Note tags",
       onPointerDown: (e) => e.stopPropagation(), onWheel: (e) => e.stopPropagation(), onContextMenu: (e) => e.stopPropagation() },
       h("header", null, h("small", null, "Tags"), h("b", { dir: "auto" }, String(titleOf(editing) || "Note").replace(/\*\*|~~/g, "").replace(/\s+/g, " ").trim().slice(0, 40))),
-      h(DDTagEditor, { React: R, key: editing, tags: tags.get(editing) || [], suggestions, colors, onColor: setColor, onChange: (next) => setTags(editing, next), onClose: doneTags })),
+      h(DDTagEditor, { React: R, key: editing, tags: tags.get(editing) || [], suggestions, counts, ...everywhere, colors, onColor: setColor, onChange: (next) => setTags(editing, next), onClose: doneTags })),
   };
 }
 
@@ -189,8 +232,13 @@ export const DDnoteFamilyCSS = `
 .dd-note-above{position:absolute;inset-inline-start:0;bottom:calc(100% + 8px);width:100%;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;transform:scale(clamp(1,var(--b4-inverse,1),1.8));transform-origin:0 100%;z-index:4;pointer-events:none;color:var(--ink)}
 [dir=rtl] .dd-note-above{transform-origin:100% 100%}
 .dd-note-above>.dd-note-tags{pointer-events:auto}
+.dd-note-above .dd-tag-remove{display:none}
+.dd-note-above .dd-tag:hover .dd-tag-remove,.dd-note-above .dd-tag:focus-within .dd-tag-remove{display:inline}
 .dd-note-tag-edit{position:absolute;inset-inline-start:0;top:calc(100% + 12px);z-index:6;transform:scale(clamp(1,var(--b4-inverse,1),1.8));transform-origin:0 0}
 [dir=rtl] .dd-note-tag-edit{transform-origin:100% 0}
+.dd-note-tag-edit[data-place]{top:auto;bottom:0;transform-origin:0 100%}
+.dd-note-tag-edit[data-place=side]{inset-inline-start:calc(100% + 12px)}
+.dd-note-tag-edit[data-place=other-side]{inset-inline-start:auto;inset-inline-end:calc(100% + 12px);transform-origin:100% 100%}
 .dd-note-tag-edit .dd-tag-colors{margin-top:6px}
 .dd-note-above .dd-tag-colors{position:absolute;bottom:calc(100% + 4px);inset-inline-start:0}
 .dd-family-badge{all:unset;box-sizing:border-box;position:absolute;top:-10px;inset-inline-end:12px;z-index:6;cursor:pointer;display:inline-flex;align-items:center;gap:3px;min-width:22px;height:20px;padding:0 7px;justify-content:center;border-radius:999px;background:#242326;color:#fff;font:700 11px/20px var(--sans);box-shadow:0 2px 6px #0004,0 0 0 2px var(--node-color,#fff);transform:scale(clamp(1,var(--b4-inverse,1),1.8));transform-origin:100% 50%;white-space:nowrap}

@@ -1,3 +1,12 @@
+## 5.62.0 — 2026-11-14
+Branch: claude/project-thread-d0zfxj
+- Note tags work like Milanote's labels: the Tags menu has one field that finds a tag or makes a new one, and a list of every tag with a tick (on this note or not), its colour and how often it is used.
+- Arrow keys move in the list, Enter ticks the first match (or makes the tag you typed), a click on a ticked tag takes it off, Escape closes.
+- Each tag's ⋯ renames it everywhere (every day, Later and the Feed), changes its colour, or deletes it everywhere after asking. A double-click on a tag in the list renames it.
+- The count next to a tag finds every note and task with it (Board search).
+- A picked note's tags show a ×, and Delete on a focused tag takes it off.
+- The Tags menu opens beside the note when there is no room under it.
+
 ## 5.61.0 — 2026-11-14
 Branch: claude/project-thread-d0zfxj
 - Board text (T) hugs its words: the box is as wide and as tall as what you wrote, with no empty space. It grows as you type, and a width set from its side (or Same width) stays as set and wraps there. A double-click on a side handle makes it hug its words again.
