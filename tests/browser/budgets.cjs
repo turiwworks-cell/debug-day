@@ -80,7 +80,13 @@ const {start,fixture,openEngine}=require('./harness.cjs');
    await counter.getByRole('button',{name:'Target and date'}).click();
    const until=new Date(Date.parse(f.date+'T12:00:00Z')+9*864e5).toISOString().slice(0,10);
    await counter.getByLabel('Until').fill(until);
-   await page.waitForFunction(()=>/9 days left/.test(document.querySelector('[data-goal-counter="goal"] b')?.textContent||''));
+   // 5.72: with a date, the row counts down to it, to the second, in place of − n +.
+   const down=counter.locator('[data-goal-countdown]');await down.waitFor();
+   const first=await down.textContent();
+   assert.match(first,/^◆ 9d \d\d:\d\d:\d\d left$/);
+   assert.equal(await counter.getByRole('button',{name:'One more'}).count(),0,'no + with a date');
+   assert.equal(await counter.getByLabel('Done').inputValue(),'4','the count stays in the editor');
+   await page.waitForFunction((f)=>document.querySelector('[data-goal-countdown]')?.textContent!==f,first,{timeout:2500});
    // 5. A reload keeps all of it, and the task in the Engine is the same task.
    await page.reload();await page.waitForSelector('.views',{state:'attached'});
    data=await read();

@@ -1,3 +1,8 @@
+## 5.72.0 — 2026-11-14
+Branch: claude/project-thread-n79ngv
+- Goals rail: a goal with a date (its own, or the note's deadline) counts down to the end of that day, to the second ("◆ 12d 02:10:16 left"), in place of − n +. The count stays in ✎ as "Done". A goal without a date keeps − n +.
+- A goal's name in the rail shows its first line only, at most two lines, so a long note does not stretch the rail.
+
 ## 5.71.0 — 2026-11-14
 Branch: claude/project-thread-n79ngv
 - Back left the top bar (beside the date in full screen) and moved to the path under it: inside a section its ← now returns to exactly where you were (Alt+←), or goes one level up when there is nowhere to return to. Esc still goes one level up.
