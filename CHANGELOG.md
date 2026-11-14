@@ -1,3 +1,7 @@
+## 5.79.0 — 2026-11-14
+Branch: claude/project-thread-n79ngv
+- MCP can use the newer tools: make a note a document, a to-do list or plain text, give notes and Feed notes a deadline, edit or delete a note, comment on the board (reply, resolve, delete), add and edit reminders for any day, and add, rename, remove and tick habits. A task no longer needs a lane.
+
 ## 5.78.0 — 2026-11-14
 Branch: claude/project-thread-n79ngv
 - Lanes are gone: no Mind map / Lanes switch on the Board (it is always the mind map; a day saved in Lanes opens as the mind map), no Lanes list in Settings, no Lane field in a card's details or the Engine's ⋯, and no lane rows in Ctrl+Space. Each task keeps its lane in the data, so nothing is lost.

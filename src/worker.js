@@ -6,9 +6,10 @@ import { DDlifeState, DDlifeAdd, DDlifeUpdate, DDlifeRemove, DDnormalizeLife } f
 import { DDmarksRebase } from "../public/pen.js";
 import { DDsyncCopies } from "../public/linked.js";
 import { oauth, oauthRoute, oauthAccess } from "./oauth.js";
+import { DDmcpMoreTools, DDmcpMoreCall } from "./mcp-tools.js";
 const MAX_BYTES = 1500000;
 const VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"];
-const INFO = { name: "debug-day", title: "Debug Day", version: "5.78.0" };
+const INFO = { name: "debug-day", title: "Debug Day", version: "5.79.0" };
 class HttpError extends Error {
   constructor(status, message) {
     super(message);
@@ -308,7 +309,7 @@ const WRITE_TOOLS = [
       note: { type: "string", maxLength: 4000 },
       anchor_time: anchorSchema,
     },
-    ["expected_revision", "name", "minutes", "type_id", "lane_id"],
+    ["expected_revision", "name", "minutes", "type_id"],
     true,
   ),
   tool(
@@ -375,7 +376,7 @@ const WRITE_TOOLS = [
       note: { type: "string", maxLength: 4000 },
       anchor_time: anchorSchema,
     },
-    ["date", "expected_revision", "name", "minutes", "type_id", "lane_id"],
+    ["date", "expected_revision", "name", "minutes", "type_id"],
     true,
   ),
   tool(
@@ -413,8 +414,13 @@ const WRITE_TOOLS = [
     {
       date: daySchema,
       expected_revision: revisionSchema,
-      text: { type: "string", minLength: 1, maxLength: 4000 },
+      text: { type: "string", minLength: 1, maxLength: 20000 },
       role: { type: "string", enum: ["", "goal", "note"] },
+      color: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
+      x: { type: "number", minimum: -100000, maximum: 100000 },
+      y: { type: "number", minimum: -100000, maximum: 100000 },
+      due: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", description: "A deadline day, shown as ◆ days left." },
+      look: { type: "string", enum: ["note", "document", "todo", "text"], description: "A sticky note, a document, a to-do list (one '- [ ] item' per line) or plain text." },
     },
     ["date", "expected_revision", "text"],
     true,
@@ -432,6 +438,9 @@ const WRITE_TOOLS = [
     true,
   ),
 ];
+// Notes as documents and to-do lists, deadlines, comments, reminders, habits (5.79).
+const MORE_TOOLS = DDmcpMoreTools(tool, revisionSchema), MORE = new Set(MORE_TOOLS.map((t) => t.name));
+WRITE_TOOLS.push(...MORE_TOOLS);
 // Only tick cards take minutes; scored, counted and waiting cards take none.
 const timedMinutes = (block) =>
   ["count", "wait", "score"].includes(block.measure) ? 0 : block.min || 0;
@@ -604,6 +613,14 @@ async function callTool(name, args, env, access) {
     await save(env,data,revision,before);
     return {revision:revision+1,life:data.setup.life,item:data.setup.life.items.find((i)=>i.id===item?.id)||item};
   }
+  if (MORE.has(name)) {
+    if (args.expected_revision !== revision)
+      throw Error("Conflict: the planner changed. Read it again before editing.");
+    const result = DDmcpMoreCall(name, args, data);
+    if (!result.changed) return { revision, ...result };
+    if (result.day) data.days[result.day] = DDreconcileDay(data.days[result.day], before.days[result.day], data.setup);
+    return { ...(await save(env, data, revision, before)), ...result };
+  }
   if (name === "add_worry" || name === "update_worry") {
     if (args.expected_revision !== revision)
       throw Error(
@@ -651,6 +668,7 @@ async function callTool(name, args, env, access) {
       if (!data.setup.types.some((t) => t.id === args.type_id))
         throw Error("Unknown type_id");
       if (
+        args.lane_id !== undefined &&
         args.lane_id !== "" &&
         !data.setup.lanes.some((l) => l.id === args.lane_id)
       )
@@ -661,7 +679,7 @@ async function callTool(name, args, env, access) {
         name: args.name.trim(),
         min: args.minutes,
         type: args.type_id,
-        lane: args.lane_id,
+        lane: args.lane_id ?? data.setup.lanes?.[0]?.id ?? "",
         note: args.note || "",
         at: args.anchor_time || "",
         pri: args.priority || 0,
@@ -761,7 +779,7 @@ async function callTool(name, args, env, access) {
       name: args.name.trim(),
       min: args.minutes,
       type: args.type_id,
-      lane: args.lane_id,
+      lane: args.lane_id ?? data.setup.lanes?.[0]?.id ?? "",
       note: args.note || "",
       at: args.anchor_time || "",
       pri: args.priority || 0,
@@ -819,10 +837,17 @@ async function callTool(name, args, env, access) {
       at: new Date().toISOString().slice(0,10),
       text: args.text,
       ...(["goal", "note"].includes(args.role) ? { role: args.role } : {}),
-      x: 80,
-      y: 80,
-      color: "#FFE27A",
+      ...(args.due && dateValid(args.due) ? { due: args.due } : {}),
+      x: Number.isFinite(args.x) ? args.x : 80,
+      y: Number.isFinite(args.y) ? args.y : 80,
+      color: args.color || (args.look && args.look !== "note" ? "#FFFFFF" : "#FFE27A"),
     });
+    // A document, a to-do list or plain text is a note with a look (5.79).
+    if (args.look && args.look !== "note") {
+      day.canvas = day.canvas && typeof day.canvas === "object" ? day.canvas : {};
+      const b = (day.canvas.board4 ||= { version: 1 });
+      b.styles = { ...(b.styles || {}), ["sticky:" + id]: args.look === "document" ? { doc: true } : args.look === "todo" ? { todo: true } : { plain: true } };
+    }
   } else if (name === "delete_block") {
     const b = day.blocks.find((b) => b.id === id);
     if (!b) throw Error("Block not found");
