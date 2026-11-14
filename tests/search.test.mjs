@@ -16,10 +16,11 @@ test('reply deletion and resolved feelings update the actual item without replac
 test('a panel named like the query comes before one that only mentions it',()=>{
   const rows=DDpanelCommands('en',()=>{}).map(row=>({...row,kind:'command',searchText:DDsearchText(row.words)}));
   const pick=raw=>{const query=DDparseSearch(raw,today);return DDrankPanels(rows.filter(row=>DDmatchSearch(row,query)),query).map(row=>row.panel.id);};
-  assert.deepEqual(pick('>stats'),['stats','calendar']);
+  assert.deepEqual(pick('>stats'),[],'Stats was removed (5.57)');
+  assert.equal(pick('>calendar')[0],'calendar');
   assert.deepEqual(pick('feelings'),[],'no panel for feelings any more');
   assert.equal(pick('انجین')[0],'engine');
-  assert.equal(pick('آمار')[0],'stats');
+  assert.equal(pick('تقویم')[0],'calendar');
   assert.deepEqual(pick('>'),rows.map(row=>row.panel.id),'with nothing typed the order stays');
 });
 test('deleting a Life section from search deletes its contents and their links, as on the Board',()=>{const data={setup:{life:{v:2,items:[{id:'s',type:'section',parent:'',x:0,y:0,w:400,h:300,text:'Studio'},{id:'n',type:'sticky',parent:'s',x:20,y:20,w:100,h:100,text:'Clay study'},{id:'o',type:'sticky',parent:'',x:600,y:0,w:100,h:100,text:'Other'}],links:[{id:'l',from:'life:n',to:'life:o'}]}},days:{}};const row=DDbuildSearchIndex(data,today).find(r=>r.id==='life:s');const next=DDeditSearchResult(data,row,'delete');assert.deepEqual(next.setup.life.items.map(i=>i.id),['o']);assert.deepEqual(next.setup.life.links,[])});

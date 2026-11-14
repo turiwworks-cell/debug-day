@@ -33,20 +33,11 @@ export const DDpanelList = [
     icon: "📅",
     color: "#1E9BB3",
     name: ["Calendar", "تقویم"],
-    about: ["Days, reminders and stats in one place", "روزها، یادآورها و آمار در یک جا"],
-    words: "calendar days month reminders تقویم روز ماه یادآور",
+    about: ["Your days by month: how full each was and what got done", "روزهایت در ماه: هر روز چقدر پر بود و چه انجام شد"],
+    words: "calendar days month week reminders busy full done تقویم روز ماه هفته یادآور شلوغ پر انجام",
     isolate: false,
   },
-  {
-    id: "stats",
-    icon: "📊",
-    color: "#E0529C",
-    name: ["Stats", "آمار"],
-    about: ["Streaks, charts and patterns across your days", "استریک، نمودارها و الگوهای همهٔ روزها"],
-    words: "stats statistics charts trends streak patterns mood wave آمار نمودار روند استریک الگو موج",
-    isolate: false,
-    partOf: "calendar",
-  },
+
 ];
 
 export function DDpanelOf(id) {
@@ -130,8 +121,7 @@ export function DDPanelIcon({ React: R, id }) {
   return panel ? R.createElement("span", { className: "dd-panel-icon", "data-panel": id, "aria-hidden": true }, DDpanelGlyph(R, id)) : null;
 }
 
-// The app map: one card per panel, open or isolate it. Stats lives inside
-// the Calendar panel, so it shares its card.
+// The app map: one card per panel, open or isolate it.
 export function DDPanelMap({ React: R, language, counts = {}, onPick }) {
   const fa = language === "fa",
     t = (en, f) => (fa ? f : en);
