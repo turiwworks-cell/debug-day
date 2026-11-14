@@ -57,6 +57,8 @@ const {start,fixture,openEngine}=require('./harness.cjs');
    await page.locator('button',{hasText:'Settings'}).last().click();
    const space=page.locator('.dd-storage-use');await space.waitFor();
    assert.match(await space.innerText(),/Space used: \d+ KB of 1\.5 MB \(\d+%\)/);
+   // The Park tray does not float over the view tabs in Settings (5.77.1).
+   assert.equal(await page.locator('.dd-life-bar').isVisible(),false);
    await page.keyboard.press('Escape');
    if(!mobile){
     // 4. A Feed delete waits in Recently deleted; Undo takes the entry away again.

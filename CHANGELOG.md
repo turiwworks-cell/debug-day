@@ -1,3 +1,7 @@
+## 5.77.1 — 2026-11-14
+Branch: claude/project-thread-n79ngv
+- Settings: the Park button no longer floats up over the Board and Calendar tabs and the full-screen button. Settings has no Park tray now; Park is still in the Engine.
+
 ## 5.77.0 — 2026-11-14
 Branch: claude/project-thread-n79ngv
 - Titles have their own face: headings in notes and documents, document names, section names on the Board, the Feed and Engine titles, and the Calendar's titles use a soft serif (Fraunces, with Markazi Text for Persian). Body words keep the one face.
