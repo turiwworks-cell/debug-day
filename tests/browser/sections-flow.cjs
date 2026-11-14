@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {start,fixture,openEngine}=require('./harness.cjs');
+const {start,fixture,openEngine,boardMenu}=require('./harness.cjs');
 // The Sections flowchart (5.28), like After Effects' Tab flowchart: Tab, D, the
 // Sections button or Ctrl+Space bring up every section at once, Main board on the
 // start side and each section branching off its parent. The board you are in is
@@ -44,9 +44,8 @@ const {start,fixture,openEngine}=require('./harness.cjs');
     node=(id)=>page.locator(`[data-board-id="life:${id}"]`),
     nodeColor=(id)=>node(id).evaluate((el)=>el.style.getPropertyValue('--node-color')),
     lifeItem=async(id)=>(await read()).setup.life.items.find((i)=>i.id===id),
-    button=page.locator('[data-sections-button]'),
     close=async()=>{if(await flow.count()){await tap(flow.locator('.dd-flow-close'));await flow.waitFor({state:'detached'});}},
-    open=async()=>{if(!await flow.count()){await tap(button);await flow.waitFor();}},
+    open=async()=>{if(!await flow.count()){await boardMenu(page,'Sections');await flow.waitFor();}},
     menuFor=async(id)=>{if(mobile)await pill(id).dispatchEvent('contextmenu');else await pill(id).click({button:'right'});const menu=flow.locator('.dd-flow-menu');await menu.waitFor();return menu;};
 
    // Ctrl+Space, from Plan: the Sections row comes right after the Engine and opens the Board with the flowchart.
@@ -65,9 +64,8 @@ const {start,fixture,openEngine}=require('./harness.cjs');
    await page.locator('.b2.focus-mode').waitFor();
    if((await page.locator('.b2-viewport').getAttribute('data-mode'))!=='mindmap')await page.locator('.b4-modes button').nth(0).click();
 
-   // The toolbar button opens it and the same button closes it.
-   await tap(button);await flow.waitFor();
-   assert.equal(await button.getAttribute('aria-expanded'),'true');
+   // Sections in the top ⋯ opens it, and again closes it (5.69).
+   await boardMenu(page,'Sections');await flow.waitFor();
    assert.equal(await flow.getAttribute('aria-label'),t('Sections flowchart','فلوچارت سکشن‌ها'));
    assert.match(await pill('').innerText(),new RegExp(t('Main board','برد اصلی')));
    assert.deepEqual(await marked('is-here'),[''],'you are on the main board, and it is blue');
@@ -103,7 +101,7 @@ const {start,fixture,openEngine}=require('./harness.cjs');
     assert.ok(Math.abs(panel.x+panel.width/2-room.x-room.width/2)<4,'on a desktop it comes up in the middle of the board');
     assert.ok(panel.y<viewport.height/3,'near the top');
    }
-   await tap(button);await flow.waitFor({state:'detached'});
+   await boardMenu(page,'Sections');await flow.waitFor({state:'detached'});
 
    if(!mobile){
     // Tab on the canvas brings it up, like After Effects, with the board you are in focused; Tab again puts it away.
@@ -115,7 +113,7 @@ const {start,fixture,openEngine}=require('./harness.cjs');
     await node('a').focus();await page.keyboard.press('Tab');await flow.waitFor();
     await page.keyboard.press('Escape');await flow.waitFor({state:'detached'});
     // Tab on a toolbar button still moves to the next button.
-    await page.locator('[data-life-jump]').focus();await page.keyboard.press('Tab');
+    await page.locator('[data-pause-day]').focus();await page.keyboard.press('Tab');
     assert.equal(await flow.count(),0,'Tab still walks through the toolbar');
    }
    // D opens it too; Esc closes it.
@@ -224,7 +222,7 @@ const {start,fixture,openEngine}=require('./harness.cjs');
    assert.equal(await dot('c'),rgb('#FFA799'));
    assert.equal(await flow.count(),1,'picking a color keeps the flowchart open');
    await close();
-   await page.locator('[data-life-jump]').click();await page.waitForTimeout(300);
+   await boardMenu(page,'Feed');await page.waitForTimeout(300);
    await page.waitForFunction(()=>document.querySelector('[data-board-id="life:c"]')?.style.getPropertyValue('--node-color')==='#FFA799');
    assert.equal(await nodeColor('e'),DDsectionShade('#FFA799','e'),'its children take shades of the new color');
    const chip=page.locator('.dd-task-from[data-from="c"]');

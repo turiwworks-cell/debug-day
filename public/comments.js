@@ -217,11 +217,15 @@ export function DDuseComments(ctx) {
   }
   const openKey = open?.key, openComment = open?.draft || all.find((c) => keyOf(c) === openKey) || null;
   // Closing keeps what was typed: a new comment with words stays on the board as "not sent yet".
-  function closeOpen() {
-    const d = open?.draft;
-    if (d && (texts.get(d.id) || "").trim()) setUnsent((list) => [...list.filter((x) => x.id !== d.id), d]);
+  // Esc on a new comment with nothing in it also puts the comment tool down (5.69).
+  function closeOpen(exit) {
+    const d = open?.draft, c = ctxRef.current, words = d && (texts.get(d.id) || "").trim();
+    if (words) setUnsent((list) => [...list.filter((x) => x.id !== d.id), d]);
     else if (d) setUnsent((list) => list.filter((x) => x.id !== d.id));
     setOpen(null);
+    // The keys go back to the board, so V, H, S… work at once.
+    if (document.activeElement?.closest?.(".dd-thread")) c.viewport.current?.focus({ preventScroll: true });
+    if (exit === true && d && !words) c.setTool("select");
   }
   const reopenDraft = (d) => { ctxRef.current.clearBoardSelection(); setUnsent((list) => list.filter((x) => x.id !== d.id)); setOpen({ draft: d }); };
   // A comment that vanished (deleted elsewhere, undone) closes.
@@ -433,7 +437,7 @@ export function DDuseComments(ctx) {
       if (open?.key && openComment && !openComment.on && (e.key === "Delete" || e.key === "Backspace")) { e.preventDefault(); e.stopImmediatePropagation(); removeComment(openComment); return; }
       if (e.key !== "Escape") return;
       e.preventDefault(); e.stopImmediatePropagation();
-      if (open) closeOpen(); else setListOpen(false);
+      if (open) closeOpen(true); else setListOpen(false);
     };
     window.addEventListener("keydown", key, true);
     return () => window.removeEventListener("keydown", key, true);
@@ -468,7 +472,7 @@ export function DDuseComments(ctx) {
     onReact: (mid, emoji) => patchComment(c, (x) => ({ ...x, thread: x.thread.map((m) => (m.id === mid ? DDcommentReact(m, emoji) : m)) }), null),
     onResolve: () => { patchComment(c, (x) => { const { done, ...rest } = x; return done ? rest : { ...rest, done: true }; }, c.done ? "Comment reopened" : "Comment resolved · find it in Comments"); if (!c.done) setOpen(null); },
     onDelete: () => removeComment(c),
-    onClose: closeOpen,
+    onClose: () => closeOpen(true),
   });
   const dragKey = (c) => (c.draft ? "draft:" + c.id : keyOf(c));
   const shownPins = all.filter((c) => !c.done || keyOf(c) === openKey).map((c) => ({ c, at: drag?.key === keyOf(c) ? drag.at : spot(c) })).filter((p) => p.at);
@@ -525,6 +529,8 @@ export function DDuseComments(ctx) {
         e.preventDefault(); e.stopPropagation();
         c.finishEdit?.(); c.setMenu?.(null);
         if (e.pointerType !== "mouse") swallowClick();
+        // A click away from a new, empty comment puts it down first (Figma).
+        if (open?.draft && !(texts.get(open.draft.id) || "").trim()) { closeOpen(); return; }
         startAt(e.clientX, e.clientY);
       },
       onContextMenu: (e) => e.preventDefault() }),

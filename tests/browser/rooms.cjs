@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {start,fixture}=require('./harness.cjs');
+const {start,fixture,boardMenu}=require('./harness.cjs');
 // Sections (5.18): every Life section opens as its own board, with today's
 // Engine beside it. Same data as the main board: what is made inside stays in
 // the section, and a note dragged into the Engine becomes today's task.
@@ -28,7 +28,7 @@ const {start,fixture}=require('./harness.cjs');
     tap=async(locator)=>mobile?locator.tap():locator.click();
    await page.locator('.views button[data-panel="board"]').click();
    await page.locator('.b2-viewport').focus();await page.keyboard.press('Control+Shift+F');await page.locator('.b2.focus-mode').waitFor();
-   await page.locator('[data-life-jump]').click();await page.waitForTimeout(300);
+   await boardMenu(page,'Feed');await page.waitForTimeout(300);
    // Enter "Creative life" from the button on its name.
    await tap(page.locator('[data-board-id="life:a"] [data-enter-section="a"]'));
    await bar.waitFor();
@@ -104,7 +104,7 @@ const {start,fixture}=require('./harness.cjs');
    // On a phone from the button on its name; on desktop (the task's details are
    // open beside it now) from the Sections flowchart.
    if(mobile)await tap(page.locator('[data-board-id="life:c"] [data-enter-section="c"]'));
-   else{await page.locator('[data-sections-button]').click();await page.locator('.dd-flow [data-flow-node="c"] .dd-flow-pill').click();await page.locator('.dd-flow').waitFor({state:'detached'});}
+   else{await boardMenu(page,'Sections');await page.locator('.dd-flow [data-flow-node="c"] .dd-flow-pill').click();await page.locator('.dd-flow').waitFor({state:'detached'});}
    await page.waitForFunction(()=>/Sketches/.test(document.querySelector('.dd-room-bar')?.innerText||''));
    assert.equal(await page.locator('[data-board-id="life:a"]').count(),0,'the outer section is not drawn inside the inner one');
    assert.equal(await page.locator('[data-board-id="life:k"]').count(),1);
@@ -122,7 +122,7 @@ const {start,fixture}=require('./harness.cjs');
    assert.equal(await page.locator('[data-board-id="life:b"]').count(),1,'the main board again');
    assert.equal(await page.locator('[data-board-id="sticky:note"]').count(),1);
    // The selection toolbar can open a section too.
-   await tap(page.locator('[data-sections-button]'));await page.locator('.dd-flow [data-flow-node="b"] .dd-flow-pill').dispatchEvent('contextmenu');
+   await boardMenu(page,'Sections');await page.locator('.dd-flow [data-flow-node="b"] .dd-flow-pill').dispatchEvent('contextmenu');
    await tap(page.locator('.dd-flow [data-flow-show="b"]'));await page.locator('.dd-flow').waitFor({state:'detached'});await page.waitForTimeout(300);
    await tap(page.locator('[data-board-id="life:b"] .b4-node-title'));
    await tap(page.locator('.b4-selectionbar [data-enter-section="b"]'));

@@ -186,4 +186,11 @@ async function openEngine(page) {
   return page.locator(".dd-engine");
 }
 
-module.exports = { start, fixture, openEngine };
+// Search, Engine, Feed and Sections left the board's top bar for its ⋯ (5.69).
+async function boardMenu(page, name) {
+  const fa = await page.evaluate(() => document.documentElement.lang === "fa");
+  if (fa) name = { Feed: "فید", Sections: "سکشن‌ها", Engine: "انجین", Search: "جستجو" }[name] || name;
+  await page.locator('[data-dock-more="top"]').click();
+  await page.getByRole("menu", { name: "Board context menu" }).getByRole("menuitem", { name, exact: true }).click();
+}
+module.exports = { start, fixture, openEngine, boardMenu };

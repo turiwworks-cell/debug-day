@@ -69,7 +69,11 @@ const {start,fixture}=require('./harness.cjs');
    assert.match(dim,/rgba\(18, 18, 17, 0\.55\)/,'the board behind is dimmed');
    await engine.locator('.dd-engine-name').first().focus();await page.keyboard.press('e');await engine.waitFor({state:'detached'});
    // The toolbar Engine button jumps to the engine; the day root is named Engine.
-   assert.ok(await page.locator('[data-engine-jump]').count(),'Engine button in the board toolbar');
+   // The Engine waits in the board's top ⋯ (5.69); the bar keeps the daily tools.
+   assert.equal(await page.locator('[data-engine-jump]').count(),0,'no Engine button on the top bar');
+   await page.locator('[data-dock-more="top"]').click();
+   assert.ok(await page.getByRole('menuitem',{name:t('Engine','انجین'),exact:true}).count(),'Engine in the top ⋯');
+   await page.keyboard.press('Escape');
    assert.match(await page.locator('[data-board-id="day:root"]').innerText(),new RegExp(t('Engine','انجین')));
    // Feelings are gone from the Board.
    assert.equal(await page.locator('[data-board-id="section:feelings"]').count(),0,'no Feelings section');

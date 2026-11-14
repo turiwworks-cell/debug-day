@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {start,fixture}=require('./harness.cjs');
+const {start,fixture,boardMenu}=require('./harness.cjs');
 // Board fixes (5.28): notes keep their size at every zoom and read clearly,
 // notes are made on sections (sticky tool and double-click), a double-click
 // anywhere makes a note, a drag on a section's empty area selects what is in
@@ -41,7 +41,7 @@ const {start,fixture}=require('./harness.cjs');
 
    // Frame the Feed at 100%.
    const frameFeed=async()=>{
-    await page.locator('[data-life-jump]').click();await page.waitForTimeout(300);
+    await boardMenu(page,'Feed');await page.waitForTimeout(300);
     await page.keyboard.press('Escape');await key('0');
     // Scroll the board so the Feed's top-left corner sits near the top-left of the screen.
     for(let i=0;i<3;i++){const fb=await box('section:life');if(Math.abs(fb.x-60)<4&&Math.abs(fb.y-150)<4)break;

@@ -3652,7 +3652,8 @@ export function DDcreateBoard(deps) {
             else if (Tt === "g") { ot.preventDefault(); toggleRail(ot.shiftKey ? "note" : "goal"); }
             else if (Tt === "h" && ot.shiftKey) { ot.preventDefault(); toggleRail("habits"); }
             else if (Tt === "h") setTool("hand");
-            else if (Tt === "c" || Tt === "x" || Tt === "l") {connectionStyle.current=Tt==="l"&&!ot.shiftKey?"straight":"elbow";setTool("connector");}
+            // C is no connector while something is picked (5.69); X and L still are.
+            else if ((Tt === "c" && !selected.size) || Tt === "x" || Tt === "l") {connectionStyle.current=Tt==="l"&&!ot.shiftKey?"straight":"elbow";setTool("connector");}
             else if (Tt === "b") setTool("block");
             else if (Tt === "s" && ot.shiftKey) setTool("section");
             else if (Tt === "s") setTool("sticky");
@@ -5309,9 +5310,14 @@ export function DDcreateBoard(deps) {
             ],
           }))(setup.templates || []),
           item("worry-parking", "Worry parking", "پارک نگرانی‌ها", "sticker", () => { finishEdit(); window.dispatchEvent(new CustomEvent("debug-day-open-capture", { detail: "worry" })); }),
+          // Search, the Engine, the Feed and the sections map wait here (5.69): the bar keeps the daily tools.
+          sep("top-go-sep"),
+          item("search", "Search", "جستجو", "search", () => { finishEdit(); setSearch((Y) => (Y === null ? "" : null)); }, { shortcut: "Ctrl/Cmd+F" }),
+          item("engine", "Engine", "انجین", "engine", () => { finishEdit(); setEngine(false); fit(false, "day"); }),
+          item("feed", "Feed", "فید", "leaf", () => { const first = DDlifeItems(setup).find((i) => i.type === "section" && !i.parent); if (first) jumpLife(first.id); else addLifeItem("section"); }),
+          item("sections", "Sections", "سکشن‌ها", "sections", () => { finishEdit(); setLifeNav((v) => !v); }, { shortcut: "Tab" }),
           sep("top-view-sep"),
           item("fit-all", "Fit all objects", "نمایش همهٔ اشیا", "fitAll", () => fit(false), { shortcut: "Shift+1" }),
-          item("theme", "Toggle light / dark", "تغییر روشن / تیره", (setup.look?.theme === "dark" || (setup.look?.theme !== "light" && matchMedia("(prefers-color-scheme:dark)").matches)) ? "sun" : "moon", toggleBoardTheme),
           item("export", "Export board SVG", "خروجی SVG برد", "export", exportSVG),
           sep("top-help-sep"),
           item("help", "Board help", "راهنمای برد", "help", () => setHelp(true), { shortcut: "?" }),
@@ -5770,6 +5776,8 @@ export function DDcreateBoard(deps) {
             disabled: !history.current.past.length,
           }),
           onTimerChange && _.createElement(DDBoardTimerButton,{React:_,Icon:controls.Icon,language:DDlanguage,timer,open:timerOpen,onOpenChange:setTimerOpen,buttonRef:timerButton}),
+          // Light and dark sit beside the timer (5.69).
+          ((dark) => toolButton(dark ? t("Light mode", "حالت روشن") : t("Dark mode", "حالت تیره"), dark ? "sun" : "moon", toggleBoardTheme, { "data-board-theme": dark ? "dark" : "light" }))(setup.look?.theme === "dark" || (setup.look?.theme !== "light" && matchMedia("(prefers-color-scheme:dark)").matches)),
           // Pause the day lives on the board (5.55): when life happens, stop the
           // timer and choose what to do with the rest of the day, right here.
           ((paused, closed) => toolButton(
@@ -5780,16 +5788,6 @@ export function DDcreateBoard(deps) {
             paused ? t("Day paused", "روز متوقف است") : closed ? t("Today is closed", "امروز بسته است") : t("Pause the day", "روز را نگه دار"),
           ))(!!day.pause?.active, !!day.pause?.closed),
           _.createElement("span", { className: "b2-sep" }),
-          toolButton(
-            DDUI("Search board"),
-            "search",
-            () => setSearch((Y) => (Y === null ? "" : null)),
-            {},
-            DDUI("Search"),
-          ),
-          toolButton(t("Go to the Engine (E brings it over the board)", "رفتن به انجین (E آن را روی برد می‌آورد)"),"engine",()=>{finishEdit();setEngine(false);fit(false,"day");},{"data-engine-jump":true},t("Engine","انجین")),
-          toolButton(t("Go to Feed", "رفتن به فید"),"leaf",()=>{const first=DDlifeItems(setup).find((i)=>i.type==="section"&&!i.parent);if(first)jumpLife(first.id);else addLifeItem("section");},{"data-life-jump":true},t("Feed","فید")),
-          toolButton(t("Sections flowchart (Tab or D)","فلوچارت سکشن‌ها (Tab یا D)"),"sections",()=>{finishEdit();setLifeNav((v)=>!v);},{"aria-expanded":lifeNav,"data-sections-button":true},t("Sections","سکشن‌ها")),
           toolButton(
             DDUI(focus ? "Exit full screen" : "Full screen"),
             focus ? "shrink" : "expand",
@@ -6533,12 +6531,8 @@ export function DDcreateBoard(deps) {
           className: "b4-status" + (status ? "" : " dd-keyboard-only"),
           role: "status",
         },
-        status ||
-          DDUI(
-            wireId
-              ? "\u062E\u0637 \u0631\u0627 \u0628\u06A9\u0634 \u062A\u0627 \u0645\u0633\u06CC\u0631 \u0639\u0648\u0636 \u0634\u0648\u062F\u061B \u062F\u0648 \u0633\u0631 \u062E\u0637 \u0628\u0631\u0627\u06CC \u062A\u063A\u06CC\u06CC\u0631 \u0627\u062A\u0635\u0627\u0644"
-              : "Space: \u062D\u0631\u06A9\u062A \u0628\u0648\u0645 \xB7 C: \u0627\u062A\u0635\u0627\u0644 \xB7 F: \u0646\u0645\u0627\u06CC\u0634 \u0647\u0645\u0647 \xB7 Delete: \u062D\u0630\u0641",
-          ),
+        // Only a message when there is one: no standing key hints (5.69).
+        status || null,
       ),
       menu &&
         _.createElement(controls.ContextMenu, {

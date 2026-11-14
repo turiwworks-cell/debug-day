@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {start,fixture}=require('./harness.cjs');
+const {start,fixture,boardMenu}=require('./harness.cjs');
 // Writing on the board (5.32): a readable section rename, the board comes close
 // to write when zoomed out (and goes back), text align, text objects, a short
 // right-click with quick colors and "Send to section…", the align panel, and
@@ -143,7 +143,7 @@ const {start,fixture}=require('./harness.cjs');
   assert.ok(sent.x>=0&&sent.y>=0&&sent.x+sent.w<=small.w&&sent.y+sent.h<=small.h,'it sits inside, the section grew: '+JSON.stringify([sent,small]));
   assert.ok((await read()).setup.life.links.some((l)=>l.to==='life:'+sent.id)||(await day()).canvas.board4.links.some((l)=>l.to==='life:'+sent.id),'its line came along');
   // A section goes into another section too, and out again.
-  await key('Escape');await page.locator('[data-life-jump]').click();await settle();
+  await key('Escape');await boardMenu(page,'Feed');await settle();
   await node('life:p').locator(':scope>.b4-node-body').click({button:'right'});await menu().waitFor();
   await menuItem('Send to').click();
   await menuItem('Capture').click();await settle();

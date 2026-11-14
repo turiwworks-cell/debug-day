@@ -1,3 +1,11 @@
+## 5.69.0 — 2026-11-14
+Branch: claude/project-thread-n79ngv
+- Board top bar: light / dark sits right after the timer, and the timer is a little wider.
+- Search, Engine, Feed and Sections left the top bar for its ⋯ (with their keys: Ctrl/Cmd+F, Tab), so the bar keeps only the daily tools.
+- The key hints at the bottom left of the board ("Space: pan · C: connect…") are gone; messages still show there when there is one.
+- C no longer turns on the connector while something is picked (X and L still do).
+- Comment tool: a click away from a new, empty comment puts it down and gives the keys back to the board, so V goes back to the cursor; Esc on an empty comment does the same.
+
 ## 5.68.1 — 2026-11-14
 Branch: claude/project-thread-n79ngv
 - Settings match the app now: Basics, Look and feel, Board, Your data, Advanced. Lanes and day templates sit under Board, and the Data buttons under Your data.

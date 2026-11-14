@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {start,fixture}=require('./harness.cjs');
+const {start,fixture,boardMenu}=require('./harness.cjs');
 const {mkdirSync}=require('node:fs');
 const {join}=require('node:path');
 // Sections behave like FigJam: drawn around things they take them in, carry
@@ -18,7 +18,7 @@ const {join}=require('node:path');
    await page.reload();await page.waitForSelector('.views',{state:'attached'});
    await page.locator('.views button[data-panel="board"]').click();
    await page.getByRole('button',{name:t('Full screen','تمام‌صفحه'),exact:true}).click();
-   await page.locator('[data-life-jump]').click();
+   await boardMenu(page,'Feed');
    const read=async()=>(await page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2')))).setup.life;
    const item=async(id)=>(await read()).items.find(i=>i.id===id);
    const a=page.locator('[data-life-id="a"]'),n=page.locator('[data-life-id="n"]');
