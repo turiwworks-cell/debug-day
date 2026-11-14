@@ -91,6 +91,17 @@ const { start, fixture } = require("./harness.cjs");
     await page.locator("button", { hasText: "Settings" }).last().click();
     assert.equal(await page.locator("#dd-habits-prefs").count(), 0);
     assert.equal(await page.getByRole("combobox", { name: "UI language", exact: true }).count(), 0);
+    // 5.68.1: Settings match the app. No categories or rhythm (section tags
+    // replaced them), Show lists only what can still hide, Lanes and day
+    // templates sit with the Board, and one backup button.
+    const caps = await page.locator(".dd-settings .setup .cap").allInnerTexts();
+    assert.equal(caps.includes("Types"), false);
+    assert.equal(caps.includes("Rhythm"), false);
+    assert.deepEqual(await page.locator("#dd-look .opt").last().locator("button").allInnerTexts(), ["Calendar view", "Help tips"]);
+    assert.ok((await page.locator("#dd-board-prefs").innerText()).includes("Lanes"));
+    assert.ok((await page.locator("#dd-board-prefs").innerText()).includes("Templates"));
+    assert.equal(await page.getByRole("button", { name: "Export file", exact: true }).count(), 0);
+    await page.locator("label", { hasText: "Import file" }).waitFor();
     await page.locator("#dd-data").waitFor();
     assert.ok((await page.locator("#dd-data").innerText()).includes("On this device"));
     assert.equal(await page.getByRole("textbox", { name: "Server URL", exact: true }).isVisible(), false);

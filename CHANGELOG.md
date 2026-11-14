@@ -1,3 +1,9 @@
+## 5.68.1 — 2026-11-14
+Branch: claude/project-thread-n79ngv
+- Settings match the app now: Basics, Look and feel, Board, Your data, Advanced. Lanes and day templates sit under Board, and the Data buttons under Your data.
+- Gone from Settings, because they no longer do anything: Types and Rhythm (section tags replaced categories), the Show switches for Board view, Day note, Find and quick add, Habits and Totals, and Export file (the same file as Download a backup). The data stays.
+- A day template counts its tasks, not "blocks".
+
 ## 5.68.0 — 2026-11-14
 Branch: claude/project-thread-n79ngv
 - Lanes is now the mind map itself, always tidy and compact: the same tree (day, lanes, tasks, steps), the same lines and notes, only every task and step sits in its place, close together. Dragging a task onto another lane changes its lane; dragged anywhere else it goes back to its place. The mind map keeps its own arrangement.
