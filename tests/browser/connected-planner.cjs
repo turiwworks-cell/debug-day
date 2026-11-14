@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const { mkdirSync } = require("node:fs");
 const { join } = require("node:path");
-const { start, fixture } = require("./harness.cjs");
+const { start, fixture, openEngine } = require("./harness.cjs");
 (async () => {
   const h = await start();
   try {
@@ -65,7 +65,7 @@ const { start, fixture } = require("./harness.cjs");
           );
         }, f);
         await page.reload();
-        await page.waitForSelector("#qa", { state: "attached" });
+        await page.waitForSelector(".views", { state: "attached" });
         // Full Plan on phones as well as desktop.
         await page.evaluate(() =>
           window.dispatchEvent(
@@ -109,20 +109,25 @@ const { start, fixture } = require("./harness.cjs");
               JSON.parse(localStorage.getItem("debug-day:v2")).days[date],
             f.date,
           );
+        // 0: the Engine (over the Board since 5.67), 1: the Board.
         const nav = async (i) => {
-          if (i !== 1 && (await page.locator(".b4.focus-mode").count()))
-            await page.getByRole("button",{name:t("Exit full screen","بستن تمام‌صفحه"),exact:true}).click();
-          await page.locator(".views button").nth(i).click();
-          if (i === 1) {
-            await page.locator(".b4").waitFor();
-            if (
-              mobile &&
-              !(await page.locator(".b4").getAttribute("class")).includes(
-                "focus-mode",
-              )
-            )
-              await page.getByRole("button",{name:t("Full screen","تمام‌صفحه"),exact:true}).click();
+          if (i === 0) {
+            await openEngine(page);
+            return;
           }
+          if (await page.locator(".dd-engine").count()) {
+            await page.keyboard.press("Escape");
+            await page.locator(".dd-engine").waitFor({ state: "detached" });
+          }
+          await page.locator('.views button[data-panel="board"]').click();
+          await page.locator(".b4").waitFor();
+          if (
+            mobile &&
+            !(await page.locator(".b4").getAttribute("class")).includes(
+              "focus-mode",
+            )
+          )
+            await page.getByRole("button",{name:t("Full screen","تمام‌صفحه"),exact:true}).click();
         };
         assert.equal(
           await page
@@ -168,7 +173,7 @@ const { start, fixture } = require("./harness.cjs");
             .count(),
           0,
         );
-        // The Engine page shows the same task, with its lane kept for the Lanes view.
+        // The Engine shows the same task, with its lane kept for the Lanes view.
         await nav(0);
         const row = page.locator('.dd-engine [data-engine-task="writing"]');
         await row.waitFor();
@@ -249,8 +254,9 @@ const { start, fixture } = require("./harness.cjs");
         await page.keyboard.press("Escape");
         // Quick add stores arbitrary tags without making them part of the task name.
         await nav(0);
-        await page.locator("#qa").fill("New design p2 #project #شخصی");
-        await page.locator("#qa").press("Enter");
+        const quick = page.locator(".dd-engine").getByRole("textbox", { name: t("Quick add", "افزودن سریع"), exact: true });
+        await quick.fill("New design p2 #project #شخصی");
+        await quick.press("Enter");
         const added = (await read()).blocks.find(
           (b) => b.name === "New design",
         );
@@ -258,7 +264,7 @@ const { start, fixture } = require("./harness.cjs");
         assert.equal(added.pri, 2);
         assert.deepEqual(added.tags, ["project", "شخصی"]);
         await page.reload();
-        await page.waitForSelector("#qa", { state: "attached" });
+        await page.waitForSelector(".views", { state: "attached" });
         assert.deepEqual(
           (await read()).blocks.find((b) => b.id === added.id).tags,
           ["project", "شخصی"],
@@ -285,7 +291,7 @@ const { start, fixture } = require("./harness.cjs");
           );
         }, f.date);
         await page.reload();
-        await page.waitForSelector("#qa", { state: "attached" });
+        await page.waitForSelector(".views", { state: "attached" });
         await nav(1);
         // The path repaints while the pointer is still down, using actual touch on phones.
         // The connector tool has no dock button any more (FigJam); use its shortcut.
@@ -352,7 +358,7 @@ const { start, fixture } = require("./harness.cjs");
           f.date,
         );
         await page.reload();
-        await page.waitForSelector("#qa", { state: "attached" });
+        await page.waitForSelector(".views", { state: "attached" });
         await nav(1);
         await page.locator(".b4-modes button").nth(1).click();
         await page.waitForSelector('.b2-viewport[data-mode="lanes"]');

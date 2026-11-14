@@ -94,7 +94,7 @@ const {start,fixture} = require('./harness.cjs');
       : route.abort());
     const off=await isolated.newPage(),offErrors=[];off.on('pageerror',e=>offErrors.push(e.message));
     await off.goto(h.origin+'/standalone-test');await off.waitForSelector('.views');
-    assert.deepEqual(offErrors,[]);await off.locator('.views button').nth(1).click();await off.waitForSelector('.b2-viewport');
+    assert.deepEqual(offErrors,[]);await off.locator('.views button[data-panel="board"]').click();await off.waitForSelector('.b2-viewport');
     const saved=await off.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2')));
     assert.equal(saved.days[f.date].notes[0].media[0].provider,'arena');
     assert.deepEqual(offErrors,[]);await isolated.close();rmSync(folder,{recursive:true});

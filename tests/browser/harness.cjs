@@ -64,8 +64,19 @@ async function start() {
   };
 }
 async function fixture(page, origin) {
+  // The app opens on the Board (5.67), and a Board remembers its camera when
+  // the page goes away. Tests set their own data first, so the very first load
+  // of a tab opens the Calendar; the Board then starts fresh when a test opens it.
+  await page.addInitScript(() => {
+    try {
+      if (sessionStorage.getItem("dd-test-first-load")) return;
+      sessionStorage.setItem("dd-test-first-load", "1");
+      const ui = JSON.parse(localStorage.getItem("debug-day:ui") || "{}");
+      localStorage.setItem("debug-day:ui", JSON.stringify({ ...ui, view: "calendar" }));
+    } catch {}
+  });
   await page.goto(origin);
-  await page.waitForSelector("#qa", { state: "attached" });
+  await page.waitForSelector(".views", { state: "attached" });
   return page.evaluate(() => {
     const data = JSON.parse(localStorage.getItem("debug-day:v2"));
     const date = new Date().toLocaleDateString("en-CA");
@@ -164,4 +175,15 @@ async function fixture(page, origin) {
   });
 }
 
-module.exports = { start, fixture };
+// The Engine has no page of its own any more (5.67): it opens over the Board.
+async function openEngine(page) {
+  if (await page.locator(".dd-engine").isVisible().catch(() => false)) return page.locator(".dd-engine");
+  const tab = page.locator('.views button[data-panel="board"]');
+  if ((await tab.getAttribute("aria-selected")) !== "true") await tab.click();
+  await page.locator(".b2").first().waitFor();
+  await page.evaluate(() => import("./engine.js").then((m) => m.DDengineBus.request()));
+  await page.locator(".dd-engine").waitFor();
+  return page.locator(".dd-engine");
+}
+
+module.exports = { start, fixture, openEngine };

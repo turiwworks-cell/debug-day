@@ -20,13 +20,13 @@ const {start,fixture}=require('./harness.cjs');
     {id:'m',type:'sticky',parent:'b',x:40,y:90,w:220,h:160,text:'Second idea',color:'#A8E6B8'}
    ],links:[],frame:{x:24,y:1200}};
    await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),f.data);
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
    const read=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2'))),
     item=async(id)=>(await read()).setup.life.items.find(i=>i.id===id),
     inside=async(id,root)=>{const items=(await read()).setup.life.items;let it=items.find(i=>i.id===id),hops=0;while(it&&hops++<20){if(it.id===root)return true;it=items.find(i=>i.id===it.parent);}return false;},
     bar=page.locator('.dd-room-bar'),
     tap=async(locator)=>mobile?locator.tap():locator.click();
-   await page.locator('.views button').nth(1).click();
+   await page.locator('.views button[data-panel="board"]').click();
    await page.locator('.b2-viewport').focus();await page.keyboard.press('Control+Shift+F');await page.locator('.b2.focus-mode').waitFor();
    await page.locator('[data-life-jump]').click();await page.waitForTimeout(300);
    // Enter "Creative life" from the button on its name.
@@ -110,8 +110,8 @@ const {start,fixture}=require('./harness.cjs');
    assert.equal(await page.locator('[data-board-id="life:k"]').count(),1);
    if(!mobile){
     // A reload keeps you where you were.
-    await page.reload();await page.waitForSelector('#qa',{state:'attached'});
-    await page.locator('.views button').nth(1).click();await bar.waitFor();
+    await page.reload();await page.waitForSelector('.views',{state:'attached'});
+    await page.locator('.views button[data-panel="board"]').click();await bar.waitFor();
     assert.match(await bar.innerText(),/Sketches/);
     await page.locator('.b2-viewport').focus();await page.keyboard.press('Escape');
    } else await tap(bar.locator('[data-room-back]'));
@@ -129,7 +129,7 @@ const {start,fixture}=require('./harness.cjs');
    await bar.waitFor();assert.match(await bar.innerText(),/Work & play/);
    // A section deleted elsewhere closes its board.
    await page.evaluate(()=>{const d=JSON.parse(localStorage.getItem('debug-day:v2'));d.setup.life.items=d.setup.life.items.filter(i=>i.id!=='b'&&i.parent!=='b');localStorage.setItem('debug-day:v2',JSON.stringify(d));});
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});await page.locator('.views button').nth(1).click();
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});await page.locator('.views button[data-panel="board"]').click();
    await page.locator('[data-board-id="section:engine"]').waitFor();
    assert.equal(await bar.count(),0,'no board for a section that is gone');
    const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth);

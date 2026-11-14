@@ -17,8 +17,8 @@ const {join}=require('node:path');
   // On a phone the list starts as a list (converting is the same menu as on a computer).
   if(mobile)day.canvas={board4:{layouts:{mindmap:{}},styles:{'sticky:n':{todo:true}}}};
   await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),f.data);
-  await page.reload();await page.waitForSelector('#qa',{state:'attached'});
-  await page.locator('.views button').nth(1).click();
+  await page.reload();await page.waitForSelector('.views',{state:'attached'});
+  await page.locator('.views button[data-panel="board"]').click();
   await page.getByRole('button',{name:'Full screen',exact:true}).click();
   await page.waitForSelector('[data-board-id="sticky:n"]');
   const read=async()=>(await page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2')))).days[f.date],

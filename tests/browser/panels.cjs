@@ -12,7 +12,7 @@ const { start, fixture } = require("./harness.cjs");
       localStorage.setItem("debug-day:v2", JSON.stringify(f.data));
     }, f);
     await page.reload();
-    await page.waitForSelector("#qa", { state: "attached" });
+    await page.waitForSelector(".views", { state: "attached" });
     const read = () => page.evaluate(() => JSON.parse(localStorage.getItem("debug-day:v2")));
     const today = async () => (await read()).days[f.date];
     const banner = page.locator(".isolate-banner");
@@ -20,18 +20,17 @@ const { start, fixture } = require("./harness.cjs");
     // View tabs and section headings carry the panel's icon and color. Feelings and Stats are gone.
     assert.deepEqual(
       await page.locator(".views button").evaluateAll((tabs) => tabs.map((tab) => tab.dataset.panel)),
-      ["engine", "board", "calendar"],
+      ["board", "calendar"],
+      "the Engine has no page of its own (5.67)",
     );
-    assert.equal(await page.locator(".views button .dd-panel-icon").count(), 3);
-    const color = (selector) => page.locator(selector).first().evaluate((node) => getComputedStyle(node).getPropertyValue("--pc").trim());
-    assert.equal(await color('.dd-habits[data-panel="habits"]'), "#2BA672");
+    assert.equal(await page.locator(".views button .dd-panel-icon").count(), 2);
     // App changes was removed (5.28): no section, no panel.
     assert.equal(await page.locator('[data-section-id="lab"]').count(), 0);
 
     // The footer no longer repeats the header's map, Calendar and Feelings.
     assert.deepEqual(await page.locator(".foot .utilities button").allInnerTexts(), ["Settings"]);
 
-    // Feelings were removed (5.16): no feelings list in Plan.
+    // Feelings were removed (5.16): no feelings list.
     assert.equal(await page.locator('[data-section-id="bugs"]').count(), 0);
 
     // Ctrl+Space: the first page starts with every panel; Enter isolates.
@@ -49,8 +48,9 @@ const { start, fixture } = require("./harness.cjs");
     await page.keyboard.press("ArrowDown");
     await page.keyboard.press("Enter");
     await modal.waitFor({ state: "hidden" });
-    await banner.locator('.dd-panel-icon[data-panel="habits"]').waitFor();
-    assert.equal(await page.locator(".dd-habits").count(), 1);
+    // Habits open beside the Board, in "Today's habits" (5.67).
+    await page.locator("#dd-rail-habits").waitFor();
+    assert.equal(await page.locator('#dd-rail-habits [data-rail-habit="write"]').count(), 1);
     assert.equal(await page.locator(".dd-engine").count(), 0);
     assert.equal(await page.locator('[data-section-id="bugs"]').count(), 0);
 
@@ -60,9 +60,10 @@ const { start, fixture } = require("./harness.cjs");
     assert.equal(await modal.locator(".dd-result-group").first().getAttribute("data-group"), "panels");
     assert.equal(await modal.locator(".dd-panel-row").first().getAttribute("data-panel"), "engine");
     await page.keyboard.press("Enter");
-    await banner.waitFor({ state: "detached" });
-    await page.locator(".dd-engine[data-mode=page]").waitFor();
-    assert.equal(await page.locator(".dd-habits").count(), 1, "the Engine page keeps Habits below it, as Plan did");
+    await page.getByRole("dialog", { name: "Engine" }).waitFor();
+    assert.equal(await page.locator('.views [role=tab][data-panel="board"]').getAttribute("aria-selected"), "true", "the Engine opens over the Board");
+    await page.keyboard.press("Escape");
+    await page.locator(".dd-engine").waitFor({ state: "detached" });
     // App changes was removed (5.28), so search no longer offers it.
     await page.keyboard.press("Control+Space");
     await modal.getByRole("combobox").fill("app changes");
@@ -83,7 +84,7 @@ const { start, fixture } = require("./harness.cjs");
     await page.keyboard.press("Shift+Digit3");
     await page.locator(".dd-panel-map").waitFor({ state: "detached" });
     assert.equal(await banner.count(), 0);
-    assert.equal(await page.locator(".dd-engine[data-mode=page]").count(), 1);
+    assert.equal(await page.locator("#dd-rail-habits").count(), 1, "Shift+3 shows Today's habits");
     await page.keyboard.press("Alt+KeyM");
     await page.keyboard.press("Digit2");
     await page.locator(".b4").waitFor();

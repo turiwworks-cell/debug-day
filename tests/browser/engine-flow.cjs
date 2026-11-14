@@ -17,7 +17,7 @@ const {start,fixture}=require('./harness.cjs');
     task('em','Reply to emails'),
    ];
    await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),f.data);
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
    const day=()=>page.evaluate((date)=>JSON.parse(localStorage.getItem('debug-day:v2')).days[date],f.date),
     tap=async(locator)=>mobile?locator.tap():locator.click(),
     find=(blocks,id)=>blocks.find((b)=>b.id===id);
@@ -84,19 +84,16 @@ const {start,fixture}=require('./harness.cjs');
     await page.waitForFunction(()=>Number(document.querySelector('[data-wire-id="auto:after:b:sk->b:co"] .b4-wire-line')?.style.opacity)<1);
     assert.equal(await page.locator('[data-wire-id="auto:after:b:em->sub:sk:li"] .b4-wire-line').evaluate((e)=>e.style.opacity),'1');
     await page.keyboard.press('Escape');
-    // The Engine page (the tab) shows the same waves.
-    await page.locator('[role=tab][data-panel=engine]').click();
-    await page.locator('#plan [data-engine-task="co"][data-wave="1"]').waitFor();
    }
 
    // 4. Deleting a task takes the orders that point at it along.
-   engine=mobile?await openEngine():page.locator('#plan');
+   engine=await openEngine();
+   await engine.locator('[data-engine-task="co"][data-wave="1"]').waitFor();
    const sk=engine.locator('[data-engine-task="sk"]');
    await tap(sk.locator('.dd-engine-more'));
    await tap(sk.locator('[data-action="remove"]'));
    await page.waitForFunction((date)=>!JSON.parse(localStorage.getItem('debug-day:v2')).days[date].blocks.some((b)=>b.id==='sk'),f.date);
-   if(mobile){await page.keyboard.press('Escape');await engine.waitFor({state:'detached'});}
-   else{await page.locator('[role=tab][data-panel=board]').click();await view.waitFor();}
+   await page.keyboard.press('Escape');await engine.waitFor({state:'detached'});
    await page.waitForFunction((date)=>!('after' in JSON.parse(localStorage.getItem('debug-day:v2')).days[date].blocks.find((b)=>b.id==='co')),f.date);
    assert.equal(await orders.count(),0,'no line left pointing at nothing');
 

@@ -73,8 +73,8 @@ const { start, fixture } = require("./harness.cjs");
             );
           }, f);
           await page.reload();
-          await page.waitForSelector("#qa", { state: "attached" });
-          await page.locator(".views button").nth(1).click();
+          await page.waitForSelector(".views", { state: "attached" });
+          await page.locator(".views button[data-panel=board]").click();
           await note().waitFor();
           await page.locator(".b2-viewport").scrollIntoViewIfNeeded();
           if (mobile)

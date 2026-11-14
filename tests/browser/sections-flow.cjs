@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {start,fixture}=require('./harness.cjs');
+const {start,fixture,openEngine}=require('./harness.cjs');
 // The Sections flowchart (5.28), like After Effects' Tab flowchart: Tab, D, the
 // Sections button or Ctrl+Space bring up every section at once, Main board on the
 // start side and each section branching off its parent. The board you are in is
@@ -27,7 +27,7 @@ const {start,fixture}=require('./harness.cjs');
    ],links:[],frame:{x:24,y:1200}};
    f.data.days[f.date].blocks.find(b=>b.id==='writing').from='c';
    await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),f.data);
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
    const read=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2'))),
     tap=async(locator)=>mobile?locator.tap():locator.click(),
     flow=page.locator('.dd-flow'),
@@ -289,23 +289,23 @@ const {start,fixture}=require('./harness.cjs');
    await close();
 
    // Renaming the root on the board updates the Engine's tags, the board chip and the flowchart
-   // at once, without a reload. (The Engine page does not list the Feed itself, 5.28.)
+   // at once, without a reload. (The Engine does not list the Feed itself, 5.28.)
    await page.locator('.b2-viewport').focus();await page.keyboard.press('Control+Shift+F');await page.locator('.b2.focus-mode').waitFor({state:'detached'});
-   await page.locator('.views button').nth(0).click();
-   const planChip=page.locator('#plan .dd-engine-tag[data-from="c"]');
+   await openEngine(page);
+   const planChip=page.locator('.dd-engine .dd-engine-tag[data-from="c"]');
    await planChip.first().waitFor({state:'attached'});
    assert.match(await planChip.first().textContent(),/Creative life › Sketches/,'Plan shows the path');
    assert.equal(await planChip.first().evaluate((el)=>getComputedStyle(el).backgroundColor),rgb(childFill),'in the same shade');
-   assert.equal(await page.locator('.dd-plan-life').count(),0,'the Feed is not listed in Plan');
-   await page.locator('.views button').nth(1).click();
+   assert.equal(await page.locator('.dd-plan-life').count(),0,'the Feed is not listed in the Engine');
+   await page.keyboard.press('Escape');await page.locator('.dd-engine').waitFor({state:'detached'});
    const rootNode=page.locator('[data-board-id="life:a"]');
    await rootNode.focus();await page.keyboard.press('Enter');
    const field=rootNode.locator('.b4-node-body input');
    assert.equal(await field.inputValue(),'Creative life');
    await field.fill('Studio life');await field.press('Enter');
-   await page.locator('.views button').nth(0).click();
-   await page.waitForFunction(()=>/Studio life › Sketches/.test(document.querySelector('#plan .dd-engine-tag[data-from="c"]')?.innerText||''));
-   await page.locator('.views button').nth(1).click();
+   await openEngine(page);
+   await page.waitForFunction(()=>/Studio life › Sketches/.test(document.querySelector('.dd-engine .dd-engine-tag[data-from="c"]')?.innerText||''));
+   await page.keyboard.press('Escape');await page.locator('.dd-engine').waitFor({state:'detached'});
    await chip.first().waitFor({state:'attached'});
    assert.match(await chip.first().innerText(),/Studio life › Sketches/,'the board chip follows the rename');
    await open();

@@ -24,14 +24,14 @@ const { start, fixture } = require("./harness.cjs");
         ...[["big", "a", "Keep exploring"], ["small", "b", "Notice light"], ["memo", "b", "Gentle reminder"], ["root", "", "Creative life"]].map(([id, parent, text], n) => ({ id, parent, text, type: "sticky", role: id === "memo" ? "note" : "goal", x: 40, y: n === 2 ? 280 : 90, w: 220, h: 150, color: "#FFE08A" })),
       ], links: [{ id: "shared", from: "life:memo", to: "life:small" }] };
       await page.evaluate((data) => localStorage.setItem("debug-day:v2", JSON.stringify(data)), f.data);
-      await page.reload(); await page.waitForSelector("#qa", { state: "attached" });
+      await page.reload(); await page.waitForSelector(".views", { state: "attached" });
       const read = () => page.evaluate(() => JSON.parse(localStorage.getItem("debug-day:v2"))),
         canvas = page.locator(".b2-viewport"), toggle = (key) => page.locator(`[data-rail-toggle="${key}"]`),
         panel = (key) => page.locator(`#dd-rail-${key}`),
         key = async (value) => { await canvas.focus(); await page.keyboard.press(value); },
         open = async (name) => { if (await toggle(name).getAttribute("aria-expanded") !== "true") await toggle(name).click(); },
         close = async (name) => { if (await toggle(name).getAttribute("aria-expanded") === "true") await toggle(name).click(); };
-      await page.locator(".views button").nth(1).click();
+      await page.locator(".views button[data-panel=board]").click();
       await key("Control+Shift+F"); await page.locator(".b2.focus-mode").waitFor();
       if (mobile) {
         // Preferences synced from a desktop may have several open rails. A
@@ -109,19 +109,16 @@ const { start, fixture } = require("./harness.cjs");
         await open("note"); assert.equal(await panel("habits").count(), 0, "one phone overlay at a time");
         await open("habits"); assert.equal(await panel("note").count(), 0);
       }
-      await page.reload(); await page.waitForSelector("#qa", { state: "attached" });
-      await page.locator(".views button").nth(1).click();
+      await page.reload(); await page.waitForSelector(".views", { state: "attached" });
+      await page.locator(".views button[data-panel=board]").click();
       if (mobile) await key("Control+Shift+F");
       assert.equal(await toggle("habits").getAttribute("aria-expanded"), "true", "toggle survives normalization and reload");
       assert.equal(await habit.locator(".dd-habit-tick").getAttribute("aria-pressed"), "true");
-      if (mobile) await key("Control+Shift+F");
-      await page.locator(".views button").nth(0).click();
-      const plan = page.locator('.dd-habits [data-habit-id="draw"]');
-      assert.equal(await plan.locator(".dd-habit-min input").inputValue(), "30");
-      if (mobile) await page.locator(".dd-today-heading button").click();
-      await plan.locator(".dd-habit-tick").click();
-      await page.locator(".views button").nth(1).click();
+      assert.equal(await habit.locator(".dd-habit-min input").inputValue(), "30");
+      await habit.locator(".dd-habit-tick").click();
       assert.equal(await habit.locator(".dd-habit-tick").getAttribute("aria-pressed"), "false");
+      assert.ok(!(await read()).days[f.date].habits?.draw?.done);
+      if (mobile) await key("Control+Shift+F");
       // Browsing a past day still edits today's habit, never the old day's log.
       await page.getByRole("button", { name: t("Previous day", "روز قبل"), exact: true }).click();
       if (mobile) await key("Control+Shift+F");

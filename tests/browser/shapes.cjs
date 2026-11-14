@@ -11,8 +11,8 @@ const {join}=require('node:path');
    // A Feed note that is a shape survives the Feed's cleaning and draws as a shape.
    f.data.setup.life={v:2,items:[{id:'fs',type:'sticky',parent:'',x:40,y:60,w:220,h:140,text:'Feed shape',color:'#C7F4F1',style:{shape:'hexagon',strokeStyle:'dashed',stroke:'#0D99FF',junk:1}}],links:[],frame:{x:24,y:1400}};
    await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),f.data);
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
-   await page.locator('.views button').nth(1).click();
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
+   await page.locator('.views button[data-panel="board"]').click();
    await page.getByRole('button',{name:'Full screen',exact:true}).click();
    const read=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2')));
    const life=(await read()).setup.life.items.find(i=>i.id==='fs');

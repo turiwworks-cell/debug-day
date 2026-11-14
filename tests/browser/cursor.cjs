@@ -7,8 +7,8 @@ const { start, fixture } = require("./harness.cjs");
     const f = await fixture(page, h.origin);
     await page.evaluate((data) => localStorage.setItem("debug-day:v2", JSON.stringify(data)), f.data);
     await page.reload();
-    await page.waitForSelector("#qa", { state: "attached" });
-    await page.locator(".views button").nth(1).click();
+    await page.waitForSelector(".views", { state: "attached" });
+    await page.locator(".views button[data-panel=board]").click();
     const viewport = page.locator(".b2-viewport");
     // The board uses the normal system arrow, not a custom picture.
     assert.equal(await viewport.evaluate((el) => getComputedStyle(el).cursor), "default", "select mode uses the system cursor");

@@ -19,8 +19,8 @@ const {join}=require('node:path');
    f.data.days[other]={...JSON.parse(JSON.stringify(day)),date:other,blocks:[],notes:[{id:'o',kind:'sticky',text:'Old',color:'#FFE299',x:0,y:0,tags:['ink']}]};
    f.data.setup.later=[...(f.data.setup.later||[]),{id:'lt',name:'Later ink',min:30,tags:['Ink']}];
    await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),f.data);
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
-   await page.locator('.views button').nth(1).click();
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
+   await page.locator('.views button[data-panel="board"]').click();
    await page.getByRole('button',{name:'Full screen',exact:true}).click();
    const read=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2'))),
     note=async(id,date=f.date)=>(await read()).days[date].notes.find((n)=>n.id===id),

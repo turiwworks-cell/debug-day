@@ -627,7 +627,7 @@ export function DDHabitDetails({
   );
 }
 
-function DDhabitStyle() {
+export function DDhabitStyle() {
   if (typeof document === "undefined" || document.getElementById("dd-habit-style")) return;
   (document.body || document.documentElement).append(Object.assign(document.createElement("style"), { id: "dd-habit-style", textContent: DDhabitCSS }));
 }

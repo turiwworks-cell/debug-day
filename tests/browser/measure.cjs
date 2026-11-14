@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const { start, fixture } = require("./harness.cjs");
+const { start, fixture, openEngine } = require("./harness.cjs");
 // Not everything has hours: counted cards ("3x") and waiting cards, in Plan and Board.
 (async () => {
   const h = await start();
@@ -9,16 +9,17 @@ const { start, fixture } = require("./harness.cjs");
     const f = await fixture(page, h.origin);
     await page.evaluate((f) => localStorage.setItem("debug-day:v2", JSON.stringify(f.data)), f);
     await page.reload();
-    await page.waitForSelector("#qa", { state: "attached" });
+    await page.waitForSelector(".views", { state: "attached" });
     const read = () =>
       page.evaluate((date) => JSON.parse(localStorage.getItem("debug-day:v2")).days[date], f.date);
     const card = async (name) => (await read()).blocks.find((b) => b.name === name);
 
-    // Quick add understands "3x" and the ⏳ sign.
-    await page.locator("#qa").fill("Call the printer 3x");
-    await page.locator("#qa").press("Enter");
-    await page.locator("#qa").fill("⏳ Reply from client");
-    await page.locator("#qa").press("Enter");
+    // Quick add (in the Engine, over the Board) understands "3x" and the ⏳ sign.
+    const quick = (await openEngine(page)).getByRole("textbox", { name: "Quick add", exact: true });
+    await quick.fill("Call the printer 3x");
+    await quick.press("Enter");
+    await quick.fill("⏳ Reply from client");
+    await quick.press("Enter");
     const counted = await card("Call the printer"),
       waiting = await card("Reply from client");
     assert.equal(counted.measure, "count");
@@ -37,7 +38,8 @@ const { start, fixture } = require("./harness.cjs");
     assert.equal((await card("Reply from client")).done, true);
 
     // Board: the same cards show their tally, and the measure can change there.
-    await page.locator(".views button").nth(1).click();
+    await page.keyboard.press("Escape");
+    await page.locator(".dd-engine").waitFor({ state: "detached" });
     const node = page.locator(`[data-board-id="b:${counted.id}"]`);
     await node.waitFor();
     assert.match(await node.innerText(), /1\/3 times/);
@@ -56,7 +58,7 @@ const { start, fixture } = require("./harness.cjs");
 
     // Saved data keeps the measure after a reload.
     await page.reload();
-    await page.waitForSelector("#qa", { state: "attached" });
+    await page.waitForSelector(".views", { state: "attached" });
     assert.equal((await card("Reply from client")).measure, "wait");
 
     assert.deepEqual(errors, []);

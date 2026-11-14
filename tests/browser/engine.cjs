@@ -10,20 +10,20 @@ const {start,fixture}=require('./harness.cjs');
    const {page,errors}=await h.context(mobile),f=await fixture(page,h.origin),t=(en,fa)=>language==='fa'?fa:en;
    f.data.setup.preferences.language=language;
    await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),f.data);
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
    const day=async()=>(await page.evaluate((date)=>JSON.parse(localStorage.getItem('debug-day:v2')).days[date],f.date));
-   // Ctrl+Space: the Engine is the first row. Off the Board it opens the Engine
-   // page (the old Plan page); Plan is no longer a panel of its own (5.50).
+   // Ctrl+Space: the Engine is the first row. There is no Engine page any more
+   // (5.67): from any view it opens the Board with the Engine over it.
    await page.keyboard.press('Control+Space');
    const first=page.locator('[role=option]').first();await first.waitFor();
    assert.match(await first.innerText(),new RegExp(t('Engine','انجین')),'Engine is the first command');
    assert.equal(await page.locator('[role=option]',{hasText:t('Feelings','احساسات')}).count(),0,'no Feelings panel row');
    await first.click();
-   // (On a phone the quiet Today card stands in front of it until "full day".)
-   await page.locator('.dd-engine[data-mode=page]').waitFor({state:mobile?'attached':'visible'});
-   assert.equal(await page.locator('[role=tab][data-view=plan]').getAttribute('aria-selected'),'true');
+   await page.getByRole('dialog',{name:t('Engine','انجین')}).waitFor();
+   assert.equal(await page.locator('[role=tab][data-panel=board]').getAttribute('aria-selected'),'true');
+   assert.equal(await page.locator('[role=tab][data-panel=engine]').count(),0,'no Engine tab');
+   await page.keyboard.press('Escape');await page.getByRole('dialog',{name:t('Engine','انجین')}).waitFor({state:'detached'});
    // On the Board, E brings the same Engine over the dimmed board.
-   await page.locator('[role=tab][data-panel=board]').click();
    await page.locator('.b2-viewport').waitFor();
    await page.locator('.b2-viewport').focus();await page.keyboard.press('e');
    const engine=page.getByRole('dialog',{name:t('Engine','انجین')});await engine.waitFor();
@@ -100,8 +100,8 @@ const {start,fixture}=require('./harness.cjs');
     // A note that already sits inside stays a note when nudged.
     const world=await page.locator('[data-board-id="section:engine"]').evaluate(el=>({x:parseFloat(el.style.left),y:parseFloat(el.style.top),w:parseFloat(el.style.width),h:parseFloat(el.style.height)}));
     await page.evaluate(([date,w])=>{const d=JSON.parse(localStorage.getItem('debug-day:v2'));d.days[date].notes.push({id:'drop',kind:'sticky',text:'Find reference films\nCollect three',color:'#FFE299',x:1500,y:120},{id:'stay',kind:'sticky',text:'Keep me',color:'#FFE299',x:w.x+w.w/2-110,y:w.y+w.h-170});localStorage.setItem('debug-day:v2',JSON.stringify(d));},[f.date,world]);
-    await page.reload();await page.waitForSelector('#qa',{state:'attached'});
-    await page.locator('.views button').nth(1).click();
+    await page.reload();await page.waitForSelector('.views',{state:'attached'});
+    await page.locator('.views button[data-panel="board"]').click();
     await page.locator('.b2-viewport').focus();await page.keyboard.press('Shift+Digit1');await page.waitForTimeout(400);
     const stay=page.locator('[data-board-id="sticky:stay"]'),sb=await stay.boundingBox();
     await page.mouse.move(sb.x+sb.width/2,sb.y+8);await page.mouse.down();

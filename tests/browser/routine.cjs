@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {start,fixture}=require('./harness.cjs');
+const {start,fixture,openEngine}=require('./harness.cjs');
 // The daily routine (5.56). The Engine's Routine panel sets how mornings
 // start: "Bring them to Today" brings the last day's open tasks in by itself
 // the next time today opens. A task's ⋯ can make it repeat every day; it goes
@@ -11,11 +11,10 @@ const {start,fixture}=require('./harness.cjs');
    const {page,errors}=await h.context(mobile),f=await fixture(page,h.origin);
    page.setDefaultTimeout(10000);
    await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),f.data);
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
    const saved=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2'))),
-    engine=page.locator('#plan');
-   await page.locator('[role=tab][data-panel=engine]').click();
-   if(mobile)await page.evaluate(()=>window.dispatchEvent(new CustomEvent('debug-day-open-capture',{detail:'full-day'})));
+    engine=page.locator('.dd-engine');
+   await openEngine(page);
    await engine.waitFor();
    const open=(await saved()).days[f.last].blocks.filter((b)=>!b.done&&b.name.trim()).map((b)=>b.name);
    assert.ok(open.length>0);
@@ -30,17 +29,16 @@ const {start,fixture}=require('./harness.cjs');
    await panel.getByRole('button',{name:'Close',exact:true}).click();
    // Next morning (here: the next load of today) they are in today, once.
    await page.evaluate(()=>localStorage.removeItem('debug-day:routine-ran'));
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
    await page.waitForFunction(([date,names])=>{const day=JSON.parse(localStorage.getItem('debug-day:v2')).days[date];return day&&names.every((n)=>day.blocks.some((b)=>b.name===n));},[f.date,open]);
    const count=(await saved()).days[f.date].blocks.length;
    await page.evaluate(()=>localStorage.removeItem('debug-day:routine-ran'));
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
    await page.waitForTimeout(500);
    assert.equal((await saved()).days[f.date].blocks.length,count,'running again brings nothing twice');
 
    // 2. Repeat every day from a task's ⋯.
-   await page.locator('[role=tab][data-panel=engine]').click();
-   if(mobile)await page.evaluate(()=>window.dispatchEvent(new CustomEvent('debug-day-open-capture',{detail:'full-day'})));
+   await openEngine(page);
    const row=engine.locator('[data-engine-task="writing"]');
    await row.waitFor();
    await row.locator('.dd-engine-more').click();

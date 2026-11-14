@@ -16,54 +16,55 @@ const {start,fixture}=require('./harness.cjs');
   const f=await fixture(page,h.origin);
   page.setDefaultTimeout(10000);
   await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),f.data);
-  await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+  await page.reload();await page.waitForSelector('.views',{state:'attached'});
   const saved=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:timer')||'null'));
-  const chip=page.locator('.dchip').filter({hasText:'Focus'});
-  const options=()=>page.getByRole('button',{name:'Timer options',exact:true});
-  const plan=page.getByRole('dialog',{name:'Timer',exact:true});
+  // The timer sits on the Board's top bar (there is no Engine page, 5.67).
+  const boardButton=page.getByRole('button',{name:'Board timer',exact:true});
+  const panel=page.locator('.dd-board-timer');
+  const openPanel=async()=>{if(!await panel.count())await boardButton.click();await panel.waitFor();};
+  await page.locator('.views button[data-panel="board"]').click();
+  await boardButton.waitFor();
 
   // Presets sit on the timer itself and start right away.
-  await options().click();
-  await plan.getByRole('button',{name:'Start 45 minutes',exact:true}).click();
+  await openPanel();
+  await panel.getByRole('button',{name:'Start 45 minutes',exact:true}).click();
   await page.waitForFunction(()=>JSON.parse(localStorage.getItem('debug-day:timer')||'{}').running===true);
   assert.equal((await saved()).total,2700);
-  assert.equal(await plan.getByRole('button',{name:'Start 45 minutes',exact:true}).getAttribute('aria-pressed'),'true');
-  assert.ok(/(44:5\d|45:00)/.test(await chip.innerText()),await chip.innerText());
+  assert.equal(await panel.getByRole('button',{name:'Start 45 minutes',exact:true}).getAttribute('aria-pressed'),'true');
+  assert.ok(/(44:5\d|45:00)/.test(await boardButton.innerText()),await boardButton.innerText());
 
   // A reload keeps the running clock.
-  await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+  await page.reload();await page.waitForSelector('.views',{state:'attached'});
+  await boardButton.waitFor();
   assert.equal((await saved()).running,true);
-  assert.ok(/44:\d\d|45:00/.test(await chip.innerText()),'still running after a reload: '+await chip.innerText());
+  assert.ok(/44:\d\d|45:00/.test(await boardButton.innerText()),'still running after a reload: '+await boardButton.innerText());
 
   // Pause, reload, and the paused time is still there.
-  await chip.click();
+  await openPanel();
+  await panel.getByRole('button',{name:'Pause timer',exact:true}).click();
   await page.waitForFunction(()=>JSON.parse(localStorage.getItem('debug-day:timer')).running===false);
   const pausedAt=(await saved()).seconds;
-  await page.reload();await page.waitForSelector('#qa',{state:'attached'});
-  assert.ok((await chip.innerText()).includes(String(Math.floor(pausedAt/60)).padStart(2,'0')+':'+String(pausedAt%60).padStart(2,'0')),'paused time kept');
+  await page.reload();await page.waitForSelector('.views',{state:'attached'});
+  await boardButton.waitFor();
+  assert.ok((await boardButton.innerText()).includes(String(Math.floor(pausedAt/60)).padStart(2,'0')+':'+String(pausedAt%60).padStart(2,'0')),'paused time kept');
 
   // A second tab shares the same clock.
   const other=await context.newPage();
-  await other.goto(h.origin);await other.waitForSelector('#qa',{state:'attached'});
-  await chip.click();
-  await other.waitForFunction(()=>document.querySelector('.dchip .dd-timer-mini')&&[...document.querySelectorAll('.dchip')].some(b=>b.getAttribute('style')?.includes('--now')));
-  await chip.click();
+  await other.goto(h.origin);await other.waitForSelector('.views',{state:'attached'});
+  await other.locator('.dd-board-timer-button').waitFor();
+  await openPanel();
+  await panel.getByRole('button',{name:'Start timer',exact:true}).click();
+  await other.waitForFunction(()=>document.querySelector('.dd-board-timer-button')?.dataset.running==='true');
+  await panel.getByRole('button',{name:'Pause timer',exact:true}).click();
   await page.waitForFunction(()=>JSON.parse(localStorage.getItem('debug-day:timer')).running===false);
   await other.close();
 
   // Bar mode: no numbers anywhere, only a bar.
-  await options().click();
-  await plan.getByRole('button',{name:'Bar',exact:true}).click();
-  assert.equal(await plan.getByRole('textbox',{name:'Timer duration (mm:ss)',exact:true}).count(),0);
-  assert.equal(await plan.getByRole('progressbar',{name:'Time left',exact:true}).count(),1);
-  assert.equal(await chip.locator('.dd-timer-mini-bar').count(),1);
-  assert.ok(!/\d\d:\d\d/.test(await chip.innerText()),'no numbers on the chip in bar mode');
-  await page.locator('.views button[data-panel="board"]').click();
-  const boardButton=page.getByRole('button',{name:'Board timer',exact:true});
-  await boardButton.waitFor();
+  await panel.getByRole('button',{name:'Bar',exact:true}).click();
+  assert.equal(await panel.getByRole('textbox',{name:'Timer duration (mm:ss)',exact:true}).count(),0);
+  assert.equal(await panel.getByRole('progressbar',{name:'Time left',exact:true}).count(),1);
   assert.equal(await boardButton.locator('.dd-timer-mini-bar').count(),1,'the Board button follows bar mode');
-  await boardButton.click();
-  const panel=page.locator('.dd-board-timer');
+  assert.ok(!/\d\d:\d\d/.test(await boardButton.innerText()),'no numbers on the button in bar mode');
   await panel.getByRole('button',{name:'Numbers',exact:true}).click();
   assert.ok(/\d\d:\d\d/.test(await boardButton.innerText()));
 
@@ -90,7 +91,7 @@ const {start,fixture}=require('./harness.cjs');
 
   // Ended while away: the banner says when, with no new sound or notice.
   await page.evaluate(()=>localStorage.setItem('debug-day:timer',JSON.stringify({running:true,deadline:Date.now()-10*60e3,total:1500,base:1500})));
-  await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+  await page.reload();await page.waitForSelector('.views',{state:'attached'});
   await page.getByRole('alert').filter({hasText:'ended at'}).waitFor();
   assert.equal(await page.evaluate(()=>window.__notices.length),0,'no late notice');
   await page.locator('.dd-timer-notice').getByRole('button',{name:'Done',exact:true}).click();
@@ -116,12 +117,8 @@ const {start,fixture}=require('./harness.cjs');
    await page.screenshot({path:join(out,'timer-board-bar.png')});
    await panel.getByRole('button',{name:'Numbers',exact:true}).click();
    await page.keyboard.press('Escape');
-   await page.locator('.views button[data-panel="engine"]').click();
-   await options().click();
-   await page.waitForTimeout(300);
-   await page.screenshot({path:join(out,'timer-plan.png')});
    await page.evaluate(()=>localStorage.setItem('debug-day:timer',JSON.stringify({running:true,deadline:Date.now()+1200,total:1500,base:1500})));
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
    await page.getByRole('alert').filter({hasText:'Time’s up'}).waitFor();
    await page.waitForTimeout(500);
    await page.screenshot({path:join(out,'timer-banner.png')});
@@ -130,9 +127,9 @@ const {start,fixture}=require('./harness.cjs');
 
   // Phone: the banner fits and the Today clock follows bar mode.
   const phone=await h.context(true);
-  await phone.page.goto(h.origin);await phone.page.waitForSelector('#qa',{state:'attached'});
+  await phone.page.goto(h.origin);await phone.page.waitForSelector('.views',{state:'attached'});
   await phone.page.evaluate(()=>localStorage.setItem('debug-day:timer',JSON.stringify({running:true,deadline:Date.now()+1500,total:1500,base:1500})));
-  await phone.page.reload();await phone.page.waitForSelector('#qa',{state:'attached'});
+  await phone.page.reload();await phone.page.waitForSelector('.views',{state:'attached'});
   const end=phone.page.getByRole('alert').filter({hasText:'Time’s up'});
   await end.waitFor();
   const box=await end.boundingBox();

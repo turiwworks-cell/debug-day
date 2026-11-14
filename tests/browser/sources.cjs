@@ -20,13 +20,13 @@ const {start,fixture}=require('./harness.cjs');
    f.data.days[f.date].blocks.find(b=>b.id==='writing').from='c';
    Object.assign(f.data.days[f.last].blocks.find(b=>b.id==='archive'),{from:'c',done:true});
    await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),f.data);
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
    const read=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2'))),
     block=async(id)=>(await read()).days[f.date].blocks.find(b=>b.id===id),
     tap=async(locator)=>mobile?locator.tap():locator.click(),
     strip=(id)=>page.locator(`[data-section-history="${id}"]`);
    assert.equal((await block('writing')).from,'c','the source survives loading');
-   await page.locator('.views button').nth(1).click();
+   await page.locator('.views button[data-panel="board"]').click();
    await page.locator('.b2-viewport').focus();await page.keyboard.press('Control+Shift+F');await page.locator('.b2.focus-mode').waitFor();
    // The card says where it came from, in both board views.
    if((await page.locator('.b2-viewport').getAttribute('data-mode'))!=='mindmap')await page.locator('.b4-modes button').nth(0).click();
@@ -103,8 +103,8 @@ const {start,fixture}=require('./harness.cjs');
     fromSketches=1;
    }
    // A reload keeps every source.
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
-   await page.locator('.views button').nth(1).click();await record.waitFor();
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
+   await page.locator('.views button[data-panel="board"]').click();await record.waitFor();
    assert.equal((await block('writing')).from,'a');
    assert.equal((await read()).days[f.date].blocks.find(b=>b.name==='Colour script').from,'a');
    assert.match(await record.innerText(),/Colour script/);

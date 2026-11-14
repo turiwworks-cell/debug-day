@@ -33,7 +33,7 @@ const {start,fixture}=require('./harness.cjs');
     {id:'ideas',type:'section',parent:'',x:40,y:560,w:500,h:300,text:'Ideas'},
     ...secs]});
    f.data.setup.life=feed([]);
-   const save=async(d)=>{await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),d);await page.reload();await page.waitForSelector('#qa',{state:'attached'});},
+   const save=async(d)=>{await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),d);await page.reload();await page.waitForSelector('.views',{state:'attached'});},
     read=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2'))),
     tap=async(locator)=>mobile?locator.tap():locator.click(),
     modal=page.locator('.dd-command-modal'),
@@ -165,7 +165,7 @@ const {start,fixture}=require('./harness.cjs');
 
    // "Not today" puts the line away for the rest of the day, on this device.
    const fresh=await read();fresh.days[f.date].blocks=[];await save(fresh);
-   await page.locator('.views button').nth(1).click();
+   await page.locator('.views button[data-panel="board"]').click();
    await page.locator('[data-board-id="section:engine"]').waitFor({state:'attached'});
    await page.locator('.b2-viewport').focus();await page.keyboard.press('e');await engine.waitFor();
    await tap(carry.locator('.dd-engine-carry-hide'));await carry.waitFor({state:'detached'});

@@ -41,6 +41,10 @@ const { start, fixture } = require("./harness.cjs");
     p.on("pageerror", (error) => offlineErrors.push(error.message));
     await p.goto(pathToFileURL(file).href);
     await p.waitForSelector(".views");
+    // The app opens on the Board (5.67); here it starts inside the page, not full screen.
+    await p.evaluate(() => localStorage.setItem("debug-day:board-start-fullscreen", "false"));
+    await p.reload();
+    await p.waitForSelector(".views");
     await p.getByRole("button", { name: "Search", exact: true }).click();
     await p
       .getByRole("combobox", { name: "Search everything", exact: true })
@@ -52,14 +56,14 @@ const { start, fixture } = require("./harness.cjs");
       .first()
       .waitFor();
     await p.getByRole("button", { name: "Close search", exact: true }).click();
-    await p.locator(".views button").nth(2).click();
+    await p.locator(".views button[data-panel=calendar]").click();
     assert.equal(await p.locator("[data-review-date]").count(), 42);
     assert.equal(
       await p.locator(".dd-review-day time").getAttribute("dateTime"),
       f.date,
     );
     // The Engine works in the standalone file and its tasks survive a reload.
-    await p.locator(".views button").nth(1).click();
+    await p.locator(".views button[data-panel=board]").click();
     await p.locator(".b2-viewport").focus(); await p.keyboard.press("Control+Shift+F");
     await p.locator('#dd-rail-goal [data-rail-ref="b:writing"]').waitFor();
     await p.locator('[data-rail-toggle="goal"]').click();
@@ -72,19 +76,19 @@ const { start, fixture } = require("./harness.cjs");
     await engine.locator(".dd-engine-name", { hasText: "An offline task" }).waitFor();
     await p.keyboard.press("Escape");
     await p.reload();
-    await p.locator(".views button").nth(1).click();
+    await p.locator(".views button[data-panel=board]").click();
     await p.locator(".b2-viewport").focus();
     await p.keyboard.press("e");
     await engine.locator(".dd-engine-name", { hasText: "An offline task" }).waitFor();
     await p.keyboard.press("Escape");
-    await p.locator(".views button").nth(2).click();
+    await p.locator(".views button[data-panel=calendar]").click();
     assert.equal(
       await p.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth + 1,
       ),
       true,
     );
-    await p.locator(".views button").nth(1).click();
+    await p.locator(".views button[data-panel=board]").click();
     const zoom = p.getByRole("textbox", { name: "Zoom percentage", exact: true });
     await zoom.fill("125"); await zoom.press("Enter");
     await p.waitForFunction(() => document.querySelector(".b2-viewport").dataset.zoom === "1.25");
@@ -95,9 +99,11 @@ const { start, fixture } = require("./harness.cjs");
       localStorage.setItem("debug-day:v2", JSON.stringify(data));
     }, f.date);
     await p.reload();
-    await p.locator(".views button").nth(0).click();
-    await p.locator('[data-block-id="writing"] svg.dd-sticker-art,[data-playful-task="writing"] svg.dd-sticker-art').first().waitFor({ state: "attached" });
-    await p.locator(".views button").nth(1).click();
+    await p.locator(".views button[data-panel=board]").click();
+    await p.locator(".b2-viewport").focus();
+    await p.keyboard.press("e");
+    await engine.locator('[data-engine-task="writing"] svg.dd-sticker-art').first().waitFor({ state: "attached" });
+    await p.keyboard.press("Escape");
     await p.locator('[data-board-id="b:writing"] [data-symbol="sticker:orbit"] svg').waitFor();
     assert.deepEqual(offlineErrors, []);
     await offline.close();

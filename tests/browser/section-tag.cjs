@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {start,fixture}=require('./harness.cjs');
+const {start,fixture,openEngine}=require('./harness.cjs');
 // Section tags (5.53): a task gets its section from the card's panel with a
 // quick search, no dragging. The tag is the task's `from`, so the Board card,
 // the Engine and Lanes show it at once, and a click on it (on the card, in the
@@ -14,7 +14,7 @@ const {start,fixture}=require('./harness.cjs');
    const section=(id,text,x,extra={})=>({id,type:'section',parent:'',x,y:60,w:420,h:300,text,...extra});
    f.data.setup.life={v:2,items:[section('a','Studio',40,{color:'#9DD6FF'}),section('c','Sketches',20,{parent:'a',w:300,h:200}),section('b','Clients',500)],links:[],frame:{x:24,y:1200}};
    await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),f.data);
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
    const tap=async(locator)=>mobile?locator.tap():locator.click(),
     day=()=>page.evaluate((date)=>JSON.parse(localStorage.getItem('debug-day:v2')).days[date],f.date),
     task=async(id)=>(await day()).blocks.find((b)=>b.id===id),
@@ -25,11 +25,11 @@ const {start,fixture}=require('./harness.cjs');
 
    // Move Orbit idea off the Engine: a note of the main board only.
    await page.evaluate((date)=>{const d=JSON.parse(localStorage.getItem('debug-day:v2'));Object.assign(d.days[date].notes[0],{x:-900,y:2400});localStorage.setItem('debug-day:v2',JSON.stringify(d));},f.date);
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});await page.locator('[role=tab][data-panel=board]').click();await view.waitFor();
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});await page.locator('[role=tab][data-panel=board]').click();await view.waitFor();
    if(mobile){
     // A phone's board starts zoomed out; its tag still comes from the same field.
     await page.evaluate((date)=>{const d=JSON.parse(localStorage.getItem('debug-day:v2'));d.days[date].blocks[0].from='c';localStorage.setItem('debug-day:v2',JSON.stringify(d));},f.date);
-    await page.reload();await page.waitForSelector('#qa',{state:'attached'});await page.locator('[role=tab][data-panel=board]').click();await view.waitFor();
+    await page.reload();await page.waitForSelector('.views',{state:'attached'});await page.locator('[role=tab][data-panel=board]').click();await view.waitFor();
    }else{
    // 1. Pick the card; its panel has the Section field first.
    await tap(card.locator('.b4-node-body').first());
@@ -108,12 +108,12 @@ const {start,fixture}=require('./harness.cjs');
    await engine.waitFor({state:'detached'});
    await page.waitForFunction(()=>sessionStorage.getItem('debug-day:board-room')==='c');
 
-   // 5. The Engine page: its tag opens the Board inside Sketches.
+   // 5. Opened again from anywhere, its tag still opens the Board inside Sketches.
    await page.locator('[data-room-crumb="main"]').click();
    await page.waitForFunction(()=>!sessionStorage.getItem('debug-day:board-room'));
-   await page.locator('[role=tab][data-panel=engine]').click();
+   await openEngine(page);
    if(!mobile){
-    await tap(page.locator('#plan [data-engine-task="writing"] button.dd-engine-tag[data-from="c"]'));
+    await tap(page.locator('.dd-engine [data-engine-task="writing"] button.dd-engine-tag[data-from="c"]'));
     await view.waitFor();
     await page.waitForFunction(()=>sessionStorage.getItem('debug-day:board-room')==='c');
     assert.equal(await room(),'c');

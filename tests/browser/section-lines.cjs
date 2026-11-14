@@ -16,10 +16,10 @@ const {start,fixture}=require('./harness.cjs');
    {id:'m',type:'sticky',parent:'a',x:100,y:200,w:120,h:110,text:'Two',color:'#FFE08A'},
   ],links:[{id:'link:1',from:'life:n',to:'life:m',style:'elbow',arrow:true,color:'#7A5FF5'}],frame:{x:24,y:1200,w:1600,h:1400}};
   await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),f.data);
-  await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+  await page.reload();await page.waitForSelector('.views',{state:'attached'});
   const read=async()=>JSON.parse(await page.evaluate(()=>localStorage.getItem('debug-day:v2'))).setup.life;
   const view=page.locator('.b2-viewport');
-  await page.locator('.views button').nth(1).click();
+  await page.locator('.views button[data-panel="board"]').click();
   await view.focus();await page.keyboard.press('Control+Shift+F');await page.locator('.b2.focus-mode').waitFor();
   await page.locator('[data-life-jump]').click();await page.waitForTimeout(400);
   const studio=await page.locator('[data-board-id="life:a"]').boundingBox();

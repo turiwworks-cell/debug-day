@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {start,fixture}=require('./harness.cjs');
+const {start,fixture,openEngine}=require('./harness.cjs');
 // Photos and videos on a task (5.34): links to files in the person's Google Drive
 // live on block.media, so the Board card details and the Plan card show the same list.
 (async()=>{
@@ -10,11 +10,12 @@ const {start,fixture}=require('./harness.cjs');
    page.setDefaultTimeout(10000);
    const b=f.data.days[f.date].blocks[0];
    b.media=[{id:'drivefile0001',name:'sketch.jpg',mime:'image/jpeg',size:120000},{id:'drivefile0002',name:'studio.mp4',mime:'video/mp4',size:9000000},{id:'bad id',name:'x'}];
-   await page.evaluate((d)=>{localStorage.setItem('debug-day:v2',JSON.stringify(d));localStorage.setItem('debug-day:ui',JSON.stringify({view:'plan'}));},f.data);
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+   await page.evaluate((d)=>{localStorage.setItem('debug-day:v2',JSON.stringify(d));},f.data);
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
    const config=await page.evaluate(()=>fetch('/api/media-config').then(r=>r.json()));
    assert.deepEqual(config,{googleClientId:''},'no Client ID in the test server');
    // The Engine row shows the count; its details show the tiles.
+   await openEngine(page);
    assert.match(await page.locator('.dd-engine [data-engine-task="writing"] .dd-media-count').first().textContent(),/2/);
    // Plan cards have no width in the phone test context (see harness notes), so the
    // phone pass checks the shared data and the page, the desktop pass the panels.
@@ -37,7 +38,7 @@ const {start,fixture}=require('./harness.cjs');
    assert.equal(await tiles.count(),1);
    assert.match(await page.locator('.dd-engine [data-engine-task="writing"] .dd-media-count').first().textContent(),/1/);
    {
-    await page.locator('.views [role=tab][data-panel="board"]').click();
+    await page.keyboard.press('Escape');await page.locator('.dd-engine').waitFor({state:'detached'});
     await page.locator('[data-board-id="b:writing"] .b4-node-body').click({force:true});
     const details=page.locator('.dd-card-details');
     if(!(await details.count()))await page.getByRole('button',{name:'Card details',exact:true}).click();
