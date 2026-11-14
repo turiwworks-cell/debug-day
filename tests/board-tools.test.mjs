@@ -15,7 +15,7 @@ import {DDdueClean} from '../public/deadlines.js';
 import {DDnormalizeLife} from '../public/life-board.js';
 import {DDreconcileDay} from '../public/relations.js';
 import {DDstrokeEncode,DDstrokeDecode,DDnormalizeStrokes,DDsimplifyStroke,DDstrokePath,DDmarksRebase,DDeraseStrokeCircle,DDstrokeInBox,DDtransformPoints} from '../public/pen.js';
-import {DDnormalizeComments,DDcommentsTransfer,DDcommentTime} from '../public/comments.js';
+import {DDnormalizeComments,DDcommentsTransfer,DDcommentTime,DDcommentReact} from '../public/comments.js';
 import {DDarrowFamily,DDnoteFamily,DDnoteBranch} from '../public/note-family.js';
 import {DDboardSearchRows} from '../public/board-experience.js';
 import {DDbuildSearchIndex,DDmatchSearch,DDparseSearch} from '../public/search.js';
@@ -294,4 +294,17 @@ test('Shift locks its initial ray while the pointer drifts perpendicular to it',
   DDlockedStrokeEnd(diagonal, { x: -10, y: 10 });
   const end = DDlockedStrokeEnd(diagonal, { x: -80, y: 20 });
   assert.ok(Math.abs(end.x + end.y) < 1e-9);
+});
+
+test('comment reactions (5.64, Milanote): one of each, a second pick takes it off, kept through the normalizer', () => {
+  let m = { id: 'm1', text: 'Hi', at: '2026-11-14T10:00:00.000Z' };
+  m = DDcommentReact(m, '👍');
+  assert.deepEqual(m.reactions, ['👍']);
+  m = DDcommentReact(m, '🎉');
+  assert.deepEqual(m.reactions, ['👍', '🎉']);
+  m = DDcommentReact(m, '👍');
+  assert.deepEqual(m.reactions, ['🎉']);
+  assert.equal(DDcommentReact(m, '🎉').reactions, undefined, 'none left: no field');
+  const [c] = DDnormalizeComments([{ id: 'c1', x: 1, y: 2, thread: [{ ...m, reactions: ['🎉', '🎉', 5, 'x'.repeat(40), '✨'] }] }]);
+  assert.deepEqual([...c.thread[0].reactions], ['🎉', '✨'], 'unique short strings only');
 });

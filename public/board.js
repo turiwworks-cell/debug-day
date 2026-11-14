@@ -6467,6 +6467,9 @@ export function DDcreateBoard(deps) {
                               : "Sticky note tool",
               ),
               "aria-pressed": tool === Y,
+              // A comment can also be dragged out of the dock onto the board (Milanote).
+              onPointerDown: Y === "comment" ? (e) => comments.dockDown(e) : undefined,
+              title: Y === "comment" ? "Comment (M) · or drag it onto the board" : undefined,
               onClick: () => {
                 (setTool(Y), setConnecting(null), setWireId(null), setShapeMenu(null));
               },

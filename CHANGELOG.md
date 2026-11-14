@@ -1,3 +1,12 @@
+## 5.64.0 — 2026-11-14
+Branch: claude/project-thread-n79ngv
+- Board comments work like Milanote's: a comment that is not on a card is a comment card on the board, showing its messages with a Reply button.
+- Nothing is saved until Send. A new comment closed with words in it stays on the board as "not sent yet" (Finish brings the words back), and the browser asks before leaving with unsent words.
+- Reactions: the smiley under a message picks one of eight; a click on a reaction takes it off.
+- Drag a comment card over a note or task: it shrinks to a small marker, and dropped there it sticks to that card and moves with it. Drag the marker to empty board and it is a card again.
+- Drag Comment out of the dock onto the board (a click still turns the comment tool on, M still works).
+- A picked comment card goes with Delete; a click on the board puts it down. An edited message can't be left empty.
+
 ## 5.63.0 — 2026-11-14
 Branch: claude/project-thread-d0zfxj
 - Documents on the Board, after Milanote: a card for long writing with a name. It shows as a card with the start of its words, or as a small icon (right-click: Show as icon / Show as card).
