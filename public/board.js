@@ -261,6 +261,9 @@ export function DDcreateBoard(deps) {
       [docOpen, setDocOpen] = useState(null),
       // A to-do list asked to start typing (double-click / Enter), 5.65.
       [todoFocus, setTodoFocus] = useState(null),
+      // Writing on a line, opened by a double-click on it (5.66).
+      [wireText, setWireText] = useState(null),
+      wireTap = useRef(null),
       // Text formatting (5.61): the Text style menu and the link box.
       [textMenu, setTextMenu] = useState(null),
       [linkPop, setLinkPop] = useState(null),
@@ -1181,6 +1184,17 @@ export function DDcreateBoard(deps) {
     }
     function wireDown(Y, G, ct) {
       if (Y.button !== 0) return;
+      // A double-click on a line writes on it, in its middle (5.66).
+      const tap = wireTap.current, now = Date.now();
+      const onLine = ct !== "from" && ct !== "to";
+      if (onLine && tap && tap.id === G.id && now - tap.t < 450 && Math.hypot(Y.clientX - tap.x, Y.clientY - tap.y) < 12) {
+        wireTap.current = null;
+        Y.preventDefault(); Y.stopPropagation();
+        finishEdit(); setSelected(new Set()); setWireId(G.id); setWirePop(null); setMenu(null);
+        setWireText({ id: G.id });
+        return;
+      }
+      wireTap.current = onLine ? { id: G.id, t: now, x: Y.clientX, y: Y.clientY } : null;
       (Y.preventDefault(),
         Y.stopPropagation(),
         finishEdit(),
@@ -2175,6 +2189,25 @@ export function DDcreateBoard(deps) {
         toolButton(t("More actions", "گزینه‌های بیشتر"), "more", (event) => openContext(event, { wire: wire.id }), { "data-dock-more": "line" }),
       );
     }
+    // The words on a line, typed in its middle. Enter or a click away keeps them, Escape leaves them as they were.
+    function wireTextEditor() {
+      if (!wireText) return null;
+      const edge = layout.edges.find((e) => e.id === wireText.id), geo = edge && wireGeometry(edge);
+      if (!geo) return null;
+      const done = (value, keep) => {
+        setWireText(null);
+        if (!keep) return;
+        const next = String(value || "").trim().slice(0, 200);
+        if (next !== (edge.label || "")) patchWire(edge.id, { label: next }, next ? t("Text on the line", "متن روی خط") : t("Line text removed", "متن خط برداشته شد"));
+        viewport.current?.focus({ preventScroll: true });
+      };
+      return _.createElement("div", { className: "dd-wire-text", style: { left: geo.mid.x, top: geo.mid.y }, onPointerDown: (e) => e.stopPropagation(), onDoubleClick: (e) => e.stopPropagation() },
+        _.createElement("input", { key: edge.id, autoFocus: true, defaultValue: edge.label || "", dir: "auto", maxLength: 200, size: Math.max(6, Math.min(36, (edge.label || "").length + 2)),
+          placeholder: t("Write on the line", "روی خط بنویس"), "aria-label": t("Connection label", "عنوان اتصال"),
+          onInput: (e) => { e.target.size = Math.max(6, Math.min(36, e.target.value.length + 2)); },
+          onKeyDown: (e) => { e.stopPropagation(); if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); done(e.target.value, true); } else if (e.key === "Escape") { e.preventDefault(); done("", false); } },
+          onBlur: (e) => done(e.target.value, true) }));
+    }
     // Arrowheads at either end. Older links keep one arrow, flipped by arrowReverse.
     function wireEnds(wire) {
       return {
@@ -2903,7 +2936,8 @@ export function DDcreateBoard(deps) {
       }else{
         ref="sticky:"+id;
         commit(d=>{
-          d.notes.push({id,kind:"sticky",x:at.x-width/2,y:at.y-height/2,text:"",color,...media});
+          // A note made on the Engine from inside a section remembers that section (5.66).
+          d.notes.push({id,kind:"sticky",x:at.x-width/2,y:at.y-height/2,text:"",color,...media,...(roomNode&&onEngine&&layout.room?{from:layout.room}:{})});
           const b=clean(d.canvas?.board4);
           b.styles={...b.styles,[ref]:{width,height,textSize:template.textSize||16,...plain,...look}};
           if(mode==="lanes")b.layouts={...b.layouts,lanes:{...b.layouts.lanes,[ref]:{x:at.x-width/2,y:at.y-height/2}}};
@@ -3626,6 +3660,7 @@ export function DDcreateBoard(deps) {
             const bracket=ot.code==="BracketLeft"?"[":ot.code==="BracketRight"?"]":ot.key;
             if(["[","]"].includes(bracket)&&selected.size){handled();reorder(St?(bracket==="]"?"forward":"backward"):(bracket==="]"?"front":"back"));return;}
             if(St && ot.altKey && ["l","t","r"].includes(K)&&selected.size){handled();applyStyle({textAlign:{l:"start",t:"center",r:"end"}[K]});return;}
+            if(ot.altKey&&!St&&!ot.shiftKey&&selected.size&&(K==="t"||K==="c")&&sendToKey(K)){handled();return;}
             if(ot.altKey&&!St&&selected.size){
               const align={a:"left",d:"right",w:"top",s:"bottom",h:"center-x",v:"center-y"}[K];
               if(align){handled();arrangeSelection(align);return;}
@@ -4243,6 +4278,8 @@ export function DDcreateBoard(deps) {
         // A click on it goes into that section (5.53).
         Y.kind === "block" && Y.from && sectionNames.has(Y.from) && _.createElement(DDSectionChip, { React: _, items: DDlifeItems(setup), id: Y.from, language: DDlanguage, onGo: (id) => enterRoom(id) }),
         Tt && Y.at && _.createElement("time",{className:"dd-sticky-footer",dateTime:Y.at},DDstickyDateLabel(Y.at,DDlanguage)),
+        // Under a note made on the Engine from a section: which section it came from (5.66).
+        Tt && Y.cameFrom && sectionNames.has(Y.cameFrom) && _.createElement("div", { className: "dd-note-from" }, _.createElement(DDSectionChip, { React: _, items: DDlifeItems(setup), id: Y.cameFrom, language: DDlanguage, className: "dd-task-from dd-note-from-chip", prefix: t("From ", "از "), onGo: (id) => enterRoom(id) })),
         // Under the paper: tags, sub-notes and, when picked, its family (5.36).
         Tt && !ot && noteTools.under(Y, G),
         // A photo note: the picture first, its words under it (5.38).
@@ -5084,6 +5121,21 @@ export function DDcreateBoard(deps) {
       // Text given a width keeps exactly that width (it no longer hugs its words).
       commit((d) => { const next = core.setStyle(d, nodes.filter((n) => !n.plain), axis === "height" ? { height: size } : { width: size }), text = nodes.filter((n) => n.plain); return text.length && axis === "width" ? core.setStyle(next, text, { width: size, fixed: true }) : next; }, axis === "height" ? t("Same height", "هم‌ارتفاع شد") : t("Same width", "هم‌عرض شد"));
     }
+    // Send to (5.66): only two places, each with a key: This App (Alt+T) and Capture (Alt+C).
+    function quickTargets() {
+      const items = DDlifeItems(setup);
+      const thisApp = items.find((i) => i.type === "section" && String(i.text || "").trim().toLowerCase() === "this app"),
+        capture = items.find((i) => i.type === "section" && i.id === DDcaptureId);
+      return [thisApp && { id: thisApp.id, key: "t", name: thisApp.text }, capture && { id: capture.id, key: "c", name: capture.text || t("Capture", "کپچر") }].filter(Boolean);
+    }
+    function sendToKey(key) {
+      const target = quickTargets().find((x) => x.key === key);
+      if (!target) return false;
+      const movable = selectedNodes.filter((n) => !locked.has(n.id) && (n.lifeId || (n.kind === "sticky" && n.noteId && !n.memberOf)) && n.lifeId !== target.id);
+      if (!movable.length) { setStatus(t("Pick notes or sections to send", "نوت یا سکشنی را برای فرستادن انتخاب کن")); return true; }
+      sendToSection(target.id);
+      return true;
+    }
     // "Send to section…": notes and sections go inside another section (a note
     // from this day joins the section, so it shows on every day like the rest).
     function sendToSection(targetId) {
@@ -5482,9 +5534,9 @@ export function DDcreateBoard(deps) {
           sameColor = colorable.length && colorable.every((n) => String(n.color).toUpperCase() === String(colorable[0].color).toUpperCase()) ? String(colorable[0].color).toUpperCase() : null,
           movable = selectedNodes.filter((n) => !locked.has(n.id) && (n.lifeId || (n.kind === "sticky" && n.noteId && !n.memberOf))),
           skip = new Set(movable.filter((n) => n.lifeSection).flatMap((n) => [...DDlifeDescendants(lifeList, n.lifeId)])),
-          targets = lifeList.filter((i) => i.type === "section" && !skip.has(i.id))
-            .map((i) => ({ id: i.id, path: DDsectionPath(lifeList, i.id, 36, t("Section", "سکشن")) }))
-            .sort((a, b) => a.path.full.localeCompare(b.path.full)),
+          // Send to: only This App and Capture, each with its key (5.66).
+          targets = quickTargets().filter((q) => !skip.has(q.id) && !movable.some((n) => n.lifeId === q.id))
+            .map((q) => ({ id: q.id, key: q.key, path: DDsectionPath(lifeList, q.id, 36, t("Section", "سکشن")) })),
           inSection = movable.some((n) => n.lifeId && lifeList.find((i) => i.id === n.lifeId)?.parent),
           movableLife = movable.filter((n) => n.lifeId),
           grouped = Object.values(model.groups).some((refs) => refs.some((ref) => selected.has(ref))),
@@ -5552,9 +5604,9 @@ export function DDcreateBoard(deps) {
                 shortcut: "Enter",
               },
             ),
-          movable.length > 0 && targets.length > 0 && item("send", "Send to section…", "فرستادن به سکشن…", "sendTo", null, {
+          movable.length > 0 && targets.length > 0 && item("send", "Send to", "فرستادن به", "sendTo", null, {
             children: [
-              ...targets.map((s) => item("send-" + s.id, s.path.short, s.path.short, "section", () => sendToSection(s.id), { checked: movableLife.length === movable.length && movableLife.every((n) => lifeList.find((i) => i.id === n.lifeId)?.parent === s.id) })),
+              ...targets.map((s) => item("send-" + s.id, s.path.short, s.path.short, "section", () => sendToSection(s.id), { shortcut: "Alt+" + s.key.toUpperCase(), checked: movableLife.length === movable.length && movableLife.every((n) => lifeList.find((i) => i.id === n.lifeId)?.parent === s.id) })),
               inSection && sep("send-out-sep"),
               inSection && item("send-out", "Out of its section", "بیرون از سکشن", "unframe", () => sendToSection("")),
             ].filter(Boolean),
@@ -6144,11 +6196,14 @@ export function DDcreateBoard(deps) {
                       markerEnd: wireEnds(Y).end ? "url(#b4-arrow)" : void 0,
                       className: "b4-wire-line",
                     }),
-                    Y.label &&
+                    Y.label && wireText?.id !== Y.id &&
                       _.createElement(
                         "g",
                         {
                           "data-wire-label": !0,
+                          // A double-click on the words opens them again.
+                          onPointerDown: (ot) => wireDown(ot, Y),
+                          style: { cursor: "text", pointerEvents: "auto" },
                           transform: `translate(${G.mid.x} ${G.mid.y - 12 / cam.current.z}) scale(${1 / cam.current.z})`,
                         },
                         _.createElement("rect", {
@@ -6233,6 +6288,7 @@ export function DDcreateBoard(deps) {
           paintOrder.map(cardFor),
           pen.world(),
           comments.world(),
+          wireTextEditor(),
           photos.world(),
           roomHistory(),
           _.createElement("div", { className: "dd-ghost-note", ref: ghostNote, "aria-hidden": true, style: { display: "none" } }),

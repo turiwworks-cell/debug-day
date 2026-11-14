@@ -12,7 +12,8 @@ const {start,fixture}=require('./harness.cjs');
   f.data.setup.life={v:2,items:[
    {id:'p',type:'section',parent:'',x:40,y:60,w:520,h:320,text:'Project',color:'#9DD6FF'},
    {id:'q',type:'section',parent:'',x:640,y:60,w:520,h:320,text:'Ideas',color:'#FFA6D9'},
-   {id:'q1',type:'section',parent:'q',x:30,y:60,w:260,h:200,text:'Small',color:'#FFA6D9'},
+   {id:'q1',type:'section',parent:'q',x:30,y:60,w:260,h:200,text:'This App',color:'#FFA6D9'},
+   {id:'lf-inbox',type:'section',parent:'',x:40,y:420,w:520,h:240,text:'Capture',color:'#B3EFBD'},
    {id:'n1',type:'sticky',parent:'p',x:30,y:60,w:200,h:200,text:'Inside',color:'#FFE08A'},
   ],links:[],frame:{x:24,y:700,w:1300,h:700}};
   f.data.days[f.date].notes=[
@@ -127,11 +128,16 @@ const {start,fixture}=require('./harness.cjs');
   assert.equal((await day()).notes.find((n)=>n.id==='b').color,'#B3EFBD');
   await node('sticky:b').locator('.dd-note-preview').click({button:'right'});await menu().waitFor();
   assert.equal(await menu().getByRole('menuitemradio',{name:'Color #B3EFBD',exact:true}).getAttribute('aria-checked'),'true');
-  await menuItem('Send to section…').click();
+  await menuItem('Send to').click();
   await shot('menu-send');
-  await menuItem('Ideas › Small').click();await settle();
+  // Send to has only This App and Capture, each with its key (5.66).
+  const sendTo=await menu().getByRole('menuitem').evaluateAll((l)=>l.map((e)=>e.getAttribute('aria-label')));
+  assert.ok(sendTo.some((l)=>/This App/.test(l))&&sendTo.some((l)=>/Capture/.test(l)),'This App and Capture: '+sendTo.join(', '));
+  assert.ok(!sendTo.some((l)=>/^Project|^Ideas$/.test(l)),'and no other section: '+sendTo.join(', '));
+  assert.match(await menu().locator('[role=menuitem]',{hasText:'This App'}).innerText(),/Alt\+T/);
+  await menuItem('Ideas › This App').click();await settle();
   let all=await items(),sent=all.find((i)=>i.text==='Beta');
-  assert.ok(sent&&sent.parent==='q1','the note is in Ideas › Small now: '+JSON.stringify(sent));
+  assert.ok(sent&&sent.parent==='q1','the note is in Ideas › This App now: '+JSON.stringify(sent));
   assert.ok(!(await day()).notes.some((n)=>n.id==='b'),'and no longer a loose note of the day');
   const small=all.find((i)=>i.id==='q1');
   assert.ok(sent.x>=0&&sent.y>=0&&sent.x+sent.w<=small.w&&sent.y+sent.h<=small.h,'it sits inside, the section grew: '+JSON.stringify([sent,small]));
@@ -139,14 +145,19 @@ const {start,fixture}=require('./harness.cjs');
   // A section goes into another section too, and out again.
   await key('Escape');await page.locator('[data-life-jump]').click();await settle();
   await node('life:p').locator(':scope>.b4-node-body').click({button:'right'});await menu().waitFor();
-  await menuItem('Send to section…').click();
-  const targets=await menu().getByRole('menuitem').evaluateAll((l)=>l.map((e)=>e.getAttribute('aria-label')));
-  assert.ok(!targets.includes('Client project'),'never into itself');
-  await menuItem('Ideas').click();await settle();
-  assert.equal((await items()).find((i)=>i.id==='p').parent,'q');
+  await menuItem('Send to').click();
+  await menuItem('Capture').click();await settle();
+  assert.equal((await items()).find((i)=>i.id==='p').parent,'lf-inbox');
   await node('life:p').locator(':scope>.b4-node-body').click({button:'right'});await menu().waitFor();
-  await menuItem('Send to section…').click();await menuItem('Out of its section').click();await settle();
+  await menuItem('Send to').click();await menuItem('Out of its section').click();await settle();
   assert.equal((await items()).find((i)=>i.id==='p').parent,'');
+  // Alt+C sends what is picked to Capture.
+  await key('Escape');await node('life:p').locator(':scope>.b4-node-body').click();await settle(150);
+  await page.keyboard.press('Alt+c');await settle();
+  assert.equal((await items()).find((i)=>i.id==='p').parent,'lf-inbox','Alt+C: to Capture');
+  await key('Control+z');await settle();
+  assert.equal((await items()).find((i)=>i.id==='p').parent,'');
+  await node('life:p').locator(':scope>.b4-node-body').click();await settle(150);
 
   // 6. The align panel lines things up and spaces them evenly.
   await key('Escape');await key('Shift+1');await settle();

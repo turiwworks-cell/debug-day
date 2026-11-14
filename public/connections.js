@@ -1,47 +1,7 @@
 // Geometry in world coordinates. Endpoints are recomputed from live node
 // bounds on every drag frame, rather than remembering the original ports.
-const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 const normals = { left: [-1, 0], right: [1, 0], top: [0, -1], bottom: [0, 1] };
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-function segment(rect, side) {
-  const ix = Math.min(12, rect.w / 4),
-    iy = Math.min(12, rect.h / 4);
-  if (side === "left" || side === "right")
-    return {
-      vertical: true,
-      fixed: rect.x + (side === "right" ? rect.w : 0),
-      a: rect.y + iy,
-      b: rect.y + rect.h - iy,
-    };
-  return {
-    vertical: false,
-    fixed: rect.y + (side === "bottom" ? rect.h : 0),
-    a: rect.x + ix,
-    b: rect.x + rect.w - ix,
-  };
-}
-function closest(a, b) {
-  if (a.vertical !== b.vertical) {
-    const v = a.vertical ? a : b,
-      h = a.vertical ? b : a;
-    const vp = { x: v.fixed, y: clamp(h.fixed, v.a, v.b) },
-      hp = { x: clamp(v.fixed, h.a, h.b), y: h.fixed };
-    return a.vertical ? [vp, hp] : [hp, vp];
-  }
-  const lo = Math.max(a.a, b.a),
-    hi = Math.min(a.b, b.b);
-  const av = lo <= hi ? (lo + hi) / 2 : a.b < b.a ? a.b : a.a;
-  const bv = clamp(av, b.a, b.b);
-  return a.vertical
-    ? [
-        { x: a.fixed, y: av },
-        { x: b.fixed, y: bv },
-      ]
-    : [
-        { x: av, y: a.fixed },
-        { x: bv, y: b.fixed },
-      ];
-}
 const point = (r, side) =>
   side === "left"
     ? { x: r.x, y: r.y + r.h / 2 }
@@ -55,9 +15,8 @@ export function DDnearestEndpoints(a, b, fixed = {}) {
   for (const from of fixed.fromPort ? [fixed.fromPort] : Object.keys(normals))
     for (const to of fixed.toPort ? [fixed.toPort] : Object.keys(normals)) {
       if (!normals[from] || !normals[to]) continue;
-      let [p, q] = closest(segment(a, from), segment(b, to));
-      if (fixed.fromPort) p = point(a, from);
-      if (fixed.toPort) q = point(b, to);
+      // A line always meets a side in its middle, never near a corner (5.66).
+      const p = point(a, from), q = point(b, to);
       const [fx, fy] = normals[from],
         [tx, ty] = normals[to],
         dx = q.x - p.x,

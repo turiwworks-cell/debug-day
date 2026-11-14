@@ -25,6 +25,7 @@ export const DDboardShortcuts = [
   ["Ctrl/Cmd+G", "Group", "گروه‌کردن"], ["Ctrl/Cmd+Shift+G", "Ungroup / remove section, keep contents", "بازکردن گروه / برداشتن سکشن با حفظ محتوا"],
   ["Ctrl/Cmd+Shift+L", "Lock / unlock", "قفل / بازکردن قفل"],
   ["[ / ]", "Send to back / bring to front", "فرستادن به پشت / آوردن به جلو"],
+  ["Alt+T / Alt+C", "Send to This App / Capture", "فرستادن به This App / کپچر"],
   ["Ctrl/Cmd+[ / ]", "Move one layer back / forward", "یک لایه عقب / جلو"],
   ["Alt+A / D / W / S", "Align left / right / top / bottom", "تراز چپ / راست / بالا / پایین"],
   ["Alt+H / V", "Align horizontal / vertical centers", "تراز مرکز افقی / عمودی"],
@@ -258,6 +259,10 @@ export const DDboardExperienceCSS = `
 .b6{--dd-wire:var(--ink-2,#4a4843)}
 .b6 .b4-wire-line{stroke-width:max(calc(var(--w,3) * 1px),calc(var(--w,3) * .8px * var(--b4-line-inverse,1)));transition:stroke .12s}
 .b6 .b4-wire:hover .b4-wire-line{stroke:var(--board-selection);stroke-width:max(calc(var(--w,3) * 1.6px),calc(var(--w,3) * 1.3px * var(--b4-line-inverse,1)))}
+.b6 .dd-note-from{position:absolute;top:100%;inset-inline-start:0;margin-top:6px;max-width:100%;z-index:8;pointer-events:auto;transform:scale(clamp(.9,var(--b4-inverse,1),3));transform-origin:0 0}
+.b6 .dd-note-from .dd-note-from-chip{position:static;display:inline-block;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:top}
+.b6 .dd-wire-text{position:absolute;z-index:960;transform:translate(-50%,-50%) scale(var(--b4-inverse,1));pointer-events:auto}
+.b6 .dd-wire-text input{min-width:0;height:26px;padding:0 10px;border-radius:7px;border:1.5px solid var(--board-accent,#0D99FF);background:var(--paper,#fff);color:var(--ink,#121211);font:500 12px/1 var(--sans);text-align:center;box-shadow:0 6px 16px -8px #0006;outline:0}
 .b6 .dd-wire-pop{display:inline-flex;align-items:center;gap:3px;margin-inline:2px;padding:2px 4px;background:#ffffff14;border-radius:8px;flex:none}
 .b6 .dd-wire-pop button{min-width:26px;height:26px;border-radius:6px;padding:0 6px;color:#fff;background:transparent;font-size:11px}
 .b6 .dd-wire-pop button[aria-pressed=true],.b6 .dd-wire-pop button:hover{background:#ffffff22}

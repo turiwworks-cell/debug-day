@@ -604,7 +604,7 @@ export function DDcreateBoardLayout(deps) {
         textColor: "#121211",
         x: finite(Jt.x, 40),
         y: finite(Jt.y, 40),
-        at: Jt.at || day.date, baseW:Jt.baseW || 240, syncId: Jt.syncId || undefined, due: Jt.due || undefined,
+        at: Jt.at || day.date, baseW:Jt.baseW || 240, syncId: Jt.syncId || undefined, due: Jt.due || undefined, cameFrom: Jt.kind !== "emoji" && Jt.from || undefined,
         w: Jt.kind === "emoji" ? 64 : 240,
         h: Jt.kind === "emoji" ? 64 : 160,
       });
