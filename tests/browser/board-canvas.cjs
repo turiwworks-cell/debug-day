@@ -31,11 +31,13 @@ const {start,fixture,boardMenu}=require('./harness.cjs');
    await page.locator('body').click({position:{x:4,y:4}});
    await page.keyboard.press('Control+Equal');
    assert.equal(await page.evaluate(()=>window.__zoomKey),true,'Ctrl+= is taken over in Plan');
-   // Search opens the Board straight in full screen.
+   // Search opens the Board, but full screen waits until you press it (5.77.2).
    await page.keyboard.press('Control+Space');
    await page.getByRole('combobox',{name:t('Search everything','جست‌وجوی همه‌چیز'),exact:true}).fill('First idea');
    await page.locator('.dd-command-modal').getByText('First idea',{exact:true}).first().click();
-   await page.locator('.b6.focus-mode').waitFor();
+   // (A phone's Board is always full screen.)
+   await page.locator(mobile?'.b6.focus-mode':'.b6').waitFor();
+   if(!mobile)assert.equal(await page.locator('.b6.focus-mode').count(),0,'not full screen until pressed');
    await page.waitForSelector('[data-board-id="sticky:a"][aria-selected="true"]');
    const viewport=page.locator('.b2-viewport'),zoom=async()=>Number(await viewport.getAttribute('data-zoom'));
    const key=async(k)=>{await viewport.focus();await page.keyboard.press(k);await page.waitForTimeout(60);};

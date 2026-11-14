@@ -54,7 +54,8 @@ const {start,fixture,openEngine,boardMenu}=require('./harness.cjs');
    assert.equal(await modal.locator('.dd-panel-row').nth(3).getAttribute('data-panel'),'sections');
    await tap(modal.locator('.dd-panel-row[data-panel="sections"] .dd-command-open'));
    await flow.waitFor();
-   await page.locator('.b2.focus-mode').waitFor();// from search the Board opens in full screen (5.23)
+   await page.locator('.b2').waitFor();
+   if(!mobile)assert.equal(await page.locator('.b2.focus-mode').count(),0,'search opens the Board; full screen waits for you (5.77.2)');
    assert.deepEqual(await shown(),['','a','c','e','d','b','g'],'Main board first, then each section after its parent, in board order (not the saved order)');
    assert.deepEqual(await links(),['>a','a>c','c>e','a>d','>b','b>g'],'a line from each parent to each section inside it');
    await close();
