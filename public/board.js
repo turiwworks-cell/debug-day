@@ -3987,7 +3987,8 @@ export function DDcreateBoard(deps) {
           dir: "auto",
           maxLength: 4000,
           "aria-label": DDUI("Sticky note text"),
-          placeholder: t("Type anything…", "هر چیزی بنویس…"),
+          // A new text object starts empty: just the caret, no hint stacked in a thin box (5.77.3).
+          placeholder: node.plain ? "" : t("Type anything…", "هر چیزی بنویس…"),
           onPointerDown: (event) => event.stopPropagation(),
           // The board keeps the latest text without drawing itself again: the
           // editing state is updated in place, and saving waits for a pause.
