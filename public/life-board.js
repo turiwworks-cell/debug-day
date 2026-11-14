@@ -713,17 +713,17 @@ export const DDlifeCSS = `
 .b4-life-section .b4-node-title .dd-room-enter{flex:none;display:inline-flex;align-items:center;justify-content:center;margin-inline-start:.45em;padding:0 .4em;min-width:1.6em;height:1.4em;border-radius:.3em;border:0;background:color-mix(in srgb,var(--node-text,#121211) 12%,transparent);color:inherit;font:inherit;font-size:.85em;line-height:1;cursor:pointer;vertical-align:middle}
 .b4-life-section .b4-node-title .dd-room-enter:hover{background:color-mix(in srgb,var(--node-text,#121211) 22%,transparent)}
 .dd-room-break{flex-basis:100%;height:0;order:8}
-.dd-room-bar{flex:0 0 auto;order:9;pointer-events:auto;display:flex;align-items:center;flex-wrap:wrap;gap:2px;width:max-content;max-width:100%;padding:4px;border-radius:12px;background:var(--paper,#fff);color:var(--ink,#121211);border:1px solid color-mix(in srgb,var(--ink,#121211) 10%,transparent);box-shadow:0 4px 14px #0000001a;font:500 13px/1.2 var(--sans,system-ui);box-sizing:border-box}
-.dd-room-bar button{min-height:32px;padding:4px 10px;border-radius:8px;border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dd-room-bar button:hover{background:var(--wash,#0000000d)}
-.dd-room-bar .dd-room-back{background:var(--panel-engine,#F05A28);color:#fff;font-weight:600;min-width:32px}
-.dd-room-bar .dd-room-back:hover{background:color-mix(in srgb,var(--panel-engine,#F05A28) 85%,#000)}
-.dd-room-bar [aria-current=page]{font-weight:650;cursor:default}
-.dd-room-bar [aria-current=page]:hover{background:transparent}
+:is(.dd-room-bar,.dd-place-bar){flex:0 0 auto;order:9;pointer-events:auto;display:flex;align-items:center;flex-wrap:wrap;gap:2px;width:max-content;max-width:100%;padding:4px;border-radius:12px;background:var(--paper,#fff);color:var(--ink,#121211);border:1px solid color-mix(in srgb,var(--ink,#121211) 10%,transparent);box-shadow:0 4px 14px #0000001a;font:500 13px/1.2 var(--sans,system-ui);box-sizing:border-box}
+:is(.dd-room-bar,.dd-place-bar) button{min-height:32px;padding:4px 10px;border-radius:8px;border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+:is(.dd-room-bar,.dd-place-bar) button:hover{background:var(--wash,#0000000d)}
+:is(.dd-room-bar,.dd-place-bar) .dd-room-back{background:var(--panel-engine,#F05A28);color:#fff;font-weight:600;min-width:32px}
+.dd-place-bar .dd-room-back:disabled{opacity:.35;cursor:default}:is(.dd-room-bar,.dd-place-bar) .dd-room-back:hover:not(:disabled){background:color-mix(in srgb,var(--panel-engine,#F05A28) 85%,#000)}
+:is(.dd-room-bar,.dd-place-bar) [aria-current=page]{font-weight:650;cursor:default}
+:is(.dd-room-bar,.dd-place-bar) [aria-current=page]:hover{background:transparent}
 .dd-room-sep{opacity:.45;padding:0 1px}
 .dd-room-note{opacity:.55;font-size:11.5px;font-weight:450;padding:0 10px 0 8px;max-width:340px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-@media(pointer:coarse){.dd-room-bar button{min-height:40px}}
-@media(max-width:700px){.dd-room-bar{margin-top:56px}.dd-room-bar button{max-width:150px}.dd-room-note{display:none}}
+@media(pointer:coarse){:is(.dd-room-bar,.dd-place-bar) button{min-height:40px}}
+@media(max-width:700px){:is(.dd-room-bar,.dd-place-bar){margin-top:56px}:is(.dd-room-bar,.dd-place-bar) button{max-width:150px}.dd-room-note{display:none}}
 .dd-life-dimensions{display:flex;gap:8px;padding:8px 0}
 .dd-life-dimensions label{flex:1;min-width:0;font-size:12px;color:var(--ink)}
 .dd-life-dimensions input{display:block;width:100%;min-height:36px;padding:5px;border:1px solid var(--rule-2);border-radius:6px;background:var(--paper);color:var(--ink);font:inherit}

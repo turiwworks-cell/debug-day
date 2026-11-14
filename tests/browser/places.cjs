@@ -87,10 +87,11 @@ const {start,fixture,boardMenu}=require('./harness.cjs');
    await page.waitForTimeout(500);
    assert.notEqual(await camera(),before,'the board jumped to the note');
    assert.equal(await page.locator('[data-board-id="sticky:far"].selected').count(),1);
-   // Full screen hides the tabs; Back comes along on the board.
-   const boardBack=page.locator('.b2-brandbar [data-places-back]');
+   // Full screen hides the tabs; Back comes along on the path under the top bar (5.71).
+   // A phone keeps it beside its tabs.
+   const backSel=mobile?'.dd-tabs [data-places-back]':'.dd-place-bar [data-room-back]',boardBack=page.locator(backSel);
    // The place is recorded when the jump settles, which can be a frame or two late on a slow runner.
-   await page.waitForFunction(()=>document.querySelector('.b2-brandbar [data-places-back]')?.getAttribute('aria-label')==='Back to Board · Sketches',null,{timeout:4000}).catch(()=>{});
+   await page.waitForFunction((s)=>document.querySelector(s)?.getAttribute('aria-label')==='Back to Board · Sketches',backSel,{timeout:4000}).catch(()=>{});
    assert.equal(await boardBack.getAttribute('aria-label'),'Back to Board · Sketches');
    await tap(boardBack);
    await page.waitForFunction(()=>/Sketches/.test(document.querySelector('.dd-room-bar')?.innerText||''));

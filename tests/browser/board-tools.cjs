@@ -84,7 +84,10 @@ const {start,fixture}=require('./harness.cjs');
    await family.locator('[data-family-ref="sticky:c1"]').evaluate((el)=>el.click());
    await settle(600);
    assert.equal(await node('sticky:c1').evaluate((el)=>el.classList.contains('selected')),true,'the sub-note is picked');
-   const back=page.locator('.b2-brandbar [data-places-back]');
+   // Back sits on the path under the top bar (5.71), not beside the date.
+   assert.equal(await page.locator('.b2-brandbar [data-places-back]').count(),0);
+   // A phone keeps it beside its tabs.
+   const back=page.locator(mobile?'.dd-tabs [data-places-back]':'.dd-place-bar [data-room-back]');await back.waitFor();
    assert.equal(await back.isDisabled(),false,'Back returns to where you were');
    assert.equal((await node('sticky:c1').locator('.dd-family-badge').innerText()).trim(),'↑','a picked sub-note shows a small ↑ badge');
    await node('sticky:c1').locator('.dd-family-badge').evaluate((el)=>el.click());

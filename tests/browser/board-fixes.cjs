@@ -43,9 +43,9 @@ const {start,fixture,boardMenu}=require('./harness.cjs');
    const frameFeed=async()=>{
     await boardMenu(page,'Feed');await page.waitForTimeout(300);
     await page.keyboard.press('Escape');await key('0');
-    // Scroll the board so the Feed's top-left corner sits near the top-left of the screen.
-    for(let i=0;i<3;i++){const fb=await box('section:life');if(Math.abs(fb.x-60)<4&&Math.abs(fb.y-150)<4)break;
-     await page.mouse.move(700,450);await page.mouse.wheel(fb.x-60,fb.y-150);await page.waitForTimeout(200);}
+    // Scroll the board so the Feed's top-left corner sits near the top-left of the screen, under the path bar (5.71).
+    for(let i=0;i<3;i++){const fb=await box('section:life');if(Math.abs(fb.x-60)<4&&Math.abs(fb.y-210)<4)break;
+     await page.mouse.move(700,450);await page.mouse.wheel(fb.x-60,fb.y-210);await page.waitForTimeout(200);}
    };
    await frameFeed();
 

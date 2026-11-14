@@ -24,7 +24,7 @@ import { DDSectionsFlowchart, DDsectionsBus, DDinstallSectionsFlowStyles } from 
 import { DDsetSectionKey, DDsectionsVisit, DDcaptureId } from "./section-keys.js";
 import { DDsectionGo, DDSectionTagField, DDinstallSectionTagStyles } from "./section-tag.js";
 import { DDtaskLook } from "./task-look.js";
-import { DDplaces, DDPlacesBack } from "./places.js";
+import { DDplaces, DDplaceName } from "./places.js";
 import { DDusePen, DDnormalizeStrokes, DDmarksRebase, DDpenCSS } from "./pen.js";
 import { DDuseComments, DDnormalizeComments, DDcommentsTransfer, DDcommentsCSS } from "./comments.js";
 import { DDnoteTagsCSS } from "./note-tags.js";
@@ -2748,7 +2748,9 @@ export function DDcreateBoard(deps) {
       const parents=new Set(); let p=it.parent;
       while(p){parents.add(p);p=items.find((i)=>i.id===p)?.parent;}
       if (parents.size) lifeChange((list)=>list.map((i)=>parents.has(i.id)?{...i,collapsed:false}:i));
-      cam.current={x:32-(frame.x+a.x)*z,y:180-(frame.y+DDlifeHead+a.y)*z,z};
+      // Below the rails' buttons, which sit lower when the path bar shows (5.71).
+      const rails=el.parentElement?.querySelector(".dd-board-rails"), railTop=rails?rails.getBoundingClientRect().top-el.getBoundingClientRect().top:0, top=Math.max(180,railTop+108);
+      cam.current={x:32-(frame.x+a.x)*z,y:top-(frame.y+DDlifeHead+a.y)*z,z};
       setSelected(new Set(["life:"+id])); queueCamera(); scheduleCamera();
     }
     function resizeLifeArea(patch) {
@@ -5654,6 +5656,11 @@ export function DDcreateBoard(deps) {
     // Ctrl+Space can ask for the Engine while this board is already open.
     useEffect(() => DDengineBus.on(() => DDengineBus.take() && setEngine(true)), []);
     useEffect(() => DDsectionsBus.on(() => DDsectionsBus.take() && setLifeNav(true)), []);
+    // Where Back goes: the trail of places (places.js).
+    const [, setPlaceTick] = useState(0);
+    useEffect(() => DDplaces.watch(() => setPlaceTick((n) => n + 1)), []);
+    // A phone keeps Back beside its tabs, so the Main board needs no extra bar there.
+    const placeBack = ((s) => ({ back: s.back, bar: focus && !(typeof matchMedia === "function" && matchMedia("(max-width:700px)").matches), label: s.back ? "Back to " + (DDplaceName(s.previous) || "where you were") : "" }))(DDplaces.state());
     useEffect(() => {
       const go = () => { const where = DDengineGoBus.take(); if (where) api.current.goEngine(where); };
       const first = setTimeout(go, 60);
@@ -5718,8 +5725,6 @@ export function DDcreateBoard(deps) {
         _.createElement(
           "div",
           { className: "b2-brandbar" },
-          // Full screen hides the tabs, so Back comes along (5.33).
-          focus && _.createElement(DDPlacesBack, { React: _ }),
           _.createElement(
             "div",
             null,
@@ -5811,9 +5816,15 @@ export function DDcreateBoard(deps) {
           dockMore("top"),
         ),
         // Where you are: the main board, then each section down to the open one.
-        layout.room && _.createElement("div",{className:"dd-room-break","aria-hidden":true}),
+        // Back lives on the path below the bar (5.71): it returns to exactly where
+        // you were (Alt+←), or one level up when there is nowhere to return to.
+        // On the Main board in full screen (computer) the path is always there, so nothing jumps.
+        (layout.room || placeBack.bar) && _.createElement("div",{className:"dd-room-break","aria-hidden":true}),
+        !layout.room && placeBack.bar && _.createElement("nav",{className:"dd-place-bar",dir:"ltr","aria-label":t("Where you are","کجای برد هستی"),onPointerDown:(e)=>e.stopPropagation()},
+          _.createElement("button",{type:"button",className:"dd-room-back","data-room-back":true,disabled:!placeBack.back,title:placeBack.back?placeBack.label+" · Alt+←":t("Back (nothing yet)","برگشت (هنوز جایی نیست)"),"aria-label":placeBack.back?placeBack.label:t("Back (nothing yet)","برگشت (هنوز جایی نیست)"),onClick:()=>DDplaces.back()},"←"),
+          _.createElement("span",{dir:"auto","aria-current":"page"},t("Main board","برد اصلی"))),
         layout.room && _.createElement("nav",{className:"dd-room-bar",dir:"ltr","aria-label":t("Where you are","کجای برد هستی"),onPointerDown:(e)=>e.stopPropagation()},
-          _.createElement("button",{type:"button",className:"dd-room-back","data-room-back":true,title:t("Back one level (Esc)","یک سطح برگشت (Esc)"),"aria-label":t("Back","برگشت"),onClick:leaveRoom},"←"),
+          _.createElement("button",{type:"button",className:"dd-room-back","data-room-back":true,title:placeBack.back?placeBack.label+" · Alt+←":t("Back one level (Esc)","یک سطح برگشت (Esc)"),"aria-label":placeBack.back?placeBack.label:t("Back","برگشت"),onClick:()=>placeBack.back?DDplaces.back():leaveRoom()},"←"),
           _.createElement("button",{type:"button",dir:"auto","data-room-crumb":"main",onClick:()=>enterRoom(null)},t("Main board","برد اصلی")),
           DDlifePath(DDlifeItems(setup),layout.room).map((s,i,all)=>_.createElement(_.Fragment,{key:s.id},
             _.createElement("span",{className:"dd-room-sep","aria-hidden":true},"›"),

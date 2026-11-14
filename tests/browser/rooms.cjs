@@ -131,7 +131,7 @@ const {start,fixture,boardMenu}=require('./harness.cjs');
     await page.locator('.views button[data-panel="board"]').click();await bar.waitFor();
     assert.match(await bar.innerText(),/Sketches/);
     await page.locator('.b2-viewport').focus();await page.keyboard.press('Escape');
-   } else await tap(bar.locator('[data-room-back]'));
+   } else await tap(bar.locator('[data-room-crumb="a"]'));// ← returns to where you were (5.71); the path goes up
    await page.waitForFunction(()=>!/Sketches/.test(document.querySelector('.dd-room-bar')?.innerText||''));
    assert.equal(await page.locator('[data-board-id="life:a"]').count(),1,'back in Creative life');
    await tap(bar.locator('[data-room-crumb="main"]'));
