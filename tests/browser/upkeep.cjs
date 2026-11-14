@@ -2,7 +2,7 @@ const assert=require('node:assert/strict');
 const {start,fixture}=require('./harness.cjs');
 // Upkeep and gentle nudges (5.45): yesterday's leftovers and a very full day
 // show as one calm line at the top of the Engine; Feed deletes wait in Recently
-// deleted; an empty note goes away when you close it; days stop keeping copies
+// deleted; an empty note stays when you close it; days stop keeping copies
 // of Feed places; Settings shows the space used.
 (async()=>{
  const h=await start();
@@ -86,14 +86,15 @@ const {start,fixture}=require('./harness.cjs');
     assert.equal(data.setup.life.items.find((i)=>i.id==='fox').parent,'s','back inside its section');
     assert.equal(data.setup.life.trash,undefined);
     await node('life:fox').waitFor();
-    // 5. A note closed with nothing in it goes away.
+    // 5. A note closed with nothing in it stays (5.67).
     const n0=(await read()).days[f.date].notes.length,vb=await view.boundingBox();
     await page.keyboard.press('Escape');
     await page.mouse.dblclick(vb.x+vb.width*.8,vb.y+vb.height*.3);
     const typing=page.locator('.dd-note-editor textarea');await typing.waitFor();
     await page.keyboard.press('Escape');
     await page.waitForTimeout(400);
-    assert.equal((await read()).days[f.date].notes.length,n0,'the empty note is gone');
+    assert.equal((await read()).days[f.date].notes.length,n0+1,'the empty note stays');
+    assert.equal((await read()).days[f.date].notes.at(-1).text,'','and it is empty');
     await page.mouse.dblclick(vb.x+vb.width*.8,vb.y+vb.height*.3);
     await typing.waitFor();await typing.fill('Kept');await page.keyboard.press('Escape');
     await page.waitForFunction((a)=>JSON.parse(localStorage.getItem('debug-day:v2')).days[a.date].notes.some((n)=>n.text==='Kept'),{date:f.date});
@@ -105,6 +106,6 @@ const {start,fixture}=require('./harness.cjs');
    assert.deepEqual(errors,[]);
    await context.close();
   }
-  console.log('upkeep: leftovers and full-day nudges, Recently deleted, empty notes go, no Feed copies on days, space used');
+  console.log('upkeep: leftovers and full-day nudges, Recently deleted, empty notes stay, no Feed copies on days, space used');
  }finally{await h.stop();}
 })().catch((error)=>{console.error(error);process.exitCode=1;});

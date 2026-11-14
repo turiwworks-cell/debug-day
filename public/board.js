@@ -2616,15 +2616,8 @@ export function DDcreateBoard(deps) {
         setSelected(new Set());
         return;
       }
-      // A note closed with nothing in it goes away (Undo brings it back).
-      if (ct?.kind === "sticky") {
-        const src = ct.lifeId ? DDlifeState(propsRef.current.setup).items.find((i) => i.id === ct.lifeId) : (dayRef.current.notes || []).find((n) => n.id === ct.noteId);
-        if (src && !String(src.text || "").trim() && !(src.media || []).length && !src.syncId && !(src.tags || []).length && !src.role) {
-          commit((d) => core.remove(d, [ct]), t("Empty note removed", "نوت خالی پاک شد"));
-          setSelected(new Set());
-        }
-        return;
-      }
+      // A note closed with nothing in it stays, empty, where it was (5.67).
+      if (ct?.kind === "sticky") return;
       if (ct?.lifeId) { lifeChange((list) => list.map((i) => i.id === ct.lifeId ? { ...i,text:ot } : i)); return; }
       if (ct?.kind === "habit") {
         if (!ot && !ct.title)
