@@ -63,6 +63,9 @@ export function DDduePresets(today, language) {
     [7, fa ? "یه هفته دیگه" : "In a week"],
     [14, fa ? "دو هفته دیگه" : "In 2 weeks"],
     [30, fa ? "یه ماه دیگه" : "In a month"],
+    // Far dates too (5.75): the date field takes any day.
+    [91, fa ? "سه ماه دیگه" : "In 3 months"],
+    [365, fa ? "یه سال دیگه" : "In a year"],
   ].map(([n, label]) => ({ date: shift(today, n), label }));
 }
 

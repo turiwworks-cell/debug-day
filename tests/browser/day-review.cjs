@@ -21,6 +21,7 @@ async function scenario(h, mobile, language) {
     next = shift(f.date, 1);
   f.data.setup.preferences.language = language;
   f.data.setup.reminders = [
+    { id: "far", date: shift(f.date, 300), title: "Far reminder", repeat: "once", done: false, type: "writing", lane: "work", min: 30, note: "" },
     {
       id: "weekly",
       date: f.last,
@@ -33,6 +34,8 @@ async function scenario(h, mobile, language) {
       note: "",
     },
   ];
+  f.data.setup.life = f.data.setup.life || { v: 2, items: [], links: [] };
+  f.data.setup.life.items = [...(f.data.setup.life.items || []), { id: "far-note", type: "sticky", parent: "", x: 900, y: 900, w: 200, h: 200, text: "Far deadline", color: "#FFE08A", due: shift(f.date, 120) }];
   f.data.days[f.last].journal = "Last week journal";
   f.data.days[f.last].bugs = [
     {
@@ -122,6 +125,13 @@ async function scenario(h, mobile, language) {
   assert.match(await list.innerText(), /Weekly reminder/);
   assert.match(await todayCell.locator(".dd-cal-rem").textContent(), /Weekly reminder/, "the name is in the chip (phones show only the bell)");
   assert.equal(await todayCell.getAttribute("data-reminders"), "1");
+  // 5.75: the list shows everything coming, on any date (a reminder next year,
+  // a deadline months away); "This month" keeps the month's own days.
+  assert.equal(await list.locator('[data-cal-range="coming"]').getAttribute("aria-pressed"), "true");
+  assert.match(await list.innerText(), /Far reminder/);
+  assert.match(await list.locator('[data-cal-deadline="far-note"]').innerText(), /Far deadline/);
+  await activate(list.locator('[data-cal-range="month"]'));
+  assert.doesNotMatch(await list.innerText(), /Far reminder/);
   await activate(list.locator(`[data-cal-reminder-day="${f.last}"]`));
   await page.waitForFunction((date) => document.querySelector(".dd-review-day time")?.dateTime === date, f.last);
   assert.deepEqual(await read(page), baseline, "picking a reminder day changes nothing");
@@ -364,6 +374,15 @@ async function scenario(h, mobile, language) {
   await page.waitForSelector('.dd-review-root[data-section="day"]');
   await section("day");
   await select(f.date);
+  // 5.75: a reminder can go on any day from here, months ahead.
+  const addBox = page.locator(".dd-review-reminders details");
+  await addBox.locator("summary").click();
+  await addBox.getByRole("textbox", { name: t("Reminder text", "متن یادآور"), exact: true }).fill("Book the gallery");
+  await addBox.getByLabel(t("Reminder day", "روز یادآور"), { exact: true }).fill(shift(f.date, 200));
+  await addBox.getByRole("button", { name: t("Save reminder", "ثبت یادآور"), exact: true }).click();
+  await page.waitForFunction(([date]) => JSON.parse(localStorage.getItem("debug-day:v2")).setup.reminders.some((r) => r.title === "Book the gallery" && r.date === date), [shift(f.date, 200)]);
+  await activate(page.locator('.dd-cal-reminders [data-cal-range="coming"]'));
+  assert.match(await page.locator(".dd-cal-reminders").innerText(), /Book the gallery/);
   if (screenshots) {
     await page.screenshot({
       path: path.join(

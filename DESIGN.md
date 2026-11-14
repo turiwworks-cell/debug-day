@@ -50,6 +50,7 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 - No guilt: no red, no streak-loss warnings, no "you failed". Use neutral words ("not yet", "left").
 - Budgets and goals are soft: "1h 30m / 6h · week", "12 of 35 · 9 days left". Green when reached, never red when over or behind.
 - A goal with a date counts down quietly in the Goals rail ("◆ 12d 02:10:16 left"). Never red; a passed date just says "date passed".
+- Reminders and deadlines work for any date. The Calendar's Reminders list shows everything coming ("This month" is one tap away).
 - Deadlines are soft too: "◆ 8 days left", "tomorrow", "date passed" (`deadlines.js`). On a note the badge sits above the paper, never on it.
 - A task may be light or heavy (`energy.js`), never required. A tired day (😫 😕) offers the light ones first.
 - The Week view and its look back count what happened; they never score it. Next week's focus is one line.

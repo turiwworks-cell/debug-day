@@ -1,3 +1,9 @@
+## 5.75.0 — 2026-11-14
+Branch: claude/project-thread-n79ngv
+- Calendar: the Reminders list shows everything coming, on any date, not only this month: each reminder's next day and every deadline (Feed notes and to-do tasks), soonest first, with "days left". "This month" is one tap away and is remembered.
+- Adding a reminder takes any day (a date field, set to the chosen day), so a reminder months ahead needs no paging through the Calendar.
+- Deadlines offer "In 3 months" and "In a year" beside the nearer choices; the date field still takes any day.
+
 ## 5.74.0 — 2026-11-14
 Branch: claude/project-thread-n79ngv
 - Documents: Write now looks like Read. The words are written without the marks (the same editor as notes), so headings, lists, to-dos and bold look the same in both.

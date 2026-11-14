@@ -3,7 +3,7 @@ import { DDduration } from "./measure.js";
 import { DDnoteTags, DDtagText } from "./note-tags.js";
 import { DDmediaTitle } from "./media.js";
 import { DDlifeItems } from "./life-board.js";
-import { DDdueOn, DDdueName } from "./deadlines.js";
+import { DDdueOn, DDdueName, DDdueBetween, DDdueText } from "./deadlines.js";
 import { DDtodoDueItems, DDtodoLists } from "./todos.js";
 import { DDCalendarWeek, DDWeekReview, DDCalendarModes, DDCalSections } from "./calendar-week.js";
 import { DDaddDays, DDvalidDate } from "./dates.js";
@@ -663,25 +663,59 @@ function DDReviewCalendar({
 const DDbell = (h) =>
   h("svg", { viewBox: "0 0 16 16", width: 12, height: 12, fill: "none", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true },
     h("path", { d: "M4 11.5V7.2a4 4 0 0 1 8 0v4.3l1.2 1.3H2.8z" }), h("path", { d: "M6.6 14.2a1.6 1.6 0 0 0 2.8 0" }));
-// The month's reminders beside the grid (5.58): every day that has one, with
-// each reminder's name. A click picks that day.
+// The next day a reminder comes on, from `from` on ("" when it has passed).
+export function DDreminderNext(reminder, from) {
+  if (!DDreviewValidDate(reminder?.date) || !DDreviewValidDate(from)) return "";
+  if (reminder.date >= from) return reminder.date;
+  const step = reminder.repeat === "weekly" ? 7 : reminder.repeat === "alternate" ? 2 : 0;
+  if (!step) return "";
+  const days = Math.round((Date.parse(from + "T12:00:00Z") - Date.parse(reminder.date + "T12:00:00Z")) / 86400000);
+  return DDreviewShift(reminder.date, Math.ceil(days / step) * step);
+}
+// Everything coming, on any date (5.75): each reminder's next day and every
+// deadline (Feed notes and to-do tasks) from today on, soonest first.
+export function DDcalComing(reminders = [], dueItems = [], today) {
+  const rows = new Map(), row = (date) => {
+    if (!rows.has(date)) rows.set(date, { date, items: [], due: [] });
+    return rows.get(date);
+  };
+  for (const r of reminders || []) {
+    const date = DDreminderNext(r, today), item = date && DDreviewReminders([r], date)[0];
+    if (item) row(date).items.push(item);
+  }
+  for (const d of DDdueBetween(dueItems, today, null)) row(d.due).due.push(d);
+  return [...rows.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+// Reminders and deadlines beside the grid (5.58): everything coming, on any
+// date, or only this month's. A click picks that day.
 function DDCalReminders({ React: R, data, date, today, language, month, onSelectDay }) {
-  const { h, t, n } = DDreviewUI(R, language);
+  const { h, t, n } = DDreviewUI(R, language),
+    [range, setRange] = R.useState(() => (DDreviewLocal("debug-day:cal-reminders", "coming") === "month" ? "month" : "coming"));
   if (!month) return null;
   const system = month.system,
-    days = month.cells
-      .filter((cell) => cell.inMonth)
-      .map((cell) => ({ date: cell.date, items: DDreviewReminders(data.setup.reminders, cell.date) }))
-      .filter((row) => row.items.length),
-    count = days.reduce((sum, row) => sum + row.items.length, 0),
+    dueItems = [...DDlifeItems(data.setup), ...DDtodoDueItems(DDtodoLists(data))],
+    days = range === "coming"
+      ? DDcalComing(data.setup.reminders, dueItems, today)
+      : month.cells
+          .filter((cell) => cell.inMonth)
+          .map((cell) => ({ date: cell.date, items: DDreviewReminders(data.setup.reminders, cell.date), due: DDdueOn(dueItems, cell.date) }))
+          .filter((row) => row.items.length || row.due.length),
+    count = days.reduce((sum, row) => sum + row.items.length + row.due.length, 0),
+    thisYear = today.slice(0, 4),
     label = (value) =>
-      DDreviewFormatter(language, system, { weekday: "short", day: "numeric", month: "short" }).format(new Date(value + "T12:00:00Z"));
+      DDreviewFormatter(language, system, { weekday: "short", day: "numeric", month: "short", ...(value.slice(0, 4) !== thisYear ? { year: "numeric" } : {}) }).format(new Date(value + "T12:00:00Z")),
+    pick = (value) => { setRange(value); DDreviewRemember("debug-day:cal-reminders", value); };
   return h(
     "aside",
-    { className: "dd-cal-reminders", "aria-label": t("Reminders this month", "یادآورهای این ماه") },
+    { className: "dd-cal-reminders", "aria-label": range === "coming" ? t("Reminders and deadlines coming", "یادآورها و ددلاین‌های پیش رو") : t("Reminders this month", "یادآورهای این ماه") },
     h("header", null, h("h2", null, DDbell(h), t("Reminders", "یادآورها")), count > 0 && h("span", { className: "dd-cal-count" }, n(count))),
+    h("div", { className: "dd-cal-range", role: "group", "aria-label": t("Which reminders", "کدام یادآورها") },
+      h("button", { type: "button", "data-cal-range": "coming", "aria-pressed": range === "coming", onClick: () => pick("coming") }, t("Coming", "پیش رو")),
+      h("button", { type: "button", "data-cal-range": "month", "aria-pressed": range === "month", onClick: () => pick("month") }, t("This month", "این ماه"))),
     !days.length
-      ? h("p", { className: "dd-cal-reminders-empty" }, t("No reminders this month. Pick a day and add one under Reminders.", "این ماه یادآوری نیست. یک روز را انتخاب کن و از بخش یادآورها اضافه کن."))
+      ? h("p", { className: "dd-cal-reminders-empty" }, range === "coming"
+          ? t("Nothing coming. Pick any day and add a reminder, or give a note a deadline.", "چیزی پیش رو نیست. هر روزی را انتخاب کن و یادآور بگذار، یا به یک نوت ددلاین بده.")
+          : t("No reminders this month. Pick a day and add one under Reminders.", "این ماه یادآوری نیست. یک روز را انتخاب کن و از بخش یادآورها اضافه کن."))
       : h(
           "ol",
           null,
@@ -692,7 +726,7 @@ function DDCalReminders({ React: R, data, date, today, language, month, onSelect
               h(
                 "button",
                 { type: "button", "data-cal-reminder-day": row.date, "aria-pressed": row.date === date, onClick: () => onSelectDay(row.date) },
-                h("time", { dateTime: row.date }, row.date === today ? t("Today", "امروز") : label(row.date)),
+                h("time", { dateTime: row.date }, row.date === today ? t("Today", "امروز") : label(row.date) + (range === "coming" && row.date > today ? " · " + DDdueText(row.date, today, language) : "")),
                 h(
                   "span",
                   null,
@@ -705,6 +739,9 @@ function DDCalReminders({ React: R, data, date, today, language, month, onSelect
                         ? h("i", { title: item.repeat === "weekly" ? t("Every week", "هر هفته") : t("Every other day", "یک روز در میان") }, " ↻")
                         : null,
                     ),
+                  ),
+                  row.due.map((item) =>
+                    h("span", { key: "due:" + item.id, className: "dd-cal-reminder dd-cal-deadline", "data-cal-deadline": item.id, dir: "auto", title: t("Deadline", "ددلاین") }, "◆ " + DDdueName(item, language)),
                   ),
                 ),
               ),
@@ -1501,19 +1538,23 @@ function DDReviewReminders({
   const { h, t } = DDreviewUI(R, language),
     [text, setText] = R.useState(""),
     [repeat, setRepeat] = R.useState("once"),
+    [on, setOn] = R.useState(date),
     [armed, setArmed] = R.useState(null),
     reminders = DDreviewReminders(data.setup.reminders, date);
   R.useEffect(() => {
     setText("");
     setRepeat("once");
+    setOn(date);
     setArmed(null);
   }, [date]);
   function add(event) {
     event.preventDefault();
     if (!text.trim()) return;
+    // Any day, near or far (5.75): the day picked here, the chosen day by default.
+    const when = DDreviewValidDate(on) ? on : date;
     const item = {
       id: crypto.randomUUID(),
-      date,
+      date: when,
       title: text.trim(),
       repeat,
       done: false,
@@ -1530,7 +1571,8 @@ function DDReviewReminders({
       },
     }));
     setText("");
-    onToast?.(t("Reminder added", "یادآور اضافه شد"));
+    setOn(date);
+    onToast?.(when === date ? t("Reminder added", "یادآور اضافه شد") : t("Reminder added for ", "یادآور اضافه شد برای ") + when);
   }
   return h(
     "section",
@@ -1638,6 +1680,17 @@ function DDReviewReminders({
             dir: "auto",
             onChange: (event) => setText(event.target.value),
             "aria-label": t("Reminder text", "متن یادآور"),
+          }),
+        ),
+        h(
+          "label",
+          null,
+          t("On", "در روز"),
+          h("input", {
+            type: "date",
+            value: on,
+            onChange: (event) => setOn(event.target.value || date),
+            "aria-label": t("Reminder day", "روز یادآور"),
           }),
         ),
         h(
