@@ -1,3 +1,7 @@
+## 5.76.0 — 2026-11-14
+Branch: claude/project-thread-n79ngv
+- A note that gets long while you write (about a page, or 15 lines) asks once, in one calm line above the tools: "This note is getting long. Make it a document?" Make a document turns it into one and opens it with every word kept; Keep as note goes on writing. It never asks again for that note.
+
 ## 5.75.0 — 2026-11-14
 Branch: claude/project-thread-n79ngv
 - Calendar: the Reminders list shows everything coming, on any date, not only this month: each reminder's next day and every deadline (Feed notes and to-do tasks), soonest first, with "days left". "This month" is one tap away and is remembered.
