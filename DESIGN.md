@@ -34,7 +34,7 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 | **Back to**: the boards you were on last, 1 to 4 in the Tab flowchart | history, recents |
 | **Focus**: the timer | Stillness |
 | **Pause the day**: the "life happened" pause, on the Board's top bar | Life happened |
-| **Lane**: a row in Board Lanes (Work, Life…, the person's own names) | track |
+| **Lane**: a branch of today's tree (Work, Life…, the person's own names). **Lanes** is the mind map itself, always tidy and compact (5.68) | track |
 
 - "Life" is only ever a lane name the person chose. Do not use it for app features.
 - Old labels that still pass through `DDUI` are rewritten in `public/words.js`.

@@ -67,8 +67,8 @@ test('ten MCP additions succeed between simulated board navigation and sync; con
     const camera=board.slice(board.indexOf('function saveCamera()'),board.indexOf('function scheduleCamera()'));
     let puts=0;
     const app=runInNewContext(source+merge+cloud+
-      'let dayRef={current:{date:"'+date+'"}},cam={current:null},mode,cameraTimer={current:0};'+camera+
-      ';({cloud:DDCloud,navigate(camera,nextMode){cam.current=camera;mode=nextMode;saveCamera()}})',{
+      'let dayRef={current:{date:"'+date+'"}},cam={current:null},viewMode,cameraTimer={current:0};'+camera+
+      ';({cloud:DDCloud,navigate(camera,nextMode){cam.current=camera;viewMode=nextMode;saveCamera()}})',{
       localStorage:{getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value)},
       window:new EventTarget(),document:Object.assign(new EventTarget(),{hidden:false}),Event,
       navigator:{onLine:true},AbortSignal,

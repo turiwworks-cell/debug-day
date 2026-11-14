@@ -216,7 +216,11 @@ export function DDcreateBoard(deps) {
       ),
       model = clean(DDreadBoardView(day.date, DDreconcileDay(day, null, setup).canvas?.board4)),
       prefs = DDprefs(setup.preferences),
-      [mode, setMode] = useState(model.mode),
+      [viewMode, setMode] = useState(model.mode),
+      // Lanes (5.68) is the mind map itself, always tidy and compact: the same
+      // nodes and the same behaviour, only the tree places itself.
+      tidy = viewMode === "lanes",
+      mode = "mindmap",
       [tool, setTool] = useState("select"),
       [wirePop, setWirePop] = useState(null),
       [selected, setSelected] = useState(new Set()),
@@ -587,7 +591,7 @@ export function DDcreateBoard(deps) {
         return d;
       }, due ? t("Deadline: ", "ددلاین: ") + DDdueDate(due, DDlanguage) : t("No deadline", "بدون ددلاین"));
     }
-    const layout = useMemo(() => boardLayout({ day, allDays, setup, model, mode, room, ddNodeMatches, visibleKey, stickyHeights, language: DDlanguage }), [
+    const layout = useMemo(() => boardLayout({ day, allDays, setup, model, mode, tidy, room, ddNodeMatches, visibleKey, stickyHeights, language: DDlanguage }), [
         day.blocks,
         day.bugs,
         day.notes,
@@ -602,7 +606,7 @@ export function DDcreateBoard(deps) {
         setup.lanes,
         setup.board,
         setup.preferences?.language,
-        mode,
+        mode, tidy,
         visibleKey,
         day.canvas,
         ddNodeMatches,
@@ -952,7 +956,7 @@ export function DDcreateBoard(deps) {
     }
     function saveCamera() {
       clearTimeout(cameraTimer.current);
-      DDsaveBoardView(dayRef.current.date, { ...cam.current }, mode);
+      DDsaveBoardView(dayRef.current.date, { ...cam.current }, viewMode);
       // The place you are in remembers where the camera is (Back, 5.33).
       DDplaces.note({ cam: { ...cam.current }, date: dayRef.current.date });
     }
@@ -1024,7 +1028,7 @@ export function DDcreateBoard(deps) {
           return {...b,expanded:true,subtasks:expand(b.subtasks)};
         });return d;});
       }
-      if(row.kind==="sticky"&&!row.lifeId && mode==="lanes")setMode("mindmap");
+
       setTick(n=>n+1);
     }
     function fit(selection = false, scope = "all") {
@@ -1126,21 +1130,6 @@ export function DDcreateBoard(deps) {
               : node.kind === "block" && node.laneId === G.laneId)
           )
             moving.add(node.id);
-      // In lanes a card moves with everything inside it; a step moves its card.
-      if (mode === "lanes")
-        for (const ref of [...moving]) {
-          const node = layout.map.get(ref);
-          const owner =
-            node?.kind === "block"
-              ? node
-              : node?.kind === "subtask" && node.memberOf
-                ? layout.map.get(node.memberOf)
-                : null;
-          if (!owner) continue;
-          if (node !== owner) moving.delete(ref);
-          moving.add(owner.id);
-          for (const member of owner.members || []) moving.add(member);
-        }
       const refs = [...moving].filter(
         (ref) => ref !== "section:life" && layout.map.has(ref) && !locked.has(ref),
       );
@@ -1764,7 +1753,7 @@ export function DDcreateBoard(deps) {
               });
             }
             const Pt = clean(Tt.canvas?.board4),
-              yn = { ...(Pt.layouts[mode] || {}) };
+              yn = { ...(Pt.layouts[mode] || {}) }, tidyKept = { ...yn };
             for (const [An, Kt] of Object.entries(ot)) {
               const Dn = layout.map.get(An);
               if (!Dn || habitRefs.has(An)) continue;
@@ -1775,7 +1764,7 @@ export function DDcreateBoard(deps) {
               }
               // Mind map: a feeling dropped on a card links to it; dropped
               // into Feelings it lets go of its card.
-              if (mode !== "lanes" && Dn.kind === "bug" && !ct.frame) {
+              if (Dn.kind === "bug" && !ct.frame) {
                 const card = layout.nodes.find(
                     (n) => n.kind === "block" && !ot[n.id] && within(Kt, Dn, n),
                   ),
@@ -1793,60 +1782,8 @@ export function DDcreateBoard(deps) {
                   continue;
                 }
               }
-              if (mode === "lanes" && (Dn.memberOf || Dn.sectionId)) {
-                if (Dn.kind === "section" || Dn.kind === "subtask") continue;
-                if (Dn.memberOf && ot[Dn.memberOf]) continue;
-                // A note or feeling dropped on a card joins it; dragged out, it leaves.
-                const center = { x: Kt.x + Dn.w / 2, y: Kt.y + Dn.h / 2 },
-                  target = layout.nodes.find(
-                    (n) =>
-                      n.kind === "section" &&
-                      !ot[n.id] &&
-                      center.x >= n.x &&
-                      center.x <= n.x + n.w &&
-                      center.y >= n.y &&
-                      center.y <= n.y + n.h,
-                  ),
-                  targetBlock = target?.blockId,
-                  current = Dn.memberOf ? Dn.memberOf.slice(2) : null;
-                if (targetBlock && targetBlock === current) continue;
-                if (Dn.kind === "bug") {
-                  const bug = Tt.bugs.find((b) => b.id === Dn.bugId);
-                  if (bug) {
-                    bug.blockId = targetBlock || "";
-                    if (!targetBlock) bug.on = "";
-                  }
-                } else if (Dn.noteId) {
-                  const blockRefs = (id) => (ref) =>
-                    ref === "b:" + id || ref.startsWith("sub:" + id + ":");
-                  if (current)
-                    Pt.links = Pt.links.filter(
-                      (l) =>
-                        !(
-                          (l.from === An && blockRefs(current)(l.to)) ||
-                          (l.to === An && blockRefs(current)(l.from))
-                        ),
-                    );
-                  if (targetBlock)
-                    Pt.links = [
-                      ...Pt.links,
-                      {
-                        id: "link:" + C(),
-                        from: "b:" + targetBlock,
-                        to: An,
-                        style: "curve",
-                        arrow: !1,
-                        label: "",
-                        color: "#7A5FF5",
-                      },
-                    ];
-                }
-                if (targetBlock) delete yn[An];
-                else yn[An] = Kt;
-                continue;
-              }
               if (Dn.memberOf) continue;
-              if (Dn.noteId && mode !== "lanes") {
+              if (Dn.noteId) {
                 const Jt = Tt.notes.find((Xn) => Xn.id === Dn.noteId);
                 Jt && ((Jt.x = Kt.x), (Jt.y = Kt.y));
               } else yn[An] = Kt;
@@ -1863,25 +1800,9 @@ export function DDcreateBoard(deps) {
                 }
               }
             }
-            if (mode === "lanes" && !ct.frame)
-              for (const An of ct.refs) {
-                const Kt = layout.map.get(An),
-                  Dn = ot[An];
-                if (Kt?.kind !== "block" || !Dn || habitRefs.has(An)) continue;
-                const Jt = St.find(
-                    (On) =>
-                      Dn.x + Kt.w / 2 >= On.x &&
-                      Dn.x + Kt.w / 2 <= On.x + On.w &&
-                      Dn.y + Kt.h / 2 >= On.y &&
-                      Dn.y + Kt.h / 2 <= On.y + On.h,
-                  ),
-                  Xn = Tt.blocks.find((On) => On.id === Kt.blockId);
-                ((Xn.lane = Jt?.laneId || ""),
-                  Jt
-                    ? (delete Xn.bx, delete Xn.by)
-                    : ((Xn.bx = Dn.x), (Xn.by = Dn.y)));
-              }
             return (
+              // In Lanes the tree places itself: a dragged task or step keeps only a new lane.
+              tidy && Object.keys(ot).forEach((ref) => { if (/^(day:|lane:|b:|sub:)/.test(ref) && ref in yn) { if (ref in tidyKept) yn[ref] = tidyKept[ref]; else delete yn[ref]; } }),
               (Pt.layouts = { ...Pt.layouts, [mode]: yn }),
               (Tt.canvas = { ...(Tt.canvas || {}), board4: Pt }),
               pen.moveDraft(Tt, strokeDelta.x, strokeDelta.y)
@@ -2782,7 +2703,7 @@ export function DDcreateBoard(deps) {
       DDplaces.mark();
       roomCams.current[layout.room || ""] = { ...cam.current };
       if (it?.collapsed) lifeChange((list) => list.map((i) => (i.id === id ? { ...i, collapsed: false } : i)));
-      if (id && mode !== "mindmap") setMode("mindmap");
+      if (id && tidy) setMode("mindmap");
       // Remembered for the Tab flowchart's "Back to" row (1 goes back here).
       if ((layout.room || "") !== (id || "")) DDsectionsVisit(layout.room || "", id || "");
       setRoom(id || null);
@@ -2933,7 +2854,6 @@ export function DDcreateBoard(deps) {
           d.notes.push({id,kind:"sticky",x:at.x-width/2,y:at.y-height/2,text:"",color,...media,...(roomNode&&onEngine&&layout.room?{from:layout.room}:{})});
           const b=clean(d.canvas?.board4);
           b.styles={...b.styles,[ref]:{width,height,textSize:template.textSize||16,...plain,...look}};
-          if(mode==="lanes")b.layouts={...b.layouts,lanes:{...b.layouts.lanes,[ref]:{x:at.x-width/2,y:at.y-height/2}}};
           d.canvas={...d.canvas,board4:b};return d;
         });
       }
@@ -3067,16 +2987,6 @@ export function DDcreateBoard(deps) {
       const ct = C(),
         ot =
           Y ??
-          (mode === "lanes" && G
-            ? layout.nodes.find(
-                (St) =>
-                  St.kind === "frame" &&
-                  G.x >= St.x &&
-                  G.x <= St.x + St.w &&
-                  G.y >= St.y &&
-                  G.y <= St.y + St.h,
-              )?.laneId
-            : void 0) ??
           setup.lanes[0]?.id ??
           "";
       (commit((St) => {
@@ -3717,7 +3627,7 @@ export function DDcreateBoard(deps) {
                         if (ma.lifeId) {
                           const i = Jt.__life.items.find((i) => i.id === ma.lifeId);
                           if (i && !selected.has(ma.parentId)) {i.x += yn; i.y += An;}
-                        } else if (ma.noteId && mode !== "lanes") {
+                        } else if (ma.noteId) {
                           const Oa = Jt.notes.find((fa) => fa.id === ma.noteId);
                           ((Oa.x += yn), (Oa.y += An));
                         } else On[ra] = { x: ma.x + yn, y: ma.y + An };
@@ -3811,7 +3721,7 @@ export function DDcreateBoard(deps) {
           window.addEventListener("pagehide", Y),
           () => window.removeEventListener("pagehide", Y)
         );
-      }, [mode]),
+      }, [viewMode]),
       useEffect(
         () => () => {
           ((mounted.current = !1),
@@ -5814,7 +5724,7 @@ export function DDcreateBoard(deps) {
               "button",
               {
                 type: "button",
-                "aria-pressed": mode === "mindmap",
+                "aria-pressed": !tidy,
                 onClick: () => {
                   (finishEdit(),
                     setMode("mindmap"),
@@ -5834,7 +5744,7 @@ export function DDcreateBoard(deps) {
               "button",
               {
                 type: "button",
-                "aria-pressed": mode === "lanes",
+                "aria-pressed": tidy,
                 onClick: () => {
                   (finishEdit(),
                     setMode("lanes"),
@@ -6083,7 +5993,7 @@ export function DDcreateBoard(deps) {
           "aria-label":
             "Canvas. Drag nodes; Space to pan. C to connect. Delete to remove selection.",
           "data-tool": tool,
-          "data-mode": mode,
+          "data-mode": viewMode,
           "data-grid": grid,
           onPointerDownCapture: downCapture,
           onPointerUpCapture: (e) => touches.current.delete(e.pointerId),
