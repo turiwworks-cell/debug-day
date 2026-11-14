@@ -25,6 +25,7 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 | **Routine**: what each new day does by itself, only when chosen (bring or park the last day's open tasks, tasks that repeat every day) | automation, rules, schedule, recurrence |
 | **Light, Steady, Full, Packed**: how full a day looks in the Calendar, always against your own usual day | busy, overloaded, capacity, utilisation, score |
 | **Shape**: a note drawn as a shape (rectangle, circle, diamond, flowchart shapes…) with its own fill and stroke; it is still a note everywhere else | figure, object, element |
+| **Eyedropper**: takes a color from anything on the Board (I) and gives it to what is picked, or to the next notes | color picker, sampler |
 | **Back to**: the boards you were on last, 1 to 4 in the Tab flowchart | history, recents |
 | **Focus**: the timer | Stillness |
 | **Pause the day**: the "life happened" pause, on the Board's top bar | Life happened |
