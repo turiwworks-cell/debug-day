@@ -1,3 +1,12 @@
+## 5.61.0 — 2026-11-14
+Branch: claude/project-thread-d0zfxj
+- Board text (T) hugs its words: the box is as wide and as tall as what you wrote, with no empty space. It grows as you type, and a width set from its side (or Same width) stays as set and wraps there. A double-click on a side handle makes it hug its words again.
+- Text formatting after Milanote for notes, text and shapes: a Text style menu (Aa) with Large heading, Heading, Normal, Small, Quote and Code block; while typing, Bold, Italic, Strikethrough, Highlight, Link, Bulleted list, Numbered list and To-do sit in the bar.
+- Shortcuts: Ctrl+B / I / E, Ctrl+K for a link, Ctrl+Shift+1 / 2 / 3 / 0 for text styles, Ctrl+Shift+7 / 8 / 9 for lists, Ctrl+Shift+' quote, Ctrl+Shift+> code block, Ctrl+Shift+H highlight, Ctrl+Shift+X strike.
+- Lists keep going on Enter, an empty item steps out, and Tab / Shift+Tab move items in and out. Numbers count themselves.
+- Links: Ctrl+K or the link button asks for the address; pasting a web address over chosen words links them; bare addresses become links. A click opens a link in a new tab, never at the end of a drag.
+- The words stay plain text with small marks (# heading, - list, **bold**, [words](link)), so search, sync and every other view still read them.
+
 ## 5.60.0 — 2026-11-14
 Branch: claude/project-thread-d0zfxj
 - Board: an eyedropper on I. Click any note, shape, section, task, line or pen stroke to take its color. A small loupe shows the color under the pointer first.

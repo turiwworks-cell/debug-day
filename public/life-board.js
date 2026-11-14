@@ -133,7 +133,7 @@ function lifeItems(raw) {
       ...(!section && DDtagList(r.tags).length ? { tags: DDtagList(r.tags) } : {}),
       // A photo note keeps only links to files in the person's Drive (board-photos.js).
       ...(!section && DDmediaList(r.media).length ? { media: DDmediaList(r.media) } : {}),
-      ...(r.style && typeof r.style === "object" ? { style: { ...Object.fromEntries(Object.entries(r.style).filter(([k,v]) => (["textSize","opacity"].includes(k) && Number.isFinite(v)) || (k==="textAlign"&&["start","center","end"].includes(v)) || (k==="plain"&&v===true) || (k==="textColor"&&typeof v==="string"&&/^#[0-9a-f]{6}$/i.test(v)))), ...(!section ? DDshapeLook(r.style) : {}) } } : {}),
+      ...(r.style && typeof r.style === "object" ? { style: { ...Object.fromEntries(Object.entries(r.style).filter(([k,v]) => (["textSize","opacity"].includes(k) && Number.isFinite(v)) || (k==="textAlign"&&["start","center","end"].includes(v)) || ((k==="plain"||k==="fixed")&&v===true) || (k==="textColor"&&typeof v==="string"&&/^#[0-9a-f]{6}$/i.test(v)))), ...(!section ? DDshapeLook(r.style) : {}) } } : {}),
       ...(typeof r.color === "string" && /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(r.color) ? { color: r.color, ...(section && r.ownColor === true ? { ownColor: true } : {}) } : {}),
       // A shortcut key for the Tab flowchart (section-keys.js).
       ...(section && DDsectionKeyClean(r.key) ? { key: DDsectionKeyClean(r.key) } : {}),

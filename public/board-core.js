@@ -237,6 +237,8 @@ export const DDboardCore = {
       next.textAlign = p.textAlign;
     // A text object is a note without its paper: same note, shown as plain words.
     if (p.plain === true) next.plain = true;
+    // Text with a width of its own wraps there instead of hugging its words (5.61).
+    if (p.fixed === true) next.fixed = true;
     // A shape is a note with a shape and its own fill and stroke (shapes.js).
     Object.assign(next, DDshapeLook(p));
     return next;

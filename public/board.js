@@ -19,7 +19,7 @@ import {
   DDSectionChip, DDsetSectionColor, DDsectionPath, DDsectionPalette, DDlifeSendTo, DDlifeTakeOut, DDcaptureEnsure,
 } from "./life-board.js";
 import{DDBoardRails,DDinstallRailStyles,DDsetRailRole,DDrailPreferences,DDrailScope}from"./rails.js";
-import{DDstickyDateLabel,DDstickyToday,DDstickySnap,DDstickyFormat,DDstickyTodo,DDStickyText,DDinstallStickyStyles}from"./stickies.js";
+import{DDstickyDateLabel,DDstickyToday,DDstickySnap,DDstickyTodo,DDinstallStickyStyles}from"./stickies.js";
 import { DDSectionsFlowchart, DDsectionsBus, DDinstallSectionsFlowStyles } from "./sections-flow.js";
 import { DDsetSectionKey, DDsectionsVisit, DDcaptureId } from "./section-keys.js";
 import { DDsectionGo, DDSectionTagField, DDinstallSectionTagStyles } from "./section-tag.js";
@@ -31,6 +31,7 @@ import { DDnoteTagsCSS } from "./note-tags.js";
 import { DDuseNoteTools, DDnoteBranch, DDparentLooks, DDnoteFamilyCSS } from "./note-family.js";
 import { DDuseBoardPhotos, DDboardPhotosCSS } from "./board-photos.js";
 import { DDshapeCSS, DDShapeLayer, DDshapeSVG, DDshapeTextBox, DDshapeKind, DDshapeLast, DDshapeRemember, DDshapeRow, DDShapeIcon, DDShapePicker, DDShapeColors } from "./shapes.js";
+import { DDRichText, DDrichFormat, DDrichKey, DDrichEnter, DDrichTab, DDrichPlain, DDrichShortcuts, DDrichCSS } from "./rich-text.js";
 import { DDuseEyedropper, DDdropperCSS, DDdropperScreen, DDdropperScreenPick } from "./eyedropper.js";
 import { DDtrashAdd, DDtrashRestore, DDtrashLabel } from "./trash.js";
 import { DDcanvasTidy } from "./upkeep.js";
@@ -89,7 +90,7 @@ export function DDcreateBoard(deps) {
   DDinstallSectionTagStyles();
   // Comments, pen, note tags and parent notes (5.36).
   if (typeof document !== "undefined" && !document.getElementById("dd-board-tools-css"))
-    document.head.append(Object.assign(document.createElement("style"), { id: "dd-board-tools-css", textContent: DDpenCSS + DDcommentsCSS + DDnoteTagsCSS + DDnoteFamilyCSS + DDboardPhotosCSS + DDshapeCSS + DDdropperCSS }));
+    document.head.append(Object.assign(document.createElement("style"), { id: "dd-board-tools-css", textContent: DDpenCSS + DDcommentsCSS + DDnoteTagsCSS + DDnoteFamilyCSS + DDboardPhotosCSS + DDshapeCSS + DDdropperCSS + DDrichCSS }));
   DDinstallLinkedStyles();
   // The note being written keeps its own text while you type, so a key redraws
   // only this box and not the whole board (5.47). The board hears each key
@@ -98,9 +99,36 @@ export function DDcreateBoard(deps) {
     const [value, setValue] = _.useState(initial), given = _.useRef(initial);
     // A new text from the board (Bold, To-do…) replaces what is in the box.
     if (initial !== given.current) { given.current = initial; if (initial !== value) setValue(initial); }
-    _.useLayoutEffect(() => { onSize(); }, [value]);
+    const box = _.useRef(null), caret = _.useRef(null);
+    _.useLayoutEffect(() => {
+      // The caret lands where the change put it before the next key is read.
+      if (caret.current && box.current) { box.current.setSelectionRange(caret.current[0], caret.current[1]); caret.current = null; }
+      onSize();
+    }, [value]);
+    // Lists keep going on Enter, Tab moves an item in, and a web address pasted
+    // over chosen words makes them a link (5.61).
+    const put = (el, r) => { caret.current = [r.start, r.end]; setValue(r.text); onText(r.text); };
+    const keyDown = (event) => {
+      const el = event.currentTarget;
+      if (!event.isComposing && event.key === "Enter" && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey && el.selectionStart === el.selectionEnd) {
+        const r = DDrichEnter(el.value, el.selectionStart);
+        if (r) { event.preventDefault(); event.stopPropagation(); put(el, r); return; }
+      }
+      if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        const r = DDrichTab(el.value, el.selectionStart, el.selectionEnd, event.shiftKey);
+        if (r) { event.preventDefault(); event.stopPropagation(); put(el, r); return; }
+      }
+      props.onKeyDown?.(event);
+    };
+    const paste = (event) => {
+      const el = event.currentTarget, url = event.clipboardData?.getData("text/plain")?.trim();
+      if (url && /^(https?:\/\/|mailto:)\S+$/i.test(url) && el.selectionEnd > el.selectionStart) {
+        event.preventDefault();
+        put(el, DDrichFormat(el.value, el.selectionStart, el.selectionEnd, "link", url));
+      }
+    };
     return _.createElement(_.Fragment, null,
-      _.createElement("textarea", { ...props, value, onChange: (event) => { const next = event.target.value; setValue(next); onText(next); } }),
+      _.createElement("textarea", { ...props, ref: box, value, onKeyDown: keyDown, onPaste: paste, onChange: (event) => { const next = event.target.value; setValue(next); onText(next); } }),
       /(?:^|\n)- \[ \] ?$/.test(value) && _.createElement("small", { className: "dd-sticky-hint" }, hint));
   }
   return function BoardWorkspace({
@@ -225,6 +253,9 @@ export function DDcreateBoard(deps) {
       // Shapes (5.59): the shape the tool draws, and which shape menu is open.
       [shapeKind, setShapeKind] = useState(() => DDshapeLast().shape),
       [shapeMenu, setShapeMenu] = useState(null),
+      // Text formatting (5.61): the Text style menu and the link box.
+      [textMenu, setTextMenu] = useState(null),
+      [linkPop, setLinkPop] = useState(null),
       [dueEdit, setDueEdit] = useState(null),
       [details, setDetails] = useState(
         () => !globalThis.matchMedia?.("(max-width: 700px)").matches,
@@ -616,7 +647,7 @@ export function DDcreateBoard(deps) {
     }, [tool]);
     const pen = DDusePen(markCtx), comments = DDuseComments(markCtx), noteTools = DDuseNoteTools(markCtx);
     // A shape menu belongs to the shapes it was opened for.
-    useEffect(() => { if (shapeMenu && shapeMenu !== "library") setShapeMenu(null); }, [selected]);
+    useEffect(() => { if (shapeMenu && shapeMenu !== "library") setShapeMenu(null); if (textMenu) setTextMenu(null); if (linkPop) setLinkPop(null); }, [selected]);
     // The tag panel for several notes closes when the selection moves on.
     useEffect(() => { if (noteTools.group?.some((ref) => !selected.has(ref))) noteTools.stopTags(); }, [selected]);
     // Photos dropped, pasted or picked onto the board (5.38): a note holding a Drive link.
@@ -666,6 +697,13 @@ export function DDcreateBoard(deps) {
       slots.forEach((slot, i) => (out[slot] = sections[i]));
       return out;
     }, [layout]);
+    // How wide a text object's words are: the hidden copy while typing, the words otherwise.
+    function fitWidth(el, input) {
+      const mirror = el.querySelector(".dd-fit-mirror");
+      if (mirror && input) { mirror.textContent = input.value + "\u200b"; return Math.ceil(mirror.offsetWidth) + 2; }
+      const words = el.querySelector(".dd-note-preview");
+      return words ? Math.ceil(words.offsetWidth) : 0;
+    }
     // Typing only changes the note being written: measure just that one on each
     // key. Everything is measured again when the board, the note or the language changes.
     useLayoutEffect(()=>{
@@ -673,8 +711,8 @@ export function DDcreateBoard(deps) {
         const el=elementRefs.current.get(n.id),body=el?.querySelector(":scope>.b4-node-body"),input=el?.querySelector("textarea");
         if(input){input.style.height="0px";input.style.height=input.scrollHeight+"px";}
         if(!body)continue;
-        const h=Math.ceil(body.scrollHeight+(el.querySelector(".dd-sticky-footer")?.offsetHeight||0)),old=stickyHeights.current.get(n.id);
-        if(!old||old.h!==h||old.w!==n.w||old.text!==n.title||old.size!==(n.textSize||16)){stickyHeights.current.set(n.id,{w:n.w,text:n.title,size:n.textSize||16,h});changed=true;}
+        const h=Math.ceil(body.scrollHeight+(el.querySelector(".dd-sticky-footer")?.offsetHeight||0)),cw=n.plain?fitWidth(el,input):0,w=n.fitMax??n.w,old=stickyHeights.current.get(n.id);
+        if(!old||old.h!==h||old.cw!==cw||old.w!==w||old.text!==n.title||old.size!==(n.textSize||16)){stickyHeights.current.set(n.id,{w,cw,text:n.title,size:n.textSize||16,h});changed=true;}
       }if(changed)setStickyRevision(v=>v+1);};
       measure();const observer=new ResizeObserver(measure);
       for(const el of elementRefs.current.values()){const body=el.querySelector?.(":scope>.b4-node-body");if(body&&el.dataset.nodeKind==="sticky"){observer.observe(body);const footer=el.querySelector(".dd-sticky-footer");if(footer)observer.observe(footer);}}
@@ -688,8 +726,8 @@ export function DDcreateBoard(deps) {
       const el=elementRefs.current.get(n.id),body=el?.querySelector(":scope>.b4-node-body"),input=el?.querySelector("textarea");
       if(input){input.style.height="0px";input.style.height=input.scrollHeight+"px";}
       if(!body)return;
-      const h=Math.ceil(body.scrollHeight+(el.querySelector(".dd-sticky-footer")?.offsetHeight||0)),old=stickyHeights.current.get(n.id);
-      if(!old||old.h!==h||old.w!==n.w||old.text!==n.title||old.size!==(n.textSize||16)){stickyHeights.current.set(n.id,{w:n.w,text:n.title,size:n.textSize||16,h});setStickyRevision(v=>v+1);}
+      const h=Math.ceil(body.scrollHeight+(el.querySelector(".dd-sticky-footer")?.offsetHeight||0)),cw=n.plain?fitWidth(el,input):0,w=n.fitMax??n.w,old=stickyHeights.current.get(n.id);
+      if(!old||old.h!==h||old.cw!==cw||old.w!==w||old.text!==n.title||old.size!==(n.textSize||16)){stickyHeights.current.set(n.id,{w,cw,text:n.title,size:n.textSize||16,h});setStickyRevision(v=>v+1);}
     };
     // Where each task came from (phase 4): every section's done / not done record,
     // read from all days. Nothing is stored, so it is the same on every day.
@@ -1297,7 +1335,7 @@ export function DDcreateBoard(deps) {
           height = G.height * scale;
           G.scale = scale;
         } else if (sticky) {
-          width=Math.max(resized.baseW||240,width);
+          width=resized.plain?Math.max(24,width):Math.max(resized.baseW||240,width);
           height = G.height;
           G.scale = 1;
         } else if (Y.shiftKey && edge.length === 2) {
@@ -1306,7 +1344,7 @@ export function DDcreateBoard(deps) {
           height = G.height * scale;
         }
         // Like FigJam, a section may shrink past its contents; they stay put and hang over.
-        width = Math.round(Math.max(resized?.lifeSection ? 80 : sticky || shaped ? 40 : 144, Math.min(resized?.lifeSection ? 20000 : sticky || shaped ? 4000 : 1200, width)));
+        width = Math.round(Math.max(resized?.lifeSection ? 80 : resized?.plain ? 24 : sticky || shaped ? 40 : 144, Math.min(resized?.lifeSection ? 20000 : sticky || shaped ? 4000 : 1200, width)));
         height = Math.round(Math.max(resized?.lifeSection ? 60 : sticky || shaped ? 40 : 96, Math.min(resized?.lifeSection ? 20000 : sticky || shaped ? 4000 : 1800, height)));
         const x = G.x + (Y.altKey ? (G.width-width)/2 : edge.includes("w") ? G.width - width : 0),
           y = G.y + (Y.altKey ? (G.height-height)/2 : edge.includes("n") ? G.height - height : 0);
@@ -1319,6 +1357,7 @@ export function DDcreateBoard(deps) {
           el.style.transform = `translate3d(${x - G.x}px,${y - G.y}px,0)`;
           el.dataset.size = width + " \u00d7 " + height;
           if (sticky) el.style.setProperty("--object-size", (G.textSize || 16) * (G.scale || 1) + "px");
+          if (resized?.plain && !resized.fixed) el.style.setProperty("--fit-max", width + "px");
         }
         preview.current.set(G.ref, { x, y, w: width, h: height });
         paintWires(); paintSelection();
@@ -1550,13 +1589,14 @@ export function DDcreateBoard(deps) {
               (d) => {
                 // A scaled sticky keeps its text in proportion (FigJam).
                 const textSize = n.kind === "sticky" && !n.shape && ct.scale && ct.scale !== 1 ? { textSize: Math.round((ct.textSize || 16) * ct.scale * 10) / 10 } : {};
-                if(n.kind === "sticky" && !n.shape) {
+                if(n.kind === "sticky" && !n.shape && !n.plain) {
                   const corner=(ct.edge||"se").length===2,base=Math.max(160,(n.baseW||240)*(corner?(ct.scale||1):1));
                   ct.size.width=corner?DDstickySnap(n.w,n.baseW||240)/(n.baseW||240)*base:DDstickySnap(ct.size.width,base);
                   if(ct.centered)ct.position.x=n.x+(n.w-ct.size.width)/2;else if(ct.edge?.includes("w"))ct.position.x=n.x+n.w-ct.size.width;
                   const list=n.lifeId?d.__life.items:d.notes,item=list.find(i=>i.id===(n.lifeId||n.noteId));if(item)item.baseW=base;
                 }
-                const stickySize=n.kind==="sticky"&&!n.shape?{width:ct.size.width}:ct.size;
+                // Text widened or narrowed from a side keeps that width; a corner only scales it.
+                const stickySize=n.kind==="sticky"&&!n.shape?{width:ct.size.width,...(n.plain&&(ct.edge==="e"||ct.edge==="w")?{fixed:true}:{})}:ct.size;
                 let next = core.setStyle(d, [n], n.memberOf ? { height: ct.size.height } : { ...stickySize, ...textSize });
                 if (
                   !n.memberOf &&
@@ -2763,8 +2803,9 @@ export function DDcreateBoard(deps) {
       if (kind) DDshapeRemember({ shape: k.id });
       return addSticky(center, { w, h, color: last.fill, textSize: 16, look });
     }
+    // A text object can grow to 640 wide before it wraps; its box hugs the words.
     function addText(point) {
-      return addSticky(point, { w: 320, h: 48, textSize: 24, plain: true });
+      return addSticky(point, { w: 640, h: 40, textSize: 24, plain: true });
     }
     function addSticky(point, template = {}) {
       const view = viewport.current, rect = view.getBoundingClientRect();
@@ -3338,8 +3379,9 @@ export function DDcreateBoard(deps) {
         const Y = (ot) => {
             if(ot.isComposing || root.current?.querySelector(".dd-arena-backdrop"))return;
             if(root.current?.contains(ot.target) && (ot.ctrlKey||ot.metaKey) && (ot.target.closest(".dd-note-editor") || (!ot.target.closest("input,textarea,select,[contenteditable=true]") && selectedNode?.kind==="sticky"))) {
-              const key=core.shortcutKey(ot),kind=key==="b"&&!ot.shiftKey?"bold":ot.shiftKey&&key==="x"?"strike":ot.shiftKey&&ot.code==="Digit9"?"todo":null;
-              if(kind){ot.preventDefault();ot.stopImmediatePropagation();formatSticky(kind);return;}
+              // Milanote's text shortcuts (5.61): Ctrl+B / I / K / E, Ctrl+Shift+1 2 3 0, lists 7 8 9, quote and code.
+              const kind=DDrichKey(ot);
+              if(kind){ot.preventDefault();ot.stopImmediatePropagation();if(kind==="link")openLink();else formatSticky(kind);return;}
             }
             if(ot.target.closest("button") && ["Enter"," "].includes(ot.key) && !ot.ctrlKey && !ot.metaKey)return;
             // Undo and redo still work while the Align panel has focus.
@@ -3778,6 +3820,8 @@ export function DDcreateBoard(deps) {
     }
     // Grow or shrink a note so its whole text shows.
     function fitNote(node) {
+      // Text: the box goes back to its words, on one line where they fit (up to 1200).
+      if (node.plain) { commit((d) => core.setStyle(d, [node], { width: 1200, fixed: null }), t("Text fits its words", "کادر متن اندازهٔ متن شد")); return; }
       const el = elementRefs.current.get(node.id),
         text = el?.querySelector(".dd-note-preview"),
         head = el?.querySelector(".b4-sticky-head");
@@ -3828,13 +3872,44 @@ export function DDcreateBoard(deps) {
       );
       noteSession.current = noteId;
     }
-    function formatSticky(kind) {
+    function formatSticky(kind, arg, range) {
       flushNote();
       const node=layout.map.get(editingRef.current?.ref)||selectedNode;if(node?.kind!=="sticky")return;
       const input=elementRefs.current.get(node.id)?.querySelector("textarea"),text=editingRef.current?.ref===node.id?editingRef.current.value:node.title;
-      const next=DDstickyFormat(text,input?.selectionStart??0,input?.selectionEnd??text.length,kind);
+      const next=DDrichFormat(text,range?range[0]:input?.selectionStart??0,range?range[1]:input?.selectionEnd??text.length,kind,arg);
       commit(d=>{const list=node.lifeId?d.__life.items:d.notes,n=list.find(n=>n.id===(node.lifeId||node.noteId));if(n)n.text=next.text;return d;});
       if(input){setEditing({ref:node.id,value:next.text});requestAnimationFrame(()=>{input.focus();input.setSelectionRange(next.start,next.end);});}
+    }
+    // Ctrl+K or the link button: a box for the web address of the chosen words.
+    function openLink() {
+      const node = layout.map.get(editingRef.current?.ref) || selectedNode;
+      if (node?.kind !== "sticky") return;
+      const input = elementRefs.current.get(node.id)?.querySelector("textarea"), text = editingRef.current?.ref === node.id ? editingRef.current.value : node.title;
+      let range = input ? [input.selectionStart, input.selectionEnd] : [0, text.length];
+      // Inside a link already: take the whole link, and show its address.
+      const re = /\[([^\]\n]*)\]\(([^)\s]*)\)/g; let m, url = "";
+      while ((m = re.exec(text))) if (m.index <= range[0] && re.lastIndex >= range[1]) { range = [m.index, re.lastIndex]; url = m[2]; }
+      setTextMenu(null);
+      setLinkPop({ ref: node.id, range, value: url, had: !!url });
+    }
+    function applyLink(url) {
+      const pop = linkPop;
+      setLinkPop(null);
+      if (pop) formatSticky("link", url, pop.range);
+    }
+    // The Text style menu and the link box sit beside the selection bar.
+    function textPop() {
+      const bar = selectionbar.current;
+      if (!bar || (!textMenu && !linkPop) || selectedNode?.kind !== "sticky") return null;
+      const above = bar.offsetTop > 260, style = { position: "absolute", left: Math.max(8, bar.offsetLeft), zIndex: 85, ...(above ? { bottom: (bar.offsetParent?.clientHeight || 0) - bar.offsetTop + 8 } : { top: bar.offsetTop + bar.offsetHeight + 8 }) };
+      if (linkPop) return _.createElement("form", { className: "dd-link-pop", style, "data-link-pop": true, onPointerDown: (e) => e.stopPropagation(), onSubmit: (e) => { e.preventDefault(); applyLink(e.currentTarget.elements.url.value); } },
+        _.createElement("input", { name: "url", type: "text", inputMode: "url", autoFocus: true, defaultValue: linkPop.value, placeholder: t("Paste or type a link", "لینک را بچسبان یا بنویس"), "aria-label": t("Link address", "آدرس لینک"),
+          onKeyDown: (e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); setLinkPop(null); } } }),
+        _.createElement("button", { type: "submit", "data-link-apply": true }, t("Link", "لینک")),
+        linkPop.had && _.createElement("button", { type: "button", "data-link-remove": true, onClick: () => applyLink("") }, t("Remove", "حذف")));
+      return _.createElement("div", { className: "dd-text-style-pop", style, role: "menu", "aria-label": t("Text style", "سبک متن"), onPointerDown: (e) => { e.stopPropagation(); e.preventDefault(); } },
+        DDrichShortcuts.map(([kind, name, keys]) => _.createElement("button", { type: "button", key: kind, role: "menuitem", "data-style": kind, onClick: () => { setTextMenu(null); formatSticky(kind); } },
+          _.createElement("span", null, name), _.createElement("kbd", null, keys))));
     }
     function noteEditor(node) {
       // FigJam: you type straight onto the note; it saves as you type, and a
@@ -3842,6 +3917,8 @@ export function DDcreateBoard(deps) {
       return _.createElement(
         "div",
         { className: "dd-note-editor" },
+        // A text object's hidden copy of its words, to size the box while typing.
+        node.plain && !node.fixed && _.createElement("div", { className: "dd-fit-mirror", "aria-hidden": true }),
         _.createElement(NoteText, {
           key: node.id,
           initial: editing.value,
@@ -3862,7 +3939,9 @@ export function DDcreateBoard(deps) {
           onSize: () => measureTyped.current?.(),
           onBlur: (event) => {
             if (
-              !event.currentTarget.parentElement.contains(event.relatedTarget)
+              !event.currentTarget.parentElement.contains(event.relatedTarget) &&
+              // The link box and the text style menu are part of writing (5.61).
+              !event.relatedTarget?.closest?.(".dd-link-pop,.dd-text-style-pop")
             )
               finishEdit();
           },
@@ -4040,7 +4119,7 @@ export function DDcreateBoard(deps) {
           tabIndex: Y.lifeId ? 0 : St ? -1 : 0,
           className:
             "b4-node b4-" +
-            Y.kind + (Y.lifeSection ? " b4-frame" : "") + (Y.plain ? " b4-plain" : "") + (Tt && Y.shape ? " b4-shape" : "") +
+            Y.kind + (Y.lifeSection ? " b4-frame" : "") + (Y.plain ? " b4-plain" + (Y.fixed ? "" : " b4-fit") : "") + (Tt && Y.shape ? " b4-shape" : "") +
             (G ? " selected" : "") +
             (ct ? " locked" : "") +
             (connecting === Y.id ? " connecting" : ""),
@@ -4055,6 +4134,7 @@ export function DDcreateBoard(deps) {
             // A note without a size of its own reads at 16px, the size new notes get.
             "--object-size": (Y.textSize || (Y.kind === "sticky" ? 16 : 14)) + "px",
             "--object-align": Y.textAlign || (Y.shape ? "center" : "start"),
+            ...(Tt && Y.plain && !Y.fixed && Y.fitMax ? { "--fit-max": Y.fitMax + "px" } : {}),
             ...(Tt && Y.shape ? ((b) => ({ "--shape-text-left": b.left + "px", "--shape-text-width": b.width + "px", "--shape-text-top": b.top + "px", "--shape-text-bottom": b.bottom + "px" }))(DDshapeTextBox(Y.shape, Y.w, Y.h)) : {}),
             background: St
               ? "var(--wash)"
@@ -4221,7 +4301,7 @@ export function DDcreateBoard(deps) {
                           _.createElement(
                             "div",
                             { className: "dd-note-preview", dir: "auto" },
-                            Y.title ? _.createElement(DDStickyText,{React:_,text:Y.title,language:DDlanguage,onToggle:(index)=>commit(d=>{const list=Y.lifeId?d.__life.items:d.notes,note=list.find(i=>i.id===(Y.lifeId||Y.noteId));if(note)note.text=DDstickyTodo(note.text,index);return d;})}) : _.createElement("span", { className: "dd-note-placeholder" }, t("Type anything…", "هر چیزی بنویس…")),
+                            Y.title ? _.createElement(DDRichText,{React:_,text:Y.title,language:DDlanguage,onToggle:(index)=>commit(d=>{const list=Y.lifeId?d.__life.items:d.notes,note=list.find(i=>i.id===(Y.lifeId||Y.noteId));if(note)note.text=DDstickyTodo(note.text,index);return d;})}) : _.createElement("span", { className: "dd-note-placeholder" }, t("Type anything…", "هر چیزی بنویس…")),
                           ),
                         )
                       : _.createElement(
@@ -4925,7 +5005,8 @@ export function DDcreateBoard(deps) {
       if (!size) return;
       // Notes keep their two widths, so everything takes the note's width.
       if (axis === "width" && paper) size = DDstickySnap(size, paper.baseW || 240);
-      commit((d) => core.setStyle(d, nodes, axis === "height" ? { height: size } : { width: size }), axis === "height" ? t("Same height", "هم‌ارتفاع شد") : t("Same width", "هم‌عرض شد"));
+      // Text given a width keeps exactly that width (it no longer hugs its words).
+      commit((d) => { const next = core.setStyle(d, nodes.filter((n) => !n.plain), axis === "height" ? { height: size } : { width: size }), text = nodes.filter((n) => n.plain); return text.length && axis === "width" ? core.setStyle(next, text, { width: size, fixed: true }) : next; }, axis === "height" ? t("Same height", "هم‌ارتفاع شد") : t("Same width", "هم‌عرض شد"));
     }
     // "Send to section…": notes and sections go inside another section (a note
     // from this day joins the section, so it shows on every day like the rest).
@@ -5686,6 +5767,7 @@ export function DDcreateBoard(deps) {
         },
       }),
       shapePop(),
+      textPop(),
       dropper.loupe,
       lifeNav && _.createElement(DDSectionsFlowchart, {
         React: _, items: DDlifeItems(setup), room: layout.room, language: DDlanguage, frame: layout.map.get("section:life"), quiet: [...engineSections],
@@ -5734,7 +5816,7 @@ export function DDcreateBoard(deps) {
                     "span",
                     { dir: "auto" },
                     selectedNode
-                      ? (selectedNode.kind === "sticky" ? String(selectedNode.title || "").replace(/\*\*|~~/g, "").replace(/^\s*- \[[ xX]\]\s*/gm, "") : selectedNode.title)
+                      ? (selectedNode.kind === "sticky" ? DDrichPlain(selectedNode.title) : selectedNode.title)
                       : (selected.size
                           ? selected.size + t(" objects", " شیء")
                           : "") +
@@ -5818,9 +5900,12 @@ export function DDcreateBoard(deps) {
                 selectedNode?.lifeSection && _.createElement(_.Fragment,null,
                   toolButton(t("Open as its own board","ورود به برد سکشن"),"enter",()=>enterRoom(selectedNode.lifeId),{"data-enter-section":selectedNode.lifeId}),
                   toolButton(t(selectedNode.collapsed ? "Expand section" : "Collapse section",selectedNode.collapsed ? "باز کردن سکشن" : "بستن سکشن"),selectedNode.collapsed?"expandDown":"collapse",()=>lifeChange((list)=>list.map((i)=>i.id===selectedNode.lifeId?{...i,collapsed:!i.collapsed}:i)))),
-                // Bold, strike and to-do sit here while you type in a note.
+                // Text style (headings, small, quote, code) for any note, text or shape.
+                selectedNode?.kind === "sticky" && toolButton(t("Text style", "سبک متن"), "textStyle", () => setTextMenu((v) => (v ? null : "style")), { "data-text-style": true, "aria-expanded": !!textMenu, onPointerDown: (e) => e.preventDefault() }),
+                // While you type: bold, italic, strike, highlight, link and lists (Milanote).
                 selectedNode?.kind === "sticky" && editing?.ref === selectedNode.id && _.createElement(_.Fragment,null,
-                  ...["bold","strike","todo"].map((kind)=>toolButton(t(kind==="bold"?"Bold":kind==="strike"?"Strikethrough":"To-do",kind==="bold"?"پررنگ":kind==="strike"?"خط‌خورده":"کار"),kind,()=>formatSticky(kind),{"data-note-format":kind}))),
+                  ...[["bold","Bold","پررنگ"],["italic","Italic","ایتالیک"],["strike","Strikethrough","خط‌خورده"],["highlight","Highlight","هایلایت"],["link","Link","لینک"],["bullet","Bulleted list","فهرست"],["number","Numbered list","فهرست شماره‌دار"],["todo","To-do","کار"]]
+                    .map(([kind,en,fa])=>toolButton(t(en,fa),kind==="bullet"?"listBullet":kind==="number"?"listNumber":kind,()=>kind==="link"?openLink():formatSticky(kind),{"data-note-format":kind}))),
                 toolButton(
                   t("More actions", "گزینه‌های بیشتر"),
                   "more",
