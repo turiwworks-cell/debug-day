@@ -36,7 +36,7 @@ export function DDnoteOnEngine(engine, note) {
 export function DDcreateBoardLayout(deps) {
   const { DDUI, DDbugColor, E, de, ee, ie, w, core, playful } = deps, measure = deps.measure;
   let stepTextContext;
-  return function DDboardLayout({ day, allDays, setup, model, mode, room, ddNodeMatches, visibleKey, stickyHeights, language: DDlanguage }) {
+  return function DDboardLayout({ day, allDays, setup, model, mode, tidy = false, room, ddNodeMatches, visibleKey, stickyHeights, language: DDlanguage }) {
     const t = (en, fa) => (DDlanguage === "fa" ? fa : en),
       finite = (Y, G = 0) =>
         Number.isFinite(Y) ? Math.max(-1e5, Math.min(1e5, Y)) : G,
@@ -82,45 +82,6 @@ export function DDcreateBoardLayout(deps) {
             children.length +
             t(" inside", " داخل")
           : "");
-    // Lay items out in rows inside a section frame; the frame grows to hold them.
-    function framePlace(Y, ct, frame, items, place, CARD = 300) {
-      const GAP = 18,
-        PER_ROW = 4,
-        PAD = 16,
-        HEAD = 54,
-        saved = ct[frame.id];
-      frame.x = finite(saved?.x, frame.x);
-      frame.y = finite(saved?.y, frame.y);
-      const cols = Math.min(PER_ROW, Math.max(2, items.length));
-      frame.w = PAD * 2 + cols * (CARD + GAP) - GAP;
-      let col = 0,
-        rowY = frame.y + HEAD,
-        rowH = 0,
-        right = frame.x + frame.w,
-        bottom = frame.y + 150;
-      Y.push(frame);
-      for (const item of items) {
-        const result = place(item, {
-          x: frame.x + PAD + col * (CARD + GAP),
-          y: rowY,
-          frame,
-        });
-        if (!result) continue;
-        if (!result.custom) {
-          rowH = Math.max(rowH, result.h);
-          if (++col >= cols) {
-            col = 0;
-            rowY += rowH + GAP;
-            rowH = 0;
-          }
-        }
-        right = Math.max(right, result.x + result.w + PAD);
-        bottom = Math.max(bottom, result.y + result.h + PAD);
-      }
-      frame.w = right - frame.x;
-      frame.h = Math.max(150, bottom - frame.y, rowY + rowH + PAD - frame.y);
-      return frame.y + frame.h;
-    }
     // The Engine has its own section around today's tree, apart from Life. It
     // grows and shrinks with what is in it, and a note dropped inside becomes a task.
     function engineFrame(Y, size = {}) {
@@ -173,244 +134,21 @@ export function DDcreateBoardLayout(deps) {
         };
       Y.push(node);
     }
-    // Lanes: each lane is a section, and each card is a section holding its
-    // steps and notes. Relations show by placement, so no lines.
-    function lanesLayout(Y, ct, visible) {
-      const CARD = 300,
-        noteById = new Map((day.notes || []).map((n) => [n.id, n])),
-        notesFor = new Map(),
-        attachedNotes = new Set(),
-        noteVisible = (n) =>
-          !ddNodeMatches || ddNodeMatches.has("note:" + day.date + ":" + n.id);
-      for (const link of model.links)
-        for (const [a, b] of [
-          [link.from, link.to],
-          [link.to, link.from],
-        ]) {
-          const owner =
-            /^b:(.+)$/.exec(a)?.[1] || /^sub:([^:]+):/.exec(a)?.[1];
-          const note = b.startsWith("sticky:") && noteById.get(b.slice(7));
-          if (!owner || !note || note.kind === "emoji" || !noteVisible(note))
-            continue;
-          if (!day.blocks.some((block) => block.id === owner)) continue;
-          if (attachedNotes.has(note.id)) continue;
-          attachedNotes.add(note.id);
-          notesFor.set(owner, [...(notesFor.get(owner) || []), note]);
-        }
-      const stepH = (text, width) =>
-        Math.min(
-          150,
-          38 +
-            17 *
-              Math.max(
-                1,
-                Math.ceil(
-                  String(text || "").length / Math.max(14, (width - 52) / 7.3),
-                ),
-              ),
-        );
-      const noteH = (note,width=240) => {
-        const m=stickyHeights.current.get("sticky:"+note.id);
-        return DDstickyHeight(width,m&&m.w===width&&m.text===note.text?m.h:String(note.text||"").split("\n").reduce((sum,l)=>sum+Math.max(1,Math.ceil(l.length/25)),0)*24+80);
-      };
-      const cardSection = (block, x, y, laneId) => {
-        // A task wears its section's colour (task-look.js, 5.54).
-        const type = DDtaskLook(block, setup, lifeItems),
-          ref = "b:" + block.id,
-          stats = de(block.subtasks || []),
-          inner = CARD - 20,
-          members = [];
-        let cy = y + 64 + 8;
-        const steps = (items, depth) =>
-          (items || []).forEach((item, index, list) => {
-            const indent = Math.min(depth, 4) * 14,
-              width = inner - indent,
-              height = stepH(item.text, width);
-            members.push({
-              id: `sub:${block.id}:${item.id}`,
-              kind: "subtask",
-              title: item.text,
-              subtitle: stepLabel(index, list.length, item.children),
-              done: item.done,
-              color: type.color,
-              textColor: ee(type.color),
-              blockId: block.id,
-              subId: item.id,
-              memberOf: ref,
-              hasChildren: !!item.children?.length,
-              expanded: item.expanded !== false,
-              x: x + 10 + indent,
-              y: cy,
-              w: width,
-              h: height,
-            });
-            cy += height + 6;
-            if (item.expanded !== false && item.children?.length)
-              steps(item.children, depth + 1);
-          });
-        if (block.expanded !== false) steps(block.subtasks, 0);
-        for (const note of notesFor.get(block.id) || []) {
-          const height = noteH(note,inner);
-          members.push({
-            id: "sticky:" + note.id,
-            noteId: note.id,
-            kind: "sticky",
-            title: note.text || "",
-            color: note.color || "#FFE27A",
-            textColor: "#121211",
-            memberOf: ref,
-            x: x + 10,
-            y: cy,
-            w: inner,
-            h: height,
-          });
-          cy += height + 8;
-        }
-        const height = members.length ? cy - y + 4 : 64;
-        const nodes = [
-          {
-            id: "sec:" + block.id,
-            kind: "section",
-            title: "",
-            color: type.color,
-            textColor: ee(type.color),
-            blockId: block.id,
-            memberOf: ref,
-            x,
-            y,
-            w: CARD,
-            h: height,
-          },
-          {
-            id: ref,
-            kind: "block",
-            title: block.name || DDUI("Untitled"),
-            subtitle:
-              // The card's icon and color already say the kind of work (5.43).
-              measure.DDmeasureText(block, DDlanguage, w) +
-              (stats.total
-                ? ` \xB7 ${stats.done}/${stats.total} ${t("steps", "قدم")}`
-                : "") +
-              (DDenergyOf(block) ? " \xB7 " + DDenergyLabel(DDenergyOf(block), DDlanguage) : ""),
-            min: measure.DDmeasureOf(block) === "time" ? block.min : 0,
-            done: block.done,
-            emoji: block.emo || type.emo,
-            icon: type.icon,
-            color: type.color,
-            textColor: ee(type.color),
-            blockId: block.id,
-            laneId,
-            pri: block.pri,
-            tags: block.tags,
-            from: block.from,
-            hasChildren: !!block.subtasks?.length,
-            expanded: block.expanded !== false,
-            members: members.map((m) => m.id).concat("sec:" + block.id),
-            x,
-            y,
-            w: CARD,
-            h: 64,
-          },
-          ...members,
-        ];
-        return { nodes, h: height };
-      };
-      const placeFrame = (frame, items, place) =>
-        framePlace(Y, ct, frame, items, place, CARD);
-      const placeCard = (laneId) => (block, auto) => {
-        if (!visible.has(block.id)) return null;
-        const saved = ct["b:" + block.id] || day.canvas?.positions?.[block.id],
-          x = finite(saved?.x, auto.x),
-          y = finite(saved?.y, auto.y),
-          section = cardSection(block, x, y, laneId);
-        Y.push(...section.nodes);
-        return { x, y, w: CARD, h: section.h, custom: !!saved };
-      };
-      let top = 48;
-      const lanes = [
-        ...setup.lanes,
-        ...(day.blocks.some((block) => !isScheduled(block))
-          ? [{ id: "", name: DDUI("Parked") }]
-          : []),
-      ];
-      for (const lane of lanes) {
-        const blocks = day.blocks.filter((block) =>
-          lane.id ? block.lane === lane.id : !isScheduled(block),
-        );
-        const frame = {
-          id: `lane:${lane.id || "parked"}`,
-          kind: "frame",
-          title: lane.name || DDUI("Lane"),
-          subtitle: w(
-            blocks.reduce((sum, block) => sum + measure.DDplanMinutes(block), 0),
-          ),
-          laneId: lane.id,
-          color: "#4A4843",
-          textColor: "#fff",
-          x: setup.board?.[lane.id]?.x ?? 48,
-          y: setup.board?.[lane.id]?.y ?? top,
-          w: 0,
-          h: 150,
-        };
-        top = Math.max(top, placeFrame(frame, blocks, placeCard(lane.id)) + 48);
-      }
-      const freeNotes = (day.notes || []).filter(
-        (note) => note.kind !== "emoji" && noteVisible(note) && !attachedNotes.has(note.id),
-      );
-      if (freeNotes.length)
-        top = placeFrame(
-          {
-            id: "section:notes",
-            kind: "frame",
-            section: "notes",
-            title: t(
-              "Notes",
-              "یادداشت‌ها",
-            ),
-            subtitle: String(freeNotes.length),
-            color: "#4A4843",
-            textColor: "#fff",
-            x: 48,
-            y: top,
-            w: 0,
-            h: 150,
-          },
-          freeNotes,
-          (note, auto) => {
-            const saved = ct["sticky:" + note.id],
-              emoji = note.kind === "emoji",
-              node = {
-                id: "sticky:" + note.id,
-                noteId: note.id,
-                kind: emoji ? "emoji" : "sticky",
-                title: emoji ? playful.label(note.text) : note.text || "",
-                symbol: emoji ? note.text : undefined,
-                color: note.color || "#FFE27A",
-                textColor: "#121211",
-                sectionId: "notes",
-                x: finite(saved?.x, auto.x),
-                y: finite(saved?.y, auto.y),
-                w: emoji
-                  ? (model.styles["sticky:" + note.id]?.width ?? 64)
-                  : (model.styles["sticky:" + note.id]?.width ?? CARD),
-                h: emoji ? (model.styles["sticky:" + note.id]?.height ?? 64) : noteH(note),
-              };
-            Y.push(node);
-            return { ...node, custom: !!saved };
-          },
-        ) + 48;
-      lifeFrame(Y, ct, top, 48);
-    }
     const Y = [],
       G = [],
       ct = model.layouts[mode] || {},
       St = new Set(visibleKey.split("|")),
       // Today's tree in the Engine starts where the Engine was moved to.
       shift = { x: 0, y: 0 },
-      Tt = (Jt, Xn, On) => ({
+      // Lanes (5.68) is this same tree, always tidy: tasks, steps and lanes
+      // ignore where they were dragged to and sit close together.
+      treeRef = (Jt) => /^(day:|lane:|b:|sub:)/.test(Jt),
+      Tt = (Jt, Xn, On) => tidy && treeRef(Jt) ? { x: Xn + shift.x, y: On + shift.y } : ({
         x: finite(ct[Jt]?.x, Xn + shift.x),
         y: finite(ct[Jt]?.y, On + shift.y),
       }),
+      gap = tidy ? { step: 8, card: 72, lane: 14, empty: 72 } : { step: 14, card: 82, lane: 30, empty: 84 },
+      col = tidy ? { lane: 236, card: 384, step: 680, depth: 284 } : { lane: 252, card: 410, step: 720, depth: 296 },
       Pt = (Jt) => (Y.push({ ...Jt, ...Tt(Jt.id, Jt.x, Jt.y) }), Y.at(-1)),
       yn = (Jt, Xn, On, ra = !1) =>
         G.push({
@@ -451,7 +189,7 @@ export function DDcreateBoardLayout(deps) {
               stepH = stepHeight(Fn.text);
             Fn.expanded !== !1 && Fn.children?.length
               ? On(Fn.children, Xa, fa, Pl + 1, kl)
-              : (Jt += stepH + 14);
+              : (Jt += stepH + gap.step);
             Pt({
               id: Xa,
               kind: "subtask",
@@ -463,8 +201,8 @@ export function DDcreateBoardLayout(deps) {
               blockId: fa.id,
               subId: Fn.id,
               parentId: Oa,
-              x: 720 + (Pl - 1) * 296,
-              y: (Ga + Math.max(Ga + stepH, Jt - 14)) / 2 - stepH / 2,
+              x: col.step + (Pl - 1) * col.depth,
+              y: (Ga + Math.max(Ga + stepH, Jt - gap.step)) / 2 - stepH / 2,
               w: 258,
               h: stepH,
               hasChildren: !!Fn.children?.length,
@@ -492,7 +230,7 @@ export function DDcreateBoardLayout(deps) {
             Dl = DDtaskLook(Fn, setup, lifeItems);
           Fn.expanded !== !1 && Fn.subtasks?.length
             ? On(Fn.subtasks, Xa, Fn, 1, Dl.color)
-            : (Jt += 82);
+            : (Jt += gap.card);
           const Pa = de(Fn.subtasks || []);
           (Pt({
             id: Xa,
@@ -519,14 +257,14 @@ export function DDcreateBoardLayout(deps) {
             from: Fn.from,
             hasChildren: !!Fn.subtasks?.length,
             expanded: Fn.expanded !== !1,
-            x: 410,
-            y: (Ga + Math.max(Ga + 64, Jt - 18)) / 2 - 32,
+            x: col.card,
+            y: (Ga + Math.max(Ga + 64, Jt - gap.card + 64)) / 2 - 32,
             w: 264,
             h: 64,
           }),
             yn(Oa, Xa, Dl.color));
         }
-        Jt === fa && (Jt += 84);
+        Jt === fa && (Jt += gap.empty);
         Pt({
           id: Oa,
           kind: "lane",
@@ -536,21 +274,21 @@ export function DDcreateBoardLayout(deps) {
           parentId: "day:root",
           color: "#4A4843",
           textColor: "#fff",
-          x: 252,
+          x: col.lane,
           y: (fa + Jt) / 2 - 27,
           w: 126,
           h: 54,
         });
-        (yn("day:root", Oa, "#85827A"), (Jt += 30));
+        (yn("day:root", Oa, "#85827A"), (Jt += gap.lane));
       }
       // Order lines (5.51): dashed arrows from what comes first to what follows,
       // read from `after` on tasks and steps. Steps folded away show no line.
       for (const { from, to } of DDflowEdges(day))
         G.push({ id: `auto:after:${from}->${to}`, from, to, color: "var(--dd-order,#E0602F)", dashed: !0, arrow: !0, automatic: !0, after: !0, style: "curve" });
-      ct["day:root"] || (Y[0].y = Math.max(60, Jt / 2 - 35) + shift.y);
+      (tidy || !ct["day:root"]) && (Y[0].y = Math.max(60, Jt / 2 - 35) + shift.y);
       engineFrame(Y, shift);
       Object.assign(shift, { x: 0, y: 0, w: 0, h: 0 });
-    } else lanesLayout(Y, ct, St);
+    }
     if (mode === "mindmap") lifeFrame(Y);
     // A section's own board: only that section and what is inside it, placed
     // beside today's Engine. Same data as the main board, nothing is copied.
@@ -590,7 +328,7 @@ export function DDcreateBoardLayout(deps) {
     for (const Jt of (day.notes || []).filter(
       (n) =>
         n.kind !== "emoji" &&
-        mode !== "lanes" && (!roomItem || onEngine(n)) &&
+        (!roomItem || onEngine(n)) &&
         (!ddNodeMatches ||
           ddNodeMatches.has("note:" + day.date + ":" + n.id)),
     ))
@@ -670,7 +408,6 @@ export function DDcreateBoardLayout(deps) {
       Kt = new Set(model.hidden),
       Dn = [
         ...(setup.life?.links || []),
-        ...(mode === "lanes" ? [] : [
         ...G,
         ...model.links.map((Jt) => ({
           ...Jt,
@@ -678,8 +415,6 @@ export function DDcreateBoardLayout(deps) {
           color: Jt.color || "var(--dd-wire,#4A4843)",
           automatic: !1,
         })),
-      ]),
-        ...(mode === "lanes" ? model.links.filter((l) => l.from.startsWith("life:") || l.to.startsWith("life:")) : []),
       ]
         .map((Jt) => ({ ...Jt, ...(model.overrides[Jt.id] || {}), from: Jt.from, to: Jt.to }))
         .filter(

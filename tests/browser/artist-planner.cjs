@@ -98,49 +98,50 @@ const { start, fixture } = require("./harness.cjs");
       const box = await plus.boundingBox();
       assert.ok(box.width >= 16 && box.height >= 16, JSON.stringify(box));
 
-      // Lanes: no lines, cards hold their steps and notes, drop to attach.
+      // Lanes (5.68): the mind map itself, always tidy and compact. A task
+      // dragged somewhere in the mind map still sits in its place in Lanes.
       await page.evaluate((f) => {
         const data = JSON.parse(localStorage.getItem("debug-day:v2"));
         const day = data.days[f.date];
         day.notes.push({ id: "n2", kind: "sticky", text: "Attached idea", color: "#B3EFBD", x: 900, y: 650 });
-        day.bugs.push({ id: "f2", text: "Tired after lunch", type: "", on: "", fixed: false, category: "body", triggerTag: "", antidote: "" });
-        day.canvas = { board4: { version: 1, mode: "lanes", layouts: {}, links: [{ id: "l1", from: "b:writing", to: "sticky:n2" }], hidden: [], overrides: {}, locked: [], groups: {} } };
+        day.canvas = { board4: { version: 1, mode: "lanes", layouts: { mindmap: { "b:writing": { x: 1400, y: 1600 } } }, links: [{ id: "l1", from: "b:writing", to: "sticky:n2" }], hidden: [], overrides: {}, locked: [], groups: {} } };
         localStorage.setItem("debug-day:v2", JSON.stringify(data));
-        localStorage.setItem("debug-day:board-view:" + f.date, JSON.stringify({ camera: { x: 24, y: 20, z: 0.7 }, mode: "lanes" }));
+        localStorage.setItem("debug-day:board-view:" + f.date, JSON.stringify({ camera: { x: 24, y: 20, z: 0.6 }, mode: "lanes" }));
       }, f);
       await page.reload();
       await page.waitForSelector(".views", { state: "attached" });
       await page.locator(".views button[data-panel=board]").click();
       if ((await page.locator(".b2-viewport").getAttribute("data-mode")) !== "lanes")
         await page.locator(".b4-modes button").nth(1).click();
-      await page.locator('[data-board-id="sec:writing"]').waitFor({ state: "attached" });
+      await page.locator('[data-board-id="b:writing"]').waitFor({ state: "attached" });
       await page.waitForTimeout(700);
-      assert.equal(await page.locator(".b4-wire").count(), 0, "no lines in lanes");
-      assert.equal(await page.locator('.b2-viewport[data-mode=lanes] .b4-port').evaluateAll((els) => els.filter((el) => getComputedStyle(el).display !== "none").length), 0);
-      const inside = async (ref, section) => {
-        const a = await page.locator(`[data-board-id="${ref}"]`).boundingBox(),
-          b = await page.locator(`[data-board-id="${section}"]`).boundingBox();
-        if (process.env.DEBUG) console.log(ref, a, section, b);
-        return a.x >= b.x - 1 && a.y >= b.y - 1 && a.x + a.width <= b.x + b.width + 1 && a.y + a.height <= b.y + b.height + 1;
-      };
-      assert.ok(await inside("sub:writing:sub", "sec:writing"), "step inside its card");
-      assert.ok(await inside("sticky:n2", "sec:writing"), "linked note inside its card");
+      const rect = (ref) => page.locator(`[data-board-id="${ref}"]`).boundingBox();
+      const work = await rect("lane:work"), writing = await rect("b:writing"), firstStep = await rect("sub:writing:sub");
+      assert.ok(writing.x > work.x + work.width && writing.x - (work.x + work.width) < 200, "the task sits right beside its lane, not where it was dragged in the mind map");
+      assert.ok(firstStep.x > writing.x + writing.width && firstStep.x - (writing.x + writing.width) < 160, "its steps right beside it");
+      assert.ok(await page.locator('[data-wire-id="auto:lane:work->b:writing"]').count(), "the same lines as the mind map");
+      assert.ok(await page.locator('[data-wire-id="l1"]').count(), "a line you drew stays");
       async function drag(from, to) {
         const a = await from.boundingBox(), b = await to.boundingBox();
-        await page.mouse.move(a.x + a.width / 2, a.y + Math.min(12,a.height/2));
+        await page.mouse.move(a.x + a.width / 2, a.y + Math.min(12, a.height / 2));
         await page.mouse.down();
         await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 12 });
         await page.mouse.up();
       }
-      assert.equal(await page.locator('[data-board-id="bug:f2"]').count(), 0, "feelings no longer show on the Board");
-      await drag(page.locator('[data-board-id="sticky:n2"] .dd-note-preview'), page.locator('[data-board-id="lane:life"]'));
-      await page.waitForFunction((date) => JSON.parse(localStorage.getItem("debug-day:v2")).days[date].canvas.board4.links.length === 0, f.date);
-      assert.ok(!(await inside("sticky:n2", "sec:writing")), "dragged-out note leaves the card");
-      const before = await page.locator('[data-board-id="sub:writing:sub"]').boundingBox();
+      // Dragged onto another lane, the task changes lane and goes back into a tidy place.
       await drag(page.locator('[data-board-id="b:writing"] .b4-node-body'), page.locator('[data-board-id="lane:life"]'));
       await page.waitForFunction((date) => JSON.parse(localStorage.getItem("debug-day:v2")).days[date].blocks[0].lane === "life", f.date);
-      assert.ok(await inside("sub:writing:sub", "sec:writing"), "steps move with their card");
-      assert.notDeepEqual(await page.locator('[data-board-id="sub:writing:sub"]').boundingBox(), before);
+      await page.waitForTimeout(400);
+      const life = await rect("lane:life"), moved = await rect("b:writing");
+      assert.ok(moved.x > life.x + life.width && moved.x - (life.x + life.width) < 200, "tidy under its new lane");
+      // Dragged into empty space, it comes back: Lanes keeps no spot for it.
+      const resting = await rect("b:writing");
+      await page.mouse.move(resting.x + resting.width / 2, resting.y + 12);await page.mouse.down();
+      await page.mouse.move(resting.x + resting.width / 2 + 60, resting.y + 260, { steps: 10 });await page.mouse.up();
+      await page.waitForTimeout(400);
+      const settled = await rect("b:writing");
+      assert.ok(Math.abs(settled.x - resting.x) < 2 && Math.abs(settled.y - resting.y) < 2, "back in its place");
+      assert.equal((await page.evaluate((date) => JSON.parse(localStorage.getItem("debug-day:v2")).days[date].canvas.board4.layouts.mindmap["b:writing"], f.date)), undefined, "a new lane clears the old spot, and Lanes saves none");
 
       assert.deepEqual(errors, []);
       console.log("Artist planner board:", language, "passed");
