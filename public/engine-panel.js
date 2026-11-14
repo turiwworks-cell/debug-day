@@ -445,24 +445,7 @@ function Details({ React: R, block, place, lanes, sources, language, flow, onCha
     flow && field(t("After", "بعد از"), h(AfterEditor, { React: R, flow, refId: DDflowTaskRef(block.id), language })),
     // Repeat every day (routine.js, 5.56): kept in the day templates.
     repeat && field(t("Repeat", "تکرار"), chips(t("Repeat", "تکرار"), [["", t("Just today", "فقط امروز")], ["daily", t("Every day", "هر روز"), t("Each new day starts with it", "هر روز تازه با این کار شروع می‌شود")]], repeat.on ? "daily" : "", (v) => repeat.set(v === "daily"))),
-    place === "today" &&
-      lanes.length > 1 &&
-      field(
-        t("Lane (Board)", "لاین (برد)"),
-        h(
-          "select",
-          {
-            className: "dd-engine-lane",
-            value: lanes.some((lane) => lane.id === block.lane) ? block.lane : lanes[0]?.id,
-            "aria-label": t("Lane", "لاین"),
-            onChange: (event) => {
-              const lane = event.target.value;
-              onChange((b) => ({ ...b, lane }));
-            },
-          },
-          lanes.map((lane) => h("option", { key: lane.id, value: lane.id }, lane.name || lane.id)),
-        ),
-      ),
+    // No Lane field (5.78): Lanes were removed. A task keeps its lane in the data.
     place === "today" &&
       field(
         t("At (optional)", "ساعت (اختیاری)"),
@@ -1006,7 +989,7 @@ export function DDEnginePanel(props) {
       ),
     ),
     !page &&
-      h("footer", { className: "dd-engine-foot" }, t("Same tasks as the Board and its Lanes. → parks a task; ← brings it back.", "همان کارهای برد و لاین‌ها. → کار را پارک می‌کند و ← برمی‌گرداند.")),
+      h("footer", { className: "dd-engine-foot" }, t("Same tasks as the Board. → parks a task; ← brings it back.", "همان کارهای برد. → کار را پارک می‌کند و ← برمی‌گرداند.")),
   );
 }
 

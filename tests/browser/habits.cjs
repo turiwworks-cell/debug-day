@@ -98,7 +98,7 @@ const { start, fixture } = require("./harness.cjs");
     assert.equal(caps.includes("Types"), false);
     assert.equal(caps.includes("Rhythm"), false);
     assert.deepEqual(await page.locator("#dd-look .opt").last().locator("button").allInnerTexts(), ["Calendar view", "Help tips"]);
-    assert.ok((await page.locator("#dd-board-prefs").innerText()).includes("Lanes"));
+    assert.equal((await page.locator("#dd-board-prefs").innerText()).includes("Lanes"), false, "Lanes are gone (5.78)");
     assert.ok((await page.locator("#dd-board-prefs").innerText()).includes("Templates"));
     assert.equal(await page.getByRole("button", { name: "Export file", exact: true }).count(), 0);
     await page.locator("label", { hasText: "Import file" }).waitFor();

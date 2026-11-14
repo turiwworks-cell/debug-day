@@ -299,7 +299,7 @@ export function DDuseComments(ctx) {
   }
   function startAt(clientX, clientY) {
     const c = ctxRef.current, point = c.toWorld(clientX, clientY), anchor = anchorAt(clientX, clientY, point);
-    if (!anchor) { c.setStatus("In Lanes, comment on a card or inside a section, or switch to the Mind map"); return; }
+    if (!anchor) { c.setStatus("Comment on a card, or inside a section"); return; }
     c.clearBoardSelection();
     openDraft({ id: newId("c-"), thread: [], draft: true, ...anchor });
   }
@@ -321,7 +321,7 @@ export function DDuseComments(ctx) {
   }
   function addAt(point) {
     const anchor = freeAt(point);
-    if (!anchor) { ctxRef.current.setStatus("In Lanes, comment on a card or inside a section, or switch to the Mind map"); return; }
+    if (!anchor) { ctxRef.current.setStatus("Comment on a card, or inside a section"); return; }
     openDraft({ id: newId("c-"), thread: [], draft: true, ...anchor });
   }
   // From the Comments list: go where the comment is, then open it. Back (Alt+←) returns.

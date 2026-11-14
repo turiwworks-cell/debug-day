@@ -173,14 +173,12 @@ const { start, fixture, openEngine } = require("./harness.cjs");
             .count(),
           0,
         );
-        // The Engine shows the same task, with its lane kept for the Lanes view.
+        // The Engine shows the same task. No lane picker (5.78): Lanes are gone.
         await nav(0);
         const row = page.locator('.dd-engine [data-engine-task="writing"]');
         await row.waitFor();
         await row.locator(".dd-engine-more").click();
-        await row
-          .getByRole("combobox", { name: t("Lane", "لاین"), exact: true })
-          .selectOption("work");
+        assert.equal(await row.getByRole("combobox", { name: t("Lane", "لاین"), exact: true }).count(), 0);
         await row.getByRole("button", { name: /^P1 ·/ }).click();
         const tagInput = row.getByRole("textbox", { name: t("New tag", "تگ جدید"), exact: true });
         await tagInput.fill("پروژه");
@@ -188,7 +186,7 @@ const { start, fixture, openEngine } = require("./harness.cjs");
         await tagInput.fill("cancel-me");
         await tagInput.press("Escape");
         assert.deepEqual((await read()).blocks[0].tags, ["پروژه"]);
-        assert.equal((await read()).blocks[0].lane, "work");
+        assert.equal((await read()).blocks[0].lane, "life");
         assert.equal(
           (await read()).canvas.board4.layouts.mindmap["b:writing"],
           undefined,
@@ -230,17 +228,7 @@ const { start, fixture, openEngine } = require("./harness.cjs");
           await details.locator(".dd-task-tags").innerText(),
           /پروژه/,
         );
-        await details
-          .getByRole("combobox", {
-            name: t("Task lane", "لاین کار"),
-            exact: true,
-          })
-          .selectOption("life");
-        assert.equal((await read()).blocks[0].lane, "life");
-        await page
-          .getByRole("button", { name: t("Undo", "واگرد"), exact: true })
-          .click();
-        assert.equal((await read()).blocks[0].lane, "work");
+        assert.equal(await details.getByRole("combobox", { name: t("Task lane", "لاین کار"), exact: true }).count(), 0, "no lane field (5.78)");
         await page.keyboard.press("Control+Space");
         const search = page.getByRole("dialog").getByRole("combobox");
         await search.fill("#پروژه");
@@ -269,10 +257,11 @@ const { start, fixture, openEngine } = require("./harness.cjs");
           (await read()).blocks.find((b) => b.id === added.id).tags,
           ["project", "شخصی"],
         );
-        assert.equal((await read()).blocks[0].lane, "work");
+        assert.equal((await read()).blocks[0].lane, "life");
         // A fresh geometry fixture keeps both endpoints visible at a normal touch zoom.
         await page.evaluate((date) => {
           const data = JSON.parse(localStorage.getItem("debug-day:v2"));
+          data.days[date].blocks[0].lane = "work";
           data.days[date].canvas.board4.layouts.mindmap["b:writing"] = {
             x: 230,
             y: 150,
@@ -345,7 +334,7 @@ const { start, fixture, openEngine } = require("./harness.cjs");
         );
         assert.notEqual(await path.getAttribute("d"), oldPath);
         assert.equal((await read()).blocks[0].lane, "work");
-        // Drop a whole card (including its nested steps) into another lane.
+        // Lanes is gone (5.78): a day saved in Lanes opens as the mind map.
         await page.evaluate(
           (date) =>
             localStorage.setItem(
@@ -360,39 +349,8 @@ const { start, fixture, openEngine } = require("./harness.cjs");
         await page.reload();
         await page.waitForSelector(".views", { state: "attached" });
         await nav(1);
-        await page.locator(".b4-modes button").nth(1).click();
-        await page.waitForSelector('.b2-viewport[data-mode="lanes"]');
-        // Switching mode fits the day on the next tick; read the lane only once the camera is still.
-        await page.waitForFunction(() => {
-          const now = document.querySelector(".b2-world").style.transform, w = window;
-          if (w.__ddCam !== now) { w.__ddCam = now; w.__ddCamAt = performance.now(); return false; }
-          return performance.now() - w.__ddCamAt > 200;
-        }, null, { polling: 50 });
-        const task = page.locator('[data-board-id="b:writing"] .b4-node-body'),
-          frame = await page
-            .locator('[data-board-id="lane:life"]')
-            .boundingBox(),
-          box = await task.boundingBox();
-        await drag(
-          task,
-          frame.x + frame.width * 0.25 - (box.x + box.width / 2),
-          frame.y + frame.height * 0.55 - (box.y + box.height / 2),
-        );
-        assert.equal((await read()).blocks[0].lane, "life");
-        assert.equal(
-          (await read()).blocks[0].subtasks[0].children[0].id,
-          "nested",
-        );
-        await page
-          .getByRole("button", { name: t("Undo", "واگرد"), exact: true })
-          .click();
-        assert.equal((await read()).blocks[0].lane, "work");
-        // Redo lives in the top dock's ⋯.
-        await page.locator('[data-dock-more="top"]').click();
-        await page
-          .getByRole("menuitem", { name: t("Redo", "انجام مجدد"), exact: true })
-          .click();
-        assert.equal((await read()).blocks[0].lane, "life");
+        assert.equal(await page.locator(".b4-modes").count(), 0);
+        await page.waitForSelector('.b2-viewport[data-mode="mindmap"]');
         await nav(0);
         await page.locator('.dd-engine [data-engine-task="writing"]').waitFor();
         if (process.env.DEBUG_DAY_SCREENSHOTS) {

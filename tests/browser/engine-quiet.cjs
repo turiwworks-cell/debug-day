@@ -130,7 +130,7 @@ const {start,fixture}=require('./harness.cjs');
    assert.equal(ink.from,'studio','keeps where it came from');
    assert.equal(reply.measure,'wait');assert.equal(reply.waitSince,since,'still waiting since the same day');
    assert.equal((await read()).days[iso(1)].blocks.find((b)=>b.id==='y1').done,false,'the earlier day is left as it was');
-   // The same tasks everywhere: Engine rows, the board, Lanes.
+   // The same tasks everywhere: Engine rows and the board.
    await engine.locator(`[data-engine-task="${ink.id}"]`).waitFor();
    await page.keyboard.press('Escape');await engine.waitFor({state:'detached'});
    await page.locator(`[data-board-id="b:${reply.id}"]`).waitFor({state:'attached'});
@@ -158,9 +158,8 @@ const {start,fixture}=require('./harness.cjs');
    await tap(more);
    assert.equal(await more.getAttribute('aria-expanded'),'true');
    if(!mobile)await page.mouse.move(2,2);
-   assert.equal(await lane.isVisible(),true,'⋯ keeps the tools open');
-   await lane.selectOption('life');
-   await page.waitForFunction(([date,id])=>JSON.parse(localStorage.getItem('debug-day:v2')).days[date].blocks.find((b)=>b.id===id).lane==='life',[f.date,ink.id]);
+   assert.equal(await row.locator('.dd-engine-kinds').isVisible(),true,'⋯ keeps the tools open');
+   assert.equal(await lane.count(),0,'no lane picker (5.78)');
    await page.keyboard.press('Escape');await engine.waitFor({state:'detached'});
 
    // "Not today" puts the line away for the rest of the day, on this device.

@@ -28,16 +28,10 @@ const {start,fixture,boardMenu}=require('./harness.cjs');
    assert.equal((await block('writing')).from,'c','the source survives loading');
    await page.locator('.views button[data-panel="board"]').click();
    await page.locator('.b2-viewport').focus();await page.keyboard.press('Control+Shift+F');await page.locator('.b2.focus-mode').waitFor();
-   // The card says where it came from, in both board views.
-   if((await page.locator('.b2-viewport').getAttribute('data-mode'))!=='mindmap')await page.locator('.b4-modes button').nth(0).click();
+   // The card says where it came from.
    const chip=page.locator('.dd-task-from[data-from="c"]');
    await chip.first().waitFor({state:'attached'});
    assert.match(await chip.first().innerText(),/Sketches/);
-   await page.locator('.b4-modes button').nth(1).click();
-   await page.locator('.b2-viewport[data-mode=lanes]').waitFor();
-   assert.ok(await chip.count()>=1,'Lanes shows the same source');
-   await page.locator('.b4-modes button').nth(0).click();
-   await page.locator('.b2-viewport[data-mode=mindmap]').waitFor();
    // Each section shows its last 14 days; a big section counts its small ones.
    await boardMenu(page,'Feed');await page.waitForTimeout(300);
    await strip('a').waitFor({state:'attached'});

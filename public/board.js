@@ -218,10 +218,10 @@ export function DDcreateBoard(deps) {
       ),
       model = clean(DDreadBoardView(day.date, DDreconcileDay(day, null, setup).canvas?.board4)),
       prefs = DDprefs(setup.preferences),
-      [viewMode, setMode] = useState(model.mode),
-      // Lanes (5.68) is the mind map itself, always tidy and compact: the same
-      // nodes and the same behaviour, only the tree places itself.
-      tidy = viewMode === "lanes",
+      // Lanes was removed (5.78): the board is always the free mind map. A day
+      // saved in Lanes opens as the mind map; its tree spots are kept.
+      [viewMode, setMode] = useState("mindmap"),
+      tidy = false,
       mode = "mindmap",
       [tool, setTool] = useState("select"),
       [wirePop, setWirePop] = useState(null),
@@ -4732,9 +4732,7 @@ export function DDcreateBoard(deps) {
           }),
         ),
         // Section tags replaced categories (5.54): the tag above is the task's kind.
-        h("label", { className: "dd-card-field" }, h("span", null, t("Lane", "لاین")),
-          h("select", { value: laneIds.includes(block.lane) ? block.lane : "", disabled: isLocked, "aria-label": t("Task lane", "لاین کار"), onChange: (e) => { const lane = e.target.value; changeMeasure((b) => ({ ...b, lane })); } },
-            ...setup.lanes.map((l) => h("option", { key: l.id, value: l.id }, l.name)), h("option", { value: "" }, t("Parked", "پارک‌شده")))),
+        // No Lane field (5.78): Lanes were removed; Park lives in the Engine.
         h(DDTaskMetadata, { React: _, task: block, language: DDlanguage, disabled: isLocked, onChange: (patch) => changeMeasure((b) => ({ ...b, ...patch })) }),
         h(
           "div",
@@ -5764,54 +5762,7 @@ export function DDcreateBoard(deps) {
               DDUI("% \u0627\u0646\u062C\u0627\u0645\u200C\u0634\u062F\u0647"),
             ),
           ),
-          _.createElement(
-            "div",
-            {
-              className: "b4-modes",
-              role: "group",
-              "aria-label": DDUI("Board structure mode"),
-            },
-            _.createElement(
-              "button",
-              {
-                type: "button",
-                "aria-pressed": !tidy,
-                onClick: () => {
-                  (finishEdit(),
-                    setMode("mindmap"),
-                    setSelected(new Set()),
-                    setWireId(null),
-                    DDsaveBoardView(
-                      dayRef.current.date,
-                      { ...cam.current },
-                      "mindmap",
-                    ),
-                    setTimeout(() => api.current.fit(false,"day"), 0));
-                },
-              },
-              DDUI("\u0645\u0627\u06CC\u0646\u062F\u0645\u067E"),
-            ),
-            _.createElement(
-              "button",
-              {
-                type: "button",
-                "aria-pressed": tidy,
-                onClick: () => {
-                  (finishEdit(),
-                    setMode("lanes"),
-                    setSelected(new Set()),
-                    setWireId(null),
-                    DDsaveBoardView(
-                      dayRef.current.date,
-                      { ...cam.current },
-                      "lanes",
-                    ),
-                    setTimeout(() => api.current.fit(false,"day"), 0));
-                },
-              },
-              DDUI("\u0644\u0627\u06CC\u0646\u200C\u0647\u0627"),
-            ),
-          ),
+          // Lanes is gone (5.78): the board is always the mind map.
         ),
         // Daily tools stay in sight; the rest is one right-click (or ⋯) away.
         _.createElement(
