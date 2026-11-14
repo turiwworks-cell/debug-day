@@ -1,3 +1,7 @@
+## 5.77.5 — 2026-11-14
+Branch: claude/project-thread-n79ngv
+- Habit settings have room: editing habits widens the panel, with a title and one clear card per habit (a round colour, a full-width name, then Goal minutes and Remove).
+
 ## 5.77.4 — 2026-11-14
 Branch: claude/project-thread-n79ngv
 - An empty comment is easy to take away: its Delete button shows from the start, Backspace or Delete in its empty box removes it, and clicks on an open comment reach it even while the comment tool is on.
