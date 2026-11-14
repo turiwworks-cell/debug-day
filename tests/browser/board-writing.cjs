@@ -93,6 +93,9 @@ const {start,fixture,boardMenu}=require('./harness.cjs');
   const z0=await zoom();
   await page.mouse.click(vb.x+vb.width*0.55,vb.y+vb.height*0.62);
   const typing=page.locator('.b4-plain .dd-live');await typing.waitFor();
+  // It starts empty: no hint inside, and not a tall thin box (5.77.3).
+  assert.equal(await typing.getAttribute('data-placeholder'),'');
+  assert.ok((await page.locator('.b4-plain').first().boundingBox()).height<60,'one line tall');
   await typing.fill('Big title');await typing.press('Control+Enter');await settle();
   assert.equal(await zoom(),z0,'back to the view you had');
   let notes=(await day()).notes,text=notes.find((n)=>n.text==='Big title');
