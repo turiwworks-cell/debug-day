@@ -43,19 +43,19 @@ const {start,fixture}=require('./harness.cjs');
    await row.getByRole('button',{name:t('Score 8','نمره 8'),exact:true}).click();
    let w=(await day()).blocks.find(b=>b.id==='writing');
    assert.equal(w.measure,'score');assert.equal(w.score,8);assert.equal(w.done,true);
-   // The lane stays on the task for the Board's Lanes view.
-   await row.locator('select.dd-engine-lane').selectOption('life');
-   assert.equal((await day()).blocks.find(b=>b.id==='writing').lane,'life');
+   // No lane picker (5.78): Lanes are gone; the task keeps its lane in the data.
+   assert.equal(await row.locator('select.dd-engine-lane').count(),0);
+   const lane0=(await day()).blocks.find(b=>b.id==='writing').lane;
    // Park it: it leaves the day and waits on the shelf, then comes back to its lane.
    await row.locator('.dd-engine-move').click();
    await parkCol.locator('[data-engine-task="writing"]').waitFor();
    let saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2')));
    assert.ok(!saved.days[f.date].blocks.some(b=>b.id==='writing'),'parked tasks are not today');
-   assert.equal(saved.setup.later.find(b=>b.id==='writing').parkedLane,'life');
+   assert.equal(saved.setup.later.find(b=>b.id==='writing').parkedLane,lane0);
    await parkCol.locator('[data-engine-task="writing"] .dd-engine-move').click();
    await todayCol.locator('[data-engine-task="writing"]').waitFor();
    saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2')));
-   assert.equal(saved.days[f.date].blocks.find(b=>b.id==='writing').lane,'life','back in its own lane');
+   assert.equal(saved.days[f.date].blocks.find(b=>b.id==='writing').lane,lane0,'back in its own lane');
    assert.equal(saved.setup.later.length,0);
    // Add a task to today.
    const add=todayCol.locator('.dd-engine-add input');

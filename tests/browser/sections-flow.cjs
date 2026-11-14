@@ -63,7 +63,6 @@ const {start,fixture,openEngine,boardMenu}=require('./harness.cjs');
    // Full screen board, mind map.
    if(!await page.locator('.b2.focus-mode').count()){await page.locator('.b2-viewport').focus();await page.keyboard.press('Control+Shift+F');}
    await page.locator('.b2.focus-mode').waitFor();
-   if((await page.locator('.b2-viewport').getAttribute('data-mode'))!=='mindmap')await page.locator('.b4-modes button').nth(0).click();
 
    // Sections in the top ⋯ opens it, and again closes it (5.69).
    await boardMenu(page,'Sections');await flow.waitFor();
@@ -255,13 +254,6 @@ const {start,fixture,openEngine,boardMenu}=require('./harness.cjs');
    await close();
    await page.waitForFunction(([c])=>document.querySelector('[data-board-id="life:c"]')?.style.getPropertyValue('--node-color')===c,[childFill]);
    assert.equal(await chip.first().evaluate((el)=>getComputedStyle(el).backgroundColor),rgb(childFill),'the chip in Mindmap');
-   await page.locator('.b4-modes button').nth(1).click();await page.locator('.b2-viewport[data-mode=lanes]').waitFor();
-   await chip.first().waitFor({state:'attached'});
-   assert.equal(await chip.first().evaluate((el)=>getComputedStyle(el).backgroundColor),rgb(childFill),'the chip in Lanes');
-   await open();
-   assert.equal(await dot('c'),rgb(childFill),'the flowchart in Lanes reads the same colors');
-   await close();
-   await page.locator('.b4-modes button').nth(0).click();await page.locator('.b2-viewport[data-mode=mindmap]').waitFor();
 
    // In the Engine the picker shows the path and the same shade.
    await page.locator('.b2-viewport').focus();await page.keyboard.press('e');

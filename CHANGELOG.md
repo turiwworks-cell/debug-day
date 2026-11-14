@@ -1,3 +1,7 @@
+## 5.78.0 — 2026-11-14
+Branch: claude/project-thread-n79ngv
+- Lanes are gone: no Mind map / Lanes switch on the Board (it is always the mind map; a day saved in Lanes opens as the mind map), no Lanes list in Settings, no Lane field in a card's details or the Engine's ⋯, and no lane rows in Ctrl+Space. Each task keeps its lane in the data, so nothing is lost.
+
 ## 5.77.5 — 2026-11-14
 Branch: claude/project-thread-n79ngv
 - Habit settings have room: editing habits widens the panel, with a title and one clear card per habit (a round colour, a full-width name, then Goal minutes and Remove).

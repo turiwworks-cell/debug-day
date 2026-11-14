@@ -1235,7 +1235,6 @@ export function DDCommandPalette(props) {
         [
           [">", t("Actions", "دستورها")],
           ["#", t("Category / tag", "دسته / برچسب")],
-          ["@", t("Lane", "بخش")],
           ["!", t("Priority", "اولویت")],
           ["date:", t("Date", "تاریخ")],
           ["is:open", t("Open", "باز")],
