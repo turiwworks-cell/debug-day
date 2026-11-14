@@ -1,3 +1,13 @@
+## 5.57.0 — 2026-11-14
+Branch: claude/project-thread-d0zfxj
+- Calendar redesigned: the month is the big part of the page, with the chosen day beside it (below it on a phone).
+- Each day shows how full it was (Light, Steady, Full, Packed, as a soft color) and how much of it got done (a bar, done/total tasks and planned time). "Full" is measured against your own usual day, not fixed hours. A day with everything done gets a green bar and a check.
+- The month shows a short line on top: tasks done, days all done, full days, the fullest day.
+- Each day also shows the other calendar's date (Persian or Gregorian), reminders on coming days, deadlines and mood.
+- The month header is cleaner: arrows and Today, Month/Week, and Persian/Gregorian as two small toggles.
+- The day beside the month: one heading, "How the day looks" with the same color and a done bar, and a gentle note when a coming day is fuller than usual.
+- Stats removed, as asked: no Stats section, no Stats page in Ctrl+Space or in Settings › Show. An old saved Stats view opens the Calendar. Nothing in your data changed.
+
 ## 5.56.1 — 2026-11-13
 Branch: claude/project-thread-d0zfxj
 - Checks run faster: the browser tests now run in four parts side by side on GitHub, and the unit tests on their own (tests/browser/shard.mjs). Nothing in the app changed.

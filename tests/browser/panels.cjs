@@ -17,7 +17,7 @@ const { start, fixture } = require("./harness.cjs");
     const today = async () => (await read()).days[f.date];
     const banner = page.locator(".isolate-banner");
 
-    // View tabs and section headings carry the panel's icon and color. Feelings and Stats are inside Calendar.
+    // View tabs and section headings carry the panel's icon and color. Feelings and Stats are gone.
     assert.deepEqual(
       await page.locator(".views button").evaluateAll((tabs) => tabs.map((tab) => tab.dataset.panel)),
       ["engine", "board", "calendar"],
@@ -39,7 +39,7 @@ const { start, fixture } = require("./harness.cjs");
     const modal = page.locator(".dd-command-modal");
     const first = modal.locator(".dd-result-group").first();
     assert.equal(await first.getAttribute("data-group"), "panels");
-    assert.equal(await first.locator(".dd-panel-row").count(), 6, "the panels, with Sections right after the Engine");
+    assert.equal(await first.locator(".dd-panel-row").count(), 5, "the panels, with Sections right after the Engine (Stats removed in 5.57)");
     assert.equal(await first.locator(".dd-panel-row").nth(1).getAttribute("data-panel"), "sections");
     const ids = await modal.locator(".dd-command-row").evaluateAll((rows) => rows.map((row) => row.id + row.textContent));
     assert.equal(new Set(ids.map((text) => text.replace(/^dd-result-\d+/, ""))).size, ids.length, "nothing is listed twice on the first page");
@@ -69,7 +69,7 @@ const { start, fixture } = require("./harness.cjs");
     assert.equal(await modal.locator('.dd-panel-row[data-panel="lab"]').count(), 0);
     await page.keyboard.press("Escape");
 
-    // App map: one card per panel, Feelings and Stats share Calendar's. A number isolates, Shift+number shows it with the rest, 0 shows all.
+    // App map: one card per panel (Feelings and Stats are gone). A number isolates, Shift+number shows it with the rest, 0 shows all.
     await page.keyboard.press("Alt+KeyM");
     await page.locator(".dd-panel-map").waitFor();
     assert.deepEqual(

@@ -6,6 +6,8 @@ import { DDlifeItems } from "./life-board.js";
 import { DDdueOn, DDdueName } from "./deadlines.js";
 import { DDCalendarWeek, DDWeekReview, DDCalendarModes, DDCalSections } from "./calendar-week.js";
 import { DDaddDays, DDvalidDate } from "./dates.js";
+import { DDusualMinutes, DDdayLoad, DDloadName, DDmonthLoad, DDaltDay, DDaltMonth, DDshortTime, DDinstallCalendarLook } from "./calendar-look.js";
+DDinstallCalendarLook();
 // Calendar and feelings share one selected day. Reading a day never creates it.
 export const DDreviewValidDate = DDvalidDate;
 // Counted and waiting cards take no minutes from the day.
@@ -420,6 +422,12 @@ function DDReviewCalendar({
       root.current?.querySelector('[data-review-date="' + next + '"]')?.focus(),
     );
   }
+  const usual = R.useMemo(() => DDusualMinutes(data.days, today), [data.days, today]),
+    monthDates = month.cells.filter((cell) => cell.inMonth).map((cell) => cell.date),
+    monthLoad = DDmonthLoad(data.days, monthDates, usual, today),
+    topLabel = monthLoad.top && monthLoad.top.level >= 3
+      ? DDreviewFormatter(language, system, { weekday: "short", day: "numeric" }).format(new Date(monthLoad.top.date + "T12:00:00Z"))
+      : "";
   return h(
     "section",
     {
@@ -435,7 +443,7 @@ function DDReviewCalendar({
         null,
         h(
           "h2",
-          null,
+          { "aria-live": "polite" },
           DDreviewFormatter(language, system, { month: "long" }).format(
             new Date(month.start + "T12:00:00Z"),
           ) +
@@ -444,62 +452,67 @@ function DDReviewCalendar({
               DDreviewParts(month.start, system).year,
             ),
         ),
+        h("p", null, DDaltMonth(month.cells[Math.floor(month.cells.length / 2)].date, system, language)),
+      ),
+      h(
+        "div",
+        { className: "dd-cal-tools" },
         h(
-          "p",
-          null,
-          t(
-            "Choose a day to see its details.",
-            "یک روز را انتخاب کن تا جزئیاتش را ببینی.",
+          "div",
+          { className: "dd-review-month-controls" },
+          h(
+            "button",
+            {
+              type: "button",
+              onClick: () => setAnchor(month.previous),
+              "aria-label": t("Previous month", "ماه قبل"),
+            },
+            fa ? "→" : "←",
+          ),
+          h(
+            "button",
+            { type: "button", onClick: () => select(today, true) },
+            t("Today", "امروز"),
+          ),
+          h(
+            "button",
+            {
+              type: "button",
+              onClick: () => setAnchor(month.next),
+              "aria-label": t("Next month", "ماه بعد"),
+            },
+            fa ? "←" : "→",
+          ),
+        ),
+        onMode && h(DDCalendarModes, { React: R, mode, onMode, language }),
+        h(
+          "div",
+          { className: "dd-cal-seg dd-review-system", role: "radiogroup", "aria-label": t("Calendar system", "نوع تقویم") },
+          [["persian", t("Persian", "شمسی")], ["gregory", t("Gregorian", "میلادی")]].map(([id, label]) =>
+            h("button", {
+              key: id,
+              type: "button",
+              role: "radio",
+              "aria-checked": system === id,
+              "data-calendar-system": id,
+              onClick: () => {
+                setPreference(id);
+                DDreviewRemember("debug-day:review-calendar", id);
+              },
+            }, label),
           ),
         ),
       ),
-      onMode && h(DDCalendarModes, { React: R, mode, onMode, language }),
-      h(
-        "label",
-        { className: "dd-review-system" },
-        t("Calendar", "تقویم"),
-        h(
-          "select",
-          {
-            value: system,
-            "aria-label": t("Calendar system", "نوع تقویم"),
-            onChange: (event) => {
-              setPreference(event.target.value);
-              DDreviewRemember("debug-day:review-calendar", event.target.value);
-            },
-          },
-          h("option", { value: "persian" }, t("Persian", "شمسی")),
-          h("option", { value: "gregory" }, t("Gregorian", "میلادی")),
-        ),
-      ),
     ),
-    h(
-      "div",
-      { className: "dd-review-month-controls" },
+    !feelingsOnly &&
       h(
-        "button",
-        {
-          type: "button",
-          onClick: () => setAnchor(month.previous),
-          "aria-label": t("Previous month", "ماه قبل"),
-        },
-        fa ? "→" : "←",
+        "ul",
+        { className: "dd-cal-summary", "aria-label": t("This month", "این ماه") },
+        h("li", null, h("b", null, n(monthLoad.done)), t("of ", "از ") + n(monthLoad.tasks) + t(" tasks done", " کار انجام شد")),
+        monthLoad.finished > 0 && h("li", null, h("b", null, n(monthLoad.finished)), t(monthLoad.finished === 1 ? "day all done" : "days all done", "روز کامل")),
+        monthLoad.full > 0 && h("li", null, h("b", null, n(monthLoad.full)), t(monthLoad.full === 1 ? "full day" : "full days", "روز پر")),
+        topLabel && h("li", null, t("Fullest: ", "پرترین: "), h("b", null, topLabel)),
       ),
-      h(
-        "button",
-        { type: "button", onClick: () => select(today, true) },
-        t("Today", "امروز"),
-      ),
-      h(
-        "button",
-        {
-          type: "button",
-          onClick: () => setAnchor(month.next),
-          "aria-label": t("Next month", "ماه بعد"),
-        },
-        fa ? "←" : "→",
-      ),
-    ),
     h(
       "div",
       {
@@ -527,7 +540,9 @@ function DDReviewCalendar({
       month.cells.map((cell) => {
         const day = data.days[cell.date],
           summary = DDreviewSummary(day, data.setup),
+          load = DDdayLoad(day, usual),
           due = feelingsOnly ? [] : DDdueOn(lifeItems, cell.date),
+          reminders = feelingsOnly ? 0 : DDreviewReminders(data.setup.reminders, cell.date).length,
           worries = (data.setup.worries || []).filter(
             (item) => item.createdAt === cell.date,
           ).length,
@@ -539,8 +554,7 @@ function DDReviewCalendar({
                 ? t("Focus", "هدف")
                 : worries
                   ? t("Worry", "نگرانی")
-                  : !feelingsOnly &&
-                      DDreviewReminders(data.setup.reminders, cell.date).length
+                  : reminders
                     ? t("Reminder", "یادآور")
                     : "";
         return h(
@@ -549,18 +563,18 @@ function DDReviewCalendar({
             key: cell.date,
             type: "button",
             "data-review-date": cell.date,
+            "data-load": feelingsOnly ? undefined : load.level,
+            "data-all-done": load.allDone || undefined,
             "aria-pressed": cell.date === date,
             tabIndex: cell.date === tabDate ? 0 : -1,
             "aria-current": cell.date === today ? "date" : undefined,
             disabled: !DDreviewValidDate(cell.date),
             "aria-label":
               DDreviewDateLabel(cell.date, language, system) +
-              " · " +
-              n(feelingCount) +
-              t(feelingCount === 1 ? " feeling" : " feelings", " احساس") +
-              (!feelingsOnly
-                ? " · " + n(summary.tasks) + t(summary.tasks === 1 ? " task" : " tasks", " کار")
+              (!feelingsOnly && load.tasks
+                ? " · " + n(load.done) + t(" of ", " از ") + n(load.tasks) + t(" tasks done", " کار انجام شده") + " · " + DDloadName(load.level, language)
                 : "") +
+              (feelingCount ? " · " + n(feelingCount) + t(feelingCount === 1 ? " feeling" : " feelings", " احساس") : "") +
               (other ? " · " + other : "") +
               (due.length ? t(" · deadline: ", " · ددلاین: ") + due.map((i) => DDdueName(i, language)).join(", ") : ""),
             className:
@@ -573,15 +587,35 @@ function DDReviewCalendar({
           h(
             "span",
             { className: "dd-review-date-top" },
-            h("strong", null, n(cell.day)),
-            day?.mood &&
+            h(
+              "span",
+              { className: "dd-cal-num" },
+              h("strong", null, n(cell.day)),
+              h("i", { className: "dd-cal-alt", "aria-hidden": true }, DDaltDay(cell.date, system, language)),
+            ),
+            h(
+              "span",
+              { className: "dd-cal-marks", "aria-hidden": true },
+              due.length > 0 && h("span", { className: "dd-cal-due", "data-cal-due": cell.date }, "◆"),
+              reminders > 0 && cell.date >= today && h("span", { className: "dd-cal-remind", "data-cal-remind": cell.date }),
+              day?.mood && h("span", { className: "dd-review-date-mood" }, day.mood),
+            ),
+          ),
+          h(
+            "span",
+            { className: "dd-cal-body", "aria-hidden": true },
+            !feelingsOnly && !load.tasks && other && h("span", { className: "dd-cal-word" }, other),
+            !feelingsOnly &&
+              load.tasks > 0 &&
               h(
                 "span",
-                { className: "dd-review-date-mood", "aria-hidden": true },
-                day.mood,
+                { className: "dd-cal-meta" },
+                h("span", null, load.allDone ? h("span", { className: "dd-cal-check" }, "✓ ") : null, h("b", null, n(load.done)), "/" + n(load.tasks)),
+                load.planned > 0 && h("span", null, DDshortTime(load.planned, language)),
               ),
+            !feelingsOnly && load.tasks > 0 && h("span", { className: "dd-cal-meter" }, h("i", { style: { width: load.share + "%" } })),
+            !feelingsOnly && h(DDCalSections, { React: R, day, items: lifeItems }),
           ),
-          due.length > 0 && h("span", { className: "dd-cal-due", "data-cal-due": cell.date, "aria-hidden": true }, "◆"),
           h(
             "small",
             null,
@@ -595,28 +629,20 @@ function DDReviewCalendar({
                 n(feelingCount),
                 t(feelingCount === 1 ? " feeling" : " feelings", " حس"),
               ),
-            !feelingCount &&
-              (feelingsOnly || !summary.tasks) &&
-              other &&
-              h("span", null, other),
           ),
-          !feelingsOnly && h(DDCalSections, { React: R, day, items: lifeItems }),
         );
       }),
     ),
-    h(
-      "p",
-      { className: "dd-review-calendar-key" },
-      feelingsOnly
-        ? t(
-            "Each day shows its saved mood and number of entries.",
-            "روی هر روز، حال ثبت‌شده و تعداد احساس‌ها دیده می‌شود.",
-          )
-        : t(
-            "Each day shows how many tasks it had. Empty days have nothing saved.",
-            "روی هر روز، تعداد کارها دیده می‌شود. خانهٔ خالی یعنی هنوز چیزی ثبت نشده.",
-          ),
-    ),
+    !feelingsOnly &&
+      h(
+        "div",
+        { className: "dd-cal-legend" },
+        [1, 2, 3, 4].map((level) =>
+          h("span", { key: level }, h("i", { "data-load": level }), DDloadName(level, language)),
+        ),
+        h("span", null, h("span", { className: "dd-cal-meter" }, h("i", { style: { width: "60%" } })), t("done", "انجام‌شده")),
+        h("span", { className: "dd-cal-usual" }, t("Full is measured against your usual day", "«پر» یعنی نسبت به یک روز معمول خودت")),
+      ),
   );
 }
 function DDReviewMood({ React: R, data, date, language, setData, playful }) {
@@ -1600,7 +1626,9 @@ function DDReviewDay({
     worries = (data.setup.worries || []).filter(
       (item) => item.createdAt === date,
     ),
-    id = feelingsOnly ? "dd-feelings-day" : "dd-calendar-day";
+    id = feelingsOnly ? "dd-feelings-day" : "dd-calendar-day",
+    usual = R.useMemo(() => DDusualMinutes(data.days, today), [data.days, today]),
+    load = DDdayLoad(day, usual);
   return h(
     "section",
     {
@@ -1619,7 +1647,9 @@ function DDReviewDay({
           null,
           date === today
             ? t("Today", "امروز")
-            : t("Selected day", "روز انتخاب‌شده"),
+            : date < today
+              ? t("Past day", "روز گذشته")
+              : t("Coming day", "روز پیش رو"),
         ),
         h("h2", { "aria-live": "polite" }, DDreviewDateLabel(date, language)),
         h("time", { dateTime: date, dir: "ltr" }, date),
@@ -1644,8 +1674,14 @@ function DDReviewDay({
         null,
         h(
           "div",
-          { className: "dd-review-overview" },
-          h("h2", null, t("Day overview", "خلاصهٔ روز")),
+          { className: "dd-review-overview", "data-load": load.level },
+          h(
+            "h2",
+            null,
+            t("How the day looks", "این روز چطور است"),
+            h("span", { className: "dd-cal-load-word" }, DDloadName(load.level, language)),
+          ),
+          load.tasks > 0 && h("span", { className: "dd-cal-meter", "aria-hidden": true }, h("i", { style: { width: load.share + "%" } })),
           h(
             "dl",
             null,
@@ -1666,7 +1702,12 @@ function DDReviewDay({
               null,
               h("dt", null, t("Planned time", "زمان برنامه")),
               h("dd", null, DDduration(summary.plannedMinutes, language)),
-              h("dd", { className: "dd-day-progress", title: DDprogressLabel(language), "data-completion": summary.completionPct }, t("Progress ", "پیشرفت "), n(summary.completionPct), "%"),
+            ),
+            h(
+              "div",
+              null,
+              h("dt", null, t("Progress", "پیشرفت")),
+              h("dd", { className: "dd-day-progress", title: DDprogressLabel(language), "data-completion": summary.completionPct }, n(summary.completionPct), "%"),
             ),
             // Feelings left the app in 5.16; old ones still show here.
             summary.feelings > 0 &&
@@ -1684,6 +1725,16 @@ function DDReviewDay({
                 h("dd", { dir: "auto" }, day.focus),
               ),
           ),
+          load.level === 4 &&
+            date >= today &&
+            h(
+              "p",
+              { className: "dd-cal-hint" },
+              t(
+                "This day is fuller than your usual. Park something if it feels like too much.",
+                "این روز از روز معمولت پرتر است. اگر زیاد به نظر می‌رسد، چیزی را پارک کن.",
+              ),
+            ),
         ),
       ),
     !feelingsOnly &&
@@ -1824,11 +1875,11 @@ function DDReviewDay({
           ))((day.notes || []).filter((note) => note.kind !== "emoji")),
   );
 }
-// Calendar, Feelings and Stats share one panel: one tab in the header and
-// three sections inside it. The month grid sits beside the day on wide screens.
+// The Calendar panel. Stats were removed (5.57): the month itself shows how
+// full each day was and how much got done. The list stays so a section can
+// come back without rewiring the panel.
 export const DDcalendarSections = [
   ["day", "calendar", "Day", "روز"],
-  ["stats", "stats", "Stats", "آمار"],
 ];
 export function DDCalendarView(props) {
   const { React: R, language, feelingsOnly = false, onSection, sections } = props,
@@ -1860,8 +1911,8 @@ export function DDCalendarView(props) {
           "p",
           null,
           t(
-            "Your days and the patterns across them.",
-            "روزهایت و الگوهایی که در آن‌ها تکرار می‌شود.",
+            "How full each day was, and how much got done.",
+            "هر روز چقدر پر بود و چقدرش انجام شد.",
           ),
         ),
       ),
@@ -1891,9 +1942,7 @@ export function DDCalendarView(props) {
           ),
         ),
     ),
-    section === "stats"
-      ? h("div", { className: "dd-review-stats" }, props.stats)
-      : h(DDCalendarColumns, { ...props, feelings }),
+    h(DDCalendarColumns, { ...props, feelings }),
   );
 }
 // The month beside the chosen day, or the week across the top (5.46).

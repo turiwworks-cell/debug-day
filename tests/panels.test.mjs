@@ -62,7 +62,7 @@ test("map counts read the day without changing it", () => {
   assert.equal(JSON.stringify({ day, setup }), before);
 });
 
-test("Stats lives inside Calendar and Feelings is gone, so the app map shows one Calendar card", () => {
+test("Stats and Feelings are gone, so the app map shows one Calendar card", () => {
   const R = { createElement: (type, props, ...children) => ({ type, props: props || {}, children: children.flat() }) },
     map = DDPanelMap({ React: R, language: "en", counts: { feelings: "2 open" }, onPick() {} }),
     cards = map.children.map((card) => card.props["data-panel"]);
@@ -73,6 +73,7 @@ test("Stats lives inside Calendar and Feelings is gone, so the app map shows one
   assert.deepEqual(cards, ["engine", "board", "habits", "calendar"]);
   assert.equal(DDpanelOf("lab"), null, "App changes was removed (5.28)");
   assert.equal(DDpanelOf("feelings"), null, "the Feelings panel was removed");
+  assert.equal(DDpanelOf("stats"), null, "Stats was removed (5.57)");
   const calendar = map.children[cards.indexOf("calendar")],
     count = calendar.children[0].children.find((child) => child && child.type === "small");
   assert.ok(!count, "no feelings count on the Calendar card");

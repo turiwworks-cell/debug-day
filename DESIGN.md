@@ -23,6 +23,7 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 | **Section tag**: the path of the section a task belongs to, on top of the task; a click goes into that section. It replaced categories: a task wears its section's colour | category, type, came from, folder, project |
 | **Capture**: the one section where quick ideas land and wait until each goes to Today or Park; drawn apart in Tab (C) | Inbox (its old name), dump, queue |
 | **Routine**: what each new day does by itself, only when chosen (bring or park the last day's open tasks, tasks that repeat every day) | automation, rules, schedule, recurrence |
+| **Light, Steady, Full, Packed**: how full a day looks in the Calendar, always against your own usual day | busy, overloaded, capacity, utilisation, score |
 | **Back to**: the boards you were on last, 1 to 4 in the Tab flowchart | history, recents |
 | **Focus**: the timer | Stillness |
 | **Pause the day**: the "life happened" pause, on the Board's top bar | Life happened |

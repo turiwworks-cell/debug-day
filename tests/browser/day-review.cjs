@@ -70,14 +70,9 @@ async function scenario(h, mobile, language) {
   const baseline = await read(page);
   const activate = (locator) => (mobile ? locator.tap() : locator.click());
   const nav = (index) => activate(page.locator(".views button").nth(index));
-  // Day and Stats are sections of the one Calendar tab.
+  // Calendar is one panel (Stats were removed in 5.57), so it has no section tabs.
   async function section(id) {
     await nav(2);
-    const tab = page.locator(
-      `.dd-review-sections button[data-panel="${id === "day" ? "calendar" : id}"]`,
-    );
-    await tab.waitFor();
-    if ((await tab.getAttribute("aria-selected")) !== "true") await activate(tab);
     await page.waitForSelector(`.dd-review-root[data-section="${id}"]`);
   }
   async function select(date) {
@@ -112,9 +107,16 @@ async function scenario(h, mobile, language) {
   await page.waitForSelector(".dd-review-calendar");
   assert.equal(await page.locator("[data-review-date]").count(), 42);
   assert.equal(
-    await page.locator(".dd-review-system select").inputValue(),
+    await page.locator('.dd-review-system [aria-checked="true"]').getAttribute("data-calendar-system"),
     fa ? "persian" : "gregory",
   );
+  assert.equal(await page.locator(".dd-review-sections").count(), 0, "no Stats tab");
+  // Each day shows how full it was against your usual day, and how much got done.
+  const todayCell = page.locator(`[data-review-date="${f.date}"]`);
+  assert.match(await todayCell.getAttribute("data-load"), /^[1-4]$/);
+  assert.match(await todayCell.getAttribute("aria-label"), /0 of 2 tasks done/);
+  assert.equal(await todayCell.locator(".dd-cal-meter").count(), 1);
+  assert.match(await page.locator(".dd-cal-summary").innerText(), /tasks done/);
   await select(f.last);
   if (mobile)
     await page.waitForFunction(
@@ -169,19 +171,15 @@ async function scenario(h, mobile, language) {
   );
   let data = await read(page);
   await section("day");
-  await page
-    .locator(".dd-review-system select")
-    .selectOption(fa ? "gregory" : "persian");
+  await activate(page.locator(`.dd-review-system [data-calendar-system="${fa ? "gregory" : "persian"}"]`));
   await page.reload();
   await page.waitForSelector(".views", { state: "attached" });
   await section("day");
   assert.equal(
-    await page.locator(".dd-review-system select").inputValue(),
+    await page.locator('.dd-review-system [aria-checked="true"]').getAttribute("data-calendar-system"),
     fa ? "gregory" : "persian",
   );
-  await page
-    .locator(".dd-review-system select")
-    .selectOption(fa ? "persian" : "gregory");
+  await activate(page.locator(`.dd-review-system [data-calendar-system="${fa ? "persian" : "gregory"}"]`));
   await select(f.date);
   const task = page.locator('[data-review-task="writing"]');
   await activate(
@@ -336,48 +334,22 @@ async function scenario(h, mobile, language) {
     ),
     true,
   );
-  await section("day");
-  await select(empty);
-  await section("stats");
-  assert.match(
-    await page.locator(".dd-review-stats").innerText(),
-    /One calm step/,
-    "Stats share the selected day with the monthly calendar",
-  );
-  assert.equal(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth + 1,
-    ),
-    true,
-    "Stats fit on mobile too",
-  );
-  await activate(page.locator(".dd-review-stats .pattern-banner button.btn.solid"));
-  await page.waitForFunction(
-    () =>
-      document.querySelector(".views [aria-selected=true]") ===
-      document.querySelector(".views button"),
-  );
-  assert.equal(
-    await page.locator("#fFocus").inputValue(),
-    "One calm step",
-    "Open Day in Plan opens the same day shown by the charts",
-  );
-  await section("day");
+  // Stats are gone: Ctrl+Space finds no Stats page, and an old saved Stats view opens the Calendar.
   await page.keyboard.press("Control+Space");
   const search = page.getByRole("combobox", {
     name: t("Search everything", "جست‌وجوی همه‌چیز"),
     exact: true,
   });
   await search.fill(">stats");
-  await page
-    .getByRole("listbox")
-    .getByRole("option")
-    .filter({ hasText: t("Stats", "آمار") })
-    .first()
-    .waitFor();
-  await search.press("Enter");
-  await page.waitForSelector(".dd-command-modal", { state: "hidden" });
-  await page.waitForSelector('.dd-review-sections button[data-panel="stats"][aria-selected="true"]');
+  await page.waitForTimeout(200);
+  assert.equal(
+    await page.getByRole("listbox").getByRole("option").filter({ hasText: /^Stats/ }).count(),
+    0,
+  );
+  await page.keyboard.press("Escape");
+  await page.evaluate(() => localStorage.setItem("debug-day:ui", JSON.stringify({ view: "insights" })));
+  await page.reload();
+  await page.waitForSelector('.dd-review-root[data-section="day"]');
   await section("day");
   await select(f.date);
   if (screenshots) {
