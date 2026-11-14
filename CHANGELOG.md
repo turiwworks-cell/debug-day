@@ -1,3 +1,11 @@
+## 5.59.0 — 2026-11-14
+Branch: claude/project-thread-d0zfxj
+- Board: shapes, like FigJam. A new Shape tool in the dock (R draws the last shape, O a circle). A click drops a shape, a drag draws it at that size.
+- With the Shape tool, ten common shapes sit above the dock, and "More shapes" opens the whole library (34 shapes: flowchart shapes, arrows, star, speech bubble, cloud, heart…) with search.
+- A picked shape has three buttons in the selection bar: change its shape (library with search), its fill (Fill, Transparent, No fill + colors) and its stroke (Solid, Dashed, None + colors). Any color is one tap away.
+- Words sit in the middle of a shape. A shape grows taller while its words need the room, and goes back to its own size when they don't. It resizes freely from any side (Shift keeps the proportions) and its words keep their size.
+- A shape is a note with a shape, so it syncs, connects, moves into the Feed and shows in every view like any note. A new shape takes the last fill and stroke you used. The SVG export draws shapes too.
+
 ## 5.58.0 — 2026-11-14
 Branch: claude/project-thread-d0zfxj
 - Calendar: a Reminders list on the left lists every day of the month that has a reminder, with each reminder's name (repeating ones marked ↻, done ones crossed out). A click picks that day.

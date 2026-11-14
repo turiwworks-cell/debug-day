@@ -1,4 +1,5 @@
 import{DDstickySnap}from"./stickies.js";
+import { DDshapeLook } from "./shapes.js";
 // Pure board operations. View preferences stay on this device; object styles sync with the day.
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const finite = (value, fallback = 0) =>
@@ -227,14 +228,17 @@ export const DDboardCore = {
     for (const key of ["fill", "textColor"])
       if (this.color(p[key])) next[key] = this.color(p[key]).hex;
     if (Number.isFinite(p.opacity)) next.opacity = clamp(p.opacity, 0, 1);
-    if (Number.isFinite(p.width)) next.width = clamp(p.width, 64, 4000);
-    if (Number.isFinite(p.height)) next.height = clamp(p.height, 64, 1800);
+    // Shapes may be small (a dot, a tag); other objects keep their own minimums.
+    if (Number.isFinite(p.width)) next.width = clamp(p.width, 40, 4000);
+    if (Number.isFinite(p.height)) next.height = clamp(p.height, 40, 4000);
     // Scaled stickies carry their text with them, so allow small and large type.
     if (Number.isFinite(p.textSize)) next.textSize = clamp(p.textSize, 4, 400);
     if (["start", "center", "end"].includes(p.textAlign))
       next.textAlign = p.textAlign;
     // A text object is a note without its paper: same note, shown as plain words.
     if (p.plain === true) next.plain = true;
+    // A shape is a note with a shape and its own fill and stroke (shapes.js).
+    Object.assign(next, DDshapeLook(p));
     return next;
   },
   styles(raw) {
@@ -263,7 +267,7 @@ export const DDboardCore = {
     for (const node of nodes) {
       let patch={...requestedPatch};
       if (locked.has(node.id)) continue;
-      if(node.kind === "sticky" && !node.plain && Number.isFinite(patch.width)) {
+      if(node.kind === "sticky" && !node.plain && !node.shape && Number.isFinite(patch.width)) {
         const item=node.lifeId?next.__life?.items.find(i=>i.id===node.lifeId):next.notes.find(i=>i.id===node.noteId);
         patch.width=DDstickySnap(patch.width,item?.baseW||240);
       }
@@ -274,11 +278,13 @@ export const DDboardCore = {
         if (Object.hasOwn(patch,"fill") && it.type === "section" && it.parent) {
           if (patch.fill) { it.color = patch.fill; it.ownColor = true; } else { delete it.color; delete it.ownColor; }
         } else if (Object.hasOwn(patch,"fill")) it.color = patch.fill || "#FFE299";
-        if (Number.isFinite(patch.width)) it.w = clamp(patch.width,64,20000);
-        if (Number.isFinite(patch.height)) it.h = clamp(patch.height,64,20000);
-        it.style = { ...it.style, ...this.style(patch) };
-        // null clears a choice (Reset appearance), as it does for day notes.
-        for (const [key, value] of Object.entries(patch)) if (value === null) delete it.style[key];
+        if (Number.isFinite(patch.width)) it.w = clamp(patch.width,40,20000);
+        if (Number.isFinite(patch.height)) it.h = clamp(patch.height,40,20000);
+        // The whole style is cleaned again, so a shape keeps its fill and stroke
+        // together; null clears a choice (Reset appearance), as it does for day notes.
+        const merged = { ...it.style };
+        for (const [key, value] of Object.entries(patch)) if (value === null) delete merged[key]; else merged[key] = value;
+        it.style = this.style(merged);
         delete it.style.fill; delete it.style.width; delete it.style.height;
         changed = true;
         continue;

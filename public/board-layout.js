@@ -4,6 +4,7 @@
 // so the short names still come from the old bundle.
 import { DDlifeBounds, DDlifeHead, DDlifeItems, DDlifeAbs, DDlifeVisible, DDlifeColor, DDlifeDescendants, DDlifeInFrame, DDlifeShown, DDsectionTint } from "./life-board.js";
 import { DDstickyHeight } from "./stickies.js";
+import { DDshapeClear, DDshapeHeight } from "./shapes.js";
 import { DDnotePhoto, DDphotoHeight } from "./board-photos.js";
 import { DDenergyOf, DDenergyLabel } from "./energy.js";
 import { DDflowEdges } from "./flow.js";
@@ -610,7 +611,7 @@ export function DDcreateBoardLayout(deps) {
     if (lf) for (const it of items.filter((i) => roomItem ? roomSet.has(i.id) && roomVisible(i) && DDlifeShown(items, i, roomItem.id) : DDlifeVisible(items, i) && (ddNodeMatches || DDlifeShown(items, i)))) {
       const a = DDlifeAbs(items, it.id), color = it.type === "section" ? DDsectionTint(items, it.id).fill : DDlifeColor(items, it);
       Y.push({ id: "life:" + it.id, lifeId: it.id, lifeSection: it.type === "section", kind: it.type === "section" ? "life-section" : "sticky", room: roomItem?.id === it.id || undefined, boardOnly: (roomItem && it.parent === roomItem.id && !DDlifeInFrame(items, it)) || undefined,
-        title: it.text || (it.type === "section" ? t("Section","سکشن") : ""), color, textColor: it.style?.plain ? "var(--ink)" : core.contrast(color), ownColor: (it.type === "section" && !!it.parent && !!it.ownColor && !!it.color) || undefined, collapsed: it.collapsed, parentId: it.parent ? "life:" + it.parent : null,
+        title: it.text || (it.type === "section" ? t("Section","سکشن") : ""), color, textColor: it.style?.plain || DDshapeClear(it.style) ? "var(--ink)" : core.contrast(color), ownColor: (it.type === "section" && !!it.parent && !!it.ownColor && !!it.color) || undefined, collapsed: it.collapsed, parentId: it.parent ? "life:" + it.parent : null,
         x: lf.x + a.x, y: lf.y + DDlifeHead + a.y, w: it.w, h: it.collapsed ? 38 : it.h,
         at: it.at, baseW:it.baseW || 240, syncId: it.syncId || undefined, due: it.due || undefined,
         ...it.style, opacity: it.style?.opacity ?? 1, stack: it.type === "section" ? 2 + ddNestDepth(it.id) : 20 });
@@ -629,7 +630,7 @@ export function DDcreateBoardLayout(deps) {
       if (n.kind === "sticky" || n.kind === "frame") n.textColor = core.contrast(n.color);
       if (style.textColor) n.textColor = style.textColor;
       // A text object has no paper, so its words take the board's ink.
-      else if (n.plain) n.textColor = "var(--ink)";
+      else if (n.plain || DDshapeClear(style)) n.textColor = "var(--ink)";
       if (n.noteId && !n.memberOf) {
         n.w = style.width ?? n.w;
         n.h = style.height ?? n.h;
@@ -644,6 +645,8 @@ export function DDcreateBoardLayout(deps) {
       if (photoOf.has(n.id)) { n.photo = photoOf.get(n.id); n.h = DDphotoHeight(n.w, n.photo, n.title); continue; }
       const measured=stickyHeights.current.get(n.id);
       const fresh=measured && measured.w===n.w && measured.text===n.title && measured.size===(n.textSize||16);
+      // A shape keeps the size you gave it and grows taller only while its words need it (FigJam).
+      if (n.shape) { n.h = DDshapeHeight(n.shape, n.h, fresh ? measured.h : 0); continue; }
       // A text object is as tall as its words; a note stays at least square.
       n.h=n.plain ? Math.max(32, fresh ? measured.h : n.title.split("\n").length*(n.textSize||16)*1.5+12) : DDstickyHeight(n.w, fresh ? measured.h : (n.title.split("\n").length*24+72));
     }
