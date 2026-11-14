@@ -122,6 +122,8 @@ export const DDboardIcons = {
   tag: "M3 3.5h6.2l7.8 7.8-5.7 5.7L3.5 9.2V3.5z" + dot(7, 7.5, 0.9),
   photo: "M3 4.5h14v11H3zM3 13l4-4 3.5 3.5 2-2L17 15" + dot(13.5, 7.5, 1.1),
   parentLook: "M6 3h10v10H6zM4 5v10h10" + "M2 7v10h10",
+  // Shapes (5.59): a square in front of a circle, like FigJam.
+  shape: "M3 8.5h8.5V17H3zM11.5 11.9A4.5 4.5 0 108.1 8.5",
 };
 // Older names still used across the Board, and what each now draws.
 export const DDboardIconAliases = {

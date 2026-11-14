@@ -5,7 +5,7 @@ import { DDtagList, DDtagText, DDnoteTags } from "./note-tags.js";
 import { DDmediaTitle } from "./media.js";
 export const DDboardShortcuts = [
   ["V", "Select", "انتخاب"], ["H / Space+drag", "Pan", "حرکت بوم"],
-  ["S", "Sticky note", "یادداشت"], ["T", "Text / title", "متن / تایتل"], ["Shift+S", "Section", "سکشن"],
+  ["S", "Sticky note", "یادداشت"], ["T", "Text / title", "متن / تایتل"], ["R", "Shape (last used)", "شکل"], ["O", "Circle shape", "دایره"], ["Shift+S", "Section", "سکشن"],
   ["X / Shift+L", "Bent connector", "اتصال شکسته"], ["L", "Straight connector", "اتصال مستقیم"],
   ["C", "Connector (legacy)", "اتصال (میان‌بر قبلی)"], ["P", "Pen (draw freehand)", "Pen"], ["M", "Comment", "Comment"], ["Shift+M", "All comments", "All comments"], ["B", "Task", "کار"], ["E", "Engine over the board", "انجین روی برد"], ["Tab / D", "Sections flowchart", "فلوچارت سکشن‌ها"],
   ["G / Shift+G", "Goal / note rail", "ریل هدف / نوت"], ["Shift+H", "Habits rail", "ریل عادت‌ها"],

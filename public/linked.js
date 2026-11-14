@@ -15,7 +15,7 @@ import { DDnoteTags, DDsetNoteTags } from "./note-tags.js";
 const ID = /^[\w-]{1,64}$/;
 // What a note's copies share. Size and text size stay with each copy (a resized
 // note scales its words), and so does where it sits.
-const LOOK = ["textAlign", "plain", "textColor", "opacity"];
+const LOOK = ["textAlign", "plain", "textColor", "opacity", "shape", "fillMode", "stroke", "strokeStyle"];
 
 export function DDsyncNewId() {
   return "s-" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);

@@ -30,6 +30,7 @@ import { DDuseComments, DDnormalizeComments, DDcommentsTransfer, DDcommentsCSS }
 import { DDnoteTagsCSS } from "./note-tags.js";
 import { DDuseNoteTools, DDnoteBranch, DDparentLooks, DDnoteFamilyCSS } from "./note-family.js";
 import { DDuseBoardPhotos, DDboardPhotosCSS } from "./board-photos.js";
+import { DDshapeCSS, DDShapeLayer, DDshapeSVG, DDshapeTextBox, DDshapeKind, DDshapeLast, DDshapeRemember, DDshapeRow, DDShapeIcon, DDShapePicker, DDShapeColors } from "./shapes.js";
 import { DDtrashAdd, DDtrashRestore, DDtrashLabel } from "./trash.js";
 import { DDcanvasTidy } from "./upkeep.js";
 import { DDdueText, DDdueDate, DDdueDaysLeft, DDdueSet, DDDueEditor } from "./deadlines.js";
@@ -87,7 +88,7 @@ export function DDcreateBoard(deps) {
   DDinstallSectionTagStyles();
   // Comments, pen, note tags and parent notes (5.36).
   if (typeof document !== "undefined" && !document.getElementById("dd-board-tools-css"))
-    document.head.append(Object.assign(document.createElement("style"), { id: "dd-board-tools-css", textContent: DDpenCSS + DDcommentsCSS + DDnoteTagsCSS + DDnoteFamilyCSS + DDboardPhotosCSS }));
+    document.head.append(Object.assign(document.createElement("style"), { id: "dd-board-tools-css", textContent: DDpenCSS + DDcommentsCSS + DDnoteTagsCSS + DDnoteFamilyCSS + DDboardPhotosCSS + DDshapeCSS }));
   DDinstallLinkedStyles();
   // The note being written keeps its own text while you type, so a key redraws
   // only this box and not the whole board (5.47). The board hears each key
@@ -220,6 +221,9 @@ export function DDcreateBoard(deps) {
       [room, setRoom] = useState(() => { try { return sessionStorage.getItem("debug-day:board-room") || null; } catch { return null; } }),
       roomCams = useRef({}),
       [quickColor, setQuickColor] = useState(null),
+      // Shapes (5.59): the shape the tool draws, and which shape menu is open.
+      [shapeKind, setShapeKind] = useState(() => DDshapeLast().shape),
+      [shapeMenu, setShapeMenu] = useState(null),
       [dueEdit, setDueEdit] = useState(null),
       [details, setDetails] = useState(
         () => !globalThis.matchMedia?.("(max-width: 700px)").matches,
@@ -610,6 +614,8 @@ export function DDcreateBoard(deps) {
       if (tool === "pen") { setSelected(new Set()); setWireId(null); setWireSelection(null); }
     }, [tool]);
     const pen = DDusePen(markCtx), comments = DDuseComments(markCtx), noteTools = DDuseNoteTools(markCtx);
+    // A shape menu belongs to the shapes it was opened for.
+    useEffect(() => { if (shapeMenu && shapeMenu !== "library") setShapeMenu(null); }, [selected]);
     // The tag panel for several notes closes when the selection moves on.
     useEffect(() => { if (noteTools.group?.some((ref) => !selected.has(ref))) noteTools.stopTags(); }, [selected]);
     // Photos dropped, pasted or picked onto the board (5.38): a note holding a Drive link.
@@ -1024,7 +1030,7 @@ export function DDcreateBoard(deps) {
       finishEdit();
       setMenu(null);
       // The section and sticky tools work on top of anything, sections included.
-      if (tool === "section" || tool === "sticky" || tool === "text") return backgroundDown(Y, true);
+      if (tool === "section" || tool === "sticky" || tool === "text" || tool === "shape") return backgroundDown(Y, true);
       if (space.current || (tool === "hand" && !ddMove) || Y.button === 1)
         return startPan(Y);
       // A section's name always drags it. Its empty area: a click selects it, a
@@ -1274,7 +1280,8 @@ export function DDcreateBoard(deps) {
             G.width + (edge.includes("e") ? dx : edge.includes("w") ? -dx : 0),
           height =
             G.height + (edge.includes("s") ? dy : edge.includes("n") ? -dy : 0);
-        const resized = layout.map.get(G.ref), sticky = resized?.kind === "sticky";
+        // A shape resizes freely, like a design tool's box; Shift keeps its proportions.
+        const resized = layout.map.get(G.ref), shaped = !!resized?.shape, sticky = resized?.kind === "sticky" && !shaped;
         // FigJam stickies: the left/right edges change only the width (text reflows);
         // corners and the top/bottom edges scale the whole note, text included.
         G.centered=Y.altKey;
@@ -1293,8 +1300,8 @@ export function DDcreateBoard(deps) {
           height = G.height * scale;
         }
         // Like FigJam, a section may shrink past its contents; they stay put and hang over.
-        width = Math.round(Math.max(resized?.lifeSection ? 80 : sticky ? 40 : 144, Math.min(resized?.lifeSection ? 20000 : sticky ? 4000 : 1200, width)));
-        height = Math.round(Math.max(resized?.lifeSection ? 60 : sticky ? 40 : 96, Math.min(resized?.lifeSection ? 20000 : sticky ? 4000 : 1800, height)));
+        width = Math.round(Math.max(resized?.lifeSection ? 80 : sticky || shaped ? 40 : 144, Math.min(resized?.lifeSection ? 20000 : sticky || shaped ? 4000 : 1200, width)));
+        height = Math.round(Math.max(resized?.lifeSection ? 60 : sticky || shaped ? 40 : 96, Math.min(resized?.lifeSection ? 20000 : sticky || shaped ? 4000 : 1800, height)));
         const x = G.x + (Y.altKey ? (G.width-width)/2 : edge.includes("w") ? G.width - width : 0),
           y = G.y + (Y.altKey ? (G.height-height)/2 : edge.includes("n") ? G.height - height : 0);
         G.size = { width, height };
@@ -1344,7 +1351,7 @@ export function DDcreateBoard(deps) {
         else hideGhost();
         return;
       }
-      if (G.kind === "marquee" || G.kind === "section-create") {
+      if (G.kind === "marquee" || G.kind === "section-create" || G.kind === "shape-create") {
         const Pt = {
           x: Math.min(G.start.x, Tt.x),
           y: Math.min(G.start.y, Tt.y),
@@ -1536,14 +1543,14 @@ export function DDcreateBoard(deps) {
             commit(
               (d) => {
                 // A scaled sticky keeps its text in proportion (FigJam).
-                const textSize = n.kind === "sticky" && ct.scale && ct.scale !== 1 ? { textSize: Math.round((ct.textSize || 16) * ct.scale * 10) / 10 } : {};
-                if(n.kind === "sticky") {
+                const textSize = n.kind === "sticky" && !n.shape && ct.scale && ct.scale !== 1 ? { textSize: Math.round((ct.textSize || 16) * ct.scale * 10) / 10 } : {};
+                if(n.kind === "sticky" && !n.shape) {
                   const corner=(ct.edge||"se").length===2,base=Math.max(160,(n.baseW||240)*(corner?(ct.scale||1):1));
                   ct.size.width=corner?DDstickySnap(n.w,n.baseW||240)/(n.baseW||240)*base:DDstickySnap(ct.size.width,base);
                   if(ct.centered)ct.position.x=n.x+(n.w-ct.size.width)/2;else if(ct.edge?.includes("w"))ct.position.x=n.x+n.w-ct.size.width;
                   const list=n.lifeId?d.__life.items:d.notes,item=list.find(i=>i.id===(n.lifeId||n.noteId));if(item)item.baseW=base;
                 }
-                const stickySize=n.kind==="sticky"?{width:ct.size.width}:ct.size;
+                const stickySize=n.kind==="sticky"&&!n.shape?{width:ct.size.width}:ct.size;
                 let next = core.setStyle(d, [n], n.memberOf ? { height: ct.size.height } : { ...stickySize, ...textSize });
                 if (
                   !n.memberOf &&
@@ -1881,6 +1888,8 @@ export function DDcreateBoard(deps) {
             );
           setConnecting(null);
           setTool("select");
+        } else if (ct.kind === "shape-create") {
+          addShape(ct.moved && ct.box && ct.box.w > 12 && ct.box.h > 12 ? ct.box : ct.start);
         } else if (ct.kind === "section-create") {
           addLifeSection(ct.moved && ct.box ? ct.box : ct.start);
           setTool("select");
@@ -2022,6 +2031,11 @@ export function DDcreateBoard(deps) {
       const G = toWorld(Y.clientX, Y.clientY);
       if (tool === "sticky") return addSticky(G);
       if (tool === "text") return addText(G);
+      // The shape tool: a click drops a shape, a drag draws it at that size (FigJam).
+      if (tool === "shape") {
+        gesture.current = {kind:"shape-create",start:G,sx:Y.clientX,sy:Y.clientY,pointerId:Y.pointerId,moved:false};
+        viewport.current.setPointerCapture(Y.pointerId); return;
+      }
       if (tool === "section") {
         gesture.current = {kind:"section-create",start:G,sx:Y.clientX,sy:Y.clientY,pointerId:Y.pointerId,moved:false};
         viewport.current.setPointerCapture(Y.pointerId); return;
@@ -2733,13 +2747,23 @@ export function DDcreateBoard(deps) {
       },t("Feed resized on every day","اندازهٔ فید در همهٔ روزها تغییر کرد"));
     }
     // Text / title: words straight on the board, no note paper (T).
+    // A shape (5.59): a note with a shape, the last fill and stroke you used, and
+    // its words in the middle. A box (from a drag) gives its size.
+    function addShape(at, kind) {
+      const last = DDshapeLast(), k = DDshapeKind(kind || last.shape) || DDshapeKind("rectangle");
+      const boxed = at && Number.isFinite(at.w), w = boxed ? Math.round(at.w) : k.size[0], h = boxed ? Math.round(at.h) : k.size[1];
+      const center = boxed ? { x: at.x + at.w / 2, y: at.y + at.h / 2 } : at;
+      const look = { shape: k.id, textAlign: "center", stroke: last.stroke, strokeStyle: last.strokeStyle, ...(last.fillMode !== "fill" ? { fillMode: last.fillMode } : {}) };
+      if (kind) DDshapeRemember({ shape: k.id });
+      return addSticky(center, { w, h, color: last.fill, textSize: 16, look });
+    }
     function addText(point) {
       return addSticky(point, { w: 320, h: 48, textSize: 24, plain: true });
     }
     function addSticky(point, template = {}) {
       const view = viewport.current, rect = view.getBoundingClientRect();
       const at = point || toWorld(rect.left+view.clientWidth/2, rect.top+view.clientHeight/2);
-      const id = C(), width=template.w || 240, height=template.h || 240, color=template.color || appearanceRef.current.stickyColor, plain=template.plain?{plain:true}:{}, media=template.media?{media:template.media}:{};
+      const id = C(), width=template.w || 240, height=template.h || 240, color=template.color || appearanceRef.current.stickyColor, plain=template.plain?{plain:true}:{}, media=template.media?{media:template.media}:{}, look=template.look||{};
       const frame=layout.map.get("section:life"), items=DDlifeItems(setup), roomNode=layout.room&&layout.map.get("life:"+layout.room);
       const rel=frame?{x:at.x-frame.x,y:at.y-frame.y-DDlifeHead}:null;
       const parent=rel&&DDlifeParentAt(items,rel.x,rel.y,roomNode?outsideRoom(items):undefined,layout.room||"");
@@ -2753,22 +2777,23 @@ export function DDcreateBoard(deps) {
         // to the section and stays where it was made (outside the frame it lives
         // on this board only).
         ref="life:"+id;const base=DDlifeAbs(items,layout.room);
-        commit(d=>{d.__life.items=DDlifeAdd(d.__life.items,{id,type:"sticky",parent:layout.room,x:Math.round(rel.x-base.x-width/2),y:Math.round(rel.y-base.y-height/2),w:width,h:height,text:"",color,...media,style:{textSize:template.textSize||16,...plain}});return d;});
+        commit(d=>{d.__life.items=DDlifeAdd(d.__life.items,{id,type:"sticky",parent:layout.room,x:Math.round(rel.x-base.x-width/2),y:Math.round(rel.y-base.y-height/2),w:width,h:height,text:"",color,...media,style:{textSize:template.textSize||16,...plain,...look}});return d;});
       }else if(inLife&&!onEngine){
         const base=parent?DDlifeAbs(items,parent.id):{x:0,y:0};ref="life:"+id;
-        commit(d=>{d.__life.items=DDlifeAdd(d.__life.items,{id,type:"sticky",parent:parent?.id || "",x:rel.x-base.x-width/2,y:rel.y-base.y-height/2,w:width,h:height,text:"",color,...media,style:{textSize:template.textSize||16,...plain}});return d;});
+        commit(d=>{d.__life.items=DDlifeAdd(d.__life.items,{id,type:"sticky",parent:parent?.id || "",x:rel.x-base.x-width/2,y:rel.y-base.y-height/2,w:width,h:height,text:"",color,...media,style:{textSize:template.textSize||16,...plain,...look}});return d;});
       }else{
         ref="sticky:"+id;
         commit(d=>{
           d.notes.push({id,kind:"sticky",x:at.x-width/2,y:at.y-height/2,text:"",color,...media});
           const b=clean(d.canvas?.board4);
-          b.styles={...b.styles,[ref]:{width,height,textSize:template.textSize||16,...plain}};
+          b.styles={...b.styles,[ref]:{width,height,textSize:template.textSize||16,...plain,...look}};
           if(mode==="lanes")b.layouts={...b.layouts,lanes:{...b.layouts.lanes,[ref]:{x:at.x-width/2,y:at.y-height/2}}};
           d.canvas={...d.canvas,board4:b};return d;
         });
       }
       // A photo lands picked, not open for typing (double-click adds a caption).
-      if(template.media){setSelected(new Set([ref]));setTool("select");return ref;}
+      // A shape lands picked too: Enter or a double-click writes in it.
+      if(template.media||template.look?.shape){setSelected(new Set([ref]));setTool("select");return ref;}
       setSelected(new Set([ref]));setTool("select");setEditing({ref,value:""});
       revealEdit({kind:"sticky",x:at.x-width/2,y:at.y-height/2,w:width,h:height,textSize:template.textSize||16});
       return ref;
@@ -3133,6 +3158,16 @@ export function DDcreateBoard(deps) {
           const art = elementRefs.current.get(node.id)?.querySelector("svg.dd-sticker-art");
           if (art) { const copy = art.cloneNode(true); copy.setAttribute("x", node.x); copy.setAttribute("y", node.y); copy.setAttribute("width", node.w); copy.setAttribute("height", node.h); Tt += '<g opacity="'+(node.opacity??1)+'">'+new XMLSerializer().serializeToString(copy)+'</g>'; }
           else Tt += '<text x="'+(node.x+node.w/2)+'" y="'+(node.y+node.h*.78)+'" text-anchor="middle" font-size="'+(Math.min(node.w,node.h)*.72)+'" opacity="'+(node.opacity??1)+'">'+ot(node.symbol || node.title)+'</text>';
+          continue;
+        }
+        if (node.shape) {
+          // A shape: its outline, then its words in the middle.
+          const size = node.textSize || 16, ink = String(node.textColor).startsWith("var(") ? "#121211" : node.textColor,
+            rows = String(node.title || "").replace(/\*\*|~~/g, "").split("\n").slice(0, Math.max(1, Math.floor(node.h / (size * 1.4)))),
+            top = node.y + node.h / 2 - ((rows.length - 1) * size * 1.4) / 2 + size * 0.35;
+          Tt += "<g>" + DDshapeSVG(node, ot);
+          rows.forEach((line, i) => { Tt += `<text x="${node.x + node.w / 2}" y="${top + i * size * 1.4}" text-anchor="middle" font-family="Arial,sans-serif" font-size="${size}" fill="${ot(ink)}">${ot(line)}</text>`; });
+          Tt += "</g>";
           continue;
         }
         const size = node.textSize || (node.kind === "sticky" ? 16 : 14),
@@ -3558,6 +3593,9 @@ export function DDcreateBoard(deps) {
             else if (Tt === "s" && ot.shiftKey) setTool("section");
             else if (Tt === "s") setTool("sticky");
             else if (Tt === "t") setTool("text");
+            // Shapes (5.59): R draws the last shape, O a circle (FigJam's keys).
+            else if (Tt === "r" && !ot.shiftKey) { setShapeMenu(null); setTool("shape"); }
+            else if (Tt === "o" && !ot.shiftKey) { DDshapeRemember({ shape: "ellipse" }); setShapeKind("ellipse"); setShapeMenu(null); setTool("shape"); }
             // Pen and comments (5.36): P draws, M comments, Shift+M lists the comments.
             else if (Tt === "p" && !ot.shiftKey) { finishEdit(); setSelected(new Set()); setWireId(null); setWireSelection(null); setTool((v) => (v === "pen" ? "select" : "pen")); }
             else if (Tt === "m" && ot.shiftKey) { ot.preventDefault(); finishEdit(); comments.toggleList(); }
@@ -3988,7 +4026,7 @@ export function DDcreateBoard(deps) {
           tabIndex: Y.lifeId ? 0 : St ? -1 : 0,
           className:
             "b4-node b4-" +
-            Y.kind + (Y.lifeSection ? " b4-frame" : "") + (Y.plain ? " b4-plain" : "") +
+            Y.kind + (Y.lifeSection ? " b4-frame" : "") + (Y.plain ? " b4-plain" : "") + (Tt && Y.shape ? " b4-shape" : "") +
             (G ? " selected" : "") +
             (ct ? " locked" : "") +
             (connecting === Y.id ? " connecting" : ""),
@@ -4002,11 +4040,12 @@ export function DDcreateBoard(deps) {
             "--object-opacity": Y.opacity,
             // A note without a size of its own reads at 16px, the size new notes get.
             "--object-size": (Y.textSize || (Y.kind === "sticky" ? 16 : 14)) + "px",
-            "--object-align": Y.textAlign || "start",
+            "--object-align": Y.textAlign || (Y.shape ? "center" : "start"),
+            ...(Tt && Y.shape ? ((b) => ({ "--shape-text-left": b.left + "px", "--shape-text-width": b.width + "px", "--shape-text-top": b.top + "px", "--shape-text-bottom": b.bottom + "px" }))(DDshapeTextBox(Y.shape, Y.w, Y.h)) : {}),
             background: St
               ? "var(--wash)"
               : Tt || Pt || yn
-                ? Pt || Y.plain
+                ? Pt || Y.plain || Y.shape
                   ? "transparent"
                   : core.rgba(Y.color, Y.opacity)
                 : `color-mix(in srgb, var(--panel) ${Y.opacity * 100}%, transparent)`,
@@ -4029,6 +4068,8 @@ export function DDcreateBoard(deps) {
           onContextMenu: (event) =>
             openContext(event, Y.section ? {} : { ref: Y.id }),
         },
+        // A shape is drawn under the note's words (5.59).
+        Tt && Y.shape && _.createElement(DDShapeLayer, { React: _, node: Y }),
         Y.lifeSection && sectionStrip(Y),
         Y.syncId && syncBadge(Y),
         Tt && Y.due && dueBadge(Y),
@@ -4308,7 +4349,7 @@ export function DDcreateBoard(deps) {
           G &&
           !ct &&
           !ot &&
-          (Tt ? ["nw","ne","e","se","sw","w"] : Y.memberOf ? ["s"] : Y.room ? ["e", "se", "s"] : ["nw", "n", "ne", "e", "se", "s", "sw", "w"]).map(
+          (Tt && Y.shape ? ["nw", "n", "ne", "e", "se", "s", "sw", "w"] : Tt ? ["nw","ne","e","se","sw","w"] : Y.memberOf ? ["s"] : Y.room ? ["e", "se", "s"] : ["nw", "n", "ne", "e", "se", "s", "sw", "w"]).map(
             (edge) =>
               _.createElement("button", {
                 type: "button",
@@ -4764,6 +4805,45 @@ export function DDcreateBoard(deps) {
           ? { opacity: String(patch.opacity) }
           : {}),
       });
+    }
+    // Shapes picked on the board: change their shape, fill or stroke together.
+    function pickedShapes() {
+      return selectedNodes.filter((n) => n.kind === "sticky" && n.shape && !locked.has(n.id));
+    }
+    function applyShape(patch) {
+      const nodes = pickedShapes();
+      if (!nodes.length) return;
+      restoreStylePreview();
+      commit((d) => core.setStyle(d, nodes, patch), t("Shape updated", "شکل تغییر کرد"));
+      DDshapeRemember(patch);
+      if (patch.shape) setShapeKind(patch.shape);
+    }
+    function shapeBar() {
+      const first = selectedNodes.find((n) => n.kind === "sticky" && n.shape);
+      if (!first) return null;
+      const off = selectedNodes.every((n) => !n.shape || locked.has(n.id)), mode = first.fillMode || "fill", stroke = first.strokeStyle || "solid";
+      const open = (name) => () => setShapeMenu((v) => (v === name ? null : name));
+      return _.createElement(_.Fragment, null,
+        _.createElement("button", { type: "button", className: "b2-icon", "data-shape-open": "kind", "aria-expanded": shapeMenu === "kind", "aria-label": t("Shape: ", "شکل: ") + (DDshapeKind(first.shape)?.name || ""), "data-tip": t("Change shape", "تغییر شکل"), disabled: off, onClick: open("kind") },
+          _.createElement(DDShapeIcon, { React: _, id: first.shape, size: 20 })),
+        _.createElement("button", { type: "button", className: "b2-icon", "data-shape-open": "fill", "aria-expanded": shapeMenu === "fill", "aria-label": t("Fill", "رنگ داخل"), "data-tip": t("Fill", "رنگ داخل"), disabled: off, onClick: open("fill") },
+          _.createElement("span", { className: "dd-shape-swatch", "data-mode": mode, style: { "--swatch": first.color } })),
+        _.createElement("button", { type: "button", className: "b2-icon", "data-shape-open": "stroke", "aria-expanded": shapeMenu === "stroke", "aria-label": t("Stroke", "خط دور"), "data-tip": t("Stroke", "خط دور"), disabled: off, onClick: open("stroke") },
+          _.createElement("svg", { width: 18, height: 18, viewBox: "0 0 20 20", "aria-hidden": true, fill: "none", stroke: stroke === "none" ? "currentColor" : first.stroke || "#757575", strokeWidth: 1.8, strokeLinecap: "round", strokeDasharray: stroke === "dashed" ? "3 2.5" : undefined },
+            _.createElement("path", { d: stroke === "none" ? "M10 3.5a6.5 6.5 0 110 13 6.5 6.5 0 010-13zM5.4 14.6l9.2-9.2" : "M3.5 4.5h13v4h-13zM3.5 12.5h13v3h-13z" }))));
+    }
+    // The open shape menu sits beside the selection bar (the bar itself scrolls).
+    function shapePop() {
+      if (!["kind", "fill", "stroke"].includes(shapeMenu)) return null;
+      const first = selectedNodes.find((n) => n.kind === "sticky" && n.shape), bar = selectionbar.current;
+      if (!first || !bar) return null;
+      const above = bar.offsetTop > 420, style = { position: "absolute", left: Math.max(8, bar.offsetLeft), zIndex: 80, ...(above ? { bottom: (bar.offsetParent?.clientHeight || 0) - bar.offsetTop + 8 } : { top: bar.offsetTop + bar.offsetHeight + 8 }) };
+      return _.createElement("div", { className: "dd-shape-anchor", "data-shape-menu": shapeMenu, style },
+        shapeMenu === "kind"
+          ? _.createElement(DDShapePicker, { React: _, current: first.shape, title: t("Shapes", "شکل‌ها"), onClose: () => setShapeMenu(null), onPick: (id) => { applyShape({ shape: id }); setShapeMenu(null); } })
+          : shapeMenu === "fill"
+            ? _.createElement(DDShapeColors, { React: _, part: "fill", mode: first.fillMode || "fill", color: first.color, onMode: (m) => applyShape({ fillMode: m }), onColor: (c) => applyShape({ fill: c }) })
+            : _.createElement(DDShapeColors, { React: _, part: "stroke", mode: first.strokeStyle || "solid", color: first.stroke || "#757575", onMode: (m) => applyShape({ strokeStyle: m }), onColor: (c) => applyShape({ stroke: c, ...(first.strokeStyle === "none" ? { strokeStyle: "solid" } : {}) }) }));
     }
     function applyStyle(patch) {
       restoreStylePreview();
@@ -5560,6 +5640,7 @@ export function DDcreateBoard(deps) {
           else onUpdateDayOnDate?.(date, update);
         },
       }),
+      shapePop(),
       lifeNav && _.createElement(DDSectionsFlowchart, {
         React: _, items: DDlifeItems(setup), room: layout.room, language: DDlanguage, frame: layout.map.get("section:life"), quiet: [...engineSections],
         onShow: (id) => jumpLife(id),
@@ -5655,6 +5736,8 @@ export function DDcreateBoard(deps) {
                   },
                   { "aria-pressed": properties },
                 ),
+                // A shape's own three: which shape, its fill and its stroke (FigJam).
+                shapeBar(),
                 // Left / center / right for the words in a note or a text object.
                 selectedNodes.some((n) => n.kind === "sticky") && (() => {
                   const now = selectedNodes.find((n) => n.kind === "sticky").textAlign || "start",
@@ -6135,6 +6218,18 @@ export function DDcreateBoard(deps) {
             }),
           ),
         ),
+      // With the shape tool, the common shapes sit above the dock, and More shapes
+      // opens the whole library with search (FigJam).
+      tool === "shape" && _.createElement("div", { className: "dd-shape-row", role: "toolbar", "aria-label": t("Shapes", "شکل‌ها"), "data-shape-row": true, onPointerDown: (e) => e.stopPropagation() },
+        DDshapeRow.map((id) => _.createElement("button", {
+          type: "button", key: id, "aria-pressed": shapeKind === id, "aria-label": DDshapeKind(id).name, title: DDshapeKind(id).name, "data-shape-tool": id,
+          onClick: () => { DDshapeRemember({ shape: id }); setShapeKind(id); setShapeMenu(null); },
+        }, _.createElement(DDShapeIcon, { React: _, id, size: 24 }))),
+        _.createElement("span", { className: "dd-shape-row-sep" }),
+        _.createElement("button", { type: "button", className: "dd-shape-more", "aria-expanded": shapeMenu === "library", "data-shape-more": true, onClick: () => setShapeMenu((v) => (v === "library" ? null : "library")) }, t("More shapes", "شکل‌های بیشتر"))),
+      tool === "shape" && shapeMenu === "library" && _.createElement("div", { className: "dd-shape-anchor", style: { position: "absolute", left: "50%", bottom: 132, transform: "translateX(-50%)", zIndex: 80 } },
+        _.createElement(DDShapePicker, { React: _, current: shapeKind, title: t("Shapes", "شکل‌ها"), onClose: () => setShapeMenu(null),
+          onPick: (id) => { DDshapeRemember({ shape: id }); setShapeKind(id); setShapeMenu(null); } })),
       // With the sticky tool, FigJam offers the note colors right above the dock.
       tool === "sticky" && _.createElement("div", { className: "dd-sticky-colors", role: "radiogroup", "aria-label": t("Sticky note color", "رنگ یادداشت"), onPointerDown: (e) => e.stopPropagation() },
         core.stickyColors.map((color) => _.createElement("button", {
@@ -6163,6 +6258,7 @@ export function DDcreateBoard(deps) {
             DDUI("\u06CC\u0627\u062F\u062F\u0627\u0634\u062A"),
             "sticky",
           ],
+          ["shape", t("Shape", "شکل"), "shape"],
           ["text", t("Text", "متن"), "text"],
           ["section", t("Section", "سکشن"), "section"],
           // Draw freehand (P) and leave a comment (M), 5.36.
@@ -6175,7 +6271,7 @@ export function DDcreateBoard(deps) {
               type: "button",
               key: Y,
               className: "b2-icon",
-              "aria-label": Y === "pen" ? "Pen tool" : Y === "comment" ? "Comment tool" : DDUI(
+              "aria-label": Y === "pen" ? "Pen tool" : Y === "comment" ? "Comment tool" : Y === "shape" ? "Shape tool" : DDUI(
                 Y === "connector"
                   ? "Connect nodes"
                   : Y === "hand"
@@ -6194,7 +6290,7 @@ export function DDcreateBoard(deps) {
               ),
               "aria-pressed": tool === Y,
               onClick: () => {
-                (setTool(Y), setConnecting(null), setWireId(null));
+                (setTool(Y), setConnecting(null), setWireId(null), setShapeMenu(null));
               },
             },
             _.createElement(controls.Icon, {
