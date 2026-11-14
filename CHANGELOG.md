@@ -1,3 +1,8 @@
+## 5.71.0 — 2026-11-14
+Branch: claude/project-thread-n79ngv
+- Back left the top bar (beside the date in full screen) and moved to the path under it: inside a section its ← now returns to exactly where you were (Alt+←), or goes one level up when there is nowhere to return to. Esc still goes one level up.
+- On the Main board in full screen the path is always there ("← Main board"), so nothing jumps; ← waits until there is a place to go back to. A phone keeps Back beside its tabs.
+
 ## 5.70.0 — 2026-11-14
 Branch: claude/project-thread-n79ngv
 - Ctrl+Space starts with two plain rows: "Go to this section's Engine" (it names the section you are in) and "Go to the Main board's Engine". Each glides the Board to that Engine, from anywhere in the app.
