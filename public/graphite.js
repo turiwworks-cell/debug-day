@@ -200,6 +200,8 @@ html main:has(> #b2) > :is(.dayline,.note,.toolbar,.dd-mobile-more){display:none
 html main:has(> #b2) > .dd-life-root{display:contents}
 html main:has(> #b2) > .dd-life-root > :is(.dd-life-bar,.dd-pause-status){display:none}
 html main:has(> #b2) > .dd-capture-root > .dd-capture-bar{display:none}
+/* Settings has no Park tray (5.77.1): it used to float up over the view tabs. */
+html main:has(> .dd-settings) > .dd-life-root > .dd-life-bar{display:none}
 html main:has(> #b2) > #b2:not(.focus-mode){height:calc(100dvh - 104px);min-height:480px}
 
 /* Phone: the view tabs sit at the bottom, under the thumb, like other phone
