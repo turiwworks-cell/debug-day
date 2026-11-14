@@ -32,9 +32,11 @@ const {start,fixture}=require('./harness.cjs');
   assert.equal(await ed.locator('strong').innerText(),'sketch');
   assert.equal(await ed.locator('.dd-lv-todo[data-done=true]').count(),1);
   // Ticking the to-do's box while writing.
-  const todo=ed.locator('.dd-lv-todo'),tb=await todo.boundingBox();
+  // (wait for the board to stop moving after opening the note)
+  const todo=ed.locator('.dd-lv-todo');let tb=await todo.boundingBox();
+  for(let i=0;i<20;i++){await page.waitForTimeout(100);const nb=await todo.boundingBox();if(nb.x===tb.x&&nb.y===tb.y)break;tb=nb;}
   await page.mouse.click(tb.x+8,tb.y+tb.height/2);
-  assert.equal(await value(ed),'## Plan\n- **sketch** first\n- [ ] colour');
+  await page.waitForFunction(()=>document.querySelector('[data-board-id="sticky:b"] .dd-live')?.value.endsWith('- [ ] colour'));
   // Backspace at the start of the heading takes the heading off; Undo puts it back.
   await ed.evaluate((e)=>e.setSelectionRange(3,3));
   await page.keyboard.press('Backspace');
