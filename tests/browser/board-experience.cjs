@@ -151,19 +151,19 @@ const {join}=require("node:path");
     assert.equal(newNotes.length,count+1);
     const added=newNotes.find(i=>!["area","inner","hidden"].includes(i.id));
     assert.equal(added.w,240);assert.equal(added.h,240);assert.equal(added.style.textSize,16);
-    await page.locator('[data-life-id="'+added.id+'"] textarea').fill("Adjacent idea");
-    await page.locator('[data-life-id="'+added.id+'"] textarea').press("Control+Enter");
+    await page.locator('[data-life-id="'+added.id+'"] .dd-live').fill("Adjacent idea");
+    await page.locator('[data-life-id="'+added.id+'"] .dd-live').press("Control+Enter");
     await (await search("Orbit idea")).press("Enter");
     const note=page.locator('[data-board-id="sticky:note"]');
     // Stickies grow with their text, so only sides and corners resize them (5.21).
     assert.equal(await note.locator('[data-edge]').count(),6);
     assert.equal(await note.locator('[data-edge="n"],[data-edge="s"]').count(),0);
     await note.locator(".dd-note-preview").dblclick();
-    const text=note.locator("textarea");await text.fill("Long paragraph\n".repeat(80));
+    const text=note.locator(".dd-live");await text.fill("Long paragraph\n".repeat(80));
     const before=await world();await text.hover();await page.mouse.wheel(0,220);await page.waitForTimeout(50);
     assert.equal(await world(),before,"scrolling the editor does not pan the board");
     await text.press("End");await text.press("Space");
-    assert.ok((await text.inputValue()).includes(" "));
+    assert.ok((await text.evaluate(e=>e.value)).includes(" "));
     // Notes grow with their text (5.21); keep this one short again so the fit checks below stay meaningful.
     await text.fill("Orbit idea");
     await text.press("Control+Enter");

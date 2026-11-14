@@ -37,7 +37,7 @@ const {start,fixture}=require('./harness.cjs');
     pick=async(ref)=>{const b=await node(ref).boundingBox();if(mobile)await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);else await page.mouse.click(b.x+b.width/2,b.y+b.height/2);await page.waitForTimeout(150);},
     // Esc clears a selection (it leaves full screen only when nothing is selected).
     only=async(ref)=>{if(await page.locator('[aria-selected=true][data-board-id]').count()){await view.focus();await page.keyboard.press('Escape');await page.waitForTimeout(100);}await pick(ref);},
-    write=async(ref,text)=>{await only(ref);await openMenu(ref);await menuItem('Edit text').click();const editor=node(ref).locator('textarea');await editor.waitFor();await editor.fill(text);await editor.press('Control+Enter');await settle();},
+    write=async(ref,text)=>{await only(ref);await openMenu(ref);await menuItem('Edit text').click();const editor=node(ref).locator('.dd-live');await editor.waitFor();await editor.fill(text);await editor.press('Control+Enter');await settle();},
     shown=async()=>page.evaluate(()=>document.querySelector('.views [aria-selected=true]')?.dataset.panel);
    const shots=process.env.DEBUG_DAY_SCREENSHOTS,shot=async(name)=>{if(shots){require('node:fs').mkdirSync(shots,{recursive:true});await page.screenshot({path:require('node:path').join(shots,name+(mobile?'-phone':'')+'.png')});}};
    await view.waitFor();

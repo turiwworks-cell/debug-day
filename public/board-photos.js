@@ -322,7 +322,7 @@ export const DDboardPhotosCSS = DDarenaCSS + `
 .b6 .b4-sticky[data-photo] .dd-photo-face{border-radius:8px 8px 0 0}
 .b6 .b4-sticky[data-photo] .dd-note-preview{padding:8px 12px 10px!important;font-size:calc(var(--object-size,16px) * .9);font-weight:500;color:var(--ink,#141414)}
 .b6 .b4-sticky[data-photo] .dd-note-editor{padding:8px 12px 10px!important}
-.b6 .b4-sticky[data-photo] .dd-note-editor textarea{font-size:calc(var(--object-size,16px) * .9);color:var(--ink,#141414)}
+.b6 .b4-sticky[data-photo] .dd-note-editor :is(textarea,.dd-live){font-size:calc(var(--object-size,16px) * .9);color:var(--ink,#141414)}
 .b6 .b4-sticky[data-photo] .dd-sticky-footer{display:none}
 .b6 .b4-sticky[data-photo] .dd-note-preview:has(>.dd-note-placeholder:only-child){display:none}
 .dd-photo-face{position:relative;flex:0 0 auto;width:100%;overflow:hidden;background:var(--wash,#8882);pointer-events:none}

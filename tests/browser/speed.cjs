@@ -62,7 +62,7 @@ const {start,fixture}=require('./harness.cjs');
 
   // 4. Typing in a note does not draw the board, and each key restyles only a few elements.
   await node('sticky:n14').locator('.dd-note-preview').dblclick();
-  const ed=node('sticky:n14').locator('textarea');await ed.waitFor();await ed.press('End');await settle();
+  const ed=node('sticky:n14').locator('.dd-live');await ed.waitFor();await ed.press('End');await settle();
   const cdp=await context.newCDPSession(page),events=[];
   cdp.on('Tracing.dataCollected',(e)=>events.push(...e.value));
   await cdp.send('Tracing.start',{traceConfig:{includedCategories:['devtools.timeline']}});

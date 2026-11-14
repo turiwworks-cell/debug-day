@@ -81,7 +81,7 @@ const {start,fixture,boardMenu}=require('./harness.cjs');
     // A note made outside the section lands inside it.
     await page.locator('.b2-viewport').focus();await page.keyboard.press('s');
     await page.mouse.click(ab.x+40,ab.y+ab.height+60);
-    await page.locator('.b2 textarea').first().fill('Made on this board');await page.locator('.b2 textarea').first().press('Control+Enter');
+    await page.locator('.b2 .dd-live').first().fill('Made on this board');await page.locator('.b2 .dd-live').first().press('Control+Enter');
     await page.waitForFunction(()=>JSON.parse(localStorage.getItem('debug-day:v2')).setup.life.items.some(i=>i.text==='Made on this board'));
     const made=(await read()).setup.life.items.find(i=>i.text==='Made on this board');
     assert.ok(await inside(made.id,'a'),'a new note joins the open section');
@@ -91,7 +91,7 @@ const {start,fixture,boardMenu}=require('./harness.cjs');
     await page.locator('.b2-viewport').focus();await page.keyboard.press('s');
     const ab2=await area.boundingBox();
     await page.mouse.click(ab2.x+ab2.width-60,ab2.y+ab2.height-50);
-    await page.locator('.b2 textarea').first().fill('Engine thought');await page.locator('.b2 textarea').first().press('Control+Enter');
+    await page.locator('.b2 .dd-live').first().fill('Engine thought');await page.locator('.b2 .dd-live').first().press('Control+Enter');
     await page.waitForFunction(()=>JSON.parse(localStorage.getItem('debug-day:v2')).days[Object.keys(JSON.parse(localStorage.getItem('debug-day:v2')).days).sort().pop()]?.notes?.some(n=>n.text==='Engine thought')||Object.values(JSON.parse(localStorage.getItem('debug-day:v2')).days).some(d=>(d.notes||[]).some(n=>n.text==='Engine thought')));
     const engineNote=(await read()).days[f.date].notes.find(n=>n.text==='Engine thought');
     assert.equal(engineNote?.from,'a','the note remembers the section it was made in');

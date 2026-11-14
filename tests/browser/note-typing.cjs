@@ -18,19 +18,19 @@ const {start,fixture}=require('./harness.cjs');
   const read=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2'))),
    text=async(id)=>(await read()).days[f.date].notes.find((n)=>n.id===id).text,
    node=(ref)=>page.locator(`[data-board-id="${ref}"]`),
-   open=async(ref)=>{await node(ref).locator('.dd-note-preview').dblclick();const ed=node(ref).locator('textarea');await ed.waitFor();await ed.press('End');return ed;};
+   open=async(ref)=>{await node(ref).locator('.dd-note-preview').dblclick();const ed=node(ref).locator('.dd-live');await ed.waitFor();await ed.press('End');return ed;};
   await page.locator('.views button[data-panel="board"]').click();
   await node('sticky:a').waitFor();
 
   // 1. A pause saves it, and the editor keeps every key typed.
   let ed=await open('sticky:a');
   await page.keyboard.type(' one');
-  assert.equal(await ed.inputValue(),'Alpha one');
+  assert.equal(await ed.evaluate(e=>e.value),'Alpha one');
   await page.waitForFunction((date)=>JSON.parse(localStorage.getItem('debug-day:v2')).days[date].notes.find((n)=>n.id==='a').text==='Alpha one',f.date);
 
   // 1b. Bold while writing changes the text in the box, and keeps typing going (5.47).
   await page.keyboard.press('Control+a');await page.keyboard.press('Control+b');
-  await page.waitForFunction(()=>document.querySelector('[data-board-id="sticky:a"] textarea')?.value==='**Alpha one**');
+  await page.waitForFunction(()=>document.querySelector('[data-board-id="sticky:a"] .dd-live')?.value==='**Alpha one**');
   await page.keyboard.press('End');await page.keyboard.type('\n- [ ] ');
   await node('sticky:a').locator('.dd-sticky-hint').waitFor();
   await ed.fill('Alpha one');
@@ -46,7 +46,7 @@ const {start,fixture}=require('./harness.cjs');
   ed=await open('sticky:a');
   await page.keyboard.type('!');
   await node('sticky:b').locator('.dd-note-preview').dblclick();
-  await node('sticky:b').locator('textarea').waitFor();
+  await node('sticky:b').locator('.dd-live').waitFor();
   assert.equal(await text('a'),'Alpha one two!');
   await page.keyboard.press('End');await page.keyboard.type(' x');
   // 4. Leaving the Board right away saves it too.

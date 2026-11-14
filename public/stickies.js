@@ -50,16 +50,16 @@ export function DDinstallStickyStyles(){
  const s=document.createElement("style");s.id="dd-sticky-styles";s.textContent=`
 .b6 .b4-sticky>.b4-node-body{position:relative;inset:0;width:100%;height:max-content!important;flex:0 0 auto!important;min-height:0!important;overflow:visible;display:block;padding:0;box-sizing:border-box}
 .b6 .b4-sticky .dd-note-preview{position:relative;inset:auto;height:auto;min-height:0;max-height:none;overflow:visible;white-space:pre-wrap;overflow-wrap:anywhere;padding:20px 20px 8px;line-height:1.5;box-sizing:border-box}
-.b6 .b4-sticky .dd-note-editor{position:relative;inset:auto;min-height:0;padding:20px 20px 8px}.b6 .dd-note-editor textarea{height:auto;min-height:0;overflow:hidden;resize:none;line-height:1.5}
+.b6 .b4-sticky .dd-note-editor{position:relative;inset:auto;min-height:0;padding:20px 20px 8px}.b6 .dd-note-editor :is(textarea,.dd-live){height:auto;min-height:0;overflow:hidden;resize:none;line-height:1.5}
 /* While typing, the note grows with its text: the box and its text field take their own height (not squeezed to the old note size and scrolled, which cut lines in half), and the text sits exactly where it sits on the note. */
-.b6 .b4-sticky .dd-note-editor{display:block;height:auto;flex:none;overflow:visible}.b6 .b4-sticky .dd-note-editor textarea{display:block;flex:none;width:100%;padding:0;margin:0;border:0;box-sizing:border-box}
+.b6 .b4-sticky .dd-note-editor{display:block;height:auto;flex:none;overflow:visible}.b6 .b4-sticky .dd-note-editor :is(textarea,.dd-live){display:block;flex:none;width:100%;padding:0;margin:0;border:0;box-sizing:border-box}
 .b6 .b4-sticky-head{top:4px;bottom:auto!important;pointer-events:none}.b6 .b4-sticky-head button:not(.dd-note-drag){display:none}.b6 .b4-sticky-head .dd-note-drag{pointer-events:auto}.dd-sticky-footer{display:block;position:absolute;bottom:0;left:0;right:0;pointer-events:none;padding:8px 16px 12px;color:#121211a6;font-size:11px;line-height:1.3;text-align:start}
-.b6 .b4-sticky .dd-note-preview,.b6 .b4-sticky .dd-note-editor textarea{font-size:calc(var(--object-size,16px) * 1.15);font-weight:500;color:#141414;letter-spacing:-.005em}
+.b6 .b4-sticky .dd-note-preview,.b6 .b4-sticky .dd-note-editor :is(textarea,.dd-live){font-size:calc(var(--object-size,16px) * 1.15);font-weight:500;color:#141414;letter-spacing:-.005em}
 .dd-sticky-todo{display:flex;align-items:flex-start;gap:8px;white-space:pre-wrap}.dd-sticky-todo input{flex:none;margin-top:.35em;accent-color:var(--accent)}
 /* A to-do box is a checkbox, not a text field: never stretch it across the note (that squeezed the words into one letter per line). */
 .b6 .b4-node-body .dd-sticky-todo input[type=checkbox]{font-size:inherit;width:.9em;height:.9em;min-width:0;min-height:0;flex:none;padding:0;margin:.3em 0 0;border:0;border-radius:3px;background:none;box-shadow:none;cursor:pointer}
 .dd-sticky-todo>span{flex:1 1 auto;min-width:0}.dd-sticky-todo[data-done=true]>span{text-decoration:line-through;opacity:.55}.dd-sticky-hint{opacity:.5}
-.b6 .b4-sticky{transition:width 120ms ease}.b6 .b4-sticky:has(textarea),.b6 .b4-sticky[data-resizing=true]{transition:none}
+.b6 .b4-sticky{transition:width 120ms ease}.b6 .b4-sticky:has(textarea,.dd-live),.b6 .b4-sticky[data-resizing=true]{transition:none}
 .b6 .b4-node.selected>.b6-note-resize[data-edge]{transform:none;opacity:1;position:absolute;background:transparent;border:0;margin:0;padding:0;min-width:0;min-height:0}
 .b6 .b4-node.selected>.b6-note-resize[data-edge=e],.b6 .b4-node.selected>.b6-note-resize[data-edge=w]{top:0;bottom:auto;width:calc(8px * var(--b4-inverse));height:100%;cursor:ew-resize}
 .b6 .b6-note-resize[data-edge=e]{left:auto;right:calc(-4px * var(--b4-inverse))}.b6 .b6-note-resize[data-edge=w]{left:calc(-4px * var(--b4-inverse));right:auto}

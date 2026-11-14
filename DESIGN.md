@@ -54,6 +54,7 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 - A task may be light or heavy (`energy.js`), never required. A tired day (😫 😕) offers the light ones first.
 - The Week view and its look back count what happened; they never score it. Next week's focus is one line.
 - Help text fades away: show a hint once, then rely on `?` and tooltips.
+- Words are written without their marks: **, ## or - [ ] never show while writing a note, text or shape (`live-text.js`); the saved text keeps them.
 - A task in the Engine is one line. Details open with ⋯, steps open when asked.
 - The Board's top bar keeps only the daily tools: Undo, the timer, light / dark, Pause the day, Full screen. Search, Engine, Feed and Sections wait in its ⋯. No standing key hints on the canvas.
 - Back on the Board lives on the path under the top bar (← Main board › Section): it returns to where you were. Nothing beside the date.

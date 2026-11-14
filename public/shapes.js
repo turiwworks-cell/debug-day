@@ -213,7 +213,7 @@ export const DDshapeCSS = `
 .b6 .b4-shape>.dd-shape-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;overflow:visible}
 .b6 .b4-shape .b4-sticky-head,.b6 .b4-shape .dd-sticky-footer{display:none!important}
 .b6 .b4-shape>.b4-node-body{position:relative;z-index:1;flex:none!important;height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important;margin-inline-start:var(--shape-text-left,8%);width:var(--shape-text-width,84%);background:transparent!important}
-.b6 .b4-shape .dd-note-preview,.b6 .b4-shape .dd-note-editor,.b6 .b4-shape .dd-note-editor textarea{background:transparent!important;padding:2px 0!important;text-align:var(--object-align,center);color:var(--node-text)!important;min-height:0!important;height:auto}
+.b6 .b4-shape .dd-note-preview,.b6 .b4-shape .dd-note-editor,.b6 .b4-shape .dd-note-editor :is(textarea,.dd-live){background:transparent!important;padding:2px 0!important;text-align:var(--object-align,center);color:var(--node-text)!important;min-height:0!important;height:auto}
 .b6 .b4-shape .dd-note-preview:empty::before{content:none}
 .b6 .b4-shape:not(.selected) .dd-note-placeholder{visibility:hidden}
 .b6 .b4-shape:not(.selected):hover>.dd-shape-layer path{stroke-width:2.5}

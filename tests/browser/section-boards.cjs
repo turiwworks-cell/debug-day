@@ -44,14 +44,14 @@ const {start,fixture,boardMenu}=require('./harness.cjs');
    const spot={x:ab.x+ab.width*.5,y:Math.min(ab.y+ab.height+140*z,880)};
    assert.ok(spot.y>ab.y+ab.height+20,'the spot is outside the frame');
    await page.mouse.dblclick(spot.x,spot.y);
-   await page.locator('.dd-note-editor textarea').waitFor();await page.keyboard.type('Below the frame');
+   await page.locator('.dd-note-editor .dd-live').waitFor();await page.keyboard.type('Below the frame');
    await page.keyboard.press('Escape');await page.keyboard.press('Escape');await settle();
    let below=(await items()).find((i)=>i.text==='Below the frame');
    assert.equal(below?.parent,'a','a note made outside the frame belongs to the section');
    assert.ok(below.y>380,'and stays where it was made: '+JSON.stringify(below));
    // The note grows while you type: every line shows, none is cut in half.
    await page.mouse.dblclick(...(await (async()=>{const b=await node(below.id).boundingBox();return [b.x+b.width/2,b.y+b.height/2];})()));
-   const area=page.locator('.dd-note-editor textarea');await area.waitFor();
+   const area=page.locator('.dd-note-editor .dd-live');await area.waitFor();
    await page.keyboard.press('Control+End');
    for(let i=0;i<9;i++){await page.keyboard.press('Enter');await page.keyboard.type(t('line ','خط ')+i);}
    await page.waitForTimeout(250);
@@ -119,7 +119,7 @@ const {start,fixture,boardMenu}=require('./harness.cjs');
    const gap={x:eb.x+eb.width+60,y:eb.y+10};
    assert.ok(gap.x+200<1400&&gap.y+160<fb.y,'there is empty board beside the Engine');
    await page.mouse.dblclick(gap.x+100,gap.y+70);
-   await page.locator('.dd-note-editor textarea').waitFor();await page.keyboard.type(t('Loose idea','ایده'));
+   await page.locator('.dd-note-editor .dd-live').waitFor();await page.keyboard.type(t('Loose idea','ایده'));
    await page.keyboard.press('Escape');await page.keyboard.press('Escape');await settle();
    const loose=(await read()).days[f.date].notes.find((n)=>n.text===t('Loose idea','ایده'));
    assert.ok(loose,'a day note');

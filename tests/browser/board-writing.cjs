@@ -57,7 +57,7 @@ const {start,fixture,boardMenu}=require('./harness.cjs');
 
   // 2. Writing in a note far out: the board glides close, then back.
   await node('sticky:a').locator('.dd-note-preview').dblclick();
-  const editor=node('sticky:a').locator('textarea');await editor.waitFor();
+  const editor=node('sticky:a').locator('.dd-live');await editor.waitFor();
   await page.waitForFunction(()=>Number(document.querySelector('.b2-viewport').dataset.zoom)>0.8);
   const box=await node('sticky:a').boundingBox(),vp=await view.boundingBox();
   assert.ok(box.x>=vp.x&&box.x+box.width<=vp.x+vp.width,'the note is in view while writing');
@@ -92,7 +92,7 @@ const {start,fixture,boardMenu}=require('./harness.cjs');
   assert.equal(await page.getByRole('button',{name:'Text tool',exact:true}).getAttribute('aria-pressed'),'true');
   const z0=await zoom();
   await page.mouse.click(vb.x+vb.width*0.55,vb.y+vb.height*0.62);
-  const typing=page.locator('.b4-plain textarea');await typing.waitFor();
+  const typing=page.locator('.b4-plain .dd-live');await typing.waitFor();
   await typing.fill('Big title');await typing.press('Control+Enter');await settle();
   assert.equal(await zoom(),z0,'back to the view you had');
   let notes=(await day()).notes,text=notes.find((n)=>n.text==='Big title');
@@ -113,7 +113,7 @@ const {start,fixture,boardMenu}=require('./harness.cjs');
   const count=(await day()).notes.length;
   await key('t');
   await page.mouse.click(vb.x+vb.width*0.3,vb.y+vb.height*0.75);
-  await page.locator('.b4-plain textarea').waitFor();await page.keyboard.press('Escape');await settle();
+  await page.locator('.b4-plain .dd-live').waitFor();await page.keyboard.press('Escape');await settle();
   assert.equal((await day()).notes.length,count,'an empty text is removed');
 
   // 5. Right-click is short, with quick colors and Send to section.

@@ -71,8 +71,8 @@ const {start,fixture,boardMenu}=require('./harness.cjs');
    let ab=await box('a');
    await key('s');
    await page.mouse.click(ab.x+90,ab.y+ab.height-120);
-   await page.locator('.dd-note-editor textarea').waitFor();
-   await page.locator('.dd-note-editor textarea').fill('Tool note');
+   await page.locator('.dd-note-editor .dd-live').waitFor();
+   await page.locator('.dd-note-editor .dd-live').fill('Tool note');
    await escape();
    let items=(await life()).items,made=items.find((i)=>i.text==='Tool note');
    assert.ok(made,'the sticky tool works over a section');assert.equal(made.parent,'a','and the note joins it');
@@ -80,7 +80,7 @@ const {start,fixture,boardMenu}=require('./harness.cjs');
    // Double-click on a section's empty area: a note inside it, ready to type.
    const bb=await box('b');
    await page.mouse.dblclick(bb.x+80,bb.y+bb.height-60);
-   await page.locator('.dd-note-editor textarea').waitFor();
+   await page.locator('.dd-note-editor .dd-live').waitFor();
    await page.keyboard.type('Inside b');await escape();
    items=(await life()).items;
    assert.equal(items.find((i)=>i.text==='Inside b')?.parent,'b','double-click makes the note in that section');
@@ -96,7 +96,7 @@ const {start,fixture,boardMenu}=require('./harness.cjs');
    await key('f');
    const vb=await view.boundingBox(),notes0=(await today()).notes.length,eb0=await box('section:engine'),fb0=await box('section:life');
    await page.mouse.dblclick(eb0.x+eb0.width/2,(eb0.y+eb0.height+fb0.y)/2);
-   await page.locator('.dd-note-editor textarea').waitFor();await page.keyboard.type('Loose');await escape();
+   await page.locator('.dd-note-editor .dd-live').waitFor();await page.keyboard.type('Loose');await escape();
    assert.equal((await today()).notes.length,notes0+1,'double-click on the board makes a note');
 
    // A drag on a section's empty area selects what it touches, instead of moving the section.

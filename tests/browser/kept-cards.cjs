@@ -61,7 +61,7 @@ const {start,fixture}=require('./harness.cjs');
 
   // 7. Writing in a card that was kept shows the new words once it closes.
   await node('sticky:a').locator('.dd-note-preview').dblclick();
-  const ed=node('sticky:a').locator('textarea');await ed.waitFor();await ed.press('End');
+  const ed=node('sticky:a').locator('.dd-live');await ed.waitFor();await ed.press('End');
   await page.keyboard.type(' kept');await page.keyboard.press('Escape');
   await page.waitForFunction(()=>document.querySelector('[data-board-id="sticky:a"] .dd-note-preview')?.textContent.includes('Note A kept'));
   // And picking a card after that still picks only it.

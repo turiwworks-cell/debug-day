@@ -32,11 +32,11 @@ const {join}=require('node:path');
    assert.equal(list[0].style.width,200);assert.equal(list[0].style.height,200);
    const ref='sticky:'+list[0].id,node=page.locator(`[data-board-id="${ref}"]`);
    assert.equal(await node.getAttribute('class').then(c=>c.includes('b4-shape')),true);
-   assert.equal(await node.locator('textarea').count(),0,'a new shape is picked, not open for typing');
+   assert.equal(await node.locator('.dd-live').count(),0,'a new shape is picked, not open for typing');
    // Words go in the middle; long words make the shape taller, never smaller than its size.
    await page.keyboard.press('Enter');
-   await node.locator('textarea').fill('A long thought that needs more room than a small diamond has, so the shape grows taller to hold every word of it');
-   await node.locator('textarea').press('Control+Enter');
+   await node.locator('.dd-live').fill('A long thought that needs more room than a small diamond has, so the shape grows taller to hold every word of it');
+   await node.locator('.dd-live').press('Control+Enter');
    await page.waitForTimeout(300);
    const grown=await node.boundingBox();
    assert.ok(grown.height/grown.width>1.2,'the shape grew to fit its words: '+grown.width+'×'+grown.height);

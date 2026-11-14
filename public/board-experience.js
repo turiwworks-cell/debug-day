@@ -193,7 +193,7 @@ export const DDboardExperienceCSS = `
 .b6 .b4-sticky:is(:hover,.selected,:focus-within) .b4-sticky-head{opacity:1}
 .b6 .b4-sticky-head button{min-height:24px;height:24px;min-width:24px;padding:2px 5px;font-size:10px}
 .b6 .dd-note-editor{border-radius:2px;overflow:hidden;background:var(--node-color)}
-.b6 .dd-note-editor textarea{padding:18px 20px;font-size:var(--object-size,14px);line-height:1.5}
+.b6 .dd-note-editor :is(textarea,.dd-live){padding:18px 20px;font-size:var(--object-size,14px);line-height:1.5}
 .b6 .b4-life-section{background:color-mix(in srgb,var(--node-color) 12%,var(--paper))!important;border:1px solid color-mix(in srgb,var(--node-color) 45%,transparent);border-radius:12px}
 /* FigJam: the name pill sits inside the top-left corner. It grows and shrinks with the board, stops shrinking at a readable 12px on screen, and is never wider than its section. */
 .b6 .b4-life-section{--dd-sec-k:clamp(1,calc(var(--b4-inverse,1) * .75),60)}
@@ -239,8 +239,8 @@ export const DDboardExperienceCSS = `
 .b6 .dd-sticky-colors button[aria-checked=true]{outline:2px solid var(--board-selection);outline-offset:2px}
 .b6 .dd-note-placeholder{opacity:.45}
 .b6 .dd-note-editor{background:transparent}
-.b6 .dd-note-editor textarea{background:transparent;border:0;outline:none;box-shadow:none;padding:20px 20px 44px;color:inherit;resize:none}
-.b6 .dd-note-editor textarea::placeholder{color:currentColor;opacity:.45}
+.b6 .dd-note-editor :is(textarea,.dd-live){background:transparent;border:0;outline:none;box-shadow:none;padding:20px 20px 44px;color:inherit;resize:none}
+.b6 .dd-note-editor :is(textarea,.dd-live)::placeholder{color:currentColor;opacity:.45}
 .b6 .dd-add-near{position:absolute;width:22px;height:22px;padding:0;border-radius:50%;display:grid;place-items:center;font:600 15px/1 var(--sans);color:var(--board-selection);background:var(--paper);border:1.5px solid var(--board-selection);transform:translate(-50%,-50%) scale(var(--b4-inverse,1));opacity:.85;z-index:6;cursor:pointer}
 .b6 .dd-add-near:hover,.b6 .dd-add-near:focus-visible{background:var(--board-selection);color:#fff;opacity:1}
 @media(hover:none),(pointer:coarse){.b6 .dd-add-near{display:none}}
@@ -299,7 +299,7 @@ export const DDboardExperienceCSS = `
 .b6 .b4-sticky.b4-plain{background:transparent!important;box-shadow:none!important;border-color:transparent!important}
 .b6 .b4-sticky.b4-plain .b4-sticky-head,.b6 .b4-sticky.b4-plain .dd-sticky-footer{display:none}
 .b6 .b4-sticky.b4-plain .dd-note-preview,.b6 .b4-sticky.b4-plain .dd-note-editor{padding:4px 6px!important;background:transparent}
-.b6 .b4-sticky.b4-plain .dd-note-preview,.b6 .b4-sticky.b4-plain .dd-note-editor textarea{color:var(--node-text)!important;font-weight:600;line-height:1.3}
+.b6 .b4-sticky.b4-plain .dd-note-preview,.b6 .b4-sticky.b4-plain .dd-note-editor :is(textarea,.dd-live){color:var(--node-text)!important;font-weight:600;line-height:1.3}
 .b6 .b4-sticky.b4-plain .dd-note-preview:empty::before{content:"Text";color:var(--ink-3);font-weight:500}
 .b6 .b4-sticky.b4-plain:not(.selected):hover{outline:1px dashed color-mix(in srgb,var(--now) 55%,transparent);outline-offset:2px}
 .b6 .b2-viewport[data-tool=text]{cursor:text}
