@@ -1,3 +1,14 @@
+## 5.65.0 — 2026-11-14
+Branch: claude/project-thread-n79ngv
+- To-do lists on the Board, after Milanote: a card of tasks with tick boxes. New from the tools menu (⋯ in the dock): To-do list; right-click a note › More › Convert to to-do list (every line becomes a task) and back with Convert to note.
+- Type in the list where it is: Enter makes the next task, Tab and Shift+Tab move a task in and out, Backspace at the start joins or removes a task, arrows move between tasks, Ctrl+Enter ticks.
+- A picked list shows its tools under the card: Title (an optional title) and Due date for the task you are in, with how many are done.
+- Due date: a day (Today, Tomorrow, Next week or any date) and an optional time for a reminder; it shows softly under the task ("15 Nov · 14:30 · tomorrow"), never in red. Remove due date takes it off.
+- Reminders: when a task's time comes and the app is open, a browser notification (when allowed) or a soft line on screen, once.
+- A done task has a small bin next to it. Drag a task by its grip to move it (with the tasks under it).
+- Tasks with a due date show on their day in the Calendar, next to deadlines.
+- A to-do list is still a note underneath (plain - [ ] marks), so sync, search, tags, wires and every view keep working with it.
+
 ## 5.64.0 — 2026-11-14
 Branch: claude/project-thread-n79ngv
 - Board comments work like Milanote's: a comment that is not on a card is a comment card on the board, showing its messages with a Reply button.

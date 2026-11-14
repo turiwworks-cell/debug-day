@@ -4,6 +4,7 @@ import { DDnoteTags, DDtagText } from "./note-tags.js";
 import { DDmediaTitle } from "./media.js";
 import { DDlifeItems } from "./life-board.js";
 import { DDdueOn, DDdueName } from "./deadlines.js";
+import { DDtodoDueItems, DDtodoLists } from "./todos.js";
 import { DDCalendarWeek, DDWeekReview, DDCalendarModes, DDCalSections } from "./calendar-week.js";
 import { DDaddDays, DDvalidDate } from "./dates.js";
 import { DDusualMinutes, DDdayLoad, DDloadName, DDmonthLoad, DDaltDay, DDaltMonth, DDshortTime, DDinstallCalendarLook } from "./calendar-look.js";
@@ -374,6 +375,8 @@ function DDReviewCalendar({
 }) {
   const { h, fa, t, n } = DDreviewUI(R, language),
     lifeItems = DDlifeItems(data.setup),
+    // To-do tasks with a due date show on their day with the deadlines (5.65).
+    dueItems = [...lifeItems, ...DDtodoDueItems(DDtodoLists(data))],
     [preference, setPreference] = R.useState(() =>
       DDreviewLocal("debug-day:review-calendar", null),
     );
@@ -543,7 +546,7 @@ function DDReviewCalendar({
         const day = data.days[cell.date],
           summary = DDreviewSummary(day, data.setup),
           load = DDdayLoad(day, usual),
-          due = feelingsOnly ? [] : DDdueOn(lifeItems, cell.date),
+          due = feelingsOnly ? [] : DDdueOn(dueItems, cell.date),
           remList = feelingsOnly ? [] : DDreviewReminders(data.setup.reminders, cell.date),
           reminders = remList.length,
           worries = (data.setup.worries || []).filter(

@@ -6,6 +6,7 @@ import { DDlifeBounds, DDlifeHead, DDlifeItems, DDlifeAbs, DDlifeVisible, DDlife
 import { DDstickyHeight } from "./stickies.js";
 import { DDshapeClear, DDshapeHeight } from "./shapes.js";
 import { DDdocSize } from "./documents.js";
+import { DDtodoParse } from "./todos.js";
 import { DDnotePhoto, DDphotoHeight } from "./board-photos.js";
 import { DDenergyOf, DDenergyLabel } from "./energy.js";
 import { DDflowEdges } from "./flow.js";
@@ -650,6 +651,8 @@ export function DDcreateBoardLayout(deps) {
       if (n.shape) { n.h = DDshapeHeight(n.shape, n.h, fresh ? measured.h : 0); continue; }
       // A document keeps the size of its card; as an icon it is always the same size (5.63).
       if (n.doc) { if (n.docView === "icon") { n.w = DDdocSize.icon.width; n.h = DDdocSize.icon.height; } continue; }
+      // A to-do list is as tall as its tasks (5.65).
+      if (n.todo) { const p = DDtodoParse(n.title); n.h = Math.max(56, fresh ? measured.h : (p.items.length || 1) * 27 + (p.title !== null ? 30 : 0) + 24); continue; }
       // A text object hugs its words (5.61): its width is the most it may take,
       // and its box is only as wide and as tall as the words in it.
       if (n.plain) {

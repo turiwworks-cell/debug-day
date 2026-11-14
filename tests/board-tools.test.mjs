@@ -308,3 +308,24 @@ test('comment reactions (5.64, Milanote): one of each, a second pick takes it of
   const [c] = DDnormalizeComments([{ id: 'c1', x: 1, y: 2, thread: [{ ...m, reactions: ['🎉', '🎉', 5, 'x'.repeat(40), '✨'] }] }]);
   assert.deepEqual([...c.thread[0].reactions], ['🎉', '✨'], 'unique short strings only');
 });
+
+test('to-do lists (5.65): words stay plain marks, levels, due dates, moves and reminders', async () => {
+  const m = await import('../public/todos.js');
+  const text = '# Week\n- [ ] Buy paint 📅2026-11-20\n  - [x] Blue 📅2026-11-16T09:30\n- [ ] Call gallery';
+  const p = m.DDtodoParse(text);
+  assert.equal(p.title, 'Week');
+  assert.deepEqual(p.items.map((i) => [i.level, i.done, i.text, i.due || '']), [[0, false, 'Buy paint', '2026-11-20'], [1, true, 'Blue', '2026-11-16T09:30'], [0, false, 'Call gallery', '']]);
+  assert.equal(m.DDtodoJoin(p), text, 'parse and join give the same words back');
+  assert.equal(m.DDtodoFromNote('Errands\n- [x] Paint\n* brushes'), '- [ ] Errands\n- [x] Paint\n- [ ] brushes', 'every line of a note becomes a task');
+  assert.deepEqual(m.DDtodoMove(p.items, 0, 3).map((i) => i.text), ['Call gallery', 'Buy paint', 'Blue'], 'a task moves with the tasks under it');
+  assert.equal(m.DDtodoDueClean('2026-02-30'), '');
+  assert.equal(m.DDtodoDueClean('2026-11-20T25:00'), '2026-11-20');
+  assert.deepEqual(m.DDtodoLook({ todo: true, x: 1 }), { todo: true });
+  const data = { setup: { life: { items: [{ id: 'f', type: 'sticky', text: '- [ ] Feed task 📅2026-11-14T10:00', style: { todo: true } }] } },
+    days: { '2026-11-14': { notes: [{ id: 'n', text: '- [ ] Ring 📅2026-11-14T10:00\n- [x] Done 📅2026-11-14T10:00' }], canvas: { board4: { styles: { 'sticky:n': { todo: true } } } } } } };
+  assert.deepEqual(m.DDtodoDueItems(m.DDtodoLists(data)).map((r) => r.text), ['Feed task', 'Ring'], 'done tasks leave the Calendar');
+  const due = m.DDtodoRemindersDue(data, new Date(2026, 10, 14, 10, 1));
+  assert.equal(due.length, 2);
+  assert.equal(m.DDtodoRemindersDue(data, new Date(2026, 10, 14, 10, 1), new Set(due.map((r) => r.key))).length, 0, 'each reminder once');
+  assert.equal(m.DDtodoRemindersDue(data, new Date(2026, 10, 14, 9, 59)).length, 0, 'not before its time');
+});
