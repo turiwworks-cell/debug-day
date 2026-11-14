@@ -141,7 +141,8 @@ function Thread({ React: R, comment, place, sheet, side, drop, card, picked, foc
       h("small", { dir: "auto" }, unsent ? "Not sent yet · " + place : place),
       !fresh && h("button", { type: "button", className: "dd-thread-icon", "data-resolve": true, "aria-pressed": !!comment.done, title: comment.done ? "Reopen" : "Resolve · hides it from the board", "aria-label": comment.done ? "Reopen comment" : "Resolve comment", onClick: onResolve },
         icon(h, "M4 10.5l4 4 8-9")),
-      !fresh && h("button", { type: "button", className: "dd-thread-icon", "data-delete-thread": true, title: "Delete comment", "aria-label": "Delete comment", onClick: onDelete },
+      // Delete is there from the start: an empty new comment goes with one click too (5.77.4).
+      h("button", { type: "button", className: "dd-thread-icon", "data-delete-thread": true, title: "Delete comment", "aria-label": "Delete comment", onClick: onDelete },
         icon(h, "M3.5 5.5h13M8 5.5V3h4v2.5M5.5 5.5l1 12h7l1-12")),
       h("button", { type: "button", className: "dd-thread-icon", title: "Close", "aria-label": "Close comment", onClick: onClose }, "×")),
     comment.thread.length > 0 && h("ol", { ref: list, onWheel: card ? (e) => { const el = list.current; if (el && el.scrollHeight > el.clientHeight + 1) e.stopPropagation(); } : undefined },
@@ -165,7 +166,9 @@ function Thread({ React: R, comment, place, sheet, side, drop, card, picked, foc
     full
       ? h("form", { className: "dd-thread-new", onSubmit: (e) => { e.preventDefault(); post(); } },
           h("textarea", { ref: box, dir: "auto", rows: fresh ? 2 : 1, value: text, maxLength: 2000, placeholder: fresh ? "Write a comment…" : "Reply…", "aria-label": fresh ? "Write a comment" : "Reply",
-            onPointerDown: stop, onChange: (e) => setText(e.target.value), onKeyDown: (e) => keys(e, post) }),
+            onPointerDown: stop, onChange: (e) => setText(e.target.value),
+            // Backspace or Delete in an empty new comment takes the comment away, like any empty card.
+            onKeyDown: (e) => { if (fresh && !text && (e.key === "Backspace" || e.key === "Delete")) { e.preventDefault(); e.stopPropagation(); onDelete(); return; } keys(e, post); } }),
           h("button", { type: "submit", className: "solid", disabled: !text.trim(), title: "Send · Enter" }, "Send"))
       : h("footer", { className: "dd-card-foot" },
           h("button", { type: "button", className: "dd-reply-btn", "aria-label": unsent ? "Finish comment" : "Reply to comment", onClick: () => onPick?.() }, unsent ? "Not sent · finish" : text ? "Reply · draft" : "Reply")));
@@ -257,6 +260,14 @@ export function DDuseComments(ctx) {
       setOpen({ key: (life ? "L:" : "D:") + c.id });
       ctxRef.current.setTool("select");
     } else patchComment(c, (x) => ({ ...x, thread: [...x.thread, message] }), null);
+  }
+  // A comment not sent yet: nothing was saved, so it just goes, words and all.
+  function discardDraft(d) {
+    texts.delete(d.id);
+    setUnsent((list) => list.filter((x) => x.id !== d.id));
+    if (open?.draft?.id === d.id) setOpen(null);
+    ctxRef.current.viewport.current?.focus({ preventScroll: true });
+    ctxRef.current.setTool("select");
   }
   function removeComment(c, message = "Comment deleted · Undo to restore") {
     write(c.life, (list) => list.filter((x) => x.id !== c.id), message);
@@ -446,8 +457,20 @@ export function DDuseComments(ctx) {
   R.useEffect(() => {
     if (!open) return;
     const down = (e) => {
-      if (e.target?.closest?.(".dd-pin,.dd-thread,.dd-comments-panel,.dd-comment-capture,[role=menu]")) return;
+      if (e.target?.closest?.(".dd-pin,.dd-thread,.dd-comments-panel,[role=menu]")) return;
       if (!ctxRef.current.viewport.current?.contains(e.target)) return;
+      // With the comment tool on, the capture layer lets the open comment take
+      // clicks (5.77.4); a click on the board around it still comes here.
+      if (active && !e.target.closest?.("[data-dock],.b2-dock")) {
+        const c = ctxRef.current;
+        if (c.pinching() || c.panKey() || (e.pointerType === "mouse" && e.button !== 0)) return;
+        e.preventDefault(); e.stopPropagation();
+        if (e.pointerType !== "mouse") swallowClick();
+        const empty = open?.draft && !(texts.get(open.draft.id) || "").trim();
+        if (empty) { closeOpen(); return; }
+        startAt(e.clientX, e.clientY);
+        return;
+      }
       closeOpen();
     };
     window.addEventListener("pointerdown", down, true);
@@ -471,7 +494,7 @@ export function DDuseComments(ctx) {
     onRemove: (mid) => (c.thread.length <= 1 ? removeComment(c) : patchComment(c, (x) => ({ ...x, thread: x.thread.filter((m) => m.id !== mid) }), "Message deleted")),
     onReact: (mid, emoji) => patchComment(c, (x) => ({ ...x, thread: x.thread.map((m) => (m.id === mid ? DDcommentReact(m, emoji) : m)) }), null),
     onResolve: () => { patchComment(c, (x) => { const { done, ...rest } = x; return done ? rest : { ...rest, done: true }; }, c.done ? "Comment reopened" : "Comment resolved · find it in Comments"); if (!c.done) setOpen(null); },
-    onDelete: () => removeComment(c),
+    onDelete: () => (c.draft ? discardDraft(c) : removeComment(c)),
     onClose: () => closeOpen(true),
   });
   const dragKey = (c) => (c.draft ? "draft:" + c.id : keyOf(c));
@@ -522,7 +545,7 @@ export function DDuseComments(ctx) {
           isOpen && !phone && !dragging && thread(openComment, false, sideOf(at), dropOf(at)));
       })),
     // Over the board while the comment tool is on: a click places a comment.
-    capture: () => active && h("div", { className: "dd-comment-capture", "aria-hidden": true,
+    capture: () => active && h("div", { className: "dd-comment-capture", "aria-hidden": true, "data-open": open ? true : undefined,
       onPointerDown: (e) => {
         const c = ctxRef.current;
         if (c.pinching() || c.panKey() || (e.pointerType === "mouse" && e.button !== 0)) return;
@@ -610,6 +633,7 @@ export const DDcommentsCSS = `
 .dd-comment-ghost{position:fixed;z-index:200;pointer-events:none;transform:translate(-14px,-14px);padding:8px 12px;border-radius:12px 12px 12px 3px;background:var(--paper);color:var(--ink);border:1.5px solid var(--board-accent,#0D99FF);box-shadow:0 10px 24px -8px #0007;font:600 12px var(--sans)}
 .dd-thread-sheet{position:absolute;left:8px;right:8px;bottom:70px;top:auto;width:auto;max-height:min(60%,460px);z-index:110}
 .dd-comment-capture{position:absolute;inset:0;z-index:40;cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26'%3E%3Cpath d='M3 3h18a2 2 0 012 2v11a2 2 0 01-2 2H9l-6 5z' fill='%23fff' stroke='%230D99FF' stroke-width='2'/%3E%3C/svg%3E") 3 23,crosshair;touch-action:none}
+.dd-comment-capture[data-open]{pointer-events:none}
 .dd-comments-panel{position:absolute;z-index:105;top:72px;right:16px;width:340px;max-width:calc(100% - 32px);max-height:calc(100% - 170px);display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--paper);color:var(--ink);border:1px solid var(--rule-2,#0002);border-radius:14px;box-shadow:0 6px 24px #0002;overflow:auto;overscroll-behavior:contain;font:13px/1.45 var(--sans)}
 .dd-comments-panel header{display:flex;align-items:center;justify-content:space-between}
 .dd-comments-panel header button{all:unset;cursor:pointer;width:28px;height:28px;display:grid;place-items:center;border-radius:8px;font-size:18px}

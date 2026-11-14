@@ -1,3 +1,7 @@
+## 5.77.4 — 2026-11-14
+Branch: claude/project-thread-n79ngv
+- An empty comment is easy to take away: its Delete button shows from the start, Backspace or Delete in its empty box removes it, and clicks on an open comment reach it even while the comment tool is on.
+
 ## 5.77.3 — 2026-11-14
 Branch: claude/project-thread-n79ngv
 - A new text object on the Board starts empty: just the caret, one line tall. The "Type anything…" hint no longer stacks letter by letter in a thin box (notes keep their hint).
