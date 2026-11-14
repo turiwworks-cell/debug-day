@@ -69,6 +69,18 @@ const {start,fixture}=require('./harness.cjs');
     const made=(await read()).setup.life.items.find(i=>i.text==='Made on this board');
     assert.ok(await inside(made.id,'a'),'a new note joins the open section');
     assert.ok(!(await read()).days[f.date].notes.some(n=>n.text==='Made on this board'),'not a day note');
+    // A note made on the Engine is a note of the day and says which section it came from (5.66).
+    await page.keyboard.press('Escape');await page.waitForTimeout(450);
+    await page.locator('.b2-viewport').focus();await page.keyboard.press('s');
+    const ab2=await area.boundingBox();
+    await page.mouse.click(ab2.x+ab2.width-60,ab2.y+ab2.height-50);
+    await page.locator('.b2 textarea').first().fill('Engine thought');await page.locator('.b2 textarea').first().press('Control+Enter');
+    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('debug-day:v2')).days[Object.keys(JSON.parse(localStorage.getItem('debug-day:v2')).days).sort().pop()]?.notes?.some(n=>n.text==='Engine thought')||Object.values(JSON.parse(localStorage.getItem('debug-day:v2')).days).some(d=>(d.notes||[]).some(n=>n.text==='Engine thought')));
+    const engineNote=(await read()).days[f.date].notes.find(n=>n.text==='Engine thought');
+    assert.equal(engineNote?.from,'a','the note remembers the section it was made in');
+    const fromChip=page.locator('[data-board-id="sticky:'+engineNote.id+'"] .dd-note-from-chip');
+    await fromChip.waitFor();
+    assert.match(await fromChip.innerText(),/From Creative life/,'under the note: where it came from');
     // Dragged out past the edge it stays in the section.
     await page.keyboard.press('Escape');
     // The board glides back from writing (5.32) before measuring.

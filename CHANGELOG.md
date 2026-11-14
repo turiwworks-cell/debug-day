@@ -1,3 +1,10 @@
+## 5.66.0 — 2026-11-14
+Branch: claude/project-thread-n79ngv
+- Lines meet every note and card in the middle of a side, never near its top or bottom.
+- A double-click on a line writes on it, in its middle (Enter or a click away keeps the words, Escape leaves them as they were). A double-click on the words opens them again.
+- A note made on the Engine from inside a section remembers that section, and says so under the note ("From Studio"); a click goes into that section.
+- Send to (right-click) has only This App and Capture, with keys: Alt+T sends what is picked to This App, Alt+C to Capture. Out of its section stays.
+
 ## 5.65.0 — 2026-11-14
 Branch: claude/project-thread-n79ngv
 - To-do lists on the Board, after Milanote: a card of tasks with tick boxes. New from the tools menu (⋯ in the dock): To-do list; right-click a note › More › Convert to to-do list (every line becomes a task) and back with Convert to note.

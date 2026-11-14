@@ -446,3 +446,13 @@ test("rewiring a decorative connection into a real membership removes the obsole
     1,
   );
 });
+test("a line meets each side in its middle, even when the cards are offset (5.66)", () => {
+  const a = { id: "a", x: 0, y: 0, w: 200, h: 100 };
+  const ends = DDnearestEndpoints(a, { id: "b", x: 400, y: 60, w: 240, h: 300 });
+  assert.equal(ends.from, "right");
+  assert.equal(ends.to, "left");
+  assert.deepEqual([ends.p.x, ends.p.y], [200, 50], "the middle of a's right side");
+  assert.deepEqual([ends.q.x, ends.q.y], [400, 210], "the middle of b's left side");
+  const down = DDnearestEndpoints(a, { id: "c", x: 120, y: 400, w: 200, h: 80 });
+  assert.deepEqual([down.p.x, down.p.y, down.q.x, down.q.y], [100, 100, 220, 400]);
+});
