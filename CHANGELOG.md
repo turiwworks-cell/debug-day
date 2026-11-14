@@ -1,3 +1,8 @@
+## 5.74.0 — 2026-11-14
+Branch: claude/project-thread-n79ngv
+- Documents: Write now looks like Read. The words are written without the marks (the same editor as notes), so headings, lists, to-dos and bold look the same in both.
+- Persian in documents and notes: every line takes its own direction from its words, in Write and in Read, so a Persian line starts from the right beside an English one. A to-do or list mark no longer turns a Persian line left to right. The document's name follows its own language too.
+
 ## 5.73.0 — 2026-11-14
 Branch: claude/project-thread-n79ngv
 - Notes, text and shapes are written without the marks: while you write, **, ##, - [ ] and the rest stay hidden and the words already look bold, headed, ticked or listed. The saved text keeps its marks, so search, sync and every other view are unchanged.

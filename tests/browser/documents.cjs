@@ -47,6 +47,17 @@ const {join}=require('node:path');
 
   await page.waitForFunction((date)=>JSON.parse(localStorage.getItem('debug-day:v2')).days[date].notes[0].text.includes('Day two'),f.date);
   assert.equal((await read()).notes[0].text,'# Trip plan\n\nDay one\n- pack the camera\n- charge the battery\n## Day two');
+  // Write looks like Read (5.74): the marks never show while writing.
+  assert.equal(await words.locator('.dd-rich-h2').innerText(),'Day two');
+  assert.ok(!/[#]|^- /m.test(await words.evaluate((e)=>e.innerText.replace(/\u200b/g,''))),'no marks in Write');
+  // A Persian line runs right to left in Write and in Read.
+  await page.keyboard.press('Enter');await page.keyboard.type('روز سوم');
+  assert.equal(await words.locator('.dd-lv').last().evaluate((e)=>getComputedStyle(e).direction),'rtl');
+  await doc.getByRole('button',{name:'Read',exact:true}).click();
+  assert.equal(await doc.locator('.dd-doc-read [dir=auto]',{hasText:'روز سوم'}).evaluate((e)=>getComputedStyle(e).direction),'rtl');
+  await doc.getByRole('button',{name:'Write',exact:true}).click();
+  await words.press('Control+End');for(let i=0;i<8;i++)await page.keyboard.press('Backspace');
+  await page.waitForFunction((date)=>!JSON.parse(localStorage.getItem('debug-day:v2')).days[date].notes[0].text.includes('روز'),f.date);
   // Save as Markdown.
   await doc.getByRole('button',{name:'Save as…'}).click();
   const [download]=await Promise.all([page.waitForEvent('download'),doc.locator('[data-doc-save="md"]').click()]);

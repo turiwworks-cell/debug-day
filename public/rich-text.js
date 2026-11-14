@@ -182,7 +182,7 @@ export function DDRichText({ React: R, text, onToggle, language }) {
   let code = null;
   lines.forEach((line, i) => {
     if (/^\s*```/.test(line)) {
-      if (code) { out.push(h("pre", { key: "c" + i, className: "dd-rich-pre" }, code.join("\n") || " ")); code = null; }
+      if (code) { out.push(h("pre", { key: "c" + i, dir: "auto", className: "dd-rich-pre" }, code.join("\n") || " ")); code = null; }
       else code = [];
       return;
     }
@@ -191,7 +191,7 @@ export function DDRichText({ React: R, text, onToggle, language }) {
     let m;
     if ((m = line.match(/^\s*- \[([ xX])\]\s?(.*)$/))) {
       counters.length = 0;
-      out.push(h("label", { key: i, className: "dd-sticky-todo", "data-done": m[1] !== " ", "data-level": lead || undefined, style: pad },
+      out.push(h("label", { key: i, dir: "auto", className: "dd-sticky-todo", "data-done": m[1] !== " ", "data-level": lead || undefined, style: pad },
         h("input", { type: "checkbox", checked: m[1] !== " ", "aria-label": m[2] || hint, onPointerDown: (e) => e.stopPropagation(), onClick: (e) => e.stopPropagation(), onDoubleClick: (e) => e.stopPropagation(), onChange: () => onToggle?.(i) }),
         h("span", null, m[2] ? inline(h, m[2]) : h("span", { className: "dd-sticky-hint" }, hint))));
       return;
@@ -199,19 +199,19 @@ export function DDRichText({ React: R, text, onToggle, language }) {
     if ((m = line.match(/^\s*(\d+)[.)] (.*)$/))) {
       counters.length = lead + 1;
       counters[lead] = (counters[lead] || 0) + 1;
-      out.push(h("div", { key: i, className: "dd-rich-li", "data-list": "number", "data-level": lead || undefined, style: pad }, h("span", { className: "dd-rich-marker", "aria-hidden": true }, counters[lead] + "."), h("span", null, inline(h, m[2]))));
+      out.push(h("div", { key: i, dir: "auto", className: "dd-rich-li", "data-list": "number", "data-level": lead || undefined, style: pad }, h("span", { className: "dd-rich-marker", "aria-hidden": true }, counters[lead] + "."), h("span", null, inline(h, m[2]))));
       return;
     }
     if ((m = line.match(/^\s*[-*•] (.*)$/))) {
       counters.length = lead;
-      out.push(h("div", { key: i, className: "dd-rich-li", "data-list": "bullet", "data-level": lead || undefined, style: pad }, h("span", { className: "dd-rich-marker", "aria-hidden": true }, ["•", "◦", "▪"][lead % 3]), h("span", null, inline(h, m[1]))));
+      out.push(h("div", { key: i, dir: "auto", className: "dd-rich-li", "data-list": "bullet", "data-level": lead || undefined, style: pad }, h("span", { className: "dd-rich-marker", "aria-hidden": true }, ["•", "◦", "▪"][lead % 3]), h("span", null, inline(h, m[1]))));
       return;
     }
     counters.length = 0;
-    if ((m = line.match(/^\s*(#{1,2}) (.*)$/))) { out.push(h("div", { key: i, className: "dd-rich-h" + m[1].length, role: "heading", "aria-level": m[1].length + 2 }, inline(h, m[2]) || " ")); return; }
-    if ((m = line.match(/^\s*-# (.*)$/))) { out.push(h("div", { key: i, className: "dd-rich-small" }, inline(h, m[1]) || " ")); return; }
-    if ((m = line.match(/^\s*> ?(.*)$/)) && line.trim().startsWith(">")) { out.push(h("blockquote", { key: i, className: "dd-rich-quote" }, inline(h, m[1]) || " ")); return; }
-    out.push(h("div", { key: i }, line ? inline(h, line) : " "));
+    if ((m = line.match(/^\s*(#{1,2}) (.*)$/))) { out.push(h("div", { key: i, dir: "auto", className: "dd-rich-h" + m[1].length, role: "heading", "aria-level": m[1].length + 2 }, inline(h, m[2]) || " ")); return; }
+    if ((m = line.match(/^\s*-# (.*)$/))) { out.push(h("div", { key: i, dir: "auto", className: "dd-rich-small" }, inline(h, m[1]) || " ")); return; }
+    if ((m = line.match(/^\s*> ?(.*)$/)) && line.trim().startsWith(">")) { out.push(h("blockquote", { key: i, dir: "auto", className: "dd-rich-quote" }, inline(h, m[1]) || " ")); return; }
+    out.push(h("div", { key: i, dir: "auto" }, line ? inline(h, line) : " "));
   });
   if (code) out.push(h("pre", { key: "c-end", className: "dd-rich-pre" }, code.join("\n") || " "));
   return out;
