@@ -370,6 +370,7 @@ function DDReviewCalendar({
   panelId,
   mode,
   onMode,
+  onMonth: reportMonth,
 }) {
   const { h, fa, t, n } = DDreviewUI(R, language),
     lifeItems = DDlifeItems(data.setup),
@@ -389,6 +390,7 @@ function DDReviewCalendar({
     () => DDreviewMonth(anchor, system, weekStart),
     [anchor, system, weekStart],
   );
+  R.useEffect(() => reportMonth?.({ ...month, system }), [month.start, system]);
   const tabDate = month.cells.some((cell) => cell.date === date)
     ? date
     : month.start;
@@ -542,7 +544,8 @@ function DDReviewCalendar({
           summary = DDreviewSummary(day, data.setup),
           load = DDdayLoad(day, usual),
           due = feelingsOnly ? [] : DDdueOn(lifeItems, cell.date),
-          reminders = feelingsOnly ? 0 : DDreviewReminders(data.setup.reminders, cell.date).length,
+          remList = feelingsOnly ? [] : DDreviewReminders(data.setup.reminders, cell.date),
+          reminders = remList.length,
           worries = (data.setup.worries || []).filter(
             (item) => item.createdAt === cell.date,
           ).length,
@@ -564,6 +567,7 @@ function DDReviewCalendar({
             type: "button",
             "data-review-date": cell.date,
             "data-load": feelingsOnly ? undefined : load.level,
+            "data-reminders": reminders || undefined,
             "data-all-done": load.allDone || undefined,
             "aria-pressed": cell.date === date,
             tabIndex: cell.date === tabDate ? 0 : -1,
@@ -575,6 +579,7 @@ function DDReviewCalendar({
                 ? " · " + n(load.done) + t(" of ", " از ") + n(load.tasks) + t(" tasks done", " کار انجام شده") + " · " + DDloadName(load.level, language)
                 : "") +
               (feelingCount ? " · " + n(feelingCount) + t(feelingCount === 1 ? " feeling" : " feelings", " احساس") : "") +
+              (reminders ? t(" · reminder: ", " · یادآور: ") + remList.map((r) => r.title).join(", ") : "") +
               (other ? " · " + other : "") +
               (due.length ? t(" · deadline: ", " · ددلاین: ") + due.map((i) => DDdueName(i, language)).join(", ") : ""),
             className:
@@ -597,14 +602,21 @@ function DDReviewCalendar({
               "span",
               { className: "dd-cal-marks", "aria-hidden": true },
               due.length > 0 && h("span", { className: "dd-cal-due", "data-cal-due": cell.date }, "◆"),
-              reminders > 0 && cell.date >= today && h("span", { className: "dd-cal-remind", "data-cal-remind": cell.date }),
               day?.mood && h("span", { className: "dd-review-date-mood" }, day.mood),
             ),
           ),
           h(
             "span",
             { className: "dd-cal-body", "aria-hidden": true },
-            !feelingsOnly && !load.tasks && other && h("span", { className: "dd-cal-word" }, other),
+            reminders > 0 &&
+              h(
+                "span",
+                { className: "dd-cal-rem", "data-cal-remind": cell.date, "data-done": remList.every((r) => r.done) || undefined },
+                DDbell(h),
+                h("span", { dir: "auto" }, remList[0].title),
+                reminders > 1 && h("b", null, "+" + n(reminders - 1)),
+              ),
+            !feelingsOnly && !load.tasks && !reminders && other && h("span", { className: "dd-cal-word" }, other),
             !feelingsOnly &&
               load.tasks > 0 &&
               h(
@@ -643,6 +655,59 @@ function DDReviewCalendar({
         h("span", null, h("span", { className: "dd-cal-meter" }, h("i", { style: { width: "60%" } })), t("done", "انجام‌شده")),
         h("span", { className: "dd-cal-usual" }, t("Full is measured against your usual day", "«پر» یعنی نسبت به یک روز معمول خودت")),
       ),
+  );
+}
+const DDbell = (h) =>
+  h("svg", { viewBox: "0 0 16 16", width: 12, height: 12, fill: "none", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true },
+    h("path", { d: "M4 11.5V7.2a4 4 0 0 1 8 0v4.3l1.2 1.3H2.8z" }), h("path", { d: "M6.6 14.2a1.6 1.6 0 0 0 2.8 0" }));
+// The month's reminders beside the grid (5.58): every day that has one, with
+// each reminder's name. A click picks that day.
+function DDCalReminders({ React: R, data, date, today, language, month, onSelectDay }) {
+  const { h, t, n } = DDreviewUI(R, language);
+  if (!month) return null;
+  const system = month.system,
+    days = month.cells
+      .filter((cell) => cell.inMonth)
+      .map((cell) => ({ date: cell.date, items: DDreviewReminders(data.setup.reminders, cell.date) }))
+      .filter((row) => row.items.length),
+    count = days.reduce((sum, row) => sum + row.items.length, 0),
+    label = (value) =>
+      DDreviewFormatter(language, system, { weekday: "short", day: "numeric", month: "short" }).format(new Date(value + "T12:00:00Z"));
+  return h(
+    "aside",
+    { className: "dd-cal-reminders", "aria-label": t("Reminders this month", "یادآورهای این ماه") },
+    h("header", null, h("h2", null, DDbell(h), t("Reminders", "یادآورها")), count > 0 && h("span", { className: "dd-cal-count" }, n(count))),
+    !days.length
+      ? h("p", { className: "dd-cal-reminders-empty" }, t("No reminders this month. Pick a day and add one under Reminders.", "این ماه یادآوری نیست. یک روز را انتخاب کن و از بخش یادآورها اضافه کن."))
+      : h(
+          "ol",
+          null,
+          days.map((row) =>
+            h(
+              "li",
+              { key: row.date, "data-past": row.date < today || undefined, "data-today": row.date === today || undefined },
+              h(
+                "button",
+                { type: "button", "data-cal-reminder-day": row.date, "aria-pressed": row.date === date, onClick: () => onSelectDay(row.date) },
+                h("time", { dateTime: row.date }, row.date === today ? t("Today", "امروز") : label(row.date)),
+                h(
+                  "span",
+                  null,
+                  row.items.map((item) =>
+                    h(
+                      "span",
+                      { key: item.id, className: "dd-cal-reminder", "data-done": item.done || undefined, dir: "auto" },
+                      item.title,
+                      item.repeat === "weekly" || item.repeat === "alternate"
+                        ? h("i", { title: item.repeat === "weekly" ? t("Every week", "هر هفته") : t("Every other day", "یک روز در میان") }, " ↻")
+                        : null,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
   );
 }
 function DDReviewMood({ React: R, data, date, language, setData, playful }) {
@@ -1950,7 +2015,8 @@ function DDCalendarColumns(props) {
   const { React: R, feelings } = props,
     h = R.createElement,
     [mode, setMode] = R.useState(() => (DDreviewLocal("debug-day:calendar-mode", "month") === "week" ? "week" : "month")),
-    onMode = (value) => { setMode(value); DDreviewRemember("debug-day:calendar-mode", value); };
+    onMode = (value) => { setMode(value); DDreviewRemember("debug-day:calendar-mode", value); },
+    [month, setMonth] = R.useState(null);
   if (mode === "week" && !feelings)
     return h(
       "div",
@@ -1961,7 +2027,7 @@ function DDCalendarColumns(props) {
     );
   return h(
     "div",
-    { className: "dd-review-columns" },
+    { className: "dd-review-columns" + (feelings ? "" : " dd-cal-three") },
     h(DDReviewCalendar, {
       ...props,
       feelingsOnly: feelings,
@@ -1969,7 +2035,9 @@ function DDCalendarColumns(props) {
       panelId: feelings ? "dd-feelings-day" : "dd-calendar-day",
       mode,
       onMode: feelings ? null : onMode,
+      onMonth: setMonth,
     }),
+    !feelings && h(DDCalReminders, { ...props, month }),
     h(DDReviewDay, { ...props, feelingsOnly: feelings }),
   );
 }

@@ -1,3 +1,10 @@
+## 5.58.0 — 2026-11-14
+Branch: claude/project-thread-d0zfxj
+- Calendar: a Reminders list on the left lists every day of the month that has a reminder, with each reminder's name (repeating ones marked ↻, done ones crossed out). A click picks that day.
+- Days with a reminder stand out in the month: a violet bell chip with the reminder's name (+N when there are more). On a phone the chip shows the bell only.
+- The day beside the month is more compact and cleaner: smaller headings, round tick circles, time as a small pill, a one-line "add a task" row, reminders marked with a violet line, and small action buttons.
+- On wide screens the Calendar uses more of the width, so the month stays large with the list and the day beside it.
+
 ## 5.57.0 — 2026-11-14
 Branch: claude/project-thread-d0zfxj
 - Calendar redesigned: the month is the big part of the page, with the chosen day beside it (below it on a phone).
