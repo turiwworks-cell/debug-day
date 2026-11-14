@@ -78,7 +78,9 @@ const {start,fixture,boardMenu}=require('./harness.cjs');
    await page.waitForFunction(()=>/Sketches/.test(document.querySelector('.dd-room-bar')?.innerText||''));
 
    // 3. A search jump is a place: Back returns to the view before it.
-   await page.waitForTimeout(300);
+   // (Wait for the board to settle: a jump within 600ms of arriving is part of the arrival.)
+   for(let i=0,last=await camera();i<20;i++){await page.waitForTimeout(150);const now=await camera();if(now===last)break;last=now;}
+   await page.waitForTimeout(700);
    const before=await camera();
    await view.focus();await page.keyboard.press('Control+f');
    await page.locator('.b4-search input').fill('Far away');

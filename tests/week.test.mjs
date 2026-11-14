@@ -62,7 +62,7 @@ test('a deadline reads as days left, softly, never as a warning', () => {
   assert.equal(DDdueText('2026-11-04', '2026-11-04', 'en'), 'today');
   assert.equal(DDdueText('2026-11-01', '2026-11-04', 'en'), 'date passed');
   assert.equal(DDdueText('2026-11-12', '2026-11-04', 'fa'), '۸ روز مانده');
-  assert.deepEqual(DDduePresets('2026-11-04', 'en').map((p) => p.date), ['2026-11-07', '2026-11-11', '2026-11-18', '2026-12-04']);
+  assert.deepEqual(DDduePresets('2026-11-04', 'en').map((p) => p.date), ['2026-11-07', '2026-11-11', '2026-11-18', '2026-12-04', '2027-02-03', '2027-11-04']);
   const items = feed().items;
   assert.deepEqual(DDdueBetween(items, '2026-11-01', '2026-11-30').map((i) => i.id), ['fox', 'jobs']);
   assert.deepEqual(DDdueOn(items, '2026-11-06').map((i) => i.id), ['fox']);
