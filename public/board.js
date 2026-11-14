@@ -3,7 +3,7 @@ import { DDreconcileDay, DDrelation, DDconnectRelation, DDdisconnectRelation, DD
 import { DDconnectionGeometry } from "./connections.js";
 import { DDundoRevert } from "./board-history.js";
 import { DDcreateBoardLayout, DDengineShift, DDnoteOnEngine } from "./board-layout.js";
-import { DDengineBus, DDengineTaskFromNote, DDengineSources, DDengineSourceHistory, DDengineStrip, DDinstallEngineStyles, DDengineCarry } from "./engine.js";
+import { DDengineBus, DDengineGoBus, DDengineTaskFromNote, DDengineSources, DDengineSourceHistory, DDengineStrip, DDinstallEngineStyles, DDengineCarry } from "./engine.js";
 import { DDEngineOverlay } from "./engine-panel.js";
 import { DDengineSectionIds, DDinstallEngineQuietStyles } from "./engine-quiet.js";
 import { DDboardShortcuts, DDboardSearchRows, DDrootSelection, DDmarqueeSelection, DDselectionToolbar, DDBoardSearch, DDBoardTimer, DDBoardTimerButton, DDinstallBoardExperience, DDinstallZoomLock } from "./board-experience.js";
@@ -2718,6 +2718,12 @@ export function DDcreateBoard(deps) {
         else api.current.fit(false, id && (viewport.current?.clientWidth || 0) < 700 ? "room" : "all");
       }, 0);
     }
+    // Glide to the Engine of this board, or of the Main board (Ctrl+Space, 5.69).
+    function goEngine(where) {
+      finishEdit(); setEngine(false); setMenu(null);
+      if (where === "main" && layout.room) { enterRoom(null, true); setTimeout(() => api.current.fit(false, "day"), 40); }
+      else setTimeout(() => api.current.fit(false, "day"), 40);
+    }
     function dropRoom() {
       setRoom(null);
       try { sessionStorage.removeItem("debug-day:board-room"); } catch {}
@@ -3277,6 +3283,7 @@ export function DDcreateBoard(deps) {
       pointerMove: pointerMove,
       pointerUp: pointerUp,
       finishEdit: finishEdit,
+      goEngine: goEngine,
     }),
       useEffect(() => {
         const n = ddSearchNode && layout.map.get(ddSearchNode.ref);
@@ -5647,6 +5654,12 @@ export function DDcreateBoard(deps) {
     // Ctrl+Space can ask for the Engine while this board is already open.
     useEffect(() => DDengineBus.on(() => DDengineBus.take() && setEngine(true)), []);
     useEffect(() => DDsectionsBus.on(() => DDsectionsBus.take() && setLifeNav(true)), []);
+    useEffect(() => {
+      const go = () => { const where = DDengineGoBus.take(); if (where) api.current.goEngine(where); };
+      const first = setTimeout(go, 60);
+      const off = DDengineGoBus.on(go);
+      return () => { clearTimeout(first); off(); };
+    }, []);
     // A section tag clicked elsewhere (the Engine page) goes into that section here.
     useEffect(() => {
       const go = () => { const id = DDsectionGo.take(); if (id !== null) relay.current.enterRoom(id || null); };

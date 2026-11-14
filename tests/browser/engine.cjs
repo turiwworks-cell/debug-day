@@ -12,11 +12,13 @@ const {start,fixture}=require('./harness.cjs');
    await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),f.data);
    await page.reload();await page.waitForSelector('.views',{state:'attached'});
    const day=async()=>(await page.evaluate((date)=>JSON.parse(localStorage.getItem('debug-day:v2')).days[date],f.date));
-   // Ctrl+Space: the Engine is the first row. There is no Engine page any more
-   // (5.67): from any view it opens the Board with the Engine over it.
+   // Ctrl+Space: after the two Engine trips (5.69), the Engine row. There is no
+   // Engine page any more (5.67): from any view it opens the Board with the Engine over it.
    await page.keyboard.press('Control+Space');
-   const first=page.locator('[role=option]').first();await first.waitFor();
-   assert.match(await first.innerText(),new RegExp(t('Engine','انجین')),'Engine is the first command');
+   await page.locator('[role=option]').first().waitFor();
+   assert.match(await page.locator('[role=option]').first().innerText(),new RegExp(t("Go to this section's Engine",'رفتن به انجین همین سکشن')));
+   const first=page.locator('[role=option]').nth(2);
+   assert.match(await first.innerText(),new RegExp(t('Engine','انجین')),'then the Engine');
    assert.equal(await page.locator('[role=option]',{hasText:t('Feelings','احساسات')}).count(),0,'no Feelings panel row');
    await first.click();
    await page.getByRole('dialog',{name:t('Engine','انجین')}).waitFor();

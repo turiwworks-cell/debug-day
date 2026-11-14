@@ -51,7 +51,7 @@ const {start,fixture,openEngine,boardMenu}=require('./harness.cjs');
    // Ctrl+Space, from Plan: the Sections row comes right after the Engine and opens the Board with the flowchart.
    await page.keyboard.press('Control+Space');
    const modal=page.locator('.dd-command-modal');
-   assert.equal(await modal.locator('.dd-panel-row').nth(1).getAttribute('data-panel'),'sections');
+   assert.equal(await modal.locator('.dd-panel-row').nth(3).getAttribute('data-panel'),'sections');
    await tap(modal.locator('.dd-panel-row[data-panel="sections"] .dd-command-open'));
    await flow.waitFor();
    await page.locator('.b2.focus-mode').waitFor();// from search the Board opens in full screen (5.23)

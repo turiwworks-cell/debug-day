@@ -8,6 +8,26 @@ import { DDcleanBoard } from "./search.js";
 
 // Ask the Board to bring the Engine up. The request waits until a Board is
 // on screen (Ctrl+Space can ask from Plan or Calendar before the Board opens).
+// Ctrl+Space's first two rows (5.69): glide to the Engine of the board you are
+// in ("here"), or of the Main board ("main"). It waits until the Board takes it.
+export const DDengineGoBus = {
+  pending: "",
+  listeners: new Set(),
+  request(where) {
+    this.pending = where === "main" ? "main" : "here";
+    for (const listener of [...this.listeners]) listener();
+  },
+  take() {
+    const pending = this.pending;
+    this.pending = "";
+    return pending;
+  },
+  on(listener) {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  },
+};
+
 export const DDengineBus = {
   pending: false,
   listeners: new Set(),

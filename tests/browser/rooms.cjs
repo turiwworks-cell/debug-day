@@ -39,6 +39,23 @@ const {start,fixture,boardMenu}=require('./harness.cjs');
    assert.equal(await page.locator('[data-board-id="section:habits"]').count(),0);
    // Today's Engine is there too, beside the section.
    const area=page.locator('[data-board-id="section:engine"]');await area.waitFor();
+   if(!mobile){
+    // 5.69: Ctrl+Space starts with this section's Engine and the Main board's.
+    const inView=()=>page.waitForFunction(()=>{const el=document.querySelector('[data-board-id="section:engine"]'),v=document.querySelector('.b2-viewport');if(!el||!v)return false;const r=el.getBoundingClientRect(),w=v.getBoundingClientRect();return r.left>=w.left-2&&r.right<=w.right+2&&r.top>=w.top-2&&r.top<w.bottom;});
+    const modal=page.locator('.dd-command-modal');
+    await page.locator('.b2-viewport').focus();await page.keyboard.press('Control+Space');await modal.waitFor();
+    assert.match(await modal.locator('.dd-panel-row').first().innerText(),/Go to this section's Engine[\s\S]*In Creative life/);
+    await page.keyboard.press('Enter');await modal.waitFor({state:'hidden'});
+    await inView();
+    assert.equal(await page.evaluate(()=>sessionStorage.getItem('debug-day:board-room')),'a','still inside the section');
+    await page.locator('.b2-viewport').focus();await page.keyboard.press('Control+Space');await modal.waitFor();
+    await page.keyboard.press('ArrowDown');await page.keyboard.press('Enter');await modal.waitFor({state:'hidden'});
+    await page.waitForFunction(()=>!sessionStorage.getItem('debug-day:board-room'));await inView();
+    await bar.waitFor({state:'detached'});
+    // Back into the section for the rest.
+    await boardMenu(page,'Feed');await page.waitForTimeout(300);
+    await tap(page.locator('[data-board-id="life:a"] [data-enter-section="a"]'));await bar.waitFor();await area.waitFor();
+   }
    // Entering a section schedules its camera fit. Wait for that fit before
    // saving screen coordinates; the old main-board camera can put them outside
    // the viewport (and make the later note-creation click hit nothing).

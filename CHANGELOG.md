@@ -1,3 +1,7 @@
+## 5.70.0 — 2026-11-14
+Branch: claude/project-thread-n79ngv
+- Ctrl+Space starts with two plain rows: "Go to this section's Engine" (it names the section you are in) and "Go to the Main board's Engine". Each glides the Board to that Engine, from anywhere in the app.
+
 ## 5.69.0 — 2026-11-14
 Branch: claude/project-thread-n79ngv
 - Board top bar: light / dark sits right after the timer, and the timer is a little wider.

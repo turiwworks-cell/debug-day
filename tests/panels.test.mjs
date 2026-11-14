@@ -29,19 +29,24 @@ test("Ctrl+Space rows isolate a panel, or open the pages that have no isolate", 
     rows = DDpanelCommands("en", (id, isolate) => calls.push([id, isolate]));
   const order = DDpanelList.map((panel) => panel.id);
   order.splice(1, 0, "sections");
+  // 5.69: the two Engine trips come first.
+  order.unshift("engine-here", "engine-main");
   assert.deepEqual(rows.map((row) => row.id), order.map((id) => "cmd-panel-" + id), "Sections sits right after the Engine");
   for (const row of rows) {
     assert.ok(row.id.startsWith("cmd-"), "the app only passes cmd- rows to the palette");
     row.action();
   }
-  assert.deepEqual(calls, order.map((id) => [id, id === "sections" ? false : DDpanelList.find((panel) => panel.id === id).isolate]));
+  assert.deepEqual(calls, order.map((id) => [id, id === "sections" || id.startsWith("engine-") ? false : DDpanelList.find((panel) => panel.id === id).isolate]));
   calls.length = 0;
   rows.find((row) => row.panel.id === "habits").showWithRest();
   assert.deepEqual(calls, [["habits", false]]);
   assert.equal(rows.find((row) => row.panel.id === "calendar").showWithRest, null);
-  assert.equal(DDpanelCommands("fa", () => {})[0].title, "انجین", "the Engine comes first in Ctrl+Space");
-  assert.equal(DDpanelCommands("fa", () => {})[1].title, "سکشن‌ها", "then the Section Drawer");
-  assert.equal(DDpanelCommands("fa", () => {})[2].title, "برد", "Plan is part of the Engine now (5.50)");
+  assert.equal(DDpanelCommands("fa", () => {})[0].title, "رفتن به انجین همین سکشن", "first: this section's Engine (5.69)");
+  assert.equal(DDpanelCommands("fa", () => {})[1].title, "رفتن به انجین سکشن اصلی", "then the main section's Engine");
+  assert.equal(DDpanelCommands("en", () => {}, "Studio")[0].words.includes("Studio"), true, "the section's name finds it");
+  assert.equal(DDpanelCommands("fa", () => {})[2].title, "انجین", "then the Engine");
+  assert.equal(DDpanelCommands("fa", () => {})[3].title, "سکشن‌ها", "then the Section Drawer");
+  assert.equal(DDpanelCommands("fa", () => {})[4].title, "برد", "Plan is part of the Engine now (5.50)");
   assert.equal(DDpanelOf("plan"), null);
 });
 

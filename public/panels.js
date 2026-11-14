@@ -81,11 +81,28 @@ export const DDsectionsCommand = {
 };
 
 // Rows for Ctrl+Space. open(id, isolate) runs when one is picked.
-export function DDpanelCommands(language, open) {
+// The first two rows go to an Engine on the Board (5.69): the one of the
+// section you are in, then the Main board's. `here` names that section.
+export function DDpanelCommands(language, open, here = "") {
   const fa = language === "fa",
-    list = [...DDpanelList];
+    list = [...DDpanelList],
+    engine = DDpanelOf("engine"),
+    go = (where, en, faName, about) => ({
+      id: "cmd-panel-engine-" + where,
+      panel: { id: "engine", icon: engine.icon, color: engine.color, isolate: false, go: where },
+      names: [en, faName],
+      title: fa ? faName : en,
+      subtitle: about[fa ? 1 : 0],
+      words: [en, faName, "engine go section main انجین رفتن سکشن اصلی", here].join(" "),
+      action: () => open("engine-" + where, false),
+      showWithRest: null,
+    });
   list.splice(list.findIndex((panel) => panel.id === "engine") + 1, 0, DDsectionsCommand);
-  return list.map((panel) => ({
+  return [
+    go("here", "Go to this section's Engine", "رفتن به انجین همین سکشن",
+      here ? ["In " + here, "در " + here] : ["You are on the Main board", "روی برد اصلی هستی"]),
+    go("main", "Go to the Main board's Engine", "رفتن به انجین سکشن اصلی", ["The Engine of the Main board", "انجین برد اصلی"]),
+  ].concat(list.map((panel) => ({
     id: "cmd-panel-" + panel.id,
     panel: { id: panel.id, icon: panel.icon, color: panel.color, isolate: panel.isolate },
     names: panel.name,
@@ -94,7 +111,7 @@ export function DDpanelCommands(language, open) {
     words: [panel.id, ...panel.name, ...panel.about, panel.words].join(" "),
     action: () => open(panel.id, panel.isolate),
     showWithRest: panel.isolate ? () => open(panel.id, false) : null,
-  }));
+  })));
 }
 
 // Line icons for the panels (5.43): the app draws its own icons with lines;
