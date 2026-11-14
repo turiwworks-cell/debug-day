@@ -647,6 +647,15 @@ export function DDcreateBoardLayout(deps) {
       const fresh=measured && measured.w===n.w && measured.text===n.title && measured.size===(n.textSize||16);
       // A shape keeps the size you gave it and grows taller only while its words need it (FigJam).
       if (n.shape) { n.h = DDshapeHeight(n.shape, n.h, fresh ? measured.h : 0); continue; }
+      // A text object hugs its words (5.61): its width is the most it may take,
+      // and its box is only as wide and as tall as the words in it.
+      if (n.plain) {
+        n.fitMax = n.w;
+        if (n.fixed) { n.h = Math.max(20, fresh ? measured.h : n.title.split("\n").length * (n.textSize || 16) * 1.4 + 6); continue; }
+        if (fresh && measured.cw > 0) n.w = Math.max(24, Math.min(n.w, measured.cw));
+        n.h = Math.max(20, fresh ? measured.h : n.title.split("\n").length * (n.textSize || 16) * 1.4 + 6);
+        continue;
+      }
       // A text object is as tall as its words; a note stays at least square.
       n.h=n.plain ? Math.max(32, fresh ? measured.h : n.title.split("\n").length*(n.textSize||16)*1.5+12) : DDstickyHeight(n.w, fresh ? measured.h : (n.title.split("\n").length*24+72));
     }

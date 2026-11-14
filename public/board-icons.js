@@ -124,6 +124,13 @@ export const DDboardIcons = {
   parentLook: "M6 3h10v10H6zM4 5v10h10" + "M2 7v10h10",
   // Shapes (5.59): a square in front of a circle, like FigJam.
   shape: "M3 8.5h8.5V17H3zM11.5 11.9A4.5 4.5 0 108.1 8.5",
+  // Text formatting (5.61).
+  textStyle: "M2.5 15.5L6.5 4.5l4 11M4 11.5h5M12.5 9.2a2.4 2.4 0 014.5 1.1v5.2M17 12.3c-3.2-.4-4.9.4-4.9 1.8 0 1 .8 1.6 1.8 1.6 1.6 0 3.1-1.1 3.1-3.1",
+  italic: "M8.5 4h7M4.5 16h7M12 4L8 16",
+  highlight: "M4 16.5h12M6 13.5l1.8-4.8 6-6 3 3-6 6-4.8 1.8zM12 4.5l3 3",
+  link: "M8.6 11.4a3 3 0 004.2 0l2.6-2.6a3 3 0 00-4.2-4.2l-1 1M11.4 8.6a3 3 0 00-4.2 0l-2.6 2.6a3 3 0 004.2 4.2l1-1",
+  listBullet: "M8 5h9M8 10h9M8 15h9" + "M3.6 5h.1M3.6 10h.1M3.6 15h.1",
+  listNumber: "M8.5 5h8.5M8.5 10h8.5M8.5 15h8.5M3 3.5l1.2-.7V7M2.8 9.6a1 1 0 012 .3c0 .8-2 1.5-2 2.6h2.1M2.8 13.6h1.9l-1 1.2a1 1 0 11-.9 1.5",
   // The eyedropper (5.60): take a color from the board.
   eyedropper: "M13.5 3.2a2 2 0 012.8 2.8l-1.9 1.9.9.9-1.4 1.4-.9-.9-6.1 6.1H4.5v-2.4l6.1-6.1-.9-.9 1.4-1.4.9.9zM8.9 8.7l2.4 2.4",
 };
