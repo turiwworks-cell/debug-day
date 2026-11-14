@@ -9,9 +9,26 @@ concurrency:
 permissions:
   contents: read
 jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+  # The browser tests run in four parts side by side (tests/browser/shard.mjs
+  # deals out the list from package.json "test:browser").
   browser:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -20,15 +37,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npm test
-      - run: npm run test:browser
+      - run: node tests/browser/shard.mjs ${{ matrix.part }} 4
         env:
           DEBUG_DAY_SCREENSHOTS: test-results
           DD_QA_SCREENSHOTS: test-results
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ui-screenshots
+          name: ui-screenshots-${{ matrix.part }}
           path: test-results/
           if-no-files-found: ignore
           retention-days: 7

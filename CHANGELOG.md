@@ -1,3 +1,7 @@
+## 5.56.1 — 2026-11-13
+Branch: claude/project-thread-d0zfxj
+- Checks run faster: the browser tests now run in four parts side by side on GitHub, and the unit tests on their own (tests/browser/shard.mjs). Nothing in the app changed.
+
 ## 5.56.0 — 2026-11-13
 Branch: claude/project-thread-d0zfxj
 - Daily routine: a "Routine" button in the Engine sets what each new day does by itself. Nothing is on until you choose it.
