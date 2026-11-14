@@ -28,6 +28,7 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 | **Eyedropper**: takes a color from anything on the Board (I) and gives it to what is picked, or to the next notes | color picker, sampler |
 | **Text style**: Large heading, Heading, Normal, Small, Quote, Code block for the words in a note, text or shape | font style, paragraph format |
 | **Tags** (on notes): the Tags menu finds, ticks, makes, renames and deletes tags; Rename and Delete change a tag everywhere | labels, categories |
+| **Document**: a card on the Board for long writing, with a name; opens full size to read and write; Save as PDF, Word, Markdown or Text | page, file, doc |
 | **Back to**: the boards you were on last, 1 to 4 in the Tab flowchart | history, recents |
 | **Focus**: the timer | Stillness |
 | **Pause the day**: the "life happened" pause, on the Board's top bar | Life happened |

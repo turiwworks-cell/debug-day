@@ -1,3 +1,13 @@
+## 5.63.0 — 2026-11-14
+Branch: claude/project-thread-d0zfxj
+- Documents on the Board, after Milanote: a card for long writing with a name. It shows as a card with the start of its words, or as a small icon (right-click: Show as icon / Show as card).
+- A double-click (or Enter) opens a document full size, with Write and Read views and the same text formatting as notes: headings, small text, quote, code block, bold, italic, strikethrough, highlight, code, links, lists and to-dos, with their shortcuts.
+- Save as… PDF, Word (.doc), Markdown (.md) or Text (.txt).
+- Right-click a note: Convert to document (its first line becomes the name), and back with Convert to note; the words stay.
+- New document from the tools menu (⋯ in the dock): Document.
+- A document is still a note underneath, so search, tags, sync, wires and every view keep working with it.
+- Text styles and lists keep the caret with its words, and a heading can start on an empty line.
+
 ## 5.62.0 — 2026-11-14
 Branch: claude/project-thread-d0zfxj
 - Note tags work like Milanote's labels: the Tags menu has one field that finds a tag or makes a new one, and a list of every tag with a tick (on this note or not), its colour and how often it is used.

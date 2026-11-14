@@ -88,3 +88,9 @@ test("bold and friends go inside a heading or list mark", () => {
   assert.equal(f("## Plan", "italic"), "## _Plan_");
   assert.equal(f("- sketch", "highlight"), "- ==sketch==");
 });
+
+test("a style on the caret's line keeps the caret with its words, empty lines too (5.63)", () => {
+  assert.deepEqual(DDrichFormat("a\n", 2, 2, "h2"), { text: "a\n## ", start: 5, end: 5 });
+  assert.deepEqual(DDrichFormat("## a", 4, 4, "h2"), { text: "a", start: 1, end: 1 });
+  assert.deepEqual(DDrichFormat("ab", 1, 1, "bullet"), { text: "- ab", start: 3, end: 3 });
+});

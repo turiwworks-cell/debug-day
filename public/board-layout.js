@@ -5,6 +5,7 @@
 import { DDlifeBounds, DDlifeHead, DDlifeItems, DDlifeAbs, DDlifeVisible, DDlifeColor, DDlifeDescendants, DDlifeInFrame, DDlifeShown, DDsectionTint } from "./life-board.js";
 import { DDstickyHeight } from "./stickies.js";
 import { DDshapeClear, DDshapeHeight } from "./shapes.js";
+import { DDdocSize } from "./documents.js";
 import { DDnotePhoto, DDphotoHeight } from "./board-photos.js";
 import { DDenergyOf, DDenergyLabel } from "./energy.js";
 import { DDflowEdges } from "./flow.js";
@@ -647,6 +648,8 @@ export function DDcreateBoardLayout(deps) {
       const fresh=measured && measured.w===n.w && measured.text===n.title && measured.size===(n.textSize||16);
       // A shape keeps the size you gave it and grows taller only while its words need it (FigJam).
       if (n.shape) { n.h = DDshapeHeight(n.shape, n.h, fresh ? measured.h : 0); continue; }
+      // A document keeps the size of its card; as an icon it is always the same size (5.63).
+      if (n.doc) { if (n.docView === "icon") { n.w = DDdocSize.icon.width; n.h = DDdocSize.icon.height; } continue; }
       // A text object hugs its words (5.61): its width is the most it may take,
       // and its box is only as wide and as tall as the words in it.
       if (n.plain) {
