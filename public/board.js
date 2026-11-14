@@ -911,7 +911,7 @@ export function DDcreateBoard(deps) {
           clash = shown.some((o) => r.x < o.x + o.w + gap && r.x + r.w + gap > o.x && r.y < o.y + o.h + gap && r.y + r.h + gap > o.y),
           hide = !n.room && (tooSmall || clash);
         if (!hide) shown.push(r);
-        if ((el.dataset.labelHidden === "true") !== hide) el.dataset.labelHidden = String(hide);
+        if (el.dataset.labelHidden !== String(hide)) el.dataset.labelHidden = String(hide);
       }
     }
     function paintCamera() {

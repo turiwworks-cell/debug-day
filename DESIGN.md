@@ -69,6 +69,10 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 - Every color works in light and dark. Never hard-code a hex for UI chrome.
 - **Never change the sticky notes' look** (shape, colors, fold, font).
 
+## 3b. Type
+
+- Two faces: `--sans` (Geist, Vazirmatn) for all words, `--title` (Fraunces, Markazi Text for Persian) for titles only: headings in notes and documents, document names, section names, page titles. Never for buttons, labels or body text.
+
 ## 4. Icons
 
 - App icons are line icons: 16×16 viewBox, `stroke="currentColor"`, stroke 1.5, round caps.
