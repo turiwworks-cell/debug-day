@@ -74,7 +74,7 @@ const {start,fixture}=require('./harness.cjs');
    await fitNear();
    await note('a').locator('.dd-note-preview').click();
    const plus=note('a').locator('[data-add-near="left"]');await plus.waitFor();
-   // The new note is ready to type; a note closed empty goes away (5.45).
+   // The new note is ready to type.
    await plus.click();await page.keyboard.type('Neighbour');await page.keyboard.press('Escape');
    d=await day();const near=d.notes.at(-1),a=d.notes.find(n=>n.id==='a');
    assert.equal(near.x,a.x-240-40,'the new note sits one gap to the left');assert.equal(near.y,a.y);

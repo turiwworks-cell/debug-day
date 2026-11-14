@@ -1,3 +1,7 @@
+## 5.66.1 — 2026-11-14
+Branch: claude/project-thread-n79ngv
+- A note you open and close without writing anything stays on the Board, empty, where it was (it used to vanish). An empty free text box still goes away.
+
 ## 5.66.0 — 2026-11-14
 Branch: claude/project-thread-n79ngv
 - Lines meet every note and card in the middle of a side, never near its top or bottom.
