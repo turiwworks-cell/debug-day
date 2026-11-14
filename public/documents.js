@@ -278,5 +278,11 @@ export const DDdocCSS = `
 .dd-doc-words .dd-rich-h1,.dd-doc-read .dd-rich-h1{font-size:1.5em;margin:.9em 0 .3em}
 .dd-doc-words .dd-rich-h2,.dd-doc-read .dd-rich-h2{font-size:1.22em;margin:.8em 0 .25em}
 .dd-doc-print{display:none}
+.dd-doc-ask{position:absolute;left:50%;bottom:84px;transform:translateX(-50%);z-index:70;display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;width:max-content;max-width:calc(100% - 32px);padding:8px 8px 8px 14px;border-radius:999px;background:var(--paper,#fff);color:var(--ink,#141414);box-shadow:0 0 0 1px var(--rule-2,#0001),0 10px 26px -10px #0005;font:500 13px/1.35 var(--sans,system-ui);cursor:default}
+.dd-doc-ask span{flex:1 1 auto;margin-inline-end:4px}
+@media(max-width:700px){.dd-doc-ask{border-radius:14px;bottom:96px}}
+.dd-doc-ask button{height:28px;padding:0 11px;border:0;border-radius:999px;background:var(--wash,#f1efe9);color:var(--ink-2,var(--ink));box-shadow:inset 0 0 0 1px var(--rule,#e6e3da);font:600 12px/1 var(--sans,system-ui);cursor:pointer}
+.dd-doc-ask button[data-doc-ask=yes]{background:var(--ink,#141414);color:var(--paper,#fff);box-shadow:none}
+@media(pointer:coarse){.dd-doc-ask button{height:44px}}
 @media(max-width:700px){.dd-doc-backdrop{padding:0}.dd-doc{border-radius:0}.dd-doc-count,.dd-doc-kind{display:none}.dd-doc-paper{padding:24px 18px 80px}.dd-doc-title{font-size:26px}.dd-doc-top{gap:4px;padding:8px}}
 `;

@@ -265,6 +265,8 @@ export function DDcreateBoard(deps) {
       [shapeMenu, setShapeMenu] = useState(null),
       // The document open full size (5.63), by its board id.
       [docOpen, setDocOpen] = useState(null),
+      // A long note asks once whether it should become a document (5.76).
+      [docAsk, setDocAsk] = useState(null),
       // A to-do list asked to start typing (double-click / Enter), 5.65.
       [todoFocus, setTodoFocus] = useState(null),
       // Writing on a line, opened by a double-click on it (5.66).
@@ -3948,6 +3950,27 @@ export function DDcreateBoard(deps) {
         DDrichShortcuts.map(([kind, name, keys]) => _.createElement("button", { type: "button", key: kind, role: "menuitem", "data-style": kind, onClick: () => { setTextMenu(null); formatSticky(kind); } },
           _.createElement("span", null, name), _.createElement("kbd", null, keys))));
     }
+    // Long: about a page of words, or many lines.
+    const DOC_ASKED = "debug-day:doc-asked";
+    function docAsked(id) { try { return (JSON.parse(localStorage.getItem(DOC_ASKED) || "[]") || []).includes(id); } catch { return false; } }
+    function markDocAsked(id) { try { const list = (JSON.parse(localStorage.getItem(DOC_ASKED) || "[]") || []).filter((x) => x !== id); list.push(id); localStorage.setItem(DOC_ASKED, JSON.stringify(list.slice(-500))); } catch {} }
+    function maybeAskDoc(node, value) {
+      if (docAsk === node.id || node.doc || node.shape || node.photo || node.todo || locked.has(node.id)) return;
+      if (String(value).length < 600 && String(value).split("\n").length < 15) return;
+      if (docAsked(node.id)) return;
+      // Asked once: shown now, never again for this note, whatever the answer.
+      markDocAsked(node.id);
+      setDocAsk(node.id);
+    }
+    useEffect(() => { if (docAsk && editing?.ref !== docAsk) setDocAsk(null); }, [editing?.ref]);
+    function answerDocAsk(node, yes) {
+      setDocAsk(null);
+      if (!yes) return;
+      finishEdit();
+      const now = layoutRef.current?.map.get(node.id) || node;
+      toggleDocument(now);
+      setDocOpen(node.id);
+    }
     function noteEditor(node) {
       // FigJam: you type straight onto the note; it saves as you type, and a
       // click outside (or Esc / Ctrl+Enter) finishes.
@@ -3972,6 +3995,7 @@ export function DDcreateBoard(deps) {
             const now = editingRef.current;
             if (now && now.ref === node.id) now.value = value;
             queueNote(node, value);
+            maybeAskDoc(node, value);
           },
           onSize: () => measureTyped.current?.(),
           onBlur: (event) => {
@@ -6551,6 +6575,12 @@ export function DDcreateBoard(deps) {
           setInspector(false);
         },
       }),
+      // A long note asks once, in one calm line above the dock (5.76).
+      docAsk && editing?.ref === docAsk && layout.map.get(docAsk) && _.createElement("div", { className: "dd-doc-ask", role: "group", "aria-label": t("Make this note a document?", "این نوت داکیومنت شود؟"), dir: DDlanguage === "fa" ? "rtl" : "ltr",
+            onPointerDown: (event) => { event.stopPropagation(); event.preventDefault(); } },
+          _.createElement("span", null, t("This note is getting long. Make it a document?", "این نوت بلند شده. تبدیلش کنیم به داکیومنت؟")),
+          _.createElement("button", { type: "button", "data-doc-ask": "yes", onClick: () => answerDocAsk(layout.map.get(docAsk), true) }, t("Make a document", "داکیومنت شود")),
+          _.createElement("button", { type: "button", "data-doc-ask": "no", onClick: () => answerDocAsk(layout.map.get(docAsk), false) }, t("Keep as note", "نوت بماند"))),
       _.createElement(
         "div",
         {
