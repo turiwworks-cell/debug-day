@@ -21,7 +21,9 @@ function el(tag, cls, text) {
   if (text != null) e.textContent = text;
   return e;
 }
-const mark = (s) => el("span", "dd-mk", s);
+// A mark carries its own dir, so a line's direction comes from its words only
+// ("- [x] باتری" still runs right to left).
+const mark = (s) => { const m = el("span", "dd-mk", s); m.dir = "ltr"; return m; };
 
 function inline(parent, s) {
   for (const v of String(s).split(DDrichInline)) {

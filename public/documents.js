@@ -7,6 +7,7 @@
 // for the icon look), so sync, Lanes, search, tags and wires work unchanged.
 // Its first line is its name; the rest is the document.
 
+import { DDLiveText } from "./live-text.js";
 import { DDRichText, DDrichFormat, DDrichKey, DDrichEnter, DDrichTab, DDrichPlain, DDrichShortcuts } from "./rich-text.js";
 
 // The style keys a document keeps (anything else is dropped).
@@ -130,7 +131,7 @@ export function DDDocumentView({ React: R, text, onChange, onClose, language, re
   R.useLayoutEffect(() => {
     const el = area.current, c = caret.current;
     if (el && c) { el.setSelectionRange(c.start, c.end); caret.current = null; }
-    if (el) { el.style.height = "auto"; el.style.height = Math.max(320, el.scrollHeight) + "px"; }
+    if (el?.tagName === "TEXTAREA") { el.style.height = "auto"; el.style.height = Math.max(320, el.scrollHeight) + "px"; }
   });
   const setWords = (r) => {
     // Same words (nothing to change): just put the caret where it belongs.
@@ -191,7 +192,7 @@ export function DDDocumentView({ React: R, text, onChange, onClose, language, re
         tool("number", "Numbered list (Ctrl+Shift+7)", "1."),
         tool("todo", "To-do (Ctrl+Shift+9)", "☐")),
       h("div", { className: "dd-doc-paper" },
-        h("input", { ref: nameRef, className: "dd-doc-title", value: name, placeholder: DDdocUntitled, "aria-label": "Document name", maxLength: 200, readOnly,
+        h("input", { ref: nameRef, className: "dd-doc-title", dir: "auto", value: name, placeholder: DDdocUntitled, "aria-label": "Document name", maxLength: 200, readOnly,
           onChange: (e) => { setName(e.target.value); push(e.target.value, body); },
           onKeyDown: (e) => {
             // Enter goes on to the words.
@@ -201,8 +202,9 @@ export function DDDocumentView({ React: R, text, onChange, onClose, language, re
             else { setMode("write"); requestAnimationFrame(() => { area.current?.focus(); area.current?.setSelectionRange(0, 0); }); }
           } }),
         mode === "write"
-          ? h("textarea", { ref: area, className: "dd-doc-words", value: body, placeholder: "Start writing…", "aria-label": "Document text", spellCheck: true,
-              onChange: (e) => { setBody(e.target.value); push(name, e.target.value); },
+          // Written without the marks, so Write looks like Read (5.74).
+          ? h(DDLiveText, { React: R, boxRef: area, className: "dd-doc-words", value: body, placeholder: "Start writing…", "aria-label": "Document text",
+              onValue: (next) => { setBody(next); push(name, next); },
               onKeyDown: (e) => {
                 const el = e.currentTarget, kind = DDrichKey(e);
                 if (kind) { e.preventDefault(); format(kind); return; }
@@ -270,11 +272,11 @@ export const DDdocCSS = `
 .dd-doc-paper{flex:1;overflow:auto;padding:40px clamp(20px,8vw,96px) 80px;background:var(--paper,#fff)}
 .dd-doc-title{all:unset;display:block;width:100%;box-sizing:border-box;font:700 32px/1.25 var(--sans);color:var(--ink);margin-bottom:18px}
 .dd-doc-title::placeholder{color:var(--ink-3,#aaa)}
-.dd-doc-words{all:unset;display:block;width:100%;box-sizing:border-box;min-height:320px;white-space:pre-wrap;overflow-wrap:anywhere;font:17px/1.65 var(--sans);color:var(--ink);resize:none}
-.dd-doc-words::placeholder{color:var(--ink-3,#aaa)}
+.dd-doc-words{display:block;width:100%;box-sizing:border-box;min-height:320px;margin:0;padding:0;border:0;background:none;font:17px/1.65 var(--sans);color:var(--ink)}
+.dd-doc-words:empty::before{color:var(--ink-3,#aaa);opacity:1}
 .dd-doc-read{font:17px/1.65 var(--sans);color:var(--ink);min-height:320px}
-.dd-doc-read .dd-rich-h1{font-size:1.5em;margin:.9em 0 .3em}
-.dd-doc-read .dd-rich-h2{font-size:1.22em;margin:.8em 0 .25em}
+.dd-doc-words .dd-rich-h1,.dd-doc-read .dd-rich-h1{font-size:1.5em;margin:.9em 0 .3em}
+.dd-doc-words .dd-rich-h2,.dd-doc-read .dd-rich-h2{font-size:1.22em;margin:.8em 0 .25em}
 .dd-doc-print{display:none}
 @media(max-width:700px){.dd-doc-backdrop{padding:0}.dd-doc{border-radius:0}.dd-doc-count,.dd-doc-kind{display:none}.dd-doc-paper{padding:24px 18px 80px}.dd-doc-title{font-size:26px}.dd-doc-top{gap:4px;padding:8px}}
 `;
