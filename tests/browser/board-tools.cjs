@@ -268,6 +268,16 @@ const {start,fixture}=require('./harness.cjs');
     await page.getByRole('textbox',{name:'Write a comment',exact:true}).press('Escape');
     assert.equal(await page.locator('.dd-comment-capture').count(),0,'Esc on an empty comment is the cursor again');
     assert.equal((await today()).canvas.board4.comments,undefined,'nothing was made');
+    // 5.77.4: an empty new comment goes with Backspace, or with its Delete button.
+    await key('m');await page.mouse.click(vb0.x+vb0.width*0.5,vb0.y+vb0.height*0.75);
+    await page.getByRole('textbox',{name:'Write a comment',exact:true}).press('Backspace');
+    await page.locator('.dd-thread').waitFor({state:'detached'});
+    assert.equal(await page.locator('.dd-comment-capture').count(),0,'Backspace on an empty comment deletes it');
+    await key('m');await page.mouse.click(vb0.x+vb0.width*0.5,vb0.y+vb0.height*0.75);
+    await page.locator('.dd-thread').getByRole('button',{name:'Delete comment',exact:true}).click();
+    await page.locator('.dd-thread').waitFor({state:'detached'});
+    assert.equal(await page.locator('.dd-pin').count(),0,'no pin left behind');
+    assert.equal((await today()).canvas.board4.comments,undefined,'still nothing was made');
    }
    await key('m');
    assert.equal(await page.locator('.dd-comment-capture').count(),1,'M turns comments on');
