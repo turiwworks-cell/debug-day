@@ -52,6 +52,9 @@ const {start,fixture}=require('./harness.cjs');
   await page.keyboard.type('# Moodboard');
   assert.equal(await ed.locator('.dd-rich-h1').count(),1);
   assert.equal(await seen(ed),'Moodboard');
+  // Titles have their own face (5.77); the words under them keep the body face.
+  assert.match(await ed.locator('.dd-rich-h1').evaluate((e)=>getComputedStyle(e).fontFamily),/Fraunces/);
+  assert.doesNotMatch(await ed.evaluate((e)=>getComputedStyle(e).fontFamily),/Fraunces/);
   await page.keyboard.press('Enter');
   await page.keyboard.type('Find **three** films');
   assert.equal(await value(ed),'# Moodboard\nFind **three** films');

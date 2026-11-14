@@ -1,3 +1,8 @@
+## 5.77.0 — 2026-11-14
+Branch: claude/project-thread-n79ngv
+- Titles have their own face: headings in notes and documents, document names, section names on the Board, the Feed and Engine titles, and the Calendar's titles use a soft serif (Fraunces, with Markazi Text for Persian). Body words keep the one face.
+- Section names always say whether they are shown (`data-label-hidden`), not only after they were hidden once.
+
 ## 5.76.0 — 2026-11-14
 Branch: claude/project-thread-n79ngv
 - A note that gets long while you write (about a page, or 15 lines) asks once, in one calm line above the tools: "This note is getting long. Make it a document?" Make a document turns it into one and opens it with every word kept; Keep as note goes on writing. It never asks again for that note.
