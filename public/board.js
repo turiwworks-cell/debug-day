@@ -31,6 +31,7 @@ import { DDnoteTagsCSS } from "./note-tags.js";
 import { DDuseNoteTools, DDnoteBranch, DDparentLooks, DDnoteFamilyCSS } from "./note-family.js";
 import { DDuseBoardPhotos, DDboardPhotosCSS } from "./board-photos.js";
 import { DDshapeCSS, DDShapeLayer, DDshapeSVG, DDshapeTextBox, DDshapeKind, DDshapeLast, DDshapeRemember, DDshapeRow, DDShapeIcon, DDShapePicker, DDShapeColors } from "./shapes.js";
+import { DDuseEyedropper, DDdropperCSS, DDdropperScreen, DDdropperScreenPick } from "./eyedropper.js";
 import { DDtrashAdd, DDtrashRestore, DDtrashLabel } from "./trash.js";
 import { DDcanvasTidy } from "./upkeep.js";
 import { DDdueText, DDdueDate, DDdueDaysLeft, DDdueSet, DDDueEditor } from "./deadlines.js";
@@ -88,7 +89,7 @@ export function DDcreateBoard(deps) {
   DDinstallSectionTagStyles();
   // Comments, pen, note tags and parent notes (5.36).
   if (typeof document !== "undefined" && !document.getElementById("dd-board-tools-css"))
-    document.head.append(Object.assign(document.createElement("style"), { id: "dd-board-tools-css", textContent: DDpenCSS + DDcommentsCSS + DDnoteTagsCSS + DDnoteFamilyCSS + DDboardPhotosCSS + DDshapeCSS }));
+    document.head.append(Object.assign(document.createElement("style"), { id: "dd-board-tools-css", textContent: DDpenCSS + DDcommentsCSS + DDnoteTagsCSS + DDnoteFamilyCSS + DDboardPhotosCSS + DDshapeCSS + DDdropperCSS }));
   DDinstallLinkedStyles();
   // The note being written keeps its own text while you type, so a key redraws
   // only this box and not the whole board (5.47). The board hears each key
@@ -620,6 +621,11 @@ export function DDcreateBoard(deps) {
     useEffect(() => { if (noteTools.group?.some((ref) => !selected.has(ref))) noteTools.stopTags(); }, [selected]);
     // Photos dropped, pasted or picked onto the board (5.38): a note holding a Drive link.
     const photos = DDuseBoardPhotos({ ...markCtx, root, language: DDlanguage, addPhoto: (point, template) => addSticky(point, template) });
+    // The eyedropper (5.60): its target is a shape's fill or stroke when it was
+    // started from that palette, otherwise the picked things (or the next notes).
+    const dropTarget = useRef(null);
+    const dropper = DDuseEyedropper({ React: _, viewport, active: tool === "dropper", nodeOf: (ref) => layoutRef.current.map.get(ref),
+      onPick: (color) => relay.current.pickColor(color), onCancel: () => setTool("select") });
     useLayoutEffect(() => { placeSectionLabels(true); }, [layout]);
     // Text still waiting to be saved is saved when the page hides or the board closes.
     const flushNoteRef = useRef(flushNote);
@@ -3352,6 +3358,12 @@ export function DDcreateBoard(deps) {
               !root.current?.contains(ot.target)
             )
               return;
+            // Escape puts the eyedropper or the shape tool down before anything else.
+            if (ot.key === "Escape" && (tool === "dropper" || tool === "shape" || shapeMenu)) {
+              ot.preventDefault(); ot.stopImmediatePropagation();
+              if (shapeMenu) setShapeMenu(null); else setTool("select");
+              return;
+            }
             if (menu && ot.key === "Escape") {
               ot.preventDefault();
               setMenu(null);
@@ -3595,6 +3607,8 @@ export function DDcreateBoard(deps) {
             else if (Tt === "t") setTool("text");
             // Shapes (5.59): R draws the last shape, O a circle (FigJam's keys).
             else if (Tt === "r" && !ot.shiftKey) { setShapeMenu(null); setTool("shape"); }
+            // The eyedropper (5.60): I, then a click on anything takes its color.
+            else if (Tt === "i" && !ot.shiftKey) { finishEdit(); startDropper(null); }
             else if (Tt === "o" && !ot.shiftKey) { DDshapeRemember({ shape: "ellipse" }); setShapeKind("ellipse"); setShapeMenu(null); setTool("shape"); }
             // Pen and comments (5.36): P draws, M comments, Shift+M lists the comments.
             else if (Tt === "p" && !ot.shiftKey) { finishEdit(); setSelected(new Set()); setWireId(null); setWireSelection(null); setTool((v) => (v === "pen" ? "select" : "pen")); }
@@ -3641,7 +3655,7 @@ export function DDcreateBoard(deps) {
         mode,
         selectedNode,
         wireSelection,
-        menu, focus, search, help, engine, lifeNav,
+        menu, focus, search, help, engine, lifeNav, tool, shapeMenu,
       ]),
       useEffect(() => {
         if (!DDreadBoardView(day.date, day.canvas?.board4).camera) {
@@ -4806,6 +4820,35 @@ export function DDcreateBoard(deps) {
           : {}),
       });
     }
+    function startDropper(target) {
+      dropTarget.current = target;
+      setTool("dropper");
+      setStatus(t("Eyedropper: click anything to take its color · Esc to stop", "قطره‌چکان: روی هر چیزی کلیک کن تا رنگش را بگیری · Esc برای توقف"));
+    }
+    // A palette's dropper: the screen's own eyedropper where the browser has one
+    // (any pixel, photos included), otherwise the board's.
+    async function paletteDropper(target) {
+      if (!DDdropperScreen()) return startDropper(target);
+      const color = await DDdropperScreenPick();
+      if (color) { dropTarget.current = target; pickColor(color); }
+    }
+    function pickColor(color) {
+      if (!color) { setStatus(t("No color there. Click a note, shape, section or line.", "اینجا رنگی نیست. روی نوت، شکل، سکشن یا خط کلیک کن.")); return; }
+      const target = dropTarget.current, nodes = selectedNodes.filter((n) => !locked.has(n.id)), wires = [...selectedWires, ...(selectedWire ? [selectedWire.id] : [])];
+      dropTarget.current = null;
+      setTool("select");
+      if (target === "stroke") applyShape({ stroke: color, ...(pickedShapes().some((n) => n.strokeStyle === "none") ? { strokeStyle: "solid" } : {}) });
+      else if (target === "fill") applyShape({ fill: color });
+      else if (nodes.length || wires.length) {
+        if (nodes.length) commit((d) => core.setStyle(core.setStyle(d, nodes.filter((n) => !n.plain), { fill: color }), nodes.filter((n) => n.plain), { textColor: color }), t("Color taken", "رنگ گرفته شد"));
+        if (wires.length) patchWires(wires, { color }, t("Line color taken", "رنگ خط گرفته شد"));
+      } else {
+        // Nothing picked: the next notes and shapes get it.
+        changeAppearance({ stickyColor: color });
+        DDshapeRemember({ fill: color });
+      }
+      setStatus(t("Took " + color, "رنگ " + color + " گرفته شد"));
+    }
     // Shapes picked on the board: change their shape, fill or stroke together.
     function pickedShapes() {
       return selectedNodes.filter((n) => n.kind === "sticky" && n.shape && !locked.has(n.id));
@@ -4834,7 +4877,8 @@ export function DDcreateBoard(deps) {
     }
     // The open shape menu sits beside the selection bar (the bar itself scrolls).
     function shapePop() {
-      if (!["kind", "fill", "stroke"].includes(shapeMenu)) return null;
+      // It steps aside while the eyedropper is picking, and comes back after.
+      if (!["kind", "fill", "stroke"].includes(shapeMenu) || tool === "dropper") return null;
       const first = selectedNodes.find((n) => n.kind === "sticky" && n.shape), bar = selectionbar.current;
       if (!first || !bar) return null;
       const above = bar.offsetTop > 420, style = { position: "absolute", left: Math.max(8, bar.offsetLeft), zIndex: 80, ...(above ? { bottom: (bar.offsetParent?.clientHeight || 0) - bar.offsetTop + 8 } : { top: bar.offsetTop + bar.offsetHeight + 8 }) };
@@ -4842,8 +4886,8 @@ export function DDcreateBoard(deps) {
         shapeMenu === "kind"
           ? _.createElement(DDShapePicker, { React: _, current: first.shape, title: t("Shapes", "شکل‌ها"), onClose: () => setShapeMenu(null), onPick: (id) => { applyShape({ shape: id }); setShapeMenu(null); } })
           : shapeMenu === "fill"
-            ? _.createElement(DDShapeColors, { React: _, part: "fill", mode: first.fillMode || "fill", color: first.color, onMode: (m) => applyShape({ fillMode: m }), onColor: (c) => applyShape({ fill: c }) })
-            : _.createElement(DDShapeColors, { React: _, part: "stroke", mode: first.strokeStyle || "solid", color: first.stroke || "#757575", onMode: (m) => applyShape({ strokeStyle: m }), onColor: (c) => applyShape({ stroke: c, ...(first.strokeStyle === "none" ? { strokeStyle: "solid" } : {}) }) }));
+            ? _.createElement(DDShapeColors, { React: _, part: "fill", mode: first.fillMode || "fill", color: first.color, onMode: (m) => applyShape({ fillMode: m }), onColor: (c) => applyShape({ fill: c }), onDropper: () => paletteDropper("fill") })
+            : _.createElement(DDShapeColors, { React: _, part: "stroke", mode: first.strokeStyle || "solid", color: first.stroke || "#757575", onMode: (m) => applyShape({ strokeStyle: m }), onColor: (c) => applyShape({ stroke: c, ...(first.strokeStyle === "none" ? { strokeStyle: "solid" } : {}) }), onDropper: () => paletteDropper("stroke") }));
     }
     function applyStyle(patch) {
       restoreStylePreview();
@@ -5146,6 +5190,7 @@ export function DDcreateBoard(deps) {
           }),
           item("arena", "From Are.na…", "از Are.na…", "photo", () => photos.arena()),
           item("photo", "Photo or video…", "عکس یا ویدیو…", "photo", () => photos.pick()),
+          item("eyedropper", "Eyedropper", "قطره‌چکان", "eyedropper", () => startDropper(null), { shortcut: "I" }),
           sep("tools-view-sep"),
           item("view", "Canvas settings…", "تنظیمات بوم…", "settings", () => { setViewPanel(true); setProperties(false); setInspector(false); }),
         ];
@@ -5479,7 +5524,7 @@ export function DDcreateBoard(deps) {
       paintSelection();
     },[layout,selected,wireId,wireSelection,focus,properties,tick,setup.preferences]);
     live.current = { backgroundDown, openContext, finishEdit, startEngineMove, startFeedMove, startAreaResize, nodeDown, openEdit, selectOne, commit, toggleDone,
-      returnFromEdit, sendToToday, convertSticky, enterRoom, addLifeSection, ddAddFeeling, ddAddHabit, addSticky, addBlock, fitNote, portDown, showGhost, hideGhost, addNear };
+      returnFromEdit, sendToToday, convertSticky, enterRoom, addLifeSection, ddAddFeeling, ddAddHabit, addSticky, addBlock, fitNote, portDown, showGhost, hideGhost, addNear, pickColor };
     relay.current ||= Object.fromEntries(Object.keys(live.current).map((name) => [name, (...args) => live.current[name](...args)]));
     {
       // What every card may show besides its own node. Any change here draws all cards again.
@@ -5641,6 +5686,7 @@ export function DDcreateBoard(deps) {
         },
       }),
       shapePop(),
+      dropper.loupe,
       lifeNav && _.createElement(DDSectionsFlowchart, {
         React: _, items: DDlifeItems(setup), room: layout.room, language: DDlanguage, frame: layout.map.get("section:life"), quiet: [...engineSections],
         onShow: (id) => jumpLife(id),

@@ -124,6 +124,8 @@ export const DDboardIcons = {
   parentLook: "M6 3h10v10H6zM4 5v10h10" + "M2 7v10h10",
   // Shapes (5.59): a square in front of a circle, like FigJam.
   shape: "M3 8.5h8.5V17H3zM11.5 11.9A4.5 4.5 0 108.1 8.5",
+  // The eyedropper (5.60): take a color from the board.
+  eyedropper: "M13.5 3.2a2 2 0 012.8 2.8l-1.9 1.9.9.9-1.4 1.4-.9-.9-6.1 6.1H4.5v-2.4l6.1-6.1-.9-.9 1.4-1.4.9.9zM8.9 8.7l2.4 2.4",
 };
 // Older names still used across the Board, and what each now draws.
 export const DDboardIconAliases = {

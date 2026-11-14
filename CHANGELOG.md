@@ -1,3 +1,10 @@
+## 5.60.0 — 2026-11-14
+Branch: claude/project-thread-d0zfxj
+- Board: an eyedropper on I. Click any note, shape, section, task, line or pen stroke to take its color. A small loupe shows the color under the pointer first.
+- What is picked takes the color: notes and shapes their fill, text objects their words, lines their color. With nothing picked, the next notes and shapes use it.
+- A shape's Fill and Stroke menus have a dropper button too. Where the browser has a screen eyedropper (Chrome, Edge) it can take a color from anywhere, photos included.
+- Esc puts the eyedropper (or the shape tool) down without leaving full screen. The eyedropper is also in the Tools dock menu (⋯).
+
 ## 5.59.0 — 2026-11-14
 Branch: claude/project-thread-d0zfxj
 - Board: shapes, like FigJam. A new Shape tool in the dock (R draws the last shape, O a circle). A click drops a shape, a drag draws it at that size.
