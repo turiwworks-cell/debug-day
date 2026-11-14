@@ -48,7 +48,7 @@ const {start,fixture,boardMenu}=require('./harness.cjs');
    await page.waitForFunction(()=>Number(document.querySelector('.b2-viewport').dataset.zoom)<1);await page.waitForTimeout(200);
    {const vb0=await page.locator('.b2-viewport').boundingBox(),n0=(await day()).notes.length;
     await page.mouse.dblclick(vb0.x+vb0.width*.62,vb0.y+vb0.height*.35);
-    const typing=page.locator('.dd-note-editor textarea');await typing.waitFor();
+    const typing=page.locator('.dd-note-editor .dd-live');await typing.waitFor();
     await typing.fill('Made by double-click');await page.keyboard.press('Escape');
     const after=await day();assert.equal(after.notes.length,n0+1,'double-click adds one note');
     assert.equal(after.notes.at(-1).text,'Made by double-click');await page.keyboard.press('Escape');}
@@ -60,8 +60,8 @@ const {start,fixture,boardMenu}=require('./harness.cjs');
    assert.equal(await page.locator('.dd-ghost-note').evaluate((e)=>e.style.display),'block','the sticky tool previews the note');
    const before=(await day()).notes.length;
    await page.mouse.click(spot.x+4,spot.y+4);
-   const area=page.locator('.dd-note-editor textarea');await area.waitFor();
-   assert.equal(await area.getAttribute('placeholder'),t('Type anything…','هر چیزی بنویس…'));
+   const area=page.locator('.dd-note-editor .dd-live');await area.waitFor();
+   assert.equal(await area.getAttribute('data-placeholder'),t('Type anything…','هر چیزی بنویس…'));
    assert.equal(await page.getByRole('button',{name:t('Finish editing note','پایان ویرایش نوت')}).count(),0,'no separate editing bar');
    await area.fill('Typed on the note');await page.keyboard.press('Escape');
    let d=await day();assert.equal(d.notes.length,before+1);
@@ -83,7 +83,7 @@ const {start,fixture,boardMenu}=require('./harness.cjs');
    // (A click on an already selected note starts typing, as in FigJam, so clear first.)
    await page.keyboard.press('Escape');
    await note('a').locator('.dd-note-preview').click();
-   if(await note('a').locator('textarea').count())await page.keyboard.press('Escape');
+   if(await note('a').locator('.dd-live').count())await page.keyboard.press('Escape');
    const drag=async(loc,dx,dy)=>{const b=await loc.boundingBox();await page.mouse.move(b.x+b.width/2,b.y+b.height/2);await page.mouse.down();await page.mouse.move(b.x+b.width/2+dx,b.y+b.height/2+dy,{steps:8});await page.mouse.up();};
    await drag(note('a').locator('[data-edge="e"]'),60,30);
    let s=await style('a');assert.ok(s.width>240,'right edge widens');assert.equal(s.height,240,'right edge keeps the height');assert.equal(s.textSize,16);
@@ -98,7 +98,7 @@ const {start,fixture,boardMenu}=require('./harness.cjs');
    await page.keyboard.press('Escape');
    await fitNear();
    await note('a').locator('.dd-note-preview').click();
-   if(await note('a').locator('textarea').count())await page.keyboard.press('Escape');
+   if(await note('a').locator('.dd-live').count())await page.keyboard.press('Escape');
    // With "+" showing there are no separate circles; dragging "+" draws the line.
    assert.equal(await note('a').locator('.b4-port').evaluateAll((l)=>l.filter((e)=>getComputedStyle(e).display!=='none').length),0,'no connection circles behind the edges');
    const port=await note('a').locator('[data-add-near="right"]').boundingBox(),count=(await day()).notes.length;

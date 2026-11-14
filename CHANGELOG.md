@@ -1,3 +1,9 @@
+## 5.73.0 — 2026-11-14
+Branch: claude/project-thread-n79ngv
+- Notes, text and shapes are written without the marks: while you write, **, ##, - [ ] and the rest stay hidden and the words already look bold, headed, ticked or listed. The saved text keeps its marks, so search, sync and every other view are unchanged.
+- Typing a mark still formats ("# " makes a heading, "**word**" turns bold, "- [ ] " a to-do); Backspace at the start of a heading or list item takes the style off; a to-do's box ticks while writing; Undo and Redo work inside the note.
+- Typing T, N or / inside a note no longer reaches the app's own shortcuts.
+
 ## 5.72.0 — 2026-11-14
 Branch: claude/project-thread-n79ngv
 - Goals rail: a goal with a date (its own, or the note's deadline) counts down to the end of that day, to the second ("◆ 12d 02:10:16 left"), in place of − n +. The count stays in ✎ as "Done". A goal without a date keeps − n +.

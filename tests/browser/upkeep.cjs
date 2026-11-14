@@ -92,7 +92,7 @@ const {start,fixture,openEngine}=require('./harness.cjs');
     const n0=(await read()).days[f.date].notes.length,vb=await view.boundingBox();
     await page.keyboard.press('Escape');
     await page.mouse.dblclick(vb.x+vb.width*.8,vb.y+vb.height*.3);
-    const typing=page.locator('.dd-note-editor textarea');await typing.waitFor();
+    const typing=page.locator('.dd-note-editor .dd-live');await typing.waitFor();
     await page.keyboard.press('Escape');
     await page.waitForTimeout(400);
     assert.equal((await read()).days[f.date].notes.length,n0+1,'the empty note stays');

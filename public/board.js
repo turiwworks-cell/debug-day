@@ -31,6 +31,7 @@ import { DDnoteTagsCSS } from "./note-tags.js";
 import { DDuseNoteTools, DDnoteBranch, DDparentLooks, DDnoteFamilyCSS } from "./note-family.js";
 import { DDuseBoardPhotos, DDboardPhotosCSS } from "./board-photos.js";
 import { DDshapeCSS, DDShapeLayer, DDshapeSVG, DDshapeTextBox, DDshapeKind, DDshapeLast, DDshapeRemember, DDshapeRow, DDShapeIcon, DDShapePicker, DDShapeColors } from "./shapes.js";
+import { DDLiveText, DDliveCSS } from "./live-text.js";
 import { DDRichText, DDrichFormat, DDrichKey, DDrichEnter, DDrichTab, DDrichPlain, DDrichShortcuts, DDrichCSS } from "./rich-text.js";
 import { DDuseEyedropper, DDdropperCSS, DDdropperScreen, DDdropperScreenPick } from "./eyedropper.js";
 import { DDDocCard, DDDocumentView, DDdocCSS, DDdocSize, DDdocFromNote } from "./documents.js";
@@ -94,7 +95,7 @@ export function DDcreateBoard(deps) {
   DDinstallSectionTagStyles();
   // Comments, pen, note tags and parent notes (5.36).
   if (typeof document !== "undefined" && !document.getElementById("dd-board-tools-css"))
-    document.head.append(Object.assign(document.createElement("style"), { id: "dd-board-tools-css", textContent: DDpenCSS + DDcommentsCSS + DDnoteTagsCSS + DDnoteFamilyCSS + DDboardPhotosCSS + DDshapeCSS + DDdropperCSS + DDdocCSS + DDrichCSS + DDtodoCSS }));
+    document.head.append(Object.assign(document.createElement("style"), { id: "dd-board-tools-css", textContent: DDpenCSS + DDcommentsCSS + DDnoteTagsCSS + DDnoteFamilyCSS + DDboardPhotosCSS + DDshapeCSS + DDdropperCSS + DDdocCSS + DDrichCSS + DDliveCSS + DDtodoCSS }));
   DDinstallLinkedStyles();
   // The note being written keeps its own text while you type, so a key redraws
   // only this box and not the whole board (5.47). The board hears each key
@@ -131,8 +132,9 @@ export function DDcreateBoard(deps) {
         put(el, DDrichFormat(el.value, el.selectionStart, el.selectionEnd, "link", url));
       }
     };
+    // The words are written with their formatting and without the marks (5.73).
     return _.createElement(_.Fragment, null,
-      _.createElement("textarea", { ...props, ref: box, value, onKeyDown: keyDown, onPaste: paste, onChange: (event) => { const next = event.target.value; setValue(next); onText(next); } }),
+      _.createElement(DDLiveText, { ...props, React: _, boxRef: box, value, onKeyDown: keyDown, onPaste: paste, onValue: (next) => { setValue(next); onText(next); } }),
       /(?:^|\n)- \[ \] ?$/.test(value) && _.createElement("small", { className: "dd-sticky-hint" }, hint));
   }
   return function BoardWorkspace({
@@ -724,8 +726,8 @@ export function DDcreateBoard(deps) {
     // key. Everything is measured again when the board, the note or the language changes.
     useLayoutEffect(()=>{
       const measure=()=>{let changed=false;for(const n of layout.nodes.filter(n=>n.kind==="sticky")) {
-        const el=elementRefs.current.get(n.id),body=el?.querySelector(":scope>.b4-node-body"),input=el?.querySelector("textarea");
-        if(input){input.style.height="0px";input.style.height=input.scrollHeight+"px";}
+        const el=elementRefs.current.get(n.id),body=el?.querySelector(":scope>.b4-node-body"),input=el?.querySelector("textarea,.dd-live");
+        if(input?.tagName==="TEXTAREA"){input.style.height="0px";input.style.height=input.scrollHeight+"px";}
         if(!body)continue;
         const h=Math.ceil((n.todo?body.querySelector(".dd-todo")?.offsetHeight||body.scrollHeight:body.scrollHeight)+(el.querySelector(".dd-sticky-footer")?.offsetHeight||0)),cw=n.plain?fitWidth(el,input):0,w=n.fitMax??n.w,old=stickyHeights.current.get(n.id);
         if(!old||old.h!==h||old.cw!==cw||old.w!==w||old.text!==n.title||old.size!==(n.textSize||16)){stickyHeights.current.set(n.id,{w,cw,text:n.title,size:n.textSize||16,h});changed=true;}
@@ -739,8 +741,8 @@ export function DDcreateBoard(deps) {
     measureTyped.current=()=>{
       const ed=editingRef.current,n=ed&&layoutRef.current.map.get(ed.ref);
       if(!n||n.kind!=="sticky")return;
-      const el=elementRefs.current.get(n.id),body=el?.querySelector(":scope>.b4-node-body"),input=el?.querySelector("textarea");
-      if(input){input.style.height="0px";input.style.height=input.scrollHeight+"px";}
+      const el=elementRefs.current.get(n.id),body=el?.querySelector(":scope>.b4-node-body"),input=el?.querySelector("textarea,.dd-live");
+      if(input?.tagName==="TEXTAREA"){input.style.height="0px";input.style.height=input.scrollHeight+"px";}
       if(!body)return;
       const h=Math.ceil((n.todo?body.querySelector(".dd-todo")?.offsetHeight||body.scrollHeight:body.scrollHeight)+(el.querySelector(".dd-sticky-footer")?.offsetHeight||0)),cw=n.plain?fitWidth(el,input):0,w=n.fitMax??n.w,old=stickyHeights.current.get(n.id);
       if(!old||old.h!==h||old.cw!==cw||old.w!==w||old.text!==n.title||old.size!==(n.textSize||16)){stickyHeights.current.set(n.id,{w,cw,text:n.title,size:n.textSize||16,h});setStickyRevision(v=>v+1);}
@@ -3910,7 +3912,7 @@ export function DDcreateBoard(deps) {
     function formatSticky(kind, arg, range) {
       flushNote();
       const node=layout.map.get(editingRef.current?.ref)||selectedNode;if(node?.kind!=="sticky")return;
-      const input=elementRefs.current.get(node.id)?.querySelector("textarea"),text=editingRef.current?.ref===node.id?editingRef.current.value:node.title;
+      const input=elementRefs.current.get(node.id)?.querySelector("textarea,.dd-live"),text=editingRef.current?.ref===node.id?editingRef.current.value:node.title;
       const next=DDrichFormat(text,range?range[0]:input?.selectionStart??0,range?range[1]:input?.selectionEnd??text.length,kind,arg);
       commit(d=>{const list=node.lifeId?d.__life.items:d.notes,n=list.find(n=>n.id===(node.lifeId||node.noteId));if(n)n.text=next.text;return d;});
       if(input){setEditing({ref:node.id,value:next.text});requestAnimationFrame(()=>{input.focus();input.setSelectionRange(next.start,next.end);});}
@@ -3919,7 +3921,7 @@ export function DDcreateBoard(deps) {
     function openLink() {
       const node = layout.map.get(editingRef.current?.ref) || selectedNode;
       if (node?.kind !== "sticky") return;
-      const input = elementRefs.current.get(node.id)?.querySelector("textarea"), text = editingRef.current?.ref === node.id ? editingRef.current.value : node.title;
+      const input = elementRefs.current.get(node.id)?.querySelector("textarea,.dd-live"), text = editingRef.current?.ref === node.id ? editingRef.current.value : node.title;
       let range = input ? [input.selectionStart, input.selectionEnd] : [0, text.length];
       // Inside a link already: take the whole link, and show its address.
       const re = /\[([^\]\n]*)\]\(([^)\s]*)\)/g; let m, url = "";

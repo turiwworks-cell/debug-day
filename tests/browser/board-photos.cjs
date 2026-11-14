@@ -69,7 +69,7 @@ const {start,fixture}=require('./harness.cjs');
    await card.waitFor();
    assert.equal(await card.getAttribute('data-photo'),'image');
    assert.equal(await card.getAttribute('aria-selected'),'true','the new photo is picked');
-   assert.equal(await card.locator('textarea').count(),0,'and not opened for typing');
+   assert.equal(await card.locator('.dd-live').count(),0,'and not opened for typing');
    const img=card.locator('.dd-photo-face img');
    await img.waitFor();
    assert.match(await img.getAttribute('src'),/^blob:/,'shows from the file right away');

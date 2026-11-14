@@ -149,7 +149,7 @@ export function DDrichPlain(text) {
     .replace(/^\s*- \[[ xX]\]\s?/gm, "");
 }
 
-const INLINE = /(\[[^\]\n]+\]\((?:https?:\/\/|mailto:)[^)\s]+\)|\*\*[^*\n]+\*\*|~~[^~\n]+~~|==[^=\n]+==|`[^`\n]+`|(?<![\w])_[^_\s][^_\n]*_(?![\w])|(?:https?:\/\/|www\.)[^\s<>()]*[^\s<>().,;:!?'"])/gi;
+export const DDrichInline = /(\[[^\]\n]+\]\((?:https?:\/\/|mailto:)[^)\s]+\)|\*\*[^*\n]+\*\*|~~[^~\n]+~~|==[^=\n]+==|`[^`\n]+`|(?<![\w])_[^_\s][^_\n]*_(?![\w])|(?:https?:\/\/|www\.)[^\s<>()]*[^\s<>().,;:!?'"])/gi;
 // A link opens in a new tab on a click, never at the end of a drag.
 function linkProps(href) {
   let at = null;
@@ -160,7 +160,7 @@ function linkProps(href) {
   };
 }
 function inline(h, s, key = "i") {
-  return String(s).split(INLINE).map((v, i) => {
+  return String(s).split(DDrichInline).map((v, i) => {
     const k = key + i;
     if (!v) return null;
     let m;
@@ -234,7 +234,7 @@ export const DDrichCSS = `
 .b6 .b4-node.b4-sticky.b4-plain .dd-note-preview{width:100%;padding:2px 4px!important;line-height:1.3;box-sizing:border-box}
 .b6 .b4-node.b4-sticky.b4-plain.b4-fit .dd-note-preview{width:max-content;max-width:var(--fit-max,100%)}
 .b6 .b4-node.b4-sticky.b4-plain .dd-note-editor{padding:0!important;position:relative}
-.b6 .b4-node.b4-sticky.b4-plain .dd-note-editor textarea{padding:2px 4px!important;line-height:1.3;box-sizing:border-box}
+.b6 .b4-node.b4-sticky.b4-plain .dd-note-editor :is(textarea,.dd-live){padding:2px 4px!important;line-height:1.3;box-sizing:border-box}
 .b6 .b4-plain .dd-fit-mirror{position:absolute;left:0;top:0;visibility:hidden;pointer-events:none;white-space:pre-wrap;overflow-wrap:anywhere;width:max-content;max-width:var(--fit-max,100%);padding:2px 4px;box-sizing:border-box;font-size:calc(var(--object-size,16px) * 1.15);font-weight:600;line-height:1.3;letter-spacing:-.005em}
 .dd-text-style-pop{position:absolute;z-index:80;min-width:220px;background:#1E1E1E;color:#fff;border:1px solid #ffffff1a;border-radius:12px;box-shadow:0 12px 32px #0005;padding:6px;font:13px/1.3 system-ui,sans-serif}
 .dd-text-style-pop button{display:flex;width:100%;align-items:center;justify-content:space-between;gap:16px;border:0;background:none;color:inherit;padding:8px 10px;border-radius:7px;cursor:pointer;font:inherit;text-align:start}

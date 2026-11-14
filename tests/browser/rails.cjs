@@ -60,9 +60,9 @@ const { start, fixture,boardMenu} = require("./harness.cjs");
       await close("note");
       // The text editor owns letters, even those used by rail shortcuts.
       await page.locator('[data-board-id="sticky:scratch"]').focus(); await page.keyboard.press("Enter");
-      await page.locator(".dd-note-editor textarea").fill("gh"); await page.locator(".dd-note-editor textarea").press("g");
+      await page.locator(".dd-note-editor .dd-live").fill("gh"); await page.locator(".dd-note-editor .dd-live").press("g");
       assert.equal(await toggle("goal").getAttribute("aria-expanded"), "false");
-      await page.locator(".dd-note-editor textarea").press("Control+Enter");
+      await page.locator(".dd-note-editor .dd-live").press("Control+Enter");
 
       // Nested board: main → Art → Sketches, and both day and shared connections.
       await boardMenu(page,'Sections');

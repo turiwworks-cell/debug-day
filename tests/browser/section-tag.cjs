@@ -80,7 +80,7 @@ const {start,fixture,openEngine}=require('./harness.cjs');
     const notes0=(await day()).notes.length;
     await view.focus();await page.keyboard.press('s');await page.locator('.dd-sticky-colors').waitFor();
     await page.mouse.move(area.x+area.width-90,area.y+area.height-70);await page.mouse.click(area.x+area.width-90,area.y+area.height-70);
-    const typing=page.locator('.dd-note-editor textarea');await typing.waitFor();
+    const typing=page.locator('.dd-note-editor .dd-live');await typing.waitFor();
     await typing.fill('Engine thought');await page.keyboard.press('Escape');
     await page.waitForFunction(([date,n])=>JSON.parse(localStorage.getItem('debug-day:v2')).days[date].notes.length===n+1,[f.date,notes0]);
     const note=(await day()).notes.at(-1);
