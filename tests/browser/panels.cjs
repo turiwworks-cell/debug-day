@@ -38,14 +38,16 @@ const { start, fixture } = require("./harness.cjs");
     const modal = page.locator(".dd-command-modal");
     const first = modal.locator(".dd-result-group").first();
     assert.equal(await first.getAttribute("data-group"), "panels");
-    assert.equal(await first.locator(".dd-panel-row").count(), 5, "the panels, with Sections right after the Engine (Stats removed in 5.57)");
-    assert.equal(await first.locator(".dd-panel-row").nth(1).getAttribute("data-panel"), "sections");
+    assert.equal(await first.locator(".dd-panel-row").count(), 7, "two Engine trips, then the panels, with Sections right after the Engine (Stats removed in 5.57)");
+    // 5.69: the first two rows go to an Engine on the Board, said plainly.
+    assert.match(await first.locator(".dd-panel-row").nth(0).innerText(), /Go to this section's Engine/);
+    assert.match(await first.locator(".dd-panel-row").nth(0).innerText(), /You are on the Main board/);
+    assert.match(await first.locator(".dd-panel-row").nth(1).innerText(), /Go to the Main board's Engine/);
+    assert.equal(await first.locator(".dd-panel-row").nth(3).getAttribute("data-panel"), "sections");
     const ids = await modal.locator(".dd-command-row").evaluateAll((rows) => rows.map((row) => row.id + row.textContent));
     assert.equal(new Set(ids.map((text) => text.replace(/^dd-result-\d+/, ""))).size, ids.length, "nothing is listed twice on the first page");
     assert.equal(await first.locator(".dd-panel-row").first().getAttribute("data-panel"), "engine", "the Engine comes first");
-    await page.keyboard.press("ArrowDown");
-    await page.keyboard.press("ArrowDown");
-    await page.keyboard.press("ArrowDown");
+    for (let i = 0; i < 5; i++) await page.keyboard.press("ArrowDown");
     await page.keyboard.press("Enter");
     await modal.waitFor({ state: "hidden" });
     // Habits open beside the Board, in "Today's habits" (5.67).

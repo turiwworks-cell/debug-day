@@ -660,7 +660,17 @@ export function DDCommandPalette(props) {
       ),
     [data, date, selectedDay, today],
   );
-  const commandRows = commands.map((command) => {
+  // "Go to this section's Engine" names the section the Board is in (5.69).
+  const roomName = (() => {
+    try {
+      const id = sessionStorage.getItem("debug-day:board-room");
+      return (id && (data.setup.life?.items || []).find((i) => i.id === id)?.text) || "";
+    } catch { return ""; }
+  })();
+  const commandRows = commands.map((raw) => {
+    const command = raw.id === "cmd-panel-engine-here"
+      ? { ...raw, subtitle: roomName ? t("In ", "در ") + roomName : t("You are on the Main board", "روی برد اصلی هستی") }
+      : raw;
     const names = command.names ||
         DDcommandNames[command.id] || [command.title, command.title],
       lane = command.id.startsWith("lane-")
