@@ -5,6 +5,7 @@ import { DDlifeItems, DDsectionTint, DDsectionPath } from "./life-board.js";
 import { DDplanMinutes, DDduration } from "./measure.js";
 import { DDbudgetOf, DDbudgetUsed, DDbudgetText, DDgoalOf, DDgoalText } from "./budgets.js";
 import { DDdueBetween, DDdueOn, DDdueText, DDdueDate, DDdueName } from "./deadlines.js";
+import { DDtodoDueItems, DDtodoLists } from "./todos.js";
 import { DDenergyOf, DDenergyLabel } from "./energy.js";
 import { DDaddDays } from "./dates.js";
 
@@ -108,7 +109,8 @@ export function DDweekSummary(data, date, today, language) {
     sections.set(it.id, row);
   }
   const goals = items.filter((i) => i.type === "sticky" && (i.goal || i.role === "goal")).map((i) => ({ id: i.id, name: DDdueName(i, language), text: DDgoalText(DDgoalOf(i), today, language) })),
-    due = DDdueBetween(items, days[0], DDcalShift(days[6], 14)).map((i) => ({ id: i.id, name: DDdueName(i, language), due: i.due, color: i.type === "section" ? DDsectionTint(items, i.id)?.fill : i.color }));
+    // Tasks with a due date in a to-do list show next to the deadlines (5.65).
+    due = DDdueBetween([...items, ...DDtodoDueItems(DDtodoLists(data))], days[0], DDcalShift(days[6], 14)).map((i) => ({ id: i.id, name: DDdueName(i, language), due: i.due, color: i.type === "section" ? DDsectionTint(items, i.id)?.fill : i.color }));
   return {
     days, planned, done, doneMinutes, light, heavy, moods, goals, due,
     sections: [...sections.values()].sort((a, b) => (b.id ? 1 : 0) - (a.id ? 1 : 0) || b.minutes - a.minutes || b.tasks - a.tasks),
@@ -127,6 +129,8 @@ export function DDCalendarModes({ React: R, mode, onMode, language }) {
 const check = (h) => h("svg", { viewBox: "0 0 16 16", width: 12, height: 12, fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true }, h("path", { d: "M3.5 8.5l3 3 6-7" }));
 
 export function DDCalendarWeek({ React: R, data, date, today, language, onSelectDay, onOpenPlan, onMoveTask, onToggleTask, mode, onMode }) {
+  // To-do tasks with a due date sit on their day with the deadlines (5.65).
+  const todoDue = R.useMemo(() => [...DDlifeItems(data.setup), ...DDtodoDueItems(DDtodoLists(data))], [data]);
   const h = R.createElement, fa = language === "fa", t = (en, f) => (fa ? f : en), num = (n) => (fa ? n.toLocaleString("fa-IR") : String(n)),
     items = DDlifeItems(data.setup), types = data.setup.types || [],
     days = DDweekDays(date, language), focus = DDweekFocus(data.setup, date, language),
@@ -150,7 +154,7 @@ export function DDCalendarWeek({ React: R, data, date, today, language, onSelect
       h("button", { type: "button", onClick: () => onSelectDay(today) }, t("This week", "این هفته")),
       h("button", { type: "button", onClick: () => onSelectDay(DDcalShift(date, 7)), "aria-label": t("Next week", "هفتهٔ بعد") }, fa ? "←" : "→")),
     h("div", { className: "dd-week-grid" }, days.map((key) => {
-      const day = data.days?.[key], blocks = (day?.blocks || []).filter((b) => String(b.name || "").trim()), due = DDdueOn(items, key);
+      const day = data.days?.[key], blocks = (day?.blocks || []).filter((b) => String(b.name || "").trim()), due = DDdueOn(todoDue, key);
       return h("div", {
           key, className: "dd-week-day" + (over === key ? " drag-over" : ""), "data-week-date": key, "aria-current": key === today ? "date" : undefined,
           "data-selected": key === date,

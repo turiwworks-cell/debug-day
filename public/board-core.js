@@ -1,6 +1,7 @@
 import{DDstickySnap}from"./stickies.js";
 import { DDshapeLook } from "./shapes.js";
 import { DDdocLook } from "./documents.js";
+import { DDtodoLook } from "./todos.js";
 // Pure board operations. View preferences stay on this device; object styles sync with the day.
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const finite = (value, fallback = 0) =>
@@ -244,6 +245,8 @@ export const DDboardCore = {
     Object.assign(next, DDshapeLook(p));
     // A document is a note for long writing (documents.js).
     Object.assign(next, DDdocLook(p));
+    // A to-do list is a note of tasks with tick boxes (todos.js).
+    Object.assign(next, DDtodoLook(p));
     return next;
   },
   styles(raw) {

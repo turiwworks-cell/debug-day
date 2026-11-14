@@ -34,6 +34,9 @@ import { DDshapeCSS, DDShapeLayer, DDshapeSVG, DDshapeTextBox, DDshapeKind, DDsh
 import { DDRichText, DDrichFormat, DDrichKey, DDrichEnter, DDrichTab, DDrichPlain, DDrichShortcuts, DDrichCSS } from "./rich-text.js";
 import { DDuseEyedropper, DDdropperCSS, DDdropperScreen, DDdropperScreenPick } from "./eyedropper.js";
 import { DDDocCard, DDDocumentView, DDdocCSS, DDdocSize, DDdocFromNote } from "./documents.js";
+import { DDTodoCard, DDtodoCSS, DDtodoSize, DDtodoFromNote, DDtodoStartReminders } from "./todos.js";
+// A to-do task with a time reminds once when that time comes, while the app is open (5.65).
+if (typeof window !== "undefined" && !window.__ddNoReminders) DDtodoStartReminders(() => JSON.parse(localStorage.getItem("debug-day:v2") || "null"));
 import { DDtrashAdd, DDtrashRestore, DDtrashLabel } from "./trash.js";
 import { DDcanvasTidy } from "./upkeep.js";
 import { DDdueText, DDdueDate, DDdueDaysLeft, DDdueSet, DDDueEditor } from "./deadlines.js";
@@ -91,7 +94,7 @@ export function DDcreateBoard(deps) {
   DDinstallSectionTagStyles();
   // Comments, pen, note tags and parent notes (5.36).
   if (typeof document !== "undefined" && !document.getElementById("dd-board-tools-css"))
-    document.head.append(Object.assign(document.createElement("style"), { id: "dd-board-tools-css", textContent: DDpenCSS + DDcommentsCSS + DDnoteTagsCSS + DDnoteFamilyCSS + DDboardPhotosCSS + DDshapeCSS + DDdropperCSS + DDdocCSS + DDrichCSS }));
+    document.head.append(Object.assign(document.createElement("style"), { id: "dd-board-tools-css", textContent: DDpenCSS + DDcommentsCSS + DDnoteTagsCSS + DDnoteFamilyCSS + DDboardPhotosCSS + DDshapeCSS + DDdropperCSS + DDdocCSS + DDrichCSS + DDtodoCSS }));
   DDinstallLinkedStyles();
   // The note being written keeps its own text while you type, so a key redraws
   // only this box and not the whole board (5.47). The board hears each key
@@ -256,6 +259,8 @@ export function DDcreateBoard(deps) {
       [shapeMenu, setShapeMenu] = useState(null),
       // The document open full size (5.63), by its board id.
       [docOpen, setDocOpen] = useState(null),
+      // A to-do list asked to start typing (double-click / Enter), 5.65.
+      [todoFocus, setTodoFocus] = useState(null),
       // Text formatting (5.61): the Text style menu and the link box.
       [textMenu, setTextMenu] = useState(null),
       [linkPop, setLinkPop] = useState(null),
@@ -715,7 +720,7 @@ export function DDcreateBoard(deps) {
         const el=elementRefs.current.get(n.id),body=el?.querySelector(":scope>.b4-node-body"),input=el?.querySelector("textarea");
         if(input){input.style.height="0px";input.style.height=input.scrollHeight+"px";}
         if(!body)continue;
-        const h=Math.ceil(body.scrollHeight+(el.querySelector(".dd-sticky-footer")?.offsetHeight||0)),cw=n.plain?fitWidth(el,input):0,w=n.fitMax??n.w,old=stickyHeights.current.get(n.id);
+        const h=Math.ceil((n.todo?body.querySelector(".dd-todo")?.offsetHeight||body.scrollHeight:body.scrollHeight)+(el.querySelector(".dd-sticky-footer")?.offsetHeight||0)),cw=n.plain?fitWidth(el,input):0,w=n.fitMax??n.w,old=stickyHeights.current.get(n.id);
         if(!old||old.h!==h||old.cw!==cw||old.w!==w||old.text!==n.title||old.size!==(n.textSize||16)){stickyHeights.current.set(n.id,{w,cw,text:n.title,size:n.textSize||16,h});changed=true;}
       }if(changed)setStickyRevision(v=>v+1);};
       measure();const observer=new ResizeObserver(measure);
@@ -730,7 +735,7 @@ export function DDcreateBoard(deps) {
       const el=elementRefs.current.get(n.id),body=el?.querySelector(":scope>.b4-node-body"),input=el?.querySelector("textarea");
       if(input){input.style.height="0px";input.style.height=input.scrollHeight+"px";}
       if(!body)return;
-      const h=Math.ceil(body.scrollHeight+(el.querySelector(".dd-sticky-footer")?.offsetHeight||0)),cw=n.plain?fitWidth(el,input):0,w=n.fitMax??n.w,old=stickyHeights.current.get(n.id);
+      const h=Math.ceil((n.todo?body.querySelector(".dd-todo")?.offsetHeight||body.scrollHeight:body.scrollHeight)+(el.querySelector(".dd-sticky-footer")?.offsetHeight||0)),cw=n.plain?fitWidth(el,input):0,w=n.fitMax??n.w,old=stickyHeights.current.get(n.id);
       if(!old||old.h!==h||old.cw!==cw||old.w!==w||old.text!==n.title||old.size!==(n.textSize||16)){stickyHeights.current.set(n.id,{w,cw,text:n.title,size:n.textSize||16,h});setStickyRevision(v=>v+1);}
     };
     // Where each task came from (phase 4): every section's done / not done record,
@@ -2543,6 +2548,8 @@ export function DDcreateBoard(deps) {
       const G = layout.map.get(Y);
       // A document opens full size to read and write (5.63).
       if (G?.doc) { setConnecting(null); setTool("select"); setWireId(null); setDocOpen(Y); return; }
+      // A to-do list is typed in where it is, one task per line (5.65).
+      if (G?.todo) { if (locked.has(Y)) return; setConnecting(null); setTool("select"); setWireId(null); setSelected(new Set([Y])); setTodoFocus({ ref: Y, n: Date.now() }); return; }
       !G ||
         G.kind === "frame" ||
         G.kind === "lane" ||
@@ -2839,6 +2846,35 @@ export function DDcreateBoard(deps) {
         return d;
       }, null);
     }
+    // To-do lists (5.65, Milanote): a card of tasks, typed in where it is.
+    function setTodoText(ref, text, message) {
+      const node = layout.map.get(ref);
+      if (!node || locked.has(ref)) return;
+      commit((d) => {
+        const note = node.lifeId ? d.__life.items.find((i) => i.id === node.lifeId) : d.notes.find((n) => n.id === node.noteId);
+        if (!note || note.text === text) return null;
+        note.text = text;
+        return d;
+      }, message || null);
+    }
+    function addTodo(at) {
+      const ref = addSticky(at, { w: DDtodoSize.width, h: DDtodoSize.height, color: "#FFFFFF", textSize: 16, look: { todo: true } });
+      if (ref) setTimeout(() => setTodoFocus({ ref, n: Date.now() }), 120);
+      return ref;
+    }
+    // A note becomes a to-do list (every line a task) and back; the words stay.
+    function toggleTodo(node) {
+      if (!node || locked.has(node.id)) return;
+      const toTodo = !node.todo;
+      commit((d) => {
+        const next = core.setStyle(d, [node], toTodo ? { todo: true, plain: null, doc: null, docView: null, width: Math.max(node.w, DDtodoSize.width) } : { todo: null });
+        if (toTodo) {
+          const note = node.lifeId ? next.__life?.items.find((i) => i.id === node.lifeId) : next.notes?.find((n) => n.id === node.noteId);
+          if (note) note.text = DDtodoFromNote(note.text);
+        }
+        return next;
+      }, toTodo ? t("Now a to-do list", "حالا یک فهرست کار است") : t("Now a note · its tasks stay as tick boxes", "حالا یک نوت است · کارها تیک‌دار می‌مانند"));
+    }
     // A text object can grow to 640 wide before it wraps; its box hugs the words.
     function addText(point) {
       return addSticky(point, { w: 640, h: 40, textSize: 24, plain: true });
@@ -2876,7 +2912,7 @@ export function DDcreateBoard(deps) {
       }
       // A photo lands picked, not open for typing (double-click adds a caption).
       // A shape lands picked too: Enter or a double-click writes in it.
-      if(template.media||template.look?.shape||template.look?.doc){setSelected(new Set([ref]));setTool("select");return ref;}
+      if(template.media||template.look?.shape||template.look?.doc||template.look?.todo){setSelected(new Set([ref]));setTool("select");return ref;}
       setSelected(new Set([ref]));setTool("select");setEditing({ref,value:""});
       revealEdit({kind:"sticky",x:at.x-width/2,y:at.y-height/2,w:width,h:height,textSize:template.textSize||16});
       return ref;
@@ -4062,7 +4098,7 @@ export function DDcreateBoard(deps) {
     function renderNode(Y) {
       // Kept cards outlive this render: their handlers reach the newest functions.
       const { backgroundDown, openContext, finishEdit, startEngineMove, startFeedMove, startAreaResize, nodeDown, openEdit, selectOne, commit, toggleDone,
-        returnFromEdit, sendToToday, convertSticky, enterRoom, addLifeSection, ddAddFeeling, ddAddHabit, addSticky, addBlock, fitNote, portDown, showGhost, hideGhost, addNear } = relay.current;
+        returnFromEdit, sendToToday, convertSticky, enterRoom, addLifeSection, ddAddFeeling, ddAddHabit, addSticky, addBlock, fitNote, portDown, showGhost, hideGhost, addNear, setTodoText } = relay.current;
       if (Y.section === "engine") return _.createElement("div", {
         key: Y.id, ref: (el) => el ? elementRefs.current.set(Y.id, el) : elementRefs.current.delete(Y.id),
         className: "dd-engine-area", "data-board-id": Y.id, "data-node-kind": "engine-area", "data-section": "engine",
@@ -4155,7 +4191,7 @@ export function DDcreateBoard(deps) {
           tabIndex: Y.lifeId ? 0 : St ? -1 : 0,
           className:
             "b4-node b4-" +
-            Y.kind + (Y.lifeSection ? " b4-frame" : "") + (Y.plain ? " b4-plain" + (Y.fixed ? "" : " b4-fit") : "") + (Tt && Y.shape ? " b4-shape" : "") + (Tt && Y.doc ? " b4-doc" + (Y.docView === "icon" ? " b4-doc-icon" : "") : "") +
+            Y.kind + (Y.lifeSection ? " b4-frame" : "") + (Y.plain ? " b4-plain" + (Y.fixed ? "" : " b4-fit") : "") + (Tt && Y.shape ? " b4-shape" : "") + (Tt && Y.doc ? " b4-doc" + (Y.docView === "icon" ? " b4-doc-icon" : "") : "") + (Tt && Y.todo ? " b4-todo-card" : "") +
             (G ? " selected" : "") +
             (ct ? " locked" : "") +
             (connecting === Y.id ? " connecting" : ""),
@@ -4245,7 +4281,9 @@ export function DDcreateBoard(deps) {
               _.createElement(
                 "div",
                 { className: "b4-node-body" },
-                ot && Tt
+                Tt && Y.todo
+                  ? _.createElement(DDTodoCard, { React: _, node: Y, text: Y.title, picked: G && selected.size === 1, focusAsk: todoFocus?.ref === Y.id ? todoFocus.n : 0, language: DDlanguage, today: DDstickyToday(), readOnly: ct, onChange: (text, message) => setTodoText(Y.id, text, message) })
+                  : ot && Tt
                   ? noteEditor(Y)
                   : ot
                     ? _.createElement("input", {
@@ -4569,7 +4607,7 @@ export function DDcreateBoard(deps) {
     function cardFor(Y) {
       if (Y.section === "engine" || Y.section === "life" || Y.kind === "section" || editing?.ref === Y.id) return renderNode(Y);
       const picked = selected.has(Y.id),
-        key = (picked ? "p" : "") + (picked && selected.size === 1 ? "1" : "") + (locked.has(Y.id) ? "l" : "") + (connecting === Y.id ? "c" : "") + (quickColor === Y.id ? "q" : ""),
+        key = (picked ? "p" : "") + (picked && selected.size === 1 ? "1" : "") + (locked.has(Y.id) ? "l" : "") + (connecting === Y.id ? "c" : "") + (quickColor === Y.id ? "q" : "") + (todoFocus?.ref === Y.id ? "f" + todoFocus.n : ""),
         kept = cardCache.current.map.get(Y.id);
       if (kept && kept.node === Y && kept.key === key) return kept.el;
       if (ddPerf) ddPerf.cards++;
@@ -5311,6 +5349,7 @@ export function DDcreateBoard(deps) {
           item("photo", "Photo or video…", "عکس یا ویدیو…", "photo", () => photos.pick()),
           item("eyedropper", "Eyedropper", "قطره‌چکان", "eyedropper", () => startDropper(null), { shortcut: "I" }),
           item("document", "Document", "داکیومنت", "document", () => addDocument(null)),
+          item("todo-list", "To-do list", "فهرست کارها", "todo", () => addTodo(null)),
           sep("tools-view-sep"),
           item("view", "Canvas settings…", "تنظیمات بوم…", "settings", () => { setViewPanel(true); setProperties(false); setInspector(false); }),
         ];
@@ -5466,6 +5505,7 @@ export function DDcreateBoard(deps) {
         const more = [
           // Documents (5.63): a note becomes a document and back; a document shows as a card or an icon.
           sticky && selectedNodes.length === 1 && !selectedNode.shape && !selectedNode.photo && item("doc-convert", selectedNode.doc ? "Convert to note" : "Convert to document", selectedNode.doc ? "تبدیل به نوت" : "تبدیل به داکیومنت", "document", () => toggleDocument(selectedNode), { disabled: allLocked }),
+          sticky && selectedNodes.length === 1 && !selectedNode.shape && !selectedNode.photo && !selectedNode.doc && item("todo-convert", selectedNode.todo ? "Convert to note" : "Convert to to-do list", selectedNode.todo ? "تبدیل به نوت" : "تبدیل به فهرست کار", "todo", () => toggleTodo(selectedNode), { disabled: allLocked }),
           sticky && selectedNode.doc && item("doc-view", selectedNode.docView === "icon" ? "Show as card" : "Show as icon", selectedNode.docView === "icon" ? "نمایش به شکل کارت" : "نمایش به شکل آیکون", "document", () => applyStyle({ docView: selectedNode.docView === "icon" ? null : "icon" }), { disabled: allLocked }),
           !selectedNode?.lifeId && dueItem,
           sticky && item("text-style", "Text style", "سبک متن", "bold", null, {
@@ -5647,7 +5687,7 @@ export function DDcreateBoard(deps) {
       paintSelection();
     },[layout,selected,wireId,wireSelection,focus,properties,tick,setup.preferences]);
     live.current = { backgroundDown, openContext, finishEdit, startEngineMove, startFeedMove, startAreaResize, nodeDown, openEdit, selectOne, commit, toggleDone,
-      returnFromEdit, sendToToday, convertSticky, enterRoom, addLifeSection, ddAddFeeling, ddAddHabit, addSticky, addBlock, fitNote, portDown, showGhost, hideGhost, addNear, pickColor };
+      returnFromEdit, sendToToday, convertSticky, enterRoom, addLifeSection, ddAddFeeling, ddAddHabit, addSticky, addBlock, fitNote, portDown, showGhost, hideGhost, addNear, pickColor, setTodoText };
     relay.current ||= Object.fromEntries(Object.keys(live.current).map((name) => [name, (...args) => live.current[name](...args)]));
     {
       // What every card may show besides its own node. Any change here draws all cards again.

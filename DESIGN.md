@@ -29,6 +29,8 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 | **Text style**: Large heading, Heading, Normal, Small, Quote, Code block for the words in a note, text or shape | font style, paragraph format |
 | **Tags** (on notes): the Tags menu finds, ticks, makes, renames and deletes tags; Rename and Delete change a tag everywhere | labels, categories |
 | **Document**: a card on the Board for long writing, with a name; opens full size to read and write; Save as PDF, Word, Markdown or Text | page, file, doc |
+| **To-do list**: a card on the Board of tick-box tasks, with an optional title, tasks in and out (Tab), a due date with an optional reminder time, and a bin next to done tasks; due tasks show in the Calendar | checklist, todo card |
+| **Comment**: a free comment is a card on the board (Reply, Send, reactions); dragged onto a card it becomes a small marker that moves with the card | note, pin |
 | **Back to**: the boards you were on last, 1 to 4 in the Tab flowchart | history, recents |
 | **Focus**: the timer | Stillness |
 | **Pause the day**: the "life happened" pause, on the Board's top bar | Life happened |
