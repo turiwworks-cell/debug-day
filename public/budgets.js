@@ -3,6 +3,7 @@
 // from it (block.from), so nothing new is stored on the days. A goal note can
 // count up toward a number by a date. No red, no warnings: just the numbers.
 import { DDplanMinutes, DDduration } from "./measure.js";
+import { DDdueOf } from "./deadlines.js";
 // life-board.js reads DDbudgetOf and DDgoalClean, so this file does not import it.
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -94,17 +95,45 @@ export function DDgoalText(goal, today, language) {
   return count + " · " + when;
 }
 
-// The counter row under a goal in the Goals rail.
+// Time left to a goal's date (5.72), to the end of that day, down to the
+// second: "12d 04:31:07", "04:31:07", or "date passed".
+export function DDgoalCountdown(until, now, language) {
+  if (!DAY.test(until || "")) return "";
+  const fa = language === "fa", [y, m, d] = until.split("-").map(Number),
+    left = Math.floor((new Date(y, m - 1, d, 23, 59, 59).getTime() - now) / 1000);
+  if (left < 0) return fa ? "تاریخش گذشت" : "date passed";
+  const days = Math.floor(left / 86400), pad = (n) => String(n).padStart(2, "0"),
+    clock = pad(Math.floor((left % 86400) / 3600)) + ":" + pad(Math.floor((left % 3600) / 60)) + ":" + pad(left % 60),
+    text = days ? (fa ? days + " روز " : days + "d ") + clock : clock;
+  return fa ? text.replace(/\d/g, (c) => "۰۱۲۳۴۵۶۷۸۹"[c]) : text;
+}
+
+// The row under a goal in the Goals rail. With a date (the goal's own, or the
+// note's deadline) it counts down to it, second by second, in place of − n +.
 export function DDGoalCounter({ React: R, note, today, language, onChange }) {
   const h = R.createElement, t = (en, fa) => (language === "fa" ? fa : en),
     goal = DDgoalOf(note), [editing, setEditing] = R.useState(false),
+    until = goal.until || DDdueOf(note), [now, setNow] = R.useState(() => Date.now()),
     set = (patch) => onChange(DDgoalClean({ ...goal, ...patch }));
+  R.useEffect(() => {
+    if (!until) return;
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [until]);
+  const left = until && DDgoalCountdown(until, now, language), passed = until && now > new Date(until + "T23:59:59").getTime();
   return h("div", { className: "dd-goal-counter", "data-goal-counter": note.id, dir: language === "fa" ? "rtl" : "ltr" },
-    h("button", { type: "button", "aria-label": t("One less", "یکی کمتر"), disabled: !goal.n, onClick: () => set({ n: goal.n - 1 }) }, "−"),
-    h("b", { "aria-live": "polite" }, DDgoalText(goal, today, language)),
-    h("button", { type: "button", "aria-label": t("One more", "یکی بیشتر"), onClick: () => set({ n: goal.n + 1 }) }, "+"),
+    until
+      ? h("b", { className: "dd-goal-countdown", "data-goal-countdown": until, title: until, "aria-label": passed ? left : t(left + " left", left + " مانده") }, passed ? left : h(R.Fragment, null, "◆ ", h("span", { dir: "ltr" }, left), t(" left", " مانده")))
+      : h(R.Fragment, null,
+          h("button", { type: "button", "aria-label": t("One less", "یکی کمتر"), disabled: !goal.n, onClick: () => set({ n: goal.n - 1 }) }, "−"),
+          h("b", { "aria-live": "polite" }, DDgoalText(goal, today, language)),
+          h("button", { type: "button", "aria-label": t("One more", "یکی بیشتر"), onClick: () => set({ n: goal.n + 1 }) }, "+")),
     h("button", { type: "button", className: "dd-goal-edit", "aria-expanded": editing, "aria-label": t("Target and date", "هدف و تاریخ"), onClick: () => setEditing(!editing) }, "✎"),
     editing && h("div", { className: "dd-goal-fields" },
+      // With a date the count still lives here, so nothing is lost.
+      until && h("label", null, h("span", null, t("Done", "انجام‌شده")),
+        h("input", { type: "number", min: 0, max: 9999, value: goal.n || "", placeholder: "0", "aria-label": t("Done", "انجام‌شده"), onChange: (e) => set({ n: e.target.value }) })),
       h("label", null, h("span", null, t("Target", "هدف")),
         h("input", { type: "number", min: 0, max: 9999, value: goal.of || "", placeholder: "35", "aria-label": t("Target", "هدف"), onChange: (e) => set({ of: e.target.value }) })),
       h("label", null, h("span", null, t("Until", "تا")),
@@ -114,6 +143,7 @@ export function DDGoalCounter({ React: R, note, today, language, onChange }) {
 export const DDbudgetCSS = `
 .dd-goal-counter{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:6px 0 2px;font:500 12px/1.3 var(--sans);color:var(--ink-2)}
 .dd-goal-counter>b{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+.dd-goal-countdown{letter-spacing:.01em}
 .dd-goal-counter>button{min-width:24px;height:24px;border-radius:999px;border:0;background:var(--wash);color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--rule-2);cursor:pointer;font:inherit}
 .dd-goal-counter>button:hover:not(:disabled){color:var(--ink)}
 .dd-goal-counter>button:disabled{opacity:.4;cursor:default}

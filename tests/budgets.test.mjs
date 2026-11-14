@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DDbudgetOf, DDbudgetRange, DDbudgetUsed, DDbudgetText, DDbudgetLabel, DDbudgetSame, DDbudgetPresets, DDgoalClean, DDgoalText, DDgoalDaysLeft } from '../public/budgets.js';
+import { DDbudgetOf, DDbudgetRange, DDbudgetUsed, DDbudgetText, DDbudgetLabel, DDbudgetSame, DDbudgetPresets, DDgoalClean, DDgoalText, DDgoalDaysLeft, DDgoalCountdown } from '../public/budgets.js';
 import { DDnormalizeLife } from '../public/life-board.js';
 
 test('a soft budget is only a number, a unit and a period', () => {
@@ -75,4 +75,13 @@ test('the Feed keeps a section budget and a note goal, and nothing else new', ()
   assert.deepEqual(by.g.goal, { n: 3, of: 35 });
   assert.equal('budget' in by.g, false);
   assert.equal('goal' in by.e, false);
+});
+
+test('a goal with a date counts down to the end of that day, to the second (5.72)', () => {
+  const now = new Date(2026, 10, 4, 10, 0, 0).getTime();
+  assert.equal(DDgoalCountdown('2026-11-13', now, 'en'), '9d 13:59:59');
+  assert.equal(DDgoalCountdown('2026-11-04', now, 'en'), '13:59:59');
+  assert.equal(DDgoalCountdown('2026-11-03', now, 'en'), 'date passed');
+  assert.equal(DDgoalCountdown('2026-11-13', now, 'fa'), '۹ روز ۱۳:۵۹:۵۹');
+  assert.equal(DDgoalCountdown('', now, 'en'), '');
 });
