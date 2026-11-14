@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {start,fixture}=require('./harness.cjs');
+const {start,fixture,boardMenu}=require('./harness.cjs');
 // A section's own board is all of it (5.29). Notes and sections made anywhere
 // there belong to the section and stay where they were made. What sits outside
 // the section's frame shows only on that board: the main board shows what is
@@ -31,7 +31,7 @@ const {start,fixture}=require('./harness.cjs');
     settle=()=>page.waitForTimeout(350);
    await page.locator('.views button[data-panel="board"]').click();
    await view.focus();await page.keyboard.press('Control+Shift+F');await page.locator('.b2.focus-mode').waitFor();
-   await page.locator('[data-life-jump]').click();await settle();
+   await boardMenu(page,'Feed');await settle();
 
    // Open Studio as its own board.
    await page.locator('[data-board-id="life:a"] [data-enter-section="a"]').click();
@@ -87,7 +87,7 @@ const {start,fixture}=require('./harness.cjs');
    assert.match(await enter.innerText(),new RegExp('↗ '+t('2','۲')));
 
    // The Sections flowchart opens the board a section lives on.
-   await page.locator('[data-sections-button]').click();
+   await boardMenu(page,'Sections');
    await page.locator(`.dd-flow [data-flow-node="${inner[0].id}"] .dd-flow-pill`).dispatchEvent('contextmenu');
    await page.locator(`.dd-flow [data-flow-show="${inner[0].id}"]`).click();await page.locator('.dd-flow').waitFor({state:'detached'});
    await bar.waitFor();await settle();
@@ -97,7 +97,7 @@ const {start,fixture}=require('./harness.cjs');
 
    // Making Desk smaller on the main board: the note that ends up outside drops
    // onto the main board instead of disappearing.
-   await page.locator('[data-life-jump]').click();await settle();await key('0');
+   await boardMenu(page,'Feed');await settle();await key('0');
    const desk=node('b');await desk.scrollIntoViewIfNeeded();
    await desk.locator('.b4-node-title').first().click();
    const grip=desk.locator('[data-edge="se"]').first(),gb=await grip.boundingBox();

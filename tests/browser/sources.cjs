@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {start,fixture}=require('./harness.cjs');
+const {start,fixture,boardMenu}=require('./harness.cjs');
 // Where tasks come from (5.19): every Engine task can carry the section it came
 // from. Each section shows its last 14 days as dots beside its name, and its
 // own board lists every day's done and not-done tasks from it. Nothing is a
@@ -39,7 +39,7 @@ const {start,fixture}=require('./harness.cjs');
    await page.locator('.b4-modes button').nth(0).click();
    await page.locator('.b2-viewport[data-mode=mindmap]').waitFor();
    // Each section shows its last 14 days; a big section counts its small ones.
-   await page.locator('[data-life-jump]').click();await page.waitForTimeout(300);
+   await boardMenu(page,'Feed');await page.waitForTimeout(300);
    await strip('a').waitFor({state:'attached'});
    assert.match(await strip('a').innerText(),/1\/2/);
    assert.match(await strip('c').innerText(),/1\/2/);

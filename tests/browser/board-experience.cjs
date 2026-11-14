@@ -43,10 +43,25 @@ const {join}=require("node:path");
    assert.ok((await page.locator(".dd-board-search").innerText()).includes("No matching objects"));
    await page.getByRole("textbox",{name:"Search board nodes",exact:true}).press("Escape");
 
-   await page.locator('[data-dock-more="top"]').click();await page.getByRole("menuitem",{name:"Toggle light / dark",exact:true}).click();
+   // 5.69: the top bar keeps the daily tools; light / dark sits right after the timer;
+   // Search, Engine, Feed and Sections wait in its ⋯; no key hints at the bottom left.
+   const bar=await page.locator('.b2-top-actions > button').evaluateAll((els)=>els.map((e)=>e.dataset.boardTheme?"theme":e.className.includes("dd-board-timer")?"timer":e.getAttribute("aria-label")));
+   assert.equal(bar[bar.indexOf("timer")+1],"theme","light / dark beside the timer");
+   for(const gone of ["Search board","Go to Feed"])assert.equal(bar.includes(gone),false,gone+" left the bar");
+   assert.equal(await page.locator('[data-engine-jump],[data-life-jump],[data-sections-button]').count(),0);
+   assert.equal(await page.locator('.b4-status').isVisible(),false,"no standing key hints");
+   await page.locator('[data-dock-more="top"]').click();
+   for(const name of ["Search","Engine","Feed","Sections"])await page.getByRole("menuitem",{name,exact:true}).waitFor();
+   await page.keyboard.press("Escape");
+   // C is no connector while something is picked.
+   await viewport.focus();await page.keyboard.press("Control+a");await page.locator(".b4-selectionbar").waitFor();
+   await page.keyboard.press("c");
+   assert.equal(await viewport.getAttribute("data-tool"),"select","C with a pick stays Select");
+   await page.keyboard.press("Escape");
+   await page.locator('[data-board-theme]').click();
    await page.waitForFunction(()=>document.documentElement.dataset.theme==="dark");
    const dark=await viewport.evaluate(el=>getComputedStyle(el).backgroundColor);
-   await page.locator('[data-dock-more="top"]').click();await page.getByRole("menuitem",{name:"Toggle light / dark",exact:true}).click();
+   await page.locator('[data-board-theme]').click();
    await page.waitForFunction(()=>document.documentElement.dataset.theme==="light");
    assert.notEqual(await viewport.evaluate(el=>getComputedStyle(el).backgroundColor),dark,"theme changes the board canvas too");
 
@@ -187,7 +202,7 @@ const {join}=require("node:path");
    const out=process.env.DEBUG_DAY_SCREENSHOTS;
    if(out){
     mkdirSync(out,{recursive:true});await page.screenshot({path:join(out,`board-experience-${mobile?"phone":"desktop"}-light.png`)});
-    await page.locator('[data-dock-more="top"]').click();await page.getByRole("menuitem",{name:"Toggle light / dark",exact:true}).click();
+    await page.locator('[data-board-theme]').click();
     await page.waitForFunction(()=>document.documentElement.dataset.theme==="dark");
     await page.getByRole("button",{name:"Board timer",exact:true}).click();
     await page.waitForTimeout(200);

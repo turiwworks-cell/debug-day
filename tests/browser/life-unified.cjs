@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const {start,fixture}=require("./harness.cjs");
+const {start,fixture,boardMenu}=require("./harness.cjs");
 (async()=>{
  const h=await start();
  try {
@@ -19,7 +19,7 @@ const {start,fixture}=require("./harness.cjs");
    const read=()=>page.evaluate(()=>JSON.parse(localStorage.getItem("debug-day:v2")));
    await page.locator(".views button[data-panel=board]").click();
    await page.getByRole("button",{name:t("Full screen","تمام‌صفحه"),exact:true}).click();
-   await page.locator("[data-life-jump]").click();
+   await boardMenu(page,'Feed');
    const n=page.locator('[data-life-id="n"]'), a=page.locator('[data-life-id="a"]');
    assert.ok(await n.evaluate((e)=>e.classList.contains("b4-sticky")),"Life notes use the native note component");
    assert.equal(await page.locator('[data-board-id="section:life"]').getAttribute("tabindex"),null,"outer Life area cannot be selected");
@@ -66,12 +66,12 @@ const {start,fixture}=require("./harness.cjs");
    assert.equal(await n.count(),0,"collapsed contents are hidden");
    await bar.getByRole("button",{name:t("Expand section","باز کردن سکشن"),exact:true}).click();
    assert.equal(await n.count(),1);
-   await page.locator("[data-sections-button]").click();
+   await boardMenu(page,'Sections');
    await page.locator('.dd-flow [data-flow-node="b"] .dd-flow-pill').click({modifiers:["Shift"]});
    await page.locator(".dd-flow").waitFor({state:"detached"});
    assert.equal(await page.locator('[data-life-id="b"]').getAttribute("aria-selected"),"true");
    await page.getByRole("button",{name:t("Exit full screen","بستن تمام‌صفحه"),exact:true}).click();
-   await page.locator("[data-life-jump]").click();
+   await boardMenu(page,'Feed');
    await n.focus();await page.keyboard.press("Delete");
    await page.getByRole("button",{name:t("Previous day","روز قبل"),exact:true}).click();
    await page.locator(".b2-viewport").click({position:{x:5,y:150}});await page.keyboard.press("Control+z");

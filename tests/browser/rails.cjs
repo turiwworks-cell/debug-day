@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const { start, fixture } = require("./harness.cjs");
+const { start, fixture,boardMenu} = require("./harness.cjs");
 
 (async () => {
   const h = await start();
@@ -65,7 +65,7 @@ const { start, fixture } = require("./harness.cjs");
       await page.locator(".dd-note-editor textarea").press("Control+Enter");
 
       // Nested board: main → Art → Sketches, and both day and shared connections.
-      await page.locator('[data-sections-button]').click();
+      await boardMenu(page,'Sections');
       await page.locator('.dd-flow [data-flow-node="b"] .dd-flow-pill').click();
       await page.locator(".dd-flow").waitFor({ state: "detached" });
       await page.locator(".dd-room-bar").waitFor(); await open("goal");

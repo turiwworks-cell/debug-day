@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {start,fixture}=require('./harness.cjs');
+const {start,fixture,boardMenu}=require('./harness.cjs');
 // Lines inside a section (5.38.1). Dragging a note's + into the section's empty
 // inside makes a new note there with a line to it; it never ties the line to
 // the section's frame. An elbow line between two notes in nested sections
@@ -21,7 +21,7 @@ const {start,fixture}=require('./harness.cjs');
   const view=page.locator('.b2-viewport');
   await page.locator('.views button[data-panel="board"]').click();
   await view.focus();await page.keyboard.press('Control+Shift+F');await page.locator('.b2.focus-mode').waitFor();
-  await page.locator('[data-life-jump]').click();await page.waitForTimeout(400);
+  await boardMenu(page,'Feed');await page.waitForTimeout(400);
   const studio=await page.locator('[data-board-id="life:a"]').boundingBox();
   const wire=page.locator('[data-wire-id="link:1"] path[data-wire-path], path[data-wire-path]').first();
   const inside=async()=>{const b=await page.locator('path[data-wire-path]').first().boundingBox();return b.x>=studio.x-2&&b.x+b.width<=studio.x+studio.width+2&&b.y+b.height<=studio.y+studio.height+2;};

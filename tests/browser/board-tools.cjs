@@ -250,6 +250,22 @@ const {start,fixture}=require('./harness.cjs');
    await drawn.count();
 
    // 4. Comments: on a card, free in a section, free on the day.
+   if(!mobile){
+    // 5.69: a click away from a new, empty comment puts it down, and V then
+    // goes back to Select; Esc on an empty one puts the comment tool down too.
+    await key('m');const vb0=await view.boundingBox();
+    await page.mouse.click(vb0.x+vb0.width*0.5,vb0.y+vb0.height*0.75);
+    await page.getByRole('textbox',{name:'Write a comment',exact:true}).waitFor();
+    await page.mouse.click(vb0.x+vb0.width*0.3,vb0.y+vb0.height*0.8);
+    await page.getByRole('textbox',{name:'Write a comment',exact:true}).waitFor({state:'detached'});
+    assert.equal(await page.locator('.dd-comment-capture').count(),1,'still the comment tool');
+    await page.keyboard.press('v');
+    assert.equal(await page.locator('.dd-comment-capture').count(),0,'V is the cursor again');
+    await key('m');await page.mouse.click(vb0.x+vb0.width*0.5,vb0.y+vb0.height*0.75);
+    await page.getByRole('textbox',{name:'Write a comment',exact:true}).press('Escape');
+    assert.equal(await page.locator('.dd-comment-capture').count(),0,'Esc on an empty comment is the cursor again');
+    assert.equal((await today()).canvas.board4.comments,undefined,'nothing was made');
+   }
    await key('m');
    assert.equal(await page.locator('.dd-comment-capture').count(),1,'M turns comments on');
    const c2=await node('sticky:c2').boundingBox();

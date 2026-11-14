@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {start,fixture}=require('./harness.cjs');
+const {start,fixture,boardMenu}=require('./harness.cjs');
 // Board canvas feel (5.23): browser zoom never resizes the app, search opens the
 // Board in full screen, zoomed out only the big sections keep their names, the
 // "+" stays a small dot at one size on screen, and connectors are dark, rounded
@@ -100,7 +100,7 @@ const {start,fixture}=require('./harness.cjs');
    // Section names (5.28): one rule at every zoom. A name shrinks with the board down to a
    // readable size and stays while there is room; it steps aside only when it would sit on a
    // bigger section's name (or its section is a speck), and comes back when there is room again.
-   await page.locator('[data-life-jump]').click();await page.waitForTimeout(250);
+   await boardMenu(page,'Feed');await page.waitForTimeout(250);
    const top=page.locator('[data-life-id="top"]'),inner=page.locator('[data-life-id="inner"]');
    await inner.waitFor({state:'attached'});
    const labelShown=(loc)=>loc.locator(':scope > .b4-node-body').evaluate((e)=>getComputedStyle(e).visibility!=='hidden');

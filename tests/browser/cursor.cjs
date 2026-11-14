@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const { start, fixture } = require("./harness.cjs");
+const { start, fixture,boardMenu} = require("./harness.cjs");
 (async () => {
   const h = await start();
   try {
@@ -16,7 +16,7 @@ const { start, fixture } = require("./harness.cjs");
       assert.doesNotMatch(await page.locator(selector).first().evaluate((el) => getComputedStyle(el).cursor), /data:image/, selector);
     await page.getByRole("button", { name: "Hand tool", exact: true }).click();
     assert.doesNotMatch(await viewport.evaluate((el) => getComputedStyle(el).cursor), /data:image/);
-    await page.locator("[data-sections-button]").click();await page.locator("[data-life-tools]").click();
+    await boardMenu(page,'Sections');await page.locator("[data-life-tools]").click();
     const before=await page.locator('[data-board-id="section:life"]').evaluate((el)=>({w:el.offsetWidth,h:el.offsetHeight}));
     await page.getByRole("button",{name:"Enlarge Feed +25%",exact:true}).click();
     let geometry=await page.evaluate(()=>JSON.parse(localStorage.getItem("debug-day:v2")).setup.life.frame);

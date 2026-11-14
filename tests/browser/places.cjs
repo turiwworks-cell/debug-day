@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {start,fixture}=require('./harness.cjs');
+const {start,fixture,boardMenu}=require('./harness.cjs');
 // Back to where you were (5.33): the app remembers the tab, the open section and
 // where the board was looking. The Back button, Alt+← / Alt+→ and the browser's
 // own back / forward (mouse side buttons) walk the same trail. Alt+↑ / Alt+↓
@@ -54,7 +54,7 @@ const {start,fixture}=require('./harness.cjs');
 
    // 2. Into a section and deeper; each board is a place, with its own camera.
    await view.focus();await page.keyboard.press('Control+Shift+F');await page.locator('.b2.focus-mode').waitFor();
-   await page.locator('[data-life-jump]').click();await page.waitForTimeout(300);
+   await boardMenu(page,'Feed');await page.waitForTimeout(300);
    await tap(page.locator('[data-board-id="life:a"] [data-enter-section="a"]'));
    await bar.waitFor();await page.waitForTimeout(400);
    assert.match(await roomText(),/Creative life/);
@@ -65,7 +65,7 @@ const {start,fixture}=require('./harness.cjs');
    const looked=await camera();
    assert.equal(await back.getAttribute('aria-label'),'Back to Board','panning made no new place');
    if(mobile)await tap(page.locator('[data-board-id="life:c"] [data-enter-section="c"]'));
-   else{await page.locator('[data-sections-button]').click();await page.locator('.dd-flow [data-flow-node="c"] .dd-flow-pill').click();await page.locator('.dd-flow').waitFor({state:'detached'});}
+   else{await boardMenu(page,'Sections');await page.locator('.dd-flow [data-flow-node="c"] .dd-flow-pill').click();await page.locator('.dd-flow').waitFor({state:'detached'});}
    await page.waitForFunction(()=>/Sketches/.test(document.querySelector('.dd-room-bar')?.innerText||''));
    await page.waitForTimeout(400);
    assert.equal(await back.getAttribute('aria-label'),'Back to Board · Creative life');

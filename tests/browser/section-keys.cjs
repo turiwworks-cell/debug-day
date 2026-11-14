@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {start,fixture}=require('./harness.cjs');
+const {start,fixture,boardMenu}=require('./harness.cjs');
 // Shortcut keys in the Tab flowchart (5.52): Tab then a section's letter goes
 // straight into its board, Shift with the letter brings its Engine too, and
 // 1–4 go back to the boards you were on last. "This App" has T. A key is given
@@ -22,7 +22,7 @@ const {start,fixture}=require('./harness.cjs');
     keyOf=(id)=>page.evaluate((id)=>JSON.parse(localStorage.getItem('debug-day:v2')).setup.life.items.find((i)=>i.id===id).key,id),
     view=page.locator('.b2-viewport');
    await page.locator('[role=tab][data-panel=board]').click();await view.waitFor();
-   const open=async()=>{if(mobile)await tap(page.locator('[data-sections-button]'));else{await view.focus();await page.keyboard.press('Tab');}await flow.waitFor();if(!mobile)await page.waitForFunction(()=>document.activeElement?.closest('.dd-flow'));};
+   const open=async()=>{if(mobile)await boardMenu(page,'Sections');else{await view.focus();await page.keyboard.press('Tab');}await flow.waitFor();if(!mobile)await page.waitForFunction(()=>document.activeElement?.closest('.dd-flow'));};
 
    // This App shows its T on its box and in the Keys row.
    await open();

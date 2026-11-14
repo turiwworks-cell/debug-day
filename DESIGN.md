@@ -54,6 +54,7 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 - The Week view and its look back count what happened; they never score it. Next week's focus is one line.
 - Help text fades away: show a hint once, then rely on `?` and tooltips.
 - A task in the Engine is one line. Details open with ⋯, steps open when asked.
+- The Board's top bar keeps only the daily tools: Undo, the timer, light / dark, Pause the day, Full screen. Search, Engine, Feed and Sections wait in its ⋯. No standing key hints on the canvas.
 
 ## 3. Color
 

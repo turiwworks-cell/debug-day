@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {start,fixture}=require('./harness.cjs');
+const {start,fixture,boardMenu}=require('./harness.cjs');
 // Board bugs that broke trust (5.29.1): drops near a folded section, things in
 // a grown frame, groups, undo after a synced note, paste, Alt-drag, Reset
 // appearance, the look of a note pasted into a section, two-way lines, elbow
@@ -55,7 +55,7 @@ const {start,fixture}=require('./harness.cjs');
   await view.focus();await page.keyboard.press('Control+Shift+F');await page.locator('.b2.focus-mode').waitFor();
 
   // 1. A folded section takes only drops on its name bar.
-  await page.locator('[data-life-jump]').click();await settle();
+  await boardMenu(page,'Feed');await settle();
   await key('Shift+1');await settle();
   let pb=await node('life:p').boundingBox(),z=Number(await view.getAttribute('data-zoom'));
   assert.ok(pb.height<60*z+10,'Project is folded: '+JSON.stringify(pb));
@@ -161,7 +161,7 @@ const {start,fixture}=require('./harness.cjs');
 
   // 7 + 10. Cut two linked notes and paste them into a Feed section: the line and the look come along.
   const pasteAt=async(ref,fx,fy)=>{
-   await page.locator('[data-life-jump]').click();await settle();await key('Shift+1');await page.waitForTimeout(900);
+   await boardMenu(page,'Feed');await settle();await key('Shift+1');await page.waitForTimeout(900);
    // Ctrl+V pastes in the middle of the view: bring that spot of the section there.
    const b=await node(ref).boundingBox(),vb=await view.boundingBox(),c={x:vb.x+vb.width/2,y:vb.y+vb.height/2};
    await page.mouse.move(c.x,c.y);await page.mouse.wheel(b.x+b.width*fx-c.x,b.y+b.height*fy-c.y);await settle();

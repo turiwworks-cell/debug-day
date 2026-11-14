@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {start,fixture}=require('./harness.cjs');
+const {start,fixture,boardMenu}=require('./harness.cjs');
 const {mkdirSync}=require('node:fs');
 const {join}=require('node:path');
 (async()=>{
@@ -17,7 +17,7 @@ const {join}=require('node:path');
    await page.reload();await page.waitForSelector('.views',{state:'attached'});
    await page.locator('.views button[data-panel="board"]').click();
    await page.getByRole('button',{name:'Full screen',exact:true}).click();
-   await page.locator('[data-life-jump]').click();
+   await boardMenu(page,'Feed');
    const read=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2')));
    const note=page.locator('[data-life-id="n"]');
    await note.locator('.dd-note-preview').click();if(!await note.locator('textarea').count())await page.keyboard.press('Enter');
@@ -43,7 +43,7 @@ const {join}=require('node:path');
      previous=(await read()).setup.life.items.find(i=>i.id==='n').x;
     }
     assert.equal(await note.locator('textarea').count(),0,'short touch drags do not enter edit mode');
-    await page.locator('[data-sections-button]').click();
+    await boardMenu(page,'Sections');
     await page.locator('.dd-flow [data-flow-node="b"] .dd-flow-pill').dispatchEvent('contextmenu');
     // The menu focuses its first item and scrolls itself into view a frame later; tap once it has settled,
     // or a slow runner taps where the button was before the scroll.

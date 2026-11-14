@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {start,fixture}=require('./harness.cjs');
+const {start,fixture,boardMenu}=require('./harness.cjs');
 // Sticky notes and connectors behave like FigJam: the sticky tool previews the
 // note, typing happens on the note, "+" adds a neighbour, edges resize the
 // FigJam way, a connector dropped on empty canvas makes a connected note, and
@@ -25,7 +25,7 @@ const {start,fixture}=require('./harness.cjs');
    assert.equal(await dock.getByRole('button',{name:t('Connect nodes','اتصال نودها'),exact:true}).count(),0);
    assert.equal(await dock.locator('button[aria-label*="eeling"],button[aria-label*="احساس"]').count(),0);
    // Sections: no connection circles, and a click on the body selects them.
-   await page.locator('[data-life-jump]').click();
+   await boardMenu(page,'Feed');
    const sec=page.locator('[data-life-id="s"]');await sec.waitFor();
    assert.equal(await sec.locator('.b4-port').count(),0,'sections have no connection points');
    await page.keyboard.press('Escape');
