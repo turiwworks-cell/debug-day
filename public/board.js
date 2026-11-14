@@ -641,6 +641,7 @@ export function DDcreateBoard(deps) {
       unfold: (id) => lifeChange((list) => list.map((i) => (i.id === id ? { ...i, collapsed: false } : i))),
       glide: (p) => { const el = viewport.current, z = Math.max(cam.current.z, 0.7); if (el) glideCamera({ x: el.clientWidth / 2 - (p.x + (el.clientWidth < 700 ? 0 : 140 / z)) * z, y: el.clientHeight / 2 - (p.y - (el.clientWidth < 700 ? 120 / z : 60 / z)) * z, z }); },
       finishEdit: () => finishEdit(), setMenu, search: (q) => { finishEdit(); setSearch(q); },
+      onUpdateDayOnDate, onUpdateSetup,
     };
     useEffect(() => {
       if (tool === "pen") { setSelected(new Set()); setWireId(null); setWireSelection(null); }
@@ -3389,7 +3390,7 @@ export function DDcreateBoard(deps) {
             if (
               !alignUndo &&
               ot.target.closest(
-                "input,textarea,select,[contenteditable=true],.b6-context,.b6-properties,.b6-camera,.b6-view-panel,.dd-board-timer,.dd-board-search,.b4-help-backdrop,.dd-engine-backdrop,.dd-flow-backdrop,.dd-board-rails,.dd-due-editor",
+                "input,textarea,select,[contenteditable=true],.dd-note-tag-editor,.dd-note-tags,.b6-context,.b6-properties,.b6-camera,.b6-view-panel,.dd-board-timer,.dd-board-search,.b4-help-backdrop,.dd-engine-backdrop,.dd-flow-backdrop,.dd-board-rails,.dd-due-editor",
               ) ||
               (ot.target.closest("[role=dialog]") &&
                 !root.current?.contains(ot.target))
