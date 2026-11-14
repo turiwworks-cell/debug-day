@@ -14,12 +14,12 @@ const {start,fixture}=require('./harness.cjs');
   ];
   f.data.setup.life={v:2,items:[{id:'s',type:'section',parent:'',x:40,y:60,w:520,h:320,text:'Project',color:'#9DD6FF'},{id:'fn',type:'sticky',parent:'s',x:30,y:60,w:200,h:200,text:'Feed',color:'#FFE08A'}],links:[],frame:{x:24,y:330,w:1300,h:700}};
   await page.evaluate((d)=>{localStorage.setItem('debug-day:v2',JSON.stringify(d.data));localStorage.setItem('debug-day:board-view:'+d.date,JSON.stringify({camera:{x:40,y:40,z:0.5},mode:'mindmap'}));},{data:f.data,date:f.date});
-  await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+  await page.reload();await page.waitForSelector('.views',{state:'attached'});
   const read=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2'))),
    text=async(id)=>(await read()).days[f.date].notes.find((n)=>n.id===id).text,
    node=(ref)=>page.locator(`[data-board-id="${ref}"]`),
    open=async(ref)=>{await node(ref).locator('.dd-note-preview').dblclick();const ed=node(ref).locator('textarea');await ed.waitFor();await ed.press('End');return ed;};
-  await page.locator('.views button').nth(1).click();
+  await page.locator('.views button[data-panel="board"]').click();
   await node('sticky:a').waitFor();
 
   // 1. A pause saves it, and the editor keeps every key typed.
@@ -50,12 +50,12 @@ const {start,fixture}=require('./harness.cjs');
   assert.equal(await text('a'),'Alpha one two!');
   await page.keyboard.press('End');await page.keyboard.type(' x');
   // 4. Leaving the Board right away saves it too.
-  await page.locator('.views button').nth(0).click();
+  await page.locator('.views button[data-panel="calendar"]').click();
   await page.waitForTimeout(50);
   assert.equal(await text('b'),'Beta x');
 
   // 5. A Feed note on the board saves the same way, and Undo takes the typing back.
-  await page.locator('.views button').nth(1).click();
+  await page.locator('.views button[data-panel="board"]').click();
   await node('life:fn').waitFor();await page.locator('.b2-viewport').focus();await page.keyboard.press('f');await page.waitForTimeout(500);
   ed=await open('life:fn');
   await page.keyboard.type(' idea');await page.keyboard.press('Escape');

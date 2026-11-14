@@ -24,7 +24,7 @@ const {start,fixture}=require('./harness.cjs');
   f.data.days[f.date].canvas={board4:{layouts:{mindmap:{}},locked:[],styles:{},
    links:[{id:'ab',from:'sticky:a',to:'sticky:b',style:'straight',arrow:true},{id:'bc',from:'sticky:b',to:'sticky:c',style:'straight',arrow:true}]}};
   await page.evaluate((d)=>{localStorage.setItem('debug-day:v2',JSON.stringify(d.data));localStorage.setItem('debug-day:board-view:'+d.date,JSON.stringify({camera:{x:40,y:150,z:0.4},mode:'mindmap'}));},{data:f.data,date:f.date});
-  await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+  await page.reload();await page.waitForSelector('.views',{state:'attached'});
   const read=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2'))),
    items=async()=>(await read()).setup.life.items,
    day=async()=>(await read()).days[f.date],
@@ -38,7 +38,7 @@ const {start,fixture}=require('./harness.cjs');
    bar=page.locator('.b4-selectionbar'),
    pick=async(ref,shift)=>{const b=await node(ref).boundingBox();if(shift)await page.keyboard.down('Shift');await page.mouse.click(b.x+b.width/2,b.y+b.height/2);if(shift)await page.keyboard.up('Shift');await page.waitForTimeout(150);};
   const shots=process.env.DEBUG_DAY_SCREENSHOTS,shot=async(name)=>{if(shots){require('node:fs').mkdirSync(shots,{recursive:true});await page.screenshot({path:require('node:path').join(shots,name+'.png')});}};
-  await page.locator('.views button').nth(1).click();
+  await page.locator('.views button[data-panel="board"]').click();
   await view.focus();await page.keyboard.press('Control+Shift+F');await page.locator('.b2.focus-mode').waitFor();
   await page.waitForFunction(()=>document.querySelector('.b2-viewport')?.dataset.zoom==='0.4');
 

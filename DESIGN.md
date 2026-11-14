@@ -16,7 +16,7 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 | **Section**: a group in the Feed | room, folder |
 | **Note**: a sticky note | sticky (in labels) |
 | **Feed**: the board area that is the same on every day | Life (that was its old name) |
-| **Engine**: the day's tasks (E on the Board, and the Engine tab), in two columns: Today and Park | today box, Plan (the old page) |
+| **Engine**: the day's tasks (E on the Board, or Ctrl+Space; it opens over the Board, there is no Engine page since 5.67), in two columns: Today and Park | today box, Plan (the old page) |
 | **Park**: tasks that are not for today and stay from day to day | Later tray, backlog |
 | **After**: the order between tasks or steps ("Colour pass after Sketch"); a waiting task is never locked | depends on, blocked by, dependency |
 | **Shortcut key**: one letter a section keeps for the Tab flowchart (Tab, then T for This App); Shift with it opens that section's Engine too | hotkey, binding |

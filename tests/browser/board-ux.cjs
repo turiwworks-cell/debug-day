@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const { start, fixture } = require("./harness.cjs");
+const { start, fixture, openEngine } = require("./harness.cjs");
 (async () => {
   const h = await start();
   try {
@@ -55,7 +55,7 @@ const { start, fixture } = require("./harness.cjs");
           );
         const note = () => page.locator('[data-board-id="sticky:note"]');
         const board = async () => {
-          await page.locator(".views button").nth(1).click();
+          await page.locator(".views button[data-panel=board]").click();
           await note().waitFor();
           if (mobile)
             await page
@@ -74,7 +74,7 @@ const { start, fixture } = require("./harness.cjs");
             );
           }, f);
           await page.reload();
-          await page.waitForSelector("#qa", { state: "attached" });
+          await page.waitForSelector(".views", { state: "attached" });
           await board();
         }
         async function drag(locator, target) {
@@ -239,15 +239,8 @@ const { start, fixture } = require("./harness.cjs");
         let task = (await read()).blocks[0];
         assert.equal(task.done, true);
         assert.equal(task.subtasks[0].children[0].done, true);
-        await page.locator(".views button").nth(0).click();
-        if (mobile)
-          await page
-            .getByRole("button", {
-              name: label("Full day / more"),
-              exact: true,
-            })
-            .click();
-        // The Engine page shows the same steps, one tap away (5.50).
+        await openEngine(page);
+        // The Engine (over the Board, 5.67) shows the same steps, one tap away.
         const steps = page.locator('.dd-engine [data-engine-task="writing"] .dd-engine-steps-toggle');
         if ((await steps.getAttribute("aria-expanded")) !== "true") await steps.click();
         await page
@@ -259,35 +252,17 @@ const { start, fixture } = require("./harness.cjs");
         task = (await read()).blocks[0];
         assert.equal(task.done, false);
         assert.equal(task.subtasks[0].done, false);
-        // On a computer "Pause the day" waits behind the "…" day tools button
-        // until the day is paused (5.42).
-        if (!mobile)
-          await page
-            .getByRole("button", { name: "More day tools", exact: true })
-            .click();
-        await page
-          .getByRole("button", { name: label("Pause the day"), exact: true })
-          .click();
+        await page.keyboard.press("Escape");
+        await page.locator(".dd-engine").waitFor({ state: "detached" });
+        // Pause the day sits on the Board's top bar (5.55).
+        await page.locator("[data-pause-day]").click();
         await page
           .getByRole("button", {
             name: label("Close today, keep the tasks"),
             exact: true,
           })
           .click();
-        if (mobile) {
-          const continueButton = page
-            .locator(".dd-current-actions")
-            .getByRole("button", {
-              name: label("Continue the day"),
-              exact: true,
-            });
-          await continueButton.click();
-        } else {
-          await page
-            .locator("button.dchip")
-            .filter({ hasText: label("Continue the day") })
-            .click();
-        }
+        await page.locator('[data-pause-day="closed"]').click();
         await page
           .getByRole("dialog", { name: label("Pause the day"), exact: true })
           .getByRole("button", { name: label("Continue the day"), exact: true })

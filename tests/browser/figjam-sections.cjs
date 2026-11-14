@@ -15,8 +15,8 @@ const {join}=require('node:path');
     {id:'n',type:'sticky',parent:'a',x:40,y:60,w:200,h:160,text:'Shared idea',color:'#FFE08A'}
    ],links:[],frame:{x:24,y:1200,w:1400,h:900}};
    await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),f.data);
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
-   await page.locator('.views button').nth(1).click();
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
+   await page.locator('.views button[data-panel="board"]').click();
    await page.getByRole('button',{name:t('Full screen','تمام‌صفحه'),exact:true}).click();
    await page.locator('[data-life-jump]').click();
    const read=async()=>(await page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2')))).setup.life;

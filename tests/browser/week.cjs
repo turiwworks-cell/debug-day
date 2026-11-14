@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {start,fixture}=require('./harness.cjs');
+const {start,fixture,openEngine}=require('./harness.cjs');
 // Light and heavy tasks, deadlines and the Week view (5.46): a task can be
 // marked light or heavy in the Engine; a tired day offers the light ones first; a
 // Feed note or section can carry a deadline; the Calendar shows section colors,
@@ -26,9 +26,10 @@ const {start,fixture}=require('./harness.cjs');
    ];
    if(mobile)f.data.days[f.date].blocks[1].energy='light';
    await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),f.data);
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
    const read=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2'))),
     nudge=(id)=>page.locator(`[data-nudge="${id}"]:visible`);
+   await openEngine(page);
    if(!mobile){
     // 1. Light or heavy, from the task's details in the Engine.
     const row=page.locator('.dd-engine [data-engine-task="b"]');
@@ -47,6 +48,7 @@ const {start,fixture}=require('./harness.cjs');
    await nudge('low').getByRole('button',{name:'Light ones first'}).click();
    await page.waitForFunction((d)=>JSON.parse(localStorage.getItem('debug-day:v2')).days[d].blocks[0].id==='b',f.date);
    await nudge('low').waitFor({state:'detached'});
+   await page.keyboard.press('Escape');await page.locator('.dd-engine').waitFor({state:'detached'});
    if(!mobile){
     // 3. A deadline on a Feed note, from its menu; it shows above the note.
     await page.locator('.views button',{hasText:'Board'}).click();

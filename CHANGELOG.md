@@ -1,3 +1,9 @@
+## 5.67.0 — 2026-11-14
+Branch: claude/project-thread-n79ngv
+- The Engine page is gone from the tabs: the app has Board and Calendar, and opens on the Board. The Engine opens over the Board (E, Ctrl+Space, or the Engine card's Open), and anything that used to open the Engine page (Search, Calendar, reminders) now opens it there, with the task in view.
+- Habit settings sit on the Board, in Today's habits: a small pencil opens name, colour, goal and remove, with a field for a new habit. Choosing Habits in Ctrl+Space or the app map opens Today's habits.
+- The day tools that lived only on the Engine page wait in the Board's top ⋯: Day template (use one, or save this day as a template) and Worry parking.
+
 ## 5.66.1 — 2026-11-14
 Branch: claude/project-thread-n79ngv
 - A note you open and close without writing anything stays on the Board, empty, where it was (it used to vanish). An empty free text box still goes away.

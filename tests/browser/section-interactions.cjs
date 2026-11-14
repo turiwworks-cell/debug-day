@@ -14,8 +14,8 @@ const {join}=require('node:path');
     {id:'m',type:'sticky',parent:'b',x:40,y:70,w:220,h:160,text:'Second idea',color:'#A8E6B8'}
    ],links:[],frame:{x:24,y:1200}};
    await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),f.data);
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
-   await page.locator('.views button').nth(1).click();
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
+   await page.locator('.views button[data-panel="board"]').click();
    await page.getByRole('button',{name:'Full screen',exact:true}).click();
    await page.locator('[data-life-jump]').click();
    const read=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2')));

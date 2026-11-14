@@ -3866,6 +3866,21 @@ export function DDcreateBoard(deps) {
       setWireSelection(ids.length ? { sel: S, ids } : null);
     }
     // ⋯ at the end of a dock opens what the dock keeps out of sight (same as a right-click).
+    // A day template puts its tasks in today's lanes; tasks outside a lane stay (as on the old Engine page).
+    function useDayTemplate(tp) {
+      const lanes = new Set((setup.lanes || []).map((l) => l.id));
+      commit((d) => {
+        d.tpl = tp.id;
+        d.blocks = [...tp.blocks.map((b) => ({ ...JSON.parse(JSON.stringify(b)), id: C(), done: false })), ...(d.blocks || []).filter((b) => !lanes.has(b.lane))];
+        return d;
+      }, t((tp.name || "Template") + " applied", "الگوی " + (tp.name || "") + " گذاشته شد"));
+    }
+    function saveDayTemplate() {
+      const lanes = new Set((setup.lanes || []).map((l) => l.id)), id = C(),
+        name = ie.format(E(day.date)), blocks = day.blocks.filter((b) => lanes.has(b.lane)).map((b) => ({ ...JSON.parse(JSON.stringify(b)), id: C(), done: false }));
+      propsRef.current.onUpdateSetup?.((s) => ({ ...s, templates: [...(s.templates || []), { id, name, days: [], blocks }] }));
+      commit((d) => { d.tpl = id; return d; }, t("Saved as a template: " + name, "به‌عنوان الگو ذخیره شد: " + name));
+    }
     function dockMore(dock) {
       return toolButton(t("More tools · right-click the bar", "ابزارهای بیشتر · راست‌کلیک روی نوار"), "more", (event) => openContext(event, { dock }), { "data-dock-more": dock, "aria-haspopup": "menu", "aria-expanded": menu?.dock === dock });
     }
@@ -5374,6 +5389,16 @@ export function DDcreateBoard(deps) {
             disabled: !list.length,
             children: list.map((e) => ({ ...item("trash-" + e.id, "", "", "undo", () => restoreTrash(e.id)), label: DDtrashLabel(e, Date.now(), DDlanguage) })),
           }), label: list.length ? t("Recently deleted · " + list.length, "تازه حذف‌شده‌ها · " + list.length.toLocaleString("fa-IR")) : t("Recently deleted", "تازه حذف‌شده‌ها") }))(lifeView.trash || []),
+          // Day tools that lived on the Engine page (5.67): a day template and worry parking.
+          sep("top-day-sep"),
+          ((templates) => item("day-template", "Day template", "الگوی روز", "copy", null, {
+            children: [
+              ...templates.map((tp) => ({ ...item("day-template-" + tp.id, "", "", tp.id === day.tpl ? "check" : "copy", () => useDayTemplate(tp)), label: (tp.name || t("Untitled", "بی‌نام")) + " · " + t(tp.blocks.length + " tasks", tp.blocks.length.toLocaleString("fa-IR") + " کار") })),
+              ...(templates.length ? [sep("day-template-sep")] : []),
+              item("day-template-save", "Save this day as a template", "ذخیرهٔ این روز به‌عنوان الگو", "plus", saveDayTemplate, { disabled: !day.blocks.length }),
+            ],
+          }))(setup.templates || []),
+          item("worry-parking", "Worry parking", "پارک نگرانی‌ها", "sticker", () => { finishEdit(); window.dispatchEvent(new CustomEvent("debug-day-open-capture", { detail: "worry" })); }),
           sep("top-view-sep"),
           item("fit-all", "Fit all objects", "نمایش همهٔ اشیا", "fitAll", () => fit(false), { shortcut: "Shift+1" }),
           item("theme", "Toggle light / dark", "تغییر روشن / تیره", (setup.look?.theme === "dark" || (setup.look?.theme !== "light" && matchMedia("(prefers-color-scheme:dark)").matches)) ? "sun" : "moon", toggleBoardTheme),
@@ -5880,6 +5905,7 @@ export function DDcreateBoard(deps) {
         nodes: layout.nodes, preferences: setup.preferences, language: DDlanguage,
         onToggle: toggleRail, onReveal: revealRail, days: allDays, habits: setup.habits || undefined,
         today: new Date().toLocaleDateString("en-CA"),
+        onSetup: (change) => propsRef.current.onUpdateSetup?.(change), makeId: C,
         onGoalChange: (ref, goal) => commit((d) => {
           const life = ref.startsWith("life:"), id = ref.slice(life ? 5 : 7), note = (life ? d.__life.items : d.notes).find((i) => i.id === id);
           if (!note) return;
@@ -6710,6 +6736,8 @@ export function DDcreateBoard(deps) {
           makeId: C,
           sources: DDengineSources(DDlifeItems(setup)),
           parseTask: propsRef.current.parseTask,
+          // A task opened from Search, the Calendar or a reminder is brought into view.
+          focusId: propsRef.current.selectedBlockId,
           Emoji: B,
           // Made inside a section's board, a new task comes from that section.
           from: layout.room || "",

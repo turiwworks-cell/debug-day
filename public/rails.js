@@ -1,7 +1,7 @@
 import{DDBoardIcon}from"./board-icons.js";
 import{DDlifePath}from"./life-board.js";
 import{DDboardSearchRows}from"./board-experience.js";
-import{DDHabitControls,DDHabitStats,DDhabitEntry,DDhabitLevels,DDhabitLevelsFor}from"./habits.js";
+import{DDHabitControls,DDHabitStats,DDHabitManager,DDhabitEntry,DDhabitLevels,DDhabitLevelsFor,DDhabitPalette,DDhabitStyle}from"./habits.js";
 import { DDtagText } from "./note-tags.js";
 import { DDGoalCounter, DDbudgetCSS } from "./budgets.js";
 
@@ -80,10 +80,10 @@ export function DDrailPreferences(preferences, mobile = false) {
 }
 
 const NO_HABITS = [];
-export function DDBoardRails({ React: R, day, items, room, sharedLinks, nodes, preferences, language, onToggle, onReveal, habitDay, days, habits = NO_HABITS, onHabitChange, today, onGoalChange }) {
+export function DDBoardRails({ React: R, day, items, room, sharedLinks, nodes, preferences, language, onToggle, onReveal, habitDay, days, habits = NO_HABITS, onHabitChange, today, onGoalChange, onSetup, makeId }) {
   const h = R.createElement, t = (en, fa) => language === "fa" ? fa : en,
     root = R.useRef(null), [mobile, setMobile] = R.useState(() => matchMedia("(max-width:700px)").matches),
-    [stats, setStats] = R.useState(null), open = DDrailPreferences(preferences, mobile),
+    [stats, setStats] = R.useState(null), [editing, setEditing] = R.useState(false), [newHabit, setNewHabit] = R.useState(""), open = DDrailPreferences(preferences, mobile),
     // Worked out again only when the board's data changes, not on every click.
     groups = R.useMemo(() => DDrailGroups(day, items, room, sharedLinks, nodes, habits), [day, items, room, sharedLinks, nodes, habits]), levels = DDhabitLevels(preferences?.habitLevels),
     names = { goal: t("Goals", "هدف‌ها"), note: t("Notes", "نوت‌ها"), habits: t("Today's habits", "عادت‌های امروز") },
@@ -129,11 +129,24 @@ export function DDBoardRails({ React: R, day, items, room, sharedLinks, nodes, p
     h("div", { className: "dd-rails-left" }, ["goal", "note"].map((key) => h("div", { key, "data-rail-slot": key }, button(key), notePanel(key)))),
     h("div", { className: "dd-rails-right", "data-rail-slot": "habits" }, button("habits"),
       open.habits && h("aside", { id: "dd-rail-habits", className: "dd-rail-panel", "aria-label": names.habits, dir: language === "fa" ? "rtl" : "ltr" },
-        !habits.length && h("p", { className: "dd-rail-empty" }, t("Add a habit in Habits when you feel like it.", "هر وقت خواستی، در بخش عادت‌ها یک عادت اضافه کن.")),
-        habits.map((habit) => h("section", { key: habit.id, className: "dd-rail-habit", "data-rail-habit": habit.id, style: { "--hc": habit.color } },
+        // Habit settings live here, small (5.67): a pencil opens name, colour, goal and remove.
+        onSetup && habits.length > 0 && h("button", { type: "button", className: "dd-rail-habit-edit", "aria-pressed": editing, title: editing ? t("Done", "تمام") : t("Edit habits", "ویرایش عادت‌ها"), "aria-label": editing ? t("Done editing habits", "پایان ویرایش عادت‌ها") : t("Edit habits", "ویرایش عادت‌ها"), onClick: () => setEditing((v) => !v) },
+          editing ? t("Done", "تمام") : h(DDBoardIcon, { React: R, name: "pen", size: 13 })),
+        !habits.length && h("p", { className: "dd-rail-empty" }, t("No habits yet. Add one when you feel like it.", "هنوز عادتی نیست. هر وقت خواستی یکی اضافه کن.")),
+        editing && habits.length > 0 ? (DDhabitStyle(), h(DDHabitManager, { React: R, habits, shared: preferences?.habitLevels, onUpdateSetup: onSetup })) : habits.map((habit) => h("section", { key: habit.id, className: "dd-rail-habit", "data-rail-habit": habit.id, style: { "--hc": habit.color } },
           h("button", { type: "button", className: "dd-rail-heading", dir: "auto", "aria-expanded": stats === habit.id, onClick: () => setStats(stats === habit.id ? null : habit.id) }, habit.name),
           h(DDHabitControls, { React: R, habit, entry: DDhabitEntry(habitDay, habit.id), levels: DDhabitLevelsFor(habit, levels), language, onChange: (patch) => onHabitChange(habit.id, patch) }),
-          stats === habit.id && h(DDHabitStats, { React: R, habit, days: { ...days, [habitDay.date]: habitDay }, date: habitDay.date, levels: DDhabitLevelsFor(habit, levels), language }))))));
+          stats === habit.id && h(DDHabitStats, { React: R, habit, days: { ...days, [habitDay.date]: habitDay }, date: habitDay.date, levels: DDhabitLevelsFor(habit, levels), language }))),
+        onSetup && (editing || !habits.length) && h("form", { className: "dd-rail-habit-add", onSubmit: (e) => {
+          e.preventDefault();
+          const name = newHabit.trim();
+          if (!name) return;
+          const id = makeId ? makeId() : "h" + Date.now().toString(36);
+          onSetup((s) => ({ ...s, habits: [...(s.habits || []), { id, name, emo: "", color: DDhabitPalette[(s.habits || []).length % DDhabitPalette.length] }] }));
+          setNewHabit("");
+        } },
+          h("input", { dir: "auto", value: newHabit, maxLength: 120, placeholder: t("New habit, e.g. Drawing", "عادت تازه، مثلاً طراحی"), "aria-label": t("New habit", "عادت تازه"), onChange: (e) => setNewHabit(e.target.value) }),
+          h("button", { type: "submit", disabled: !newHabit.trim() }, t("Add", "افزودن"))))));
 }
 
 export function DDinstallRailStyles() {
@@ -150,6 +163,9 @@ export function DDinstallRailStyles() {
 .dd-rail-panel{box-sizing:border-box;width:100%;margin-top:5px;padding:10px;overflow:auto;overscroll-behavior:contain;max-height: min(34vh,320px)}.dd-rails-right .dd-rail-panel{max-height:none;min-height:0}
 .dd-rail-heading,.dd-rail-group li button{font:inherit;color:inherit;text-align:start;display:block;width:100%;border:0;background:transparent;cursor:pointer;overflow-wrap:anywhere;padding:7px 4px;border-radius:6px;line-height:1.5}
 .dd-rail-heading{font-weight:650}.dd-rail-group small{opacity:.65}.dd-rail-group+.dd-rail-group,.dd-rail-habit+.dd-rail-habit{border-top:1px solid var(--line);margin-top:8px;padding-top:8px}.dd-rail-group ul{padding-inline-start:16px;margin:0}.dd-rail-empty{opacity:.65;line-height:1.6;margin:4px 0;font-size:11px}
+@media(min-width:701px){.dd-rails-right .dd-rail-panel{position:relative}}.dd-rail-habit-edit{position:absolute;top:8px;inset-inline-end:8px;min-width:26px;height:26px;padding:0 7px;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:7px;background:transparent;color:var(--pi);font:inherit;font-size:11px;opacity:.6;cursor:pointer}.dd-rail-habit-edit:hover,.dd-rail-habit-edit[aria-pressed=true]{opacity:1}.dd-rail-habit:first-of-type .dd-rail-heading{padding-inline-end:30px}
+.dd-rails-right .dd-habit-manage li{padding:6px 8px;gap:6px}.dd-rails-right .dd-habit-manage .dd-habit-rename{flex:1 1 0}.dd-rails-right .dd-habit-manage input[type=color]{width:22px;height:22px}.dd-rail-habit-edit[aria-pressed=true]{position:static;display:flex;margin:0 0 6px auto}.dd-rails-right .dd-habit-manage .dd-habit-goal-field input{width:52px}.dd-rails-right .dd-habit-manage + .dd-rail-habit-add,.dd-rail-habit + .dd-rail-habit-add{margin-top:8px}
+.dd-rail-habit-add{display:flex;gap:6px}.dd-rail-habit-add input{flex:1;min-width:0;border:1px solid var(--line);background:transparent;color:inherit;border-radius:7px;padding:6px 8px;font:inherit}.dd-rail-habit-add button{border:0;border-radius:7px;padding:6px 10px;background:var(--wash);color:inherit;font:inherit;cursor:pointer}.dd-rail-habit-add button:disabled{opacity:.45;cursor:default}
 .dd-board-rails button:hover{background:var(--wash)}.dd-board-rails button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}.dd-board-rails .dd-habit-controls{flex-wrap:wrap;gap:5px}.dd-board-rails .dd-habit-min input{width:44px;min-width:0}.dd-board-rails .dd-habit-stats{margin-top:8px}.dd-board-rails .dd-habit-grid{max-width:100%}
 @media(max-width:700px){.dd-board-rails{bottom:142px}.dd-rails-left{width:calc(100% - 136px);display:flex;flex-direction:row;gap:4px;overflow:visible}.dd-rails-left>[data-rail-slot]{min-width:0}.dd-rails-right{width:132px}.dd-rail-toggle{min-height:44px;padding:7px;font-size:11px;white-space:nowrap}.dd-rail-panel{position:absolute;top:44px;left:0;width:min(300px,calc(100vw - 36px));max-height:calc(100% - 50px);box-sizing:border-box}.dd-rails-left,.dd-rails-right{height:100%;max-height:100%}.dd-rails-right .dd-rail-panel{left:auto;right:0;max-height:calc(100% - 50px)}.dd-board-rails .dd-habit-tick,.dd-board-rails .dd-habit-plus,.dd-board-rails .dd-rail-heading,.dd-board-rails li button{min-height:44px}}
 ` + DDbudgetCSS;

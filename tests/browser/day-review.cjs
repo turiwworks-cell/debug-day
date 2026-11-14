@@ -69,10 +69,10 @@ async function scenario(h, mobile, language) {
   await page.waitForSelector(".views", { state: "attached" });
   const baseline = await read(page);
   const activate = (locator) => (mobile ? locator.tap() : locator.click());
-  const nav = (index) => activate(page.locator(".views button").nth(index));
+  const nav = () => activate(page.locator('.views button[data-panel="calendar"]'));
   // Calendar is one panel (Stats were removed in 5.57), so it has no section tabs.
   async function section(id) {
-    await nav(2);
+    await nav();
     await page.waitForSelector(`.dd-review-root[data-section="${id}"]`);
   }
   async function select(date) {
@@ -168,9 +168,13 @@ async function scenario(h, mobile, language) {
     0,
   );
   assert.equal(await page.locator('[data-feeling-id]').count(), 0, "saved feelings are not listed");
-  // The focus is written in the Plan header, for the same day.
-  await nav(0);
-  await page.locator("#fFocus").fill("One calm step");
+  // The focus is written on the Board's day card (the Engine root), for the same day.
+  await activate(page.locator('.views button[data-panel="board"]'));
+  const dayCard = page.locator('[data-node-kind="day"]').first();
+  await dayCard.focus();
+  await page.keyboard.press("Enter");
+  await dayCard.locator("input").first().fill("One calm step");
+  await dayCard.locator("input").first().press("Enter");
   await page.waitForFunction(
     (date) =>
       JSON.parse(localStorage.getItem("debug-day:v2")).days[date]?.focus ===
@@ -207,11 +211,9 @@ async function scenario(h, mobile, language) {
   await activate(
     task.getByRole("button", { name: "Portfolio writing", exact: true }),
   );
-  await page.waitForFunction(
-    () =>
-      document.querySelector(".views [aria-selected=true]") ===
-      document.querySelector(".views button"),
-  );
+  // Opening a task brings the Engine up over the Board (there is no Engine page, 5.67).
+  await page.getByRole("dialog", { name: t("Engine", "انجین") }).waitFor();
+  assert.equal(await page.locator('.views [role=tab][data-panel="board"]').getAttribute("aria-selected"), "true");
   if (mobile)
     assert.equal(
       await page
@@ -220,6 +222,8 @@ async function scenario(h, mobile, language) {
       false,
       "Opening a task reveals full Plan details on a phone",
     );
+  await page.keyboard.press("Escape");
+  await page.locator(".dd-engine").waitFor({ state: "detached" });
   await section("day");
   await select(f.date);
   await activate(task.locator("summary"));

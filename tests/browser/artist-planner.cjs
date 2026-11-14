@@ -17,8 +17,8 @@ const { start, fixture } = require("./harness.cjs");
         );
       }, f);
       await page.reload();
-      await page.waitForSelector("#qa", { state: "attached" });
-      await page.locator(".views button").nth(1).click();
+      await page.waitForSelector(".views", { state: "attached" });
+      await page.locator(".views button[data-panel=board]").click();
       const read = () =>
         page.evaluate(
           (date) => JSON.parse(localStorage.getItem("debug-day:v2")).days[date],
@@ -109,8 +109,8 @@ const { start, fixture } = require("./harness.cjs");
         localStorage.setItem("debug-day:board-view:" + f.date, JSON.stringify({ camera: { x: 24, y: 20, z: 0.7 }, mode: "lanes" }));
       }, f);
       await page.reload();
-      await page.waitForSelector("#qa", { state: "attached" });
-      await page.locator(".views button").nth(1).click();
+      await page.waitForSelector(".views", { state: "attached" });
+      await page.locator(".views button[data-panel=board]").click();
       if ((await page.locator(".b2-viewport").getAttribute("data-mode")) !== "lanes")
         await page.locator(".b4-modes button").nth(1).click();
       await page.locator('[data-board-id="sec:writing"]').waitFor({ state: "attached" });

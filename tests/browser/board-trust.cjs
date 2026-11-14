@@ -34,7 +34,7 @@ const {start,fixture}=require('./harness.cjs');
   f.data.days[f.date].canvas={board4:{layouts:{mindmap:{}},locked:[],styles:{'sticky:big':{textSize:40,textAlign:'center',textColor:'#D9434A',width:240,height:240}},
    links:[{id:'ab',from:'sticky:a',to:'sticky:b',style:'elbow',arrow:true}]}};
   await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),f.data);
-  await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+  await page.reload();await page.waitForSelector('.views',{state:'attached'});
   const read=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2'))),
    items=async()=>(await read()).setup.life.items,
    day=async()=>(await read()).days[f.date],
@@ -51,7 +51,7 @@ const {start,fixture}=require('./harness.cjs');
    },
    grab=async(ref)=>{const b=await node(ref).boundingBox();return {x:b.x+b.width/2,y:b.y+Math.min(14,b.height/4)};},
    status=()=>page.locator('.b6 [role=status], .b2 [role=status]').allInnerTexts().then((l)=>l.join(' '));
-  await page.locator('.views button').nth(1).click();
+  await page.locator('.views button[data-panel="board"]').click();
   await view.focus();await page.keyboard.press('Control+Shift+F');await page.locator('.b2.focus-mode').waitFor();
 
   // 1. A folded section takes only drops on its name bar.
@@ -113,7 +113,7 @@ const {start,fixture}=require('./harness.cjs');
   await drag(g0,{x:g0.x,y:g0.y+120});
   assert.notEqual((await day()).notes.find((n)=>n.id==='a').y,200,'the note moved');
   const tab=await context.newPage();
-  await tab.goto(h.origin);await tab.waitForSelector('#qa',{state:'attached'});
+  await tab.goto(h.origin);await tab.waitForSelector('.views',{state:'attached'});
   await tab.evaluate((date)=>{const d=JSON.parse(localStorage.getItem('debug-day:v2'));d.days[date].notes.push({id:'phone',kind:'sticky',text:'From the phone',color:'#B3EFBD',x:2600,y:900});localStorage.setItem('debug-day:v2',JSON.stringify(d));},f.date);
   await page.waitForFunction(()=>!!document.querySelector('[data-board-id="sticky:phone"]'));
   await tab.close();

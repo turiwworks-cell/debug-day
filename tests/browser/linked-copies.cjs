@@ -23,7 +23,7 @@ const {start,fixture}=require('./harness.cjs');
    f.data.days[f.date].canvas={board4:{layouts:{mindmap:{}},locked:[],styles:{},links:[]}};
    f.data.days[f.last].notes=[{id:'old',kind:'sticky',text:'Fox sketch',color:'#FFE299',x:200,y:200}];
    await page.evaluate((d)=>{localStorage.setItem('debug-day:v2',JSON.stringify(d.data));localStorage.setItem('debug-day:board-view:'+d.date,JSON.stringify({camera:{x:40,y:150,z:0.4},mode:'mindmap'}));localStorage.setItem('debug-day:ui',JSON.stringify({view:'board'}));},{data:f.data,date:f.date});
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
    const read=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2'))),
     items=async()=>(await read()).setup.life.items,
     day=async(date=f.date)=>(await read()).days[date],

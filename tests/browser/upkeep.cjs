@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {start,fixture}=require('./harness.cjs');
+const {start,fixture,openEngine}=require('./harness.cjs');
 // Upkeep and gentle nudges (5.45): yesterday's leftovers and a very full day
 // show as one calm line at the top of the Engine; Feed deletes wait in Recently
 // deleted; an empty note stays when you close it; days stop keeping copies
@@ -26,14 +26,15 @@ const {start,fixture}=require('./harness.cjs');
    // An old day board kept its own copies of Feed places.
    f.data.days[f.date].canvas={board4:{version:1,mode:'mindmap',layouts:{mindmap:{'life:fox':{x:1,y:2},'life:owl':{x:3,y:4}},lanes:{}},links:[],hidden:[],overrides:{},locked:[],groups:{},styles:{},stack:[]}};
    await page.evaluate((d)=>{localStorage.setItem('debug-day:v2',JSON.stringify(d.data));localStorage.setItem('debug-day:board-view:'+d.date,JSON.stringify({camera:{x:40,y:150,z:0.5},mode:'mindmap'}));},{data:f.data,date:f.date});
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
    const read=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2'))),
     nudge=(id)=>page.locator(`[data-nudge="${id}"]:visible`);
-   // 1. Yesterday's leftovers come first: the Engine's carry line on desktop,
-   //    the calm Today card's nudge on a phone.
-   const carry=mobile?nudge('carry'):page.locator('#plan .dd-engine-carry');
+   // 1. Yesterday's leftovers come first: the Engine's carry line (the Engine
+   //    opens over the Board, 5.67).
+   await openEngine(page);
+   const carry=page.locator('.dd-engine .dd-engine-carry');
    await carry.waitFor();
-   assert.match(await carry.innerText(),mobile?/1 left from[\s\S]*Old sketch/:/1 still open from[\s\S]*Old sketch/);
+   assert.match(await carry.innerText(),/1 still open from[\s\S]*Old sketch/);
    await carry.getByRole('button',{name:'Bring it'}).click();
    await page.waitForFunction((date)=>JSON.parse(localStorage.getItem('debug-day:v2')).days[date].blocks.some((b)=>b.name==='Old sketch'),f.date);
    await carry.waitFor({state:'detached'});
@@ -51,6 +52,7 @@ const {start,fixture}=require('./harness.cjs');
    data=await read();
    assert.equal(data.days[f.date].blocks.some((b)=>b.name==='Emails'),false);
    await nudge('full').waitFor({state:'detached'});
+   await page.keyboard.press('Escape');await page.locator('.dd-engine').waitFor({state:'detached'});
    // 3. Settings says how much space the planner uses.
    await page.locator('button',{hasText:'Settings'}).last().click();
    const space=page.locator('.dd-storage-use');await space.waitFor();

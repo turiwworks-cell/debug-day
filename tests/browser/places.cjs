@@ -18,8 +18,8 @@ const {start,fixture}=require('./harness.cjs');
     {id:'b',type:'section',parent:'',x:1040,y:60,w:420,h:350,text:'Work & play',color:'#FFA6D9'},
    ],links:[],frame:{x:24,y:1200}};
    f.data.days[f.date].notes.push({id:'far',kind:'sticky',text:'Far away thought',color:'#FFE27A',x:4200,y:2600});
-   await page.evaluate((d)=>{localStorage.setItem('debug-day:v2',JSON.stringify(d));localStorage.setItem('debug-day:ui',JSON.stringify({view:'plan'}));},f.data);
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+   await page.evaluate((d)=>{localStorage.setItem('debug-day:v2',JSON.stringify(d));localStorage.setItem('debug-day:ui',JSON.stringify({view:'calendar'}));},f.data);
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
    const back=page.locator('.dd-tabs [data-places-back]'),
     tab=(name)=>page.locator(`.views [role=tab][data-panel="${name}"]`),
     selected=async()=>page.locator('.views [role=tab][aria-selected=true]').getAttribute('data-panel'),
@@ -33,11 +33,11 @@ const {start,fixture}=require('./harness.cjs');
    const shots=process.env.DEBUG_DAY_SCREENSHOTS,shot=async(name)=>{if(shots){require('node:fs').mkdirSync(shots,{recursive:true});await page.screenshot({path:require('node:path').join(shots,name+(mobile?'-phone':'')+'.png')});}};
 
    // 1. Nothing to go back to yet; one tab later, Back goes there in one click.
-   assert.equal(await selected(),'engine');
+   assert.equal(await selected(),'calendar');
    assert.equal(await back.isDisabled(),true,'nothing behind the first place');
    await tap(tab('board'));await view.waitFor();
    assert.equal(await back.isDisabled(),false);
-   assert.equal(await back.getAttribute('aria-label'),'Back to Engine');
+   assert.equal(await back.getAttribute('aria-label'),'Back to Calendar');
    if(mobile){
     const bb=await back.boundingBox(),vb=await page.locator('.views').boundingBox();
     assert.ok(Math.abs((bb.y+bb.height/2)-(vb.y+vb.height/2))<4,'on a phone Back sits on the tabs row');
@@ -45,7 +45,7 @@ const {start,fixture}=require('./harness.cjs');
    }
    await shot('back-button');
    await tap(back);
-   await page.waitForFunction(()=>document.querySelector('.views [aria-selected=true]')?.dataset.panel==='engine');
+   await page.waitForFunction(()=>document.querySelector('.views [aria-selected=true]')?.dataset.panel==='calendar');
    assert.equal(await back.isDisabled(),true,'back at the start');
    // Alt+→ (or the mouse's forward button) goes forward again.
    await alt('ArrowRight');
@@ -101,7 +101,7 @@ const {start,fixture}=require('./harness.cjs');
    await alt('ArrowDown');
    assert.equal(await selected(),'calendar');
    await alt('ArrowDown');
-   assert.equal(await selected(),'engine','the tabs go round');
+   assert.equal(await selected(),'board','the tabs go round');
    await alt('ArrowUp');
    assert.equal(await selected(),'calendar');
    // From another tab, Back opens the board in the section, where you were.
@@ -114,16 +114,16 @@ const {start,fixture}=require('./harness.cjs');
    assert.equal(await camera(),before,'the board reopens with the same view');
 
    // 5. In a text field Alt+arrows stay with the text.
-   await tap(tab('engine'));
-   const input=page.locator('#qa');
-   if(await input.isVisible()){
+   await tap(tab('calendar'));
+   const input=page.locator('#dd-calendar-day textarea, #dd-calendar-day input[type=text]').first();
+   if(await input.isVisible().catch(()=>false)){
     await input.focus();await page.keyboard.press('Alt+ArrowLeft');await page.waitForTimeout(250);
-    assert.equal(await selected(),'engine','typing keeps its keys');
+    assert.equal(await selected(),'calendar','typing keeps its keys');
    }
 
    // 6. A reload keeps the trail.
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
-   assert.equal(await selected(),'engine');
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
+   assert.equal(await selected(),'calendar');
    assert.equal(await back.getAttribute('aria-label'),'Back to Board · Sketches');
    await tap(back);
    await page.waitForFunction(()=>/Sketches/.test(document.querySelector('.dd-room-bar')?.innerText||''));

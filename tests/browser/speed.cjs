@@ -21,14 +21,14 @@ const {start,fixture}=require('./harness.cjs');
   today.notes[14].text='Hi';
   await page.addInitScript(()=>{window.__ddPerf={board:0,cards:0};});
   await page.evaluate((d)=>{localStorage.setItem('debug-day:v2',JSON.stringify(d.data));localStorage.setItem('debug-day:board-view:'+d.date,JSON.stringify({camera:{x:40,y:50,z:0.9},mode:'mindmap'}));},{data:f.data,date:f.date});
-  await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+  await page.reload();await page.waitForSelector('.views',{state:'attached'});
   const node=(ref)=>page.locator(`[data-board-id="${ref}"]`),
    count=()=>page.evaluate(()=>({...window.__ddPerf})),
    frames=()=>page.evaluate(()=>new Promise((r)=>requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(r,0))))),
    settle=async()=>{await page.waitForTimeout(350);await frames();},
    since=async(before)=>{const now=await count();return {board:now.board-before.board,cards:now.cards-before.cards};},
    pick=async(ref)=>{const b=await node(ref).boundingBox();await page.mouse.click(b.x+b.width/2,b.y+b.height/2);await frames();};
-  await page.locator('.views button').nth(1).click();
+  await page.locator('.views button[data-panel="board"]').click();
   await node('sticky:n0').waitFor();await page.waitForTimeout(1200);
   const cards=await page.locator('.b4-node').count();
   assert.ok(cards>=280,'the board has its cards ('+cards+')');

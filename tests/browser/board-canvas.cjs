@@ -21,7 +21,7 @@ const {start,fixture}=require('./harness.cjs');
     {id:'inner',type:'section',parent:'top',x:420,y:80,w:420,h:320,text:'Sketches',color:'#D3B8FF'},
    ],links:[],frame:{x:24,y:1600}};
    await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),f.data);
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
    await page.evaluate(()=>{
     window.__zoomKey=null;window.__zoomWheel=null;
     window.addEventListener('keydown',(e)=>{if(e.ctrlKey&&['=','-','0','+'].includes(e.key))window.__zoomKey=e.defaultPrevented;});

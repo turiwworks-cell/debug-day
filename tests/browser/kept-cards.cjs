@@ -10,12 +10,12 @@ const {start,fixture}=require('./harness.cjs');
   page.setDefaultTimeout(10000);
   f.data.days[f.date].notes=['a','b','c','d'].map((id,i)=>({id,kind:'sticky',text:'Note '+id.toUpperCase(),color:'#FFE299',x:1500+i*300,y:300}));
   await page.evaluate((d)=>{localStorage.setItem('debug-day:v2',JSON.stringify(d.data));localStorage.setItem('debug-day:board-view:'+d.date,JSON.stringify({camera:{x:-700,y:40,z:0.6},mode:'mindmap'}));},{data:f.data,date:f.date});
-  await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+  await page.reload();await page.waitForSelector('.views',{state:'attached'});
   const node=(ref)=>page.locator(`[data-board-id="${ref}"]`),
    saved=async(id)=>(await page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2')))).days[f.date].notes.find((n)=>n.id===id),
    picked=()=>page.evaluate(()=>[...document.querySelectorAll('.b4-node[aria-selected=true]')].map((e)=>e.dataset.boardId).sort()),
    pick=async(ref,shift)=>{const b=await node(ref).boundingBox();if(shift)await page.keyboard.down('Shift');await page.mouse.click(b.x+b.width/2,b.y+b.height/2);if(shift)await page.keyboard.up('Shift');await page.waitForTimeout(120);};
-  await page.locator('.views button').nth(1).click();
+  await page.locator('.views button[data-panel="board"]').click();
   await node('sticky:d').waitFor();await page.waitForTimeout(400);
 
   // 1. Picking moves from card to card.

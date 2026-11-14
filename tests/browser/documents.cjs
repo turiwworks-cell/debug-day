@@ -13,8 +13,8 @@ const {join}=require('node:path');
   const day=f.data.days[f.date];
   day.notes=[{id:'n',kind:'sticky',x:200,y:700,text:'Trip plan\nDay one\n- pack the camera',color:'#FFE08A'}];
   await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),f.data);
-  await page.reload();await page.waitForSelector('#qa',{state:'attached'});
-  await page.locator('.views button').nth(1).click();
+  await page.reload();await page.waitForSelector('.views',{state:'attached'});
+  await page.locator('.views button[data-panel="board"]').click();
   await page.getByRole('button',{name:'Full screen',exact:true}).click();
   const read=async()=>(await page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2')))).days[f.date],
    node=(ref)=>page.locator(`[data-board-id="${ref}"]`),

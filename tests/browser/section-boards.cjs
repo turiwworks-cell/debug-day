@@ -22,14 +22,14 @@ const {start,fixture}=require('./harness.cjs');
     {id:'q',type:'sticky',parent:'b',x:180,y:170,w:220,h:160,text:'Near the edge',color:'#A8E6B8'}
    ],links:[],frame:{x:24,y:1200}};
    await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),f.data);
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
    const read=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2'))),
     items=async()=>(await read()).setup.life.items,
     node=(id)=>page.locator(`[data-board-id="life:${id}"]`),
     view=page.locator('.b2-viewport'),bar=page.locator('.dd-room-bar'),
     key=async(k)=>{await view.focus();await page.keyboard.press(k);await page.waitForTimeout(250);},
     settle=()=>page.waitForTimeout(350);
-   await page.locator('.views button').nth(1).click();
+   await page.locator('.views button[data-panel="board"]').click();
    await view.focus();await page.keyboard.press('Control+Shift+F');await page.locator('.b2.focus-mode').waitFor();
    await page.locator('[data-life-jump]').click();await settle();
 

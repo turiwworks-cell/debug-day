@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {start,fixture}=require('./harness.cjs');
+const {start,fixture,openEngine}=require('./harness.cjs');
 // Soft budgets and goals (5.44): a section can carry a gentle budget ("2h a
 // week"); it adds up the done tasks that came from it, read from the days, so
 // nothing is copied. "→ Today" on a Feed note adds a task and keeps the note.
@@ -18,7 +18,7 @@ const {start,fixture}=require('./harness.cjs');
    Object.assign(f.data.days[f.date].blocks.find((b)=>b.id==='writing'),{from:'s',done:true,min:90});
    f.data.days[f.date].canvas={board4:{layouts:{mindmap:{}},locked:[],styles:{},links:[]}};
    await page.evaluate((d)=>{localStorage.setItem('debug-day:v2',JSON.stringify(d.data));localStorage.setItem('debug-day:board-view:'+d.date,JSON.stringify({camera:{x:40,y:150,z:0.5},mode:'mindmap'}));localStorage.setItem('debug-day:ui',JSON.stringify({view:'board'}));},{data:f.data,date:f.date});
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
    const read=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2'))),
     section=async()=>(await read()).setup.life.items.find((i)=>i.id==='s'),
     node=(ref)=>page.locator(`[data-board-id="${ref}"]`),
@@ -82,11 +82,11 @@ const {start,fixture}=require('./harness.cjs');
    await counter.getByLabel('Until').fill(until);
    await page.waitForFunction(()=>/9 days left/.test(document.querySelector('[data-goal-counter="goal"] b')?.textContent||''));
    // 5. A reload keeps all of it, and the task in the Engine is the same task.
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
    data=await read();
    assert.equal(data.days[f.date].blocks.find((b)=>b.id===made.id).noteRef,'idea');
    assert.deepEqual(data.setup.life.items.find((i)=>i.id==='goal').goal,{n:4,of:35,until});
-   await page.locator('.views button',{hasText:'Engine'}).click();await settle();
+   await openEngine(page);await settle();
    const row=page.locator(`.dd-engine [data-engine-task="${made.id}"]`);await row.waitFor({state:'attached'});
    if(!mobile)assert.equal(await row.isVisible(),true,'the Engine shows the task from the note');
    const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth);

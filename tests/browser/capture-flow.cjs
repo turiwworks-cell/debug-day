@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {start,fixture}=require('./harness.cjs');
+const {start,fixture,openEngine}=require('./harness.cjs');
 // Capture and the daily flow (5.55). Capture is its own section, drawn apart
 // above the Main board in Tab (C goes in, even before the first idea). An idea
 // waiting there shows in the Engine; from its note it goes to Today or to Park.
@@ -13,7 +13,7 @@ const {start,fixture}=require('./harness.cjs');
    const section=(id,text,x,extra={})=>({id,type:'section',parent:'',x,y:60,w:420,h:300,text,...extra});
    f.data.setup.life={v:2,items:[section('a','Studio',40)],links:[],frame:{x:24,y:1200}};
    await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),f.data);
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
    const saved=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2'))),
     room=()=>page.evaluate(()=>sessionStorage.getItem('debug-day:board-room')),
     view=page.locator('.b2-viewport'),
@@ -36,7 +36,7 @@ const {start,fixture}=require('./harness.cjs');
 
    // 2. Ideas in Capture: the pill is drawn apart, with how many wait there.
    await page.evaluate((date)=>{const d=JSON.parse(localStorage.getItem('debug-day:v2'));d.setup.life.items.push({id:'idea1',type:'sticky',parent:'lf-inbox',x:20,y:40,w:240,h:200,text:'Poster with moving type',color:'#FFE299',at:date},{id:'idea2',type:'sticky',parent:'lf-inbox',x:280,y:40,w:240,h:200,text:'Call the printer',color:'#FFE299',at:date});localStorage.setItem('debug-day:v2',JSON.stringify(d));},f.date);
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});await page.locator('[role=tab][data-panel=board]').click();await view.waitFor();
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});await page.locator('[role=tab][data-panel=board]').click();await view.waitFor();
    await openTab();
    const cap=page.locator('[data-flow-node="lf-inbox"]');
    assert.match(await cap.getAttribute('class'),/is-capture/);
@@ -46,9 +46,10 @@ const {start,fixture}=require('./harness.cjs');
    await page.keyboard.press('Escape');await page.locator('.dd-flow').waitFor({state:'detached'});
 
    // 3. The Engine says two ideas wait in Capture; "Sort them" opens it on the board.
-   await page.locator('[role=tab][data-panel=engine]').click();
-   if(!mobile){
-    const line=page.locator('#plan .dd-engine-capture');
+   await openEngine(page);
+   if(mobile){await page.keyboard.press('Escape');await page.locator('.dd-engine').waitFor({state:'detached'});}
+   else{
+    const line=page.locator('.dd-engine .dd-engine-capture');
     await line.waitFor();
     assert.equal(await line.getAttribute('data-capture-waiting'),'2');
     await line.locator('[data-capture-open]').click();
@@ -69,10 +70,10 @@ const {start,fixture}=require('./harness.cjs');
     assert.equal('from' in task,false,'Capture is not a section tag');
     assert.equal((await saved()).setup.life.items.filter((i)=>i.parent==='lf-inbox').length,2,'the notes stay in Capture');
     // Both are sorted, so the Engine has nothing waiting.
-    await page.locator('[role=tab][data-panel=engine]').click();
-    await page.locator('#plan [data-engine-task]').first().waitFor();
-    assert.equal(await page.locator('#plan .dd-engine-capture').count(),0);
-    await page.locator('[role=tab][data-panel=board]').click();await view.waitFor();
+    await openEngine(page);
+    await page.locator('.dd-engine [data-engine-task]').first().waitFor();
+    assert.equal(await page.locator('.dd-engine .dd-engine-capture').count(),0);
+    await page.keyboard.press('Escape');await page.locator('.dd-engine').waitFor({state:'detached'});
     await page.locator('[data-room-crumb="main"]').click();
     await page.waitForFunction(()=>!sessionStorage.getItem('debug-day:board-room'));
    }

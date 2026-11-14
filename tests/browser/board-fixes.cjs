@@ -20,7 +20,7 @@ const {start,fixture}=require('./harness.cjs');
     {id:'b',type:'section',parent:'',x:1040,y:60,w:420,h:350,text:'Work & play',color:'#FFA6D9'}
    ],links:[],frame:{x:24,y:1200}};
    await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),f.data);
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
    const read=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2'))),
     life=async()=>(await read()).setup.life,
     today=async()=>(await read()).days[f.date],
@@ -30,7 +30,7 @@ const {start,fixture}=require('./harness.cjs');
     zoom=async()=>Number(await view.getAttribute('data-zoom')),
     key=async(k)=>{await view.focus();await page.keyboard.press(k);await page.waitForTimeout(220);},
     escape=async()=>{await page.keyboard.press('Escape');await page.keyboard.press('Escape');await page.waitForTimeout(80);};
-   await page.locator('.views button').nth(1).click();
+   await page.locator('.views button[data-panel="board"]').click();
    await node('a').waitFor();
    await view.focus();await page.keyboard.press('Control+Shift+F');await page.locator('.b2.focus-mode').waitFor();
 
@@ -142,8 +142,8 @@ const {start,fixture}=require('./harness.cjs');
    const saved=(await today()).canvas.board4.layouts.mindmap['section:engine'];
    assert.ok(saved&&saved.w>0&&saved.h>0,'the Engine size is saved: '+JSON.stringify(saved));
    assert.ok((await box('section:engine')).width>ew0+40,'the Engine is wider');
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
-   await page.locator('.views button').nth(1).click();await node('section:engine').waitFor();
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
+   await page.locator('.views button[data-panel="board"]').click();await node('section:engine').waitFor();
    const after=await node('section:engine').evaluate((e)=>parseFloat(e.style.width));
    assert.ok(Math.abs(after-saved.w)<=1,'the size stays after a reload');
 

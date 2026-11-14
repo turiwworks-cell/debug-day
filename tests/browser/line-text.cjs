@@ -14,8 +14,8 @@ const {start,fixture}=require('./harness.cjs');
   ];
   day.canvas={board4:{layouts:{mindmap:{}},styles:{},links:[{id:'ab',from:'sticky:a',to:'sticky:b',arrow:true}]}};
   await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),f.data);
-  await page.reload();await page.waitForSelector('#qa',{state:'attached'});
-  await page.locator('.views button').nth(1).click();
+  await page.reload();await page.waitForSelector('.views',{state:'attached'});
+  await page.locator('.views button[data-panel="board"]').click();
   await page.getByRole('button',{name:'Full screen',exact:true}).click();
   await page.waitForSelector('[data-wire-id="ab"]');
   const read=async()=>(await page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2')))).days[f.date],

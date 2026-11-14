@@ -14,7 +14,7 @@ const {start,fixture}=require('./harness.cjs');
    const section=(id,text,x,extra={})=>({id,type:'section',parent:'',x,y:60,w:420,h:300,text,...extra});
    f.data.setup.life={v:2,items:[section('app','This App',40),section('work','Work',500),section('home','Home',960),{id:'n',type:'sticky',parent:'home',x:30,y:80,w:220,h:160,text:'Plant seeds'}],links:[],frame:{x:24,y:1200}};
    await page.evaluate((d)=>localStorage.setItem('debug-day:v2',JSON.stringify(d)),f.data);
-   await page.reload();await page.waitForSelector('#qa',{state:'attached'});
+   await page.reload();await page.waitForSelector('.views',{state:'attached'});
    const tap=async(locator)=>mobile?locator.tap():locator.click(),
     flow=page.locator('.dd-flow'),
     pill=(id)=>flow.locator(`[data-flow-node="${id}"] .dd-flow-pill`),

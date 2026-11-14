@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const { start, fixture } = require("./harness.cjs");
-// Habits live in their own Board section and stay in sync with Plan.
+// Habits live beside the Board ("Today's habits"), with their settings right there (5.67).
 (async () => {
   const h = await start();
   try {
@@ -26,44 +26,42 @@ const { start, fixture } = require("./harness.cjs");
       localStorage.setItem("debug-day:board-view:" + f.date, JSON.stringify({ camera: { x: 24, y: 20, z: 0.6 }, mode: "mindmap" }));
     }, f);
     await page.reload();
-    await page.waitForSelector("#qa", { state: "attached" });
+    await page.waitForSelector(".views", { state: "attached" });
     const read = () => page.evaluate(() => JSON.parse(localStorage.getItem("debug-day:v2")));
     const today = async () => (await read()).days[f.date];
 
-    // Plan: tick + minutes, levels and the last two weeks.
-    const panel = page.locator(".dd-habits");
-    const writing = panel.locator('[data-habit-id="write"]');
-    await writing.locator(".dd-habit-tick").click();
-    assert.deepEqual((await today()).habits.write, { done: true });
-    assert.equal(await writing.locator(".dd-habit-level").innerText(), "Done");
-    await writing.locator(".dd-habit-min input").fill("20");
-    assert.deepEqual((await today()).habits.write, { done: true, min: 20 });
-    assert.equal(await writing.locator(".dd-habit-level").innerText(), "Good");
-    assert.equal(await writing.locator(".dd-habit-strip i").count(), 14);
-    assert.equal(await writing.locator('.dd-habit-strip i[data-level="3"]').count(), 1, "40 minutes is 'enough'");
-    await writing.locator(".dd-habit-name").click();
-    assert.match(await writing.locator(".dd-habit-sum").innerText(), /4 days/);
-    await panel.locator(".dd-habit-add input").fill("Stretch");
-    await panel.locator(".dd-habit-add button").click();
-    const stretch = (await read()).setup.habits.find((x) => x.name === "Stretch");
-    assert.ok(stretch);
-
-    // Board: habits live in the rail beside the board, not in a section under the Engine.
-    await page.locator(".views button").nth(1).click();
+    // Board: habits live in the rail beside the board ("Today's habits"), not in a
+    // section and not on an Engine page (gone in 5.67).
+    await page.locator(".views button[data-panel=board]").click();
     await page.locator('[data-board-id="section:engine"]').waitFor();
     assert.equal(await page.locator('[data-board-id="section:habits"]').count(), 0);
     assert.equal(await page.locator('[data-board-id^="habit:"]').count(), 0);
     assert.equal(await page.locator('[data-section-id="bugs"]').count(), 0);
     // Feelings were removed (5.16): no feeling cards on the Board.
     assert.equal(await page.locator('[data-board-id="bug:f2"]').count(), 0);
-
-    // Back in Plan, everything is still there.
-    await page.locator(".views button").nth(0).click();
+    await page.locator('[data-rail-toggle="habits"]').click();
+    const panel = page.locator("#dd-rail-habits");
     await panel.waitFor();
-    assert.equal(await panel.locator(`[data-habit-id="${stretch.id}"]`).count(), 1);
 
-    // Manage habits sits beside the list: rename, color, goal and remove, right there.
-    await panel.getByRole("button", { name: "Manage habits", exact: true }).click();
+    // Tick + minutes, levels and the last weeks.
+    const writing = panel.locator('[data-rail-habit="write"]');
+    await writing.locator(".dd-habit-tick").click();
+    assert.deepEqual((await today()).habits.write, { done: true });
+    assert.equal(await writing.locator(".dd-habit-level").innerText(), "Done");
+    await writing.locator(".dd-habit-min input").fill("20");
+    assert.deepEqual((await today()).habits.write, { done: true, min: 20 });
+    assert.equal(await writing.locator(".dd-habit-level").innerText(), "Good");
+    await writing.locator(".dd-rail-heading").click();
+    assert.match(await writing.locator(".dd-habit-sum").innerText(), /4 days/);
+    await writing.locator(".dd-rail-heading").click();
+
+    // Habit settings sit right there, small: the pencil opens name, colour, goal,
+    // remove and a field for a new habit.
+    await panel.getByRole("button", { name: "Edit habits", exact: true }).click();
+    await panel.getByRole("textbox", { name: "New habit", exact: true }).fill("Stretch");
+    await panel.getByRole("button", { name: "Add", exact: true }).click();
+    const stretch = (await read()).setup.habits.find((x) => x.name === "Stretch");
+    assert.ok(stretch);
     const manage = panel.locator(".dd-habit-manage");
     await manage.getByRole("textbox", { name: "Name of Writing", exact: true }).fill("Writing pages");
     assert.equal((await read()).setup.habits[0].name, "Writing pages");
@@ -76,13 +74,13 @@ const { start, fixture } = require("./harness.cjs");
     assert.equal((await read()).setup.habits.length, 2, "the first click only asks");
     await manage.getByRole("button", { name: "Confirm removing Stretch", exact: true }).click();
     assert.equal((await read()).setup.habits.length, 1);
-    await panel.getByRole("button", { name: "Done", exact: true }).click();
+    await panel.getByRole("button", { name: "Done editing habits", exact: true }).click();
 
     // Labels follow each habit's goal: with a 60 minute goal, 40 minutes is "good", not "enough".
-    const pages = panel.locator('[data-habit-id="write"]');
-    assert.ok((await pages.locator(".dd-habit-name").innerText()).includes("goal 1h"));
-    assert.equal(await pages.locator('.dd-habit-strip i[data-level="3"]').count(), 0);
-    assert.equal(await pages.locator('.dd-habit-strip i[data-level="2"]').count(), 1);
+    const pages = panel.locator('[data-rail-habit="write"]');
+    assert.equal(await pages.locator(".dd-rail-heading").innerText(), "Writing pages");
+    await pages.locator(".dd-habit-min input").fill("40");
+    assert.equal(await pages.locator(".dd-habit-level").innerText(), "Good");
     await pages.locator(".dd-habit-min input").fill("60");
     assert.equal(await pages.locator(".dd-habit-level").innerText(), "Enough");
     await pages.locator(".dd-habit-min input").fill("120");
@@ -113,7 +111,8 @@ const { start, fixture } = require("./harness.cjs");
     assert.equal(after.setup.habits[0].goal, 60);
     assert.equal(after.days[f.date].habits.write.min, 20);
     assert.equal(await page.evaluate(() => [document.documentElement.lang, document.documentElement.dir].join()), "en,ltr");
-    assert.ok((await page.locator(".views").innerText()).includes("Engine"));
+    assert.ok(!(await page.locator(".views").innerText()).includes("Engine"), "no Engine page");
+    assert.ok((await page.locator(".views").innerText()).includes("Board"));
 
     assert.deepEqual(errors, []);
     console.log("Habits section passed");
