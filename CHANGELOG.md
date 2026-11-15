@@ -10,6 +10,7 @@ Branch: claude/project-thread-jqif1z
 - Capture and documents are clean sheets with a blue main button.
 - Phone: the tabs float as a glass bar above the bottom edge, and content fades out under it.
 - With "reduce transparency" on, the glass turns solid.
+- Fixed: typing right after Bold (or another text style) in a note no longer replaces the words when the screen is slow; the key you press first wins.
 
 ## 5.80.0 — 2026-11-15
 Branch: claude/project-thread-jqif1z
