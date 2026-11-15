@@ -68,7 +68,8 @@ const {start,fixture}=require('./harness.cjs');
    // E on the board brings it back; E again closes it.
    await page.locator('.b2-viewport').focus();await page.keyboard.press('e');await engine.waitFor();
    const dim=await page.locator('.dd-engine-backdrop').evaluate(e=>getComputedStyle(e).backgroundColor);
-   assert.match(dim,/rgba\(18, 18, 17, 0\.55\)/,'the board behind is dimmed');
+   // 5.81: a lighter iOS scrim with a blur; it still dims the board behind.
+   assert.ok(Number((dim.match(/rgba\([^)]*,\s*([\d.]+)\)/)||[])[1])>=.15,'the board behind is dimmed: '+dim);
    await engine.locator('.dd-engine-name').first().focus();await page.keyboard.press('e');await engine.waitFor({state:'detached'});
    // The toolbar Engine button jumps to the engine; the day root is named Engine.
    // The Engine waits in the board's top ⋯ (5.69); the bar keeps the daily tools.

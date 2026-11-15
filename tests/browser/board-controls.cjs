@@ -243,7 +243,9 @@ const { start, fixture } = require("./harness.cjs");
         // Export lives in the top dock's right-click menu.
         if (!mobile && language === "en") {
           const pending = page.waitForEvent("download");
-          await page.locator(".b2-top-actions").click({ button: "right", position: { x: 4, y: 4 } });
+          // The dock is a capsule (5.81), so press inside its rounded end, not its corner.
+          const dock = await page.locator(".b2-top-actions").boundingBox();
+          await page.locator(".b2-top-actions").click({ button: "right", position: { x: 4, y: dock.height / 2 } });
           await menuItem("Export board SVG", "خروجی SVG برد").click();
           const download = await pending,
             svg = require("node:fs").readFileSync(

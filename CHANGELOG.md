@@ -1,3 +1,16 @@
+## 5.81.0 — 2026-11-15
+Branch: claude/project-thread-jqif1z
+- New look, as if Apple made Debug Day for iOS 27. Nothing works differently; every view simply looks calmer and clearer.
+- Colors: iOS system grays and labels in light and dark, with one blue accent (the classic iOS blue).
+- Type: the system face (SF on Apple devices) first, then Geist and Vazirmatn.
+- Liquid Glass on everything that floats: the view tabs, the Board's top bar and tool dock, the selection bar, menus, popovers and comments.
+- Buttons are capsules; choices like Month/Week, Normal/P1/P2/P3, Task/Idea/Worry and Tick/Score/Waiting are segmented capsules.
+- Settings: on/off choices are iOS switches; fields and menus are filled, without outlines.
+- Search opens like Spotlight; the Engine is a rounded sheet with round checks; the Calendar's month and week are borderless tiles with today in blue.
+- Capture and documents are clean sheets with a blue main button.
+- Phone: the tabs float as a glass bar above the bottom edge, and content fades out under it.
+- With "reduce transparency" on, the glass turns solid.
+
 ## 5.80.0 — 2026-11-15
 Branch: claude/project-thread-jqif1z
 - Lines on the Board leave a little air before the card they meet: an arrowhead stops just short of the edge instead of touching it (drawn lines without an arrow keep a hair of space; the mind map's own branches still grow out of their cards).
