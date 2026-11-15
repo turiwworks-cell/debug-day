@@ -89,10 +89,12 @@ const {join}=require('node:path');
   await page.keyboard.press('Escape').catch(()=>{});
   const cal=await page.evaluate(async([date])=>{const m=await import('./todos.js');return m.DDtodoDueItems(m.DDtodoLists(JSON.parse(localStorage.getItem('debug-day:v2')))).map((r)=>r.text+'|'+r.due);},[f.date]);
   assert.deepEqual(cal,['Call the gallery|'+tomorrow]);
-  // A new to-do list from the tools menu starts typing right away.
+  // A new to-do list from the dock (5.85, no longer in the tools menu) starts typing right away.
   if(!mobile){
    await page.locator('[data-dock-more="tools"]').click();
-   await menuItem('To-do list').click();await settle();
+   assert.equal(await page.getByRole('menuitem',{name:/To-do list/}).count(),0);
+   await page.keyboard.press('Escape');await settle(150);
+   await page.locator('[data-dock-todo]').click();await settle();
    await page.keyboard.type('Stretch canvas');await page.keyboard.press('Enter');await page.keyboard.type('Prime it');
    await page.keyboard.press('Escape');await settle();
    const made=(await read()).notes.find((n)=>n.id!=='n');

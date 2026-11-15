@@ -69,6 +69,8 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
   (`--paper`, `--panel`, `--raise`, `--wash`, `--ink` to `--ink-4`, `--rule`, `--rule-2`) to the iOS system grays,
   and its labels to iOS label colors with alpha. Use the tokens; never a new hex for chrome.
 - One accent: `--now`, the classic iOS blue (`#0088FF` light, `#0091FF` dark). It is one line in `glass.js` (`const tint`). Green `--ok` only for done and switches.
+- The person can change that one accent (5.85): the round dot beside the Board timer opens 8 iOS colors and a custom one (a hue strip and a color code, never the system picker). It is `setup.look.accent`, the same value as Settings, so every view follows. The timer's digits use the accent.
+- In capsule bars (the Board's path bar, "Main board"), the last word keeps at least 14px before the round end, and a pinned button never sits on a title written in either direction (use physical padding on the side the button is, not `padding-inline-end`).
 - Liquid Glass only on things that float over content: the view tabs, the Board's bars and dock, menus, popovers,
   the selection bar and the phone tab bar (`--glass`, `--glass-strong`, `--glass-edge`, `--glass-shadow`).
   Cards and pages stay solid. Without transparency (`prefers-reduced-transparency`) they turn solid.

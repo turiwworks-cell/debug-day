@@ -17,6 +17,14 @@ const num = (v) => (Number.isFinite(v) ? Math.max(-1e5, Math.min(1e5, Math.round
 const stamp = (v) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/.test(v) && v.length <= 40 ? v : "");
 
 // Keep only valid comments and messages. A comment with no message left is gone.
+function accentNow() {
+  try { return getComputedStyle(document.querySelector(".b6") || document.documentElement).getPropertyValue("--board-accent").trim(); } catch { return ""; }
+}
+// The comment cursor: a round bubble with a plus, in the board's accent (5.85).
+function DDcommentCursor(color) {
+  const c = /^#[0-9a-fA-F]{6}$/.test(color || "") ? color : "#0088FF";
+  return 'url("' + "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M7.5 18.9A10.5 10.5 0 1 1 12.6 24L4 28z' fill='none' stroke='%230000004D' stroke-width='4' stroke-linejoin='round'/%3E%3Cpath d='M7.5 18.9A10.5 10.5 0 1 1 12.6 24L4 28z' fill='' + encodeURIComponent(c) + '' stroke='%23fff' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M17 10.5v8M13 14.5h8' stroke='%23fff' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E" + '") 4 28, crosshair';
+}
 export function DDnormalizeComments(list, { life = false } = {}) {
   if (!Array.isArray(list)) return [];
   const out = [], seen = new Set();
@@ -545,7 +553,7 @@ export function DDuseComments(ctx) {
           isOpen && !phone && !dragging && thread(openComment, false, sideOf(at), dropOf(at)));
       })),
     // Over the board while the comment tool is on: a click places a comment.
-    capture: () => active && h("div", { className: "dd-comment-capture", "aria-hidden": true, "data-open": open ? true : undefined,
+    capture: () => active && h("div", { className: "dd-comment-capture", "aria-hidden": true, "data-open": open ? true : undefined, style: { cursor: DDcommentCursor(accentNow()) },
       onPointerDown: (e) => {
         const c = ctxRef.current;
         if (c.pinching() || c.panKey() || (e.pointerType === "mouse" && e.button !== 0)) return;
@@ -632,7 +640,7 @@ export const DDcommentsCSS = `
 .dd-pin[data-shrink] .dd-pin-dot{transform:scale(.8);background:var(--board-accent,#0D99FF);color:#fff;transition:transform .12s}
 .dd-comment-ghost{position:fixed;z-index:200;pointer-events:none;transform:translate(-14px,-14px);padding:8px 12px;border-radius:12px 12px 12px 3px;background:var(--paper);color:var(--ink);border:1.5px solid var(--board-accent,#0D99FF);box-shadow:0 10px 24px -8px #0007;font:600 12px var(--sans)}
 .dd-thread-sheet{position:absolute;left:8px;right:8px;bottom:70px;top:auto;width:auto;max-height:min(60%,460px);z-index:110}
-.dd-comment-capture{position:absolute;inset:0;z-index:40;cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26'%3E%3Cpath d='M3 3h18a2 2 0 012 2v11a2 2 0 01-2 2H9l-6 5z' fill='%23fff' stroke='%230D99FF' stroke-width='2'/%3E%3C/svg%3E") 3 23,crosshair;touch-action:none}
+.dd-comment-capture{position:absolute;inset:0;z-index:40;cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M7.5 18.9A10.5 10.5 0 1 1 12.6 24L4 28z' fill='none' stroke='%230000004D' stroke-width='4' stroke-linejoin='round'/%3E%3Cpath d='M7.5 18.9A10.5 10.5 0 1 1 12.6 24L4 28z' fill='%230088FF' stroke='%23fff' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M17 10.5v8M13 14.5h8' stroke='%23fff' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E") 4 28,crosshair;touch-action:none}
 .dd-comment-capture[data-open]{pointer-events:none}
 .dd-comments-panel{position:absolute;z-index:105;top:72px;right:16px;width:340px;max-width:calc(100% - 32px);max-height:calc(100% - 170px);display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--paper);color:var(--ink);border:1px solid var(--rule-2,#0002);border-radius:14px;box-shadow:0 6px 24px #0002;overflow:auto;overscroll-behavior:contain;font:13px/1.45 var(--sans)}
 .dd-comments-panel header{display:flex;align-items:center;justify-content:space-between}

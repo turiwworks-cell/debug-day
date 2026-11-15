@@ -72,7 +72,7 @@ const floating = [
   ".dd-shape-row",
   ".dd-pen-bar",
 ].join(",");
-const menus = [".b6-context", ".b6 .b6-properties", ".b6 .b6-view-panel", ".dd-board-search", ".dd-board-timer", ".dd-rail-panel", ".b4-inspector", ".dd-habit-colors", ".b6 .dd-card-details", ".dd-thread:not(.dd-comment-card)", ".dd-comments-panel"].join(",");
+const menus = [".b6-context", ".b6 .b6-properties", ".b6 .b6-view-panel", ".dd-board-search", ".dd-board-timer", ".dd-board-accent", ".dd-rail-panel", ".b4-inspector", ".dd-habit-colors", ".b6 .dd-card-details", ".dd-thread:not(.dd-comment-card)", ".dd-comments-panel"].join(",");
 
 export const DDglassCSS = `
 :root{${light};
@@ -179,6 +179,11 @@ html .b6 :is(.dd-room-bar,.dd-place-bar) .dd-room-back svg{stroke-width:2.2}
 html .b6 :is(.dd-room-bar,.dd-place-bar) .dd-room-back:hover:not(:disabled){background:color-mix(in srgb,var(--now) 22%,transparent)}
 html .b6 .dd-place-bar .dd-room-back:disabled{background:transparent;color:var(--ink-3);opacity:.6}
 html .b6 :is(.dd-room-bar,.dd-place-bar) [aria-current=page]{font-weight:600}
+/* 5.85: even air around the words; the last word never touches the round end. */
+html .b6 :is(.dd-room-bar,.dd-place-bar){gap:4px;padding:4px}
+html .b6 :is(.dd-room-bar,.dd-place-bar) button:not(.dd-room-back){padding:4px 10px}
+html .b6 :is(.dd-room-bar,.dd-place-bar)>span[aria-current]{padding:0 14px 0 6px}
+html .b6 .dd-room-bar>button[aria-current]:last-of-type{padding-right:14px}
 html .b6 .b2-camera{border-radius:var(--r-pill);padding:5px 6px}
 html .b6 .b2-camera button{border-radius:var(--r-pill)}
 html .b6 .b4-minimap{border-radius:22px;overflow:hidden}

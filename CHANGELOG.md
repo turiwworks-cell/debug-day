@@ -1,3 +1,12 @@
+## 5.85.0 — 2026-11-15
+Branch: claude/project-thread-jqif1z
+- Board: a round dot beside the timer changes the accent color: 8 iOS colors, or your own from a color strip or a color code. It is the app's one accent, so Settings, the tabs and every view change with it.
+- The timer's digits are in the accent color, on the Board and in the timer panel.
+- To-do list is in the Board's dock now, one press away; it left the dock's ⋯ menu.
+- Coming from the Calendar (or any page), the Board opens as a page; it goes full screen only when you press Full screen. "Open board in full screen" now counts only when the app opens on the Board.
+- The comment tool's pointer is a round bubble with a plus, in the accent color.
+- "Main board" in the path bar has even room around its words; the habits pencil no longer sits on a Persian habit name.
+
 ## 5.84.1 — 2026-11-15
 Branch: claude/project-thread-jqif1z
 - Like an app: labels, buttons, titles and menus can no longer be selected by mistake, and a long press on a phone no longer shows the copy bubble on them. Your own words stay selectable: fields, notes and documents while you write, a document you read, comments, the day note and code.

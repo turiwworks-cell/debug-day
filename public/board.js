@@ -42,6 +42,7 @@ import { DDtrashAdd, DDtrashRestore, DDtrashLabel } from "./trash.js";
 import { DDcanvasTidy } from "./upkeep.js";
 import { DDdueText, DDdueDate, DDdueDaysLeft, DDdueSet, DDDueEditor } from "./deadlines.js";
 import { DDbudgetOf, DDbudgetUsed, DDbudgetText, DDbudgetLabel, DDbudgetPresets, DDbudgetSame } from "./budgets.js";
+import { DDBoardAccentButton, DDBoardAccent } from "./board-accent.js";
 import { DDsyncCopies, DDsyncNewId, DDsyncValid, DDsyncForget, DDsyncMarkLife, DDsyncJoin, DDsyncPlaces, DDsyncSameNotes, DDinstallLinkedStyles } from "./linked.js";
 const life = { DDinstallLifeStyles, DDlifeAbs, DDlifeAdd, DDlifeBounds, DDlifeHead, DDlifeItems, DDlifeParentAt };
 // Board interaction engine. Legacy planner adapters are injected once by the app.
@@ -51,6 +52,17 @@ const life = { DDinstallLifeStyles, DDlifeAbs, DDlifeAdd, DDlifeBounds, DDlifeHe
 const DDpersianDayFormat = (() => { try { return new Intl.DateTimeFormat("en-GB-u-ca-persian", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }); } catch { return null; } })();
 function DDpersianDay(date) {
   try { return DDpersianDayFormat ? DDpersianDayFormat.formatToParts(new Date(date + "T12:00:00Z")).filter((p) => p.type !== "era").map((p) => p.value).join("").trim() : ""; } catch { return ""; }
+}
+// A full-screen ask is fresh for a few seconds only, so an old one never surprises (5.85).
+// Did the app open on the board? (the same saved view the app starts from)
+const DDappOpensOnBoard = (() => {
+  try { const v = JSON.parse(localStorage.getItem("debug-day:ui") || "{}").view; return !["calendar", "stats", "insights", "setup"].includes(v); } catch { return true; }
+})();
+let DDboardOpened = false;
+function DDfreshFullscreenAsk(value) {
+  if (value === "1") return true;
+  const at = Number(value);
+  return Number.isFinite(at) && at > 0 && Date.now() - at < 4000;
 }
 function phoneBoard() {
   try { return matchMedia("(max-width:700px)").matches; } catch { return false; }
@@ -237,8 +249,12 @@ export function DDcreateBoard(deps) {
       [child, setChild] = useState(null),
       [focus, setFocus] = useState(() => {
         let once = false;
-        try { once = sessionStorage.getItem("debug-day:board-open-fullscreen") === "1"; sessionStorage.removeItem("debug-day:board-open-fullscreen"); } catch {}
-        return once || core.local("debug-day:board-start-fullscreen", phoneBoard());
+        try { once = DDfreshFullscreenAsk(sessionStorage.getItem("debug-day:board-open-fullscreen")); sessionStorage.removeItem("debug-day:board-open-fullscreen"); } catch {}
+        // Coming from Calendar or any other page, the board opens as a page (5.85);
+        // full screen only when asked. "Open board in full screen" counts when the app opens on the board.
+        const opening = !DDboardOpened && DDappOpensOnBoard;
+        DDboardOpened = true;
+        return once || (opening || phoneBoard() ? core.local("debug-day:board-start-fullscreen", phoneBoard()) : false);
       }),
       [startFullscreen, setStartFullscreen] = useState(() => core.local("debug-day:board-start-fullscreen", phoneBoard())),
       [grid, setGrid] = useState(() =>
@@ -295,6 +311,8 @@ export function DDcreateBoard(deps) {
       [search, setSearch] = useState(null),
       [timerOpen, setTimerOpen] = useState(false),
       timerButton = useRef(null),
+      [accentOpen, setAccentOpen] = useState(false),
+      accentButton = useRef(null),
       [help, setHelp] = useState(!1),
       [menu, setMenu] = useState(null),
       [connecting, setConnecting] = useState(null),
@@ -2421,7 +2439,7 @@ export function DDcreateBoard(deps) {
       DDplaces.mark();
       window.dispatchEvent(new CustomEvent("debug-day-open-note", { detail: { date: p.date, id: p.id } }));
       // Each day has its own board: the other day's opens full screen if this one is.
-      if (focus) try { sessionStorage.setItem("debug-day:board-open-fullscreen", "1"); } catch {}
+      if (focus) try { sessionStorage.setItem("debug-day:board-open-fullscreen", String(Date.now())); } catch {}
     }
     // Above the note, never on its paper: "◆ 8 days left".
     function dueBadge(Y) {
@@ -5392,7 +5410,6 @@ export function DDcreateBoard(deps) {
           item("photo", "Photo or video…", "عکس یا ویدیو…", "photo", () => photos.pick()),
           item("eyedropper", "Eyedropper", "قطره‌چکان", "eyedropper", () => startDropper(null), { shortcut: "I" }),
           item("document", "Document", "داکیومنت", "document", () => addDocument(null)),
-          item("todo-list", "To-do list", "فهرست کارها", "todo", () => addTodo(null)),
           sep("tools-view-sep"),
           item("view", "Canvas settings…", "تنظیمات بوم…", "settings", () => { setViewPanel(true); setProperties(false); setInspector(false); }),
         ];
@@ -5797,7 +5814,9 @@ export function DDcreateBoard(deps) {
           toolButton(DDUI("Undo"), "undo", () => undo(), {
             disabled: !history.current.past.length,
           }),
-          onTimerChange && _.createElement(DDBoardTimerButton,{React:_,Icon:controls.Icon,language:DDlanguage,timer,open:timerOpen,onOpenChange:setTimerOpen,buttonRef:timerButton}),
+          onTimerChange && _.createElement(DDBoardTimerButton,{React:_,Icon:controls.Icon,language:DDlanguage,timer,open:timerOpen,onOpenChange:(v)=>{setTimerOpen(v);if(v)setAccentOpen(false);},buttonRef:timerButton}),
+          // The accent colour sits beside the timer (5.85).
+          onUpdateSetup && _.createElement(DDBoardAccentButton,{React:_,accent:setup.look?.accent,open:accentOpen,onOpenChange:(v)=>{setAccentOpen(v);if(v)setTimerOpen(false);},buttonRef:accentButton}),
           // Light and dark sit beside the timer (5.69).
           ((dark) => toolButton(dark ? t("Light mode", "حالت روشن") : t("Dark mode", "حالت تیره"), dark ? "sun" : "moon", toggleBoardTheme, { "data-board-theme": dark ? "dark" : "light" }))(setup.look?.theme === "dark" || (setup.look?.theme !== "light" && matchMedia("(prefers-color-scheme:dark)").matches)),
           // Pause the day lives on the board (5.55): when life happens, stop the
@@ -6328,6 +6347,7 @@ export function DDcreateBoard(deps) {
             viewport.current?.focus({ preventScroll: true });
           },
         }),
+      onUpdateSetup && _.createElement(DDBoardAccent,{React:_,accent:setup.look?.accent,open:accentOpen,onOpenChange:setAccentOpen,buttonRef:accentButton,onChange:(c)=>onUpdateSetup((s)=>({...s,look:{...s.look,accent:c}}))}),
       onTimerChange && _.createElement(DDBoardTimer,{React:_,Icon:controls.Icon,language:DDlanguage,timer,onChange:onTimerChange,defaultMinutes:prefs.timerMinutes,open:timerOpen,onOpenChange:setTimerOpen,buttonRef:timerButton}),
       search !== null && _.createElement(DDBoardSearch,{
         React:_,language:DDlanguage,rows:DDboardSearchRows(day,DDlifeItems(setup),layout.nodes),items:DDlifeItems(setup),query:search,onQuery:setSearch,
@@ -6526,6 +6546,11 @@ export function DDcreateBoard(deps) {
             _.createElement("span", null, Y === "connector" ? t("Connect","اتصال") : G),
           ),
         ),
+        // A to-do list is one press away in the dock (5.85), placed in the middle of the view.
+        _.createElement("button", { type: "button", key: "todo", className: "b2-icon", "aria-label": "To-do list", "data-dock-todo": true, "data-tip": "To-do list",
+          onClick: () => { setTool("select"); setConnecting(null); setWireId(null); setShapeMenu(null); addTodo(null); } },
+          _.createElement(controls.Icon, { React: _, name: "todo" }),
+          _.createElement("span", null, t("To-do", "کارها"))),
         _.createElement("span", { className: "b2-sep" }),
         // Snap, grid, minimap and canvas settings: right-click the dock, or ⋯.
         dockMore("tools"),

@@ -46,7 +46,9 @@ const {join}=require("node:path");
    // 5.69: the top bar keeps the daily tools; light / dark sits right after the timer;
    // Search, Engine, Feed and Sections wait in its ⋯; no key hints at the bottom left.
    const bar=await page.locator('.b2-top-actions > button').evaluateAll((els)=>els.map((e)=>e.dataset.boardTheme?"theme":e.className.includes("dd-board-timer")?"timer":e.getAttribute("aria-label")));
-   assert.equal(bar[bar.indexOf("timer")+1],"theme","light / dark beside the timer");
+   // 5.85: the accent colour dot sits right after the timer, then light / dark.
+   assert.equal(bar[bar.indexOf("timer")+1],"Accent colour","accent beside the timer");
+   assert.equal(bar[bar.indexOf("timer")+2],"theme","light / dark next");
    for(const gone of ["Search board","Go to Feed"])assert.equal(bar.includes(gone),false,gone+" left the bar");
    assert.equal(await page.locator('[data-engine-jump],[data-life-jump],[data-sections-button]').count(),0);
    assert.equal(await page.locator('.b4-status').isVisible(),false,"no standing key hints");
@@ -104,7 +106,15 @@ const {join}=require("node:path");
    await page.getByRole("button",{name:"Exit full screen",exact:true}).click();
    await page.locator('.views button[data-panel="calendar"]').click();
    await page.locator('.views button[data-panel="board"]').click();
-   assert.equal(await page.locator(".b6.focus-mode").count(),1,"saved preference opens Board full screen");
+   // 5.85: on a computer, coming from the Calendar opens the Board as a page; the preference
+   // counts when the app opens on the Board. A phone keeps its full-screen board.
+   if(mobile)assert.equal(await page.locator(".b6.focus-mode").count(),1,"phone: saved preference opens Board full screen");
+   else{
+    await page.waitForTimeout(300);
+    assert.equal(await page.locator(".b6.focus-mode").count(),0,"from the Calendar the Board opens as a page");
+    await page.reload();await page.waitForSelector(".b6");
+    assert.equal(await page.locator(".b6.focus-mode").count(),1,"saved preference opens Board full screen when the app opens on it");
+   }
 
    if(!mobile){
     await (await search("Inner area")).press("Enter");
