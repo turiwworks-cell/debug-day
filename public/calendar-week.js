@@ -5,6 +5,7 @@ import { DDlifeItems, DDsectionTint, DDsectionPath } from "./life-board.js";
 import { DDplanMinutes, DDduration } from "./measure.js";
 import { DDbudgetOf, DDbudgetUsed, DDbudgetText, DDgoalOf, DDgoalText } from "./budgets.js";
 import { DDdueBetween, DDdueOn, DDdueText, DDdueDate, DDdueName } from "./deadlines.js";
+import { DDremindersOn, DDcalDayRows, DDremIcon, DDopenReminder, DDopenOnBoard } from "./cal-reminders.js";
 import { DDtodoDueItems, DDtodoLists } from "./todos.js";
 import { DDenergyOf, DDenergyLabel } from "./energy.js";
 import { DDaddDays } from "./dates.js";
@@ -154,7 +155,9 @@ export function DDCalendarWeek({ React: R, data, date, today, language, onSelect
       h("button", { type: "button", onClick: () => onSelectDay(today) }, t("This week", "این هفته")),
       h("button", { type: "button", onClick: () => onSelectDay(DDcalShift(date, 7)), "aria-label": t("Next week", "هفتهٔ بعد") }, fa ? "←" : "→")),
     h("div", { className: "dd-week-grid" }, days.map((key) => {
-      const day = data.days?.[key], blocks = (day?.blocks || []).filter((b) => String(b.name || "").trim()), due = DDdueOn(todoDue, key);
+      const day = data.days?.[key], blocks = (day?.blocks || []).filter((b) => String(b.name || "").trim()),
+        // The day's reminders by name (5.84); deadlines without a time stay as ◆ lines.
+        { rows: rems, deadlines: due } = DDcalDayRows(DDremindersOn(data.setup.reminders, key), DDdueOn(todoDue, key), language);
       return h("div", {
           key, className: "dd-week-day" + (over === key ? " drag-over" : ""), "data-week-date": key, "aria-current": key === today ? "date" : undefined,
           "data-selected": key === date,
@@ -167,6 +170,12 @@ export function DDCalendarWeek({ React: R, data, date, today, language, onSelect
           h("span", null, fmt(language, { weekday: "short" }).format(at(key))),
           h("strong", null, fmt(language, { day: "numeric" }).format(at(key))),
           day?.mood && h("span", { className: "dd-week-mood", "aria-hidden": true }, day.mood)),
+        rems.length > 0 && h("ul", { className: "dd-week-rems", "aria-label": t("Reminders", "یادآورها") },
+          rems.map((r) => h("li", { key: r.kind + ":" + r.id },
+            h("button", { type: "button", "data-week-reminder": r.id, "data-done": r.done || undefined, title: (r.time ? r.time + " · " : "") + r.title,
+                "aria-label": (r.time ? r.time + " · " : "") + r.title + " · " + (r.kind === "timed" ? t("open on the Board", "باز کردن در برد") : t("open reminder", "باز کردن یادآور")),
+                onClick: () => { if (r.kind === "timed") { DDopenOnBoard(r.item); return; } onSelectDay(key); DDopenReminder(r.id, key); } },
+              DDremIcon(h, r.kind, r.done), r.time && h("time", null, r.time), h("span", { dir: "auto" }, r.title))))),
         h("ul", { className: "dd-week-tasks" },
           due.map((i) => h("li", { key: "due-" + i.id, className: "dd-week-due", "data-week-due": i.id, dir: "auto", title: t("Deadline: ", "ددلاین: ") + DDdueName(i, language) }, "◆ " + DDdueName(i, language))),
           blocks.map((b) => h("li", {
@@ -177,7 +186,7 @@ export function DDCalendarWeek({ React: R, data, date, today, language, onSelect
             h("button", { type: "button", className: "dd-week-check", "aria-pressed": !!b.done, "aria-label": (b.done ? t("Mark not done: ", "انجام‌نشده: ") : t("Mark done: ", "انجام شد: ")) + b.name, style: { "--dot": dot(b) }, onClick: () => onToggleTask?.(key, b.id) }, b.done && check(h)),
             h("span", { className: "dd-week-name", dir: "auto", title: b.name }, b.name,
               DDenergyOf(b) && h("small", { className: "dd-energy", "data-energy": DDenergyOf(b) }, DDenergyLabel(DDenergyOf(b), language))))),
-          !blocks.length && !due.length && h("li", { className: "dd-week-empty", "aria-hidden": true }, "·")));
+          !blocks.length && !due.length && !rems.length && h("li", { className: "dd-week-empty", "aria-hidden": true }, "·")));
     })));
 }
 

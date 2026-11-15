@@ -185,9 +185,9 @@ export const DDcalendarLookCSS = `
 .dd-cal-reminders h2 svg{width:15px;height:15px;color:var(--rem)}
 .dd-cal-count{min-width:22px;padding:0 7px;border-radius:999px;background:color-mix(in srgb,var(--rem) 16%,transparent);color:var(--rem-ink);font-size:12px;font-weight:600;text-align:center;line-height:20px}
 .dd-cal-reminders ol{display:flex;flex-direction:column;gap:2px;margin:0;padding:0;list-style:none}
-.dd-review-root .dd-cal-reminders li button{display:flex;flex-direction:column;align-items:stretch;gap:1px;width:100%;min-height:0;padding:7px 8px;border:0;border-radius:10px;background:none;color:var(--ink);text-align:start;line-height:1.35}
-.dd-review-root .dd-cal-reminders li button:hover{background:var(--wash)}
-.dd-review-root .dd-cal-reminders li button[aria-pressed=true]{background:color-mix(in srgb,var(--rem) 13%,transparent);color:var(--ink);border:0}
+.dd-review-root .dd-cal-reminders li>button{display:flex;flex-direction:column;align-items:stretch;gap:1px;width:100%;min-height:0;padding:7px 8px;border:0;border-radius:10px;background:none;color:var(--ink);text-align:start;line-height:1.35}
+.dd-review-root .dd-cal-reminders li>button:hover{background:var(--wash)}
+.dd-review-root .dd-cal-reminders li>button[aria-pressed=true]{background:color-mix(in srgb,var(--rem) 13%,transparent);color:var(--ink);border:0}
 .dd-cal-reminders time{font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--muted)}
 .dd-cal-reminders li[data-today] time{color:var(--rem-ink)}
 .dd-cal-reminders li[data-past]{opacity:.55}
@@ -199,12 +199,6 @@ export const DDcalendarLookCSS = `
 .dd-cal-deadline{color:var(--ink-2,var(--ink))}
 .dd-cal-reminder[data-done]{text-decoration:line-through;color:var(--muted)}
 .dd-review-root .dd-cal-reminders-empty{margin:0;padding:0 4px;font-size:12.5px;color:var(--muted)}
-.dd-cal-rem{display:flex;align-items:center;gap:4px;min-width:0;padding:2px 6px;border-radius:6px;background:color-mix(in srgb,var(--rem) 15%,var(--paper));color:var(--rem-ink);font-size:11px;font-weight:600;line-height:1.35}
-.dd-cal-rem svg{flex:none}
-.dd-cal-rem span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dd-cal-rem b{flex:none;font-weight:600;opacity:.8}
-.dd-cal-rem[data-done]{opacity:.55}
-.dd-cal-rem[data-done] span{text-decoration:line-through}
 /* the day beside the month: compact cards */
 .dd-review-root .dd-review-day{display:flex;flex-direction:column;gap:12px}
 .dd-review-root .dd-review-day>section,.dd-review-root .dd-review-day>.dd-review-overview{margin:0}
@@ -244,7 +238,7 @@ export const DDcalendarLookCSS = `
 @media (pointer:coarse){
  .dd-review-root .dd-review-check{width:30px;height:30px}
  .dd-review-root .dd-review-item-actions button,.dd-review-root .dd-review-section-heading .btn{min-height:38px}
- .dd-review-root .dd-cal-reminders li button,.dd-review-root .dd-cal-range button{min-height:44px}
+ .dd-review-root .dd-cal-reminders li>button,.dd-review-root .dd-cal-range button{min-height:44px}
 }
 @media (max-width:1100px){.dd-review-root .dd-review-columns{grid-template-columns:minmax(0,1fr) minmax(280px,330px)}.dd-review-root .dd-review-month-grid button.dd-review-date{min-height:92px;padding:8px}}
 @media (max-width:900px){
@@ -269,8 +263,7 @@ export const DDcalendarLookCSS = `
  .dd-review-root .dd-review-month-grid button.dd-review-date{min-height:64px;padding:6px 4px 5px;border-radius:9px;gap:3px}
  .dd-review-root .dd-review-date strong{font-size:14px}
  .dd-review-root .dd-review-month-grid .dd-review-date.today strong{min-width:22px;height:22px;margin:-3px 0;padding:0 3px}
- .dd-cal-alt,.dd-cal-meta,.dd-cal-word,.dd-cal-rem span,.dd-cal-rem b{display:none}
- .dd-cal-rem{justify-content:center;padding:1px 0}
+ .dd-cal-alt,.dd-cal-meta,.dd-cal-word{display:none}
  .dd-review-root .dd-review-date-mood{font-size:11px}
  .dd-review-root .dd-review-date-top{flex-direction:column;align-items:center;gap:2px}
  .dd-cal-marks{min-height:12px}

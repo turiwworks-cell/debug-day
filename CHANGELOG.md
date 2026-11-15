@@ -1,3 +1,11 @@
+## 5.84.0 — 2026-11-15
+Branch: claude/project-thread-jqif1z
+- Calendar: every reminder is named on its day. In the month each one has its own line (a ring and its name, on up to two lines); the week and the list beside the month show them too.
+- A tap on a reminder opens it: the day panel shows its title, day, repeat and note, and you can change any of them there. Its day is picked for you.
+- To-do tasks with a time are shown as reminders too (a bell and the time, e.g. "14:30 Call Sara"); a tap opens their note on the Board. A note's deadline opens on the Board as well.
+- A day that has reminders shows them first, right under its name, as rows like Apple's Reminders: a ring to mark it done for that day, and a tap to open it.
+- On a phone, each day of the month shows a small dot per reminder.
+
 ## 5.83.0 — 2026-11-15
 Branch: claude/project-thread-jqif1z
 - Icons redrawn in the style of SF Symbols: clearer pictures with a soft tinted body or a solid part (pointer, task, note, section, sticker, comment, pen, tag, photo, document and more), a little larger in the Board's dock.
