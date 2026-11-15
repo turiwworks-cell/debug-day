@@ -382,7 +382,7 @@ export const DDtimerCSS = `
 .dd-timer-x{width:28px;height:28px;display:grid;place-items:center;border-radius:8px;color:var(--ink-3)}
 .dd-timer-x:hover{background:var(--wash);color:var(--ink)}
 .dd-timer-face{min-height:76px;display:flex;align-items:center}
-.dd-timer-clock input{width:100%;direction:ltr;text-align:center;font:500 52px/1.2 var(--sans);letter-spacing:-.02em;font-variant-numeric:tabular-nums;background:transparent;border:1px solid transparent;color:var(--ink);border-radius:12px;padding:8px 4px}
+.dd-timer-clock input{width:100%;direction:ltr;text-align:center;font:500 52px/1.2 var(--sans);letter-spacing:-.02em;font-variant-numeric:tabular-nums;background:transparent;border:1px solid transparent;color:var(--now);border-radius:12px;padding:8px 4px}
 .dd-timer-clock input:not([readonly]):hover{background:var(--wash)}
 .dd-timer-clock input:focus{border-color:var(--now);background:var(--wash);outline:none}
 .dd-timer-clock input[readonly]:focus{border-color:transparent;background:transparent}

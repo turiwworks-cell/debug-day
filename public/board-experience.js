@@ -3,6 +3,7 @@ import { DDSectionChip, DDsectionPath } from "./life-board.js";
 import { DDTimerMini, DDTimerPanel } from "./timer.js";
 import { DDtagList, DDtagText, DDnoteTags } from "./note-tags.js";
 import { DDmediaTitle } from "./media.js";
+import { DDboardAccentCSS } from "./board-accent.js";
 export const DDboardShortcuts = [
   ["V", "Select", "انتخاب"], ["H / Space+drag", "Pan", "حرکت بوم"],
   ["S", "Sticky note", "یادداشت"], ["T", "Text / title", "متن / تایتل"], ["R", "Shape (last used)", "شکل"], ["O", "Circle shape", "دایره"], ["I", "Eyedropper: take a color", "قطره‌چکان: گرفتن رنگ"], ["Shift+S", "Section", "سکشن"],
@@ -165,7 +166,7 @@ export function DDinstallZoomLock(target = globalThis) {
 
 export function DDinstallBoardExperience() {
   if (typeof document==="undefined" || document.getElementById("dd-board-experience")) return;
-  document.head.append(Object.assign(document.createElement("style"),{id:"dd-board-experience",textContent:DDboardExperienceCSS}));
+  document.head.append(Object.assign(document.createElement("style"),{id:"dd-board-experience",textContent:DDboardExperienceCSS+DDboardAccentCSS}));
 }
 
 export const DDboardExperienceCSS = `
@@ -225,7 +226,7 @@ export const DDboardExperienceCSS = `
 .dd-board-search [role=option]>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dd-board-search [role=option]>small{color:var(--ink-3);font-size:10px;flex:none}.dd-board-search [role=option][aria-selected=true]{background:color-mix(in srgb,var(--board-accent) 12%,var(--paper))}
 .dd-board-search>small{font-size:11px;color:var(--ink-3)}
 .b6 .dd-board-timer{position:absolute;z-index:106;top:72px;right:16px;width:300px;max-width:calc(100% - 32px);box-sizing:border-box;padding:16px;border-radius:16px;box-shadow:0 18px 48px -18px #00000059;overflow:auto}
-.b6 .b2-top-actions .dd-board-timer-button{width:auto;flex:none;min-width:104px;padding:0 12px;gap:8px;justify-content:center}.b4-status:empty{display:none!important}.dd-board-timer-button>svg{flex:none}.dd-board-timer-button>span{font-variant-numeric:tabular-nums;min-width:38px;font-size:12px;display:inline-flex;justify-content:center}.dd-board-timer-button[data-running=true]{background:color-mix(in srgb,var(--board-accent) 15%,var(--paper));color:var(--ink)}
+.b6 .b2-top-actions .dd-board-timer-button{width:auto;flex:none;min-width:104px;padding:0 12px;gap:8px;justify-content:center}.b4-status:empty{display:none!important}.dd-board-timer-button>svg{flex:none}.dd-board-timer-button>span{color:var(--board-accent);font-weight:600;font-variant-numeric:tabular-nums;min-width:38px;font-size:12px;display:inline-flex;justify-content:center}.dd-board-timer-button[data-running=true]{background:color-mix(in srgb,var(--board-accent) 15%,var(--paper));color:var(--ink)}
 .dd-board-direct{display:inline-grid;place-items:center;width:34px;height:34px;border:1px solid var(--rule-2);border-radius:7px;color:var(--ink-2);background:var(--paper)}
 .b6 .dd-board-theme{min-width:32px}.dd-sr-only{position:absolute;width:1px;height:1px;clip-path:inset(50%);overflow:hidden}
 .b6 .dd-shortcut-list{display:grid;grid-template-columns:minmax(160px,.8fr) minmax(180px,1.2fr);gap:0;max-height:50vh;overflow:auto;direction:ltr}.dd-shortcut-list dt,.dd-shortcut-list dd{margin:0;padding:8px;border-bottom:1px solid var(--rule-2);font-size:12px}.dd-shortcut-list dd{direction:auto;text-align:start}.dd-shortcut-list dt{font-family:var(--mono);color:var(--ink)}
