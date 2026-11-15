@@ -153,6 +153,26 @@ html .b6 .b2-icon{border-radius:var(--r-pill)}
 html .b6 .b2-icon:hover{background:var(--glass-press)}
 html .b6 .b2-icon[aria-pressed=true]{background:var(--now);color:var(--on-now)}
 html .b6 .b2-sep{background:var(--rule-2);opacity:1}
+/* Icons read like SF Symbols: a touch larger in the bars, the soft body tinted with the picked state (5.83) */
+html .b6 :is(.b2-dock,.b2-camera)>.b2-icon>svg{width:21px;height:21px}
+html .b6 .b4-selectionbar .b2-icon>svg{width:20px;height:20px}
+html .b6 .b2-icon[aria-pressed=true] .dd-icon-fill{opacity:.3}
+/* Hover labels: the bars' own little glass labels replace the dark boxes (they were cut off under the dock) */
+html .b6 :is(.b2-dock,.b2-camera,.b4-selectionbar,.b2-top-actions) .b2-icon[data-tip]:hover::after{content:none;display:none}
+.dd-hover-tip{position:fixed;left:0;top:0;z-index:2147483000;pointer-events:none;display:flex;align-items:center;gap:7px;padding:6px 11px;border-radius:var(--r-pill);${glassStrong};color:var(--ink);font:600 12.5px/1.25 var(--sans);letter-spacing:-.01em;white-space:nowrap;opacity:0;transform:translateY(var(--tip-shift,4px)) scale(.94);transition:opacity .12s ease,transform .2s cubic-bezier(.2,.9,.3,1.25)}
+.dd-hover-tip.on{opacity:1;transform:none}
+.dd-hover-tip small{font:500 12px/1.25 var(--sans);color:var(--ink-3)}
+.dd-hover-tip kbd{font:600 11px/1 var(--sans);color:var(--ink-3);padding:3px 6px;border-radius:7px;background:var(--glass-pill)}
+@media (prefers-reduced-motion:reduce){.dd-hover-tip{transition:none}}
+/* The way back on the Board: a tinted chevron like iOS's Back, never a loud square (5.83) */
+html .b6 :is(.dd-room-bar,.dd-place-bar){${glass};border-radius:var(--r-pill);padding:4px 6px 4px 4px;font:500 13.5px/1.2 var(--sans)}
+html .b6 :is(.dd-room-bar,.dd-place-bar) button{border-radius:var(--r-pill)}
+html .b6 :is(.dd-room-bar,.dd-place-bar) button:hover{background:var(--glass-press)}
+html .b6 :is(.dd-room-bar,.dd-place-bar) .dd-room-back{display:inline-flex;align-items:center;justify-content:center;min-width:34px;padding:4px 6px;background:color-mix(in srgb,var(--now) 13%,transparent);color:var(--now);font-weight:600}
+html .b6 :is(.dd-room-bar,.dd-place-bar) .dd-room-back svg{stroke-width:2.2}
+html .b6 :is(.dd-room-bar,.dd-place-bar) .dd-room-back:hover:not(:disabled){background:color-mix(in srgb,var(--now) 22%,transparent)}
+html .b6 .dd-place-bar .dd-room-back:disabled{background:transparent;color:var(--ink-3);opacity:.6}
+html .b6 :is(.dd-room-bar,.dd-place-bar) [aria-current=page]{font-weight:600}
 html .b6 .b2-camera{border-radius:var(--r-pill);padding:5px 6px}
 html .b6 .b2-camera button{border-radius:var(--r-pill)}
 html .b6 .b4-minimap{border-radius:22px;overflow:hidden}
@@ -418,8 +438,51 @@ html .dd-thread:not(.dd-comment-card){border:0}
 }
 `;
 
+// A small glass label over a Board bar's icon while the pointer rests on it: the name, then its key.
+// It sits above a bar at the bottom of the screen and below one at the top, so nothing is cut off (5.83).
+const DDtipScope = ".b6 :is(.b2-dock,.b2-camera,.b4-selectionbar,.b2-top-actions) .b2-icon[data-tip]";
+export function DDsplitTip(text) {
+  const m = /^(.*\S) \u00B7 (\S{1,7})$/.exec(String(text || ""));
+  return m ? { label: m[1], key: m[2] } : { label: String(text || ""), key: "" };
+}
+function DDinstallHoverTips() {
+  if (!window.matchMedia?.("(hover:hover) and (pointer:fine)").matches) return;
+  const tip = Object.assign(document.createElement("div"), { className: "dd-hover-tip" });
+  tip.setAttribute("aria-hidden", "true");
+  document.body.append(tip);
+  let timer = 0, current = null, warm = 0;
+  const hide = () => { clearTimeout(timer); if (current) warm = Date.now(); current = null; tip.classList.remove("on"); };
+  const show = (el) => {
+    if (!el.isConnected || current !== el) return;
+    const { label, key } = DDsplitTip(el.getAttribute("data-tip"));
+    // A button that already shows its name only needs a label when it has a key to teach.
+    if (!key && el.querySelector(".dd-btn-label")?.offsetWidth > 1) return;
+    tip.replaceChildren(label);
+    if (key) tip.append(Object.assign(document.createElement("kbd"), { textContent: key }));
+    const hint = el.getAttribute("data-tip-hint");
+    if (hint) tip.append(Object.assign(document.createElement("small"), { textContent: hint }));
+    const r = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight, below = r.top < innerHeight / 2;
+    const x = Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2)), y = below ? r.bottom + 10 : r.top - h - 10;
+    tip.style.setProperty("--tip-shift", below ? "-4px" : "4px");
+    tip.style.left = x + "px"; tip.style.top = y + "px";
+    tip.classList.add("on");
+  };
+  document.addEventListener("pointerover", (e) => {
+    const el = e.target.closest?.(DDtipScope);
+    if (el === current) return;
+    hide();
+    if (!el || el.disabled) return;
+    current = el;
+    // The first label waits a moment; moving along the bar shows the next one at once, like macOS.
+    timer = setTimeout(() => show(el), Date.now() - warm < 600 ? 0 : 450);
+  }, true);
+  for (const type of ["pointerdown", "keydown", "wheel", "blur"]) window.addEventListener(type, hide, true);
+  document.documentElement.addEventListener("pointerleave", hide);
+}
+
 export function DDinstallGlass() {
   if (typeof document === "undefined" || document.getElementById("dd-glass")) return;
   const style = Object.assign(document.createElement("style"), { id: "dd-glass", textContent: DDglassCSS });
   (document.body || document.documentElement).append(style);
+  try { DDinstallHoverTips(); } catch {}
 }

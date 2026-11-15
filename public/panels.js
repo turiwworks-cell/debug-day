@@ -119,9 +119,11 @@ export function DDpanelCommands(language, open, here = "") {
 // a fallback for any panel without a line icon.
 const DDpanelLines = {
   engine: '<circle cx="8" cy="8" r="2.4"/><path d="M8 1.8v1.8M8 12.4v1.8M1.8 8h1.8M12.4 8h1.8M3.6 3.6l1.3 1.3M11.1 11.1l1.3 1.3M3.6 12.4l1.3-1.3M11.1 4.9l1.3-1.3"/>',
-  board: '<circle cx="4" cy="8" r="1.9"/><circle cx="12" cy="3.8" r="1.7"/><circle cx="12" cy="12.2" r="1.7"/><path d="M5.7 7.1l4.6-2.4M5.7 8.9l4.6 2.4"/>',
+  // A note joined to a circle: the Board's notes, shapes and lines (5.83).
+  board: '<path d="M2.8 6.6h5.4a1.3 1.3 0 011.3 1.3v3.4l-2.9 2.9H2.8a1.3 1.3 0 01-1.3-1.3V7.9a1.3 1.3 0 011.3-1.3z" fill="currentColor" stroke="none" opacity=".2"/><path d="M2.8 6.6h5.4a1.3 1.3 0 011.3 1.3v3.4l-2.9 2.9H2.8a1.3 1.3 0 01-1.3-1.3V7.9a1.3 1.3 0 011.3-1.3zM6.6 14.2v-1.6a1.3 1.3 0 011.3-1.3h1.6M5.5 6.6c0-1.7 1.9-2.4 4-2.4"/><circle cx="12" cy="4.2" r="2.4"/>',
   habits: '<path d="M3.2 12.8C3.2 7 6.8 3.6 12.8 3.2c-.4 6-3.8 9.6-9.6 9.6z"/><path d="M3.2 12.8 8.2 7.8"/>',
-  calendar: '<rect x="2.5" y="3.3" width="11" height="10.2" rx="2"/><path d="M2.5 6.8h11M5.4 1.9v2.6M10.6 1.9v2.6"/>',
+  // A calendar page with its tinted top and a dot for the day (5.83).
+  calendar: '<path d="M4.6 2.8h6.8a2.4 2.4 0 012.4 2.4v1.1H2.2V5.2a2.4 2.4 0 012.4-2.4z" fill="currentColor" stroke="none" opacity=".2"/><rect x="2.2" y="2.8" width="11.6" height="11" rx="2.4"/><path d="M2.2 6.3h11.6M5.3 1.6v2.4M10.7 1.6v2.4"/><circle cx="10.3" cy="10.3" r="1.25" fill="currentColor" stroke="none"/>',
   stats: '<path d="M3 13.2V8.6M8 13.2V3M13 13.2V6.2"/>',
   sections: '<rect x="2.3" y="2.3" width="4.6" height="4.6" rx="1.2"/><rect x="9.1" y="2.3" width="4.6" height="4.6" rx="1.2"/><rect x="2.3" y="9.1" width="4.6" height="4.6" rx="1.2"/><rect x="9.1" y="9.1" width="4.6" height="4.6" rx="1.2"/>',
 };

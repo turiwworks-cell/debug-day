@@ -202,9 +202,8 @@ export function DDPlacesBack({ React }) {
     "aria-label": label, title: label + " · Alt+←",
     onClick: () => DDplaces.back(),
   }, React.createElement("svg", { viewBox: "0 0 16 16", width: 16, height: 16, fill: "none", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": "true" },
-    // A dotted tail: the way you came (the solid ← in a section's path means one level up).
-    React.createElement("path", { d: "M13.5 8H5", strokeDasharray: "1.6 2.2" }),
-    React.createElement("path", { d: "M7.5 4 3.5 8l4 4M3.5 8H6" })));
+    // A clean arrow back to where you were (5.83). The day's ‹ › chevrons sit beside it, so this one keeps its shaft.
+    React.createElement("path", { d: "M12.8 8H3.6M7.6 3.9 3.5 8l4.1 4.1" })));
 }
 
 const DDplacesCSS = `.dd-back{width:max(34px,var(--tmin));height:max(34px,var(--tmin));box-shadow:inset 0 0 0 1px var(--rule-2);color:var(--ink-2);display:grid;place-items:center;flex:none}

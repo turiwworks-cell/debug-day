@@ -5825,10 +5825,10 @@ export function DDcreateBoard(deps) {
         // On the Main board in full screen (computer) the path is always there, so nothing jumps.
         (layout.room || placeBack.bar) && _.createElement("div",{className:"dd-room-break","aria-hidden":true}),
         !layout.room && placeBack.bar && _.createElement("nav",{className:"dd-place-bar",dir:"ltr","aria-label":t("Where you are","کجای برد هستی"),onPointerDown:(e)=>e.stopPropagation()},
-          _.createElement("button",{type:"button",className:"dd-room-back","data-room-back":true,disabled:!placeBack.back,title:placeBack.back?placeBack.label+" · Alt+←":t("Back (nothing yet)","برگشت (هنوز جایی نیست)"),"aria-label":placeBack.back?placeBack.label:t("Back (nothing yet)","برگشت (هنوز جایی نیست)"),onClick:()=>DDplaces.back()},"←"),
+          _.createElement("button",{type:"button",className:"dd-room-back","data-room-back":true,disabled:!placeBack.back,title:placeBack.back?placeBack.label+" · Alt+←":t("Back (nothing yet)","برگشت (هنوز جایی نیست)"),"aria-label":placeBack.back?placeBack.label:t("Back (nothing yet)","برگشت (هنوز جایی نیست)"),onClick:()=>DDplaces.back()},_.createElement(controls.Icon,{React:_,name:"goBack",size:18})),
           _.createElement("span",{dir:"auto","aria-current":"page"},t("Main board","برد اصلی"))),
         layout.room && _.createElement("nav",{className:"dd-room-bar",dir:"ltr","aria-label":t("Where you are","کجای برد هستی"),onPointerDown:(e)=>e.stopPropagation()},
-          _.createElement("button",{type:"button",className:"dd-room-back","data-room-back":true,title:placeBack.back?placeBack.label+" · Alt+←":t("Back one level (Esc)","یک سطح برگشت (Esc)"),"aria-label":placeBack.back?placeBack.label:t("Back","برگشت"),onClick:()=>placeBack.back?DDplaces.back():leaveRoom()},"←"),
+          _.createElement("button",{type:"button",className:"dd-room-back","data-room-back":true,title:placeBack.back?placeBack.label+" · Alt+←":t("Back one level (Esc)","یک سطح برگشت (Esc)"),"aria-label":placeBack.back?placeBack.label:t("Back","برگشت"),onClick:()=>placeBack.back?DDplaces.back():leaveRoom()},_.createElement(controls.Icon,{React:_,name:"goBack",size:18})),
           _.createElement("button",{type:"button",dir:"auto","data-room-crumb":"main",onClick:()=>enterRoom(null)},t("Main board","برد اصلی")),
           DDlifePath(DDlifeItems(setup),layout.room).map((s,i,all)=>_.createElement(_.Fragment,{key:s.id},
             _.createElement("span",{className:"dd-room-sep","aria-hidden":true},"›"),
@@ -6508,7 +6508,9 @@ export function DDcreateBoard(deps) {
               "aria-pressed": tool === Y,
               // A comment can also be dragged out of the dock onto the board (Milanote).
               onPointerDown: Y === "comment" ? (e) => comments.dockDown(e) : undefined,
-              title: Y === "comment" ? "Comment (M) · or drag it onto the board" : undefined,
+              // Resting the pointer shows the tool's name and its key (5.83).
+              "data-tip": ({ select: "Select", hand: "Hand", block: "Task", sticky: "Sticky note", shape: "Shape", text: "Text", section: "Section", pen: "Pen", comment: "Comment" }[Y] || G) + " \xB7 " + ({ select: "V", hand: "H", block: "B", sticky: "S", shape: "R", text: "T", section: "\u21E7S", pen: "P", comment: "M" }[Y] || ""),
+              "data-tip-hint": Y === "comment" ? t("or drag it onto the board", "یا بکشش روی برد") : undefined,
               onClick: () => {
                 (setTool(Y), setConnecting(null), setWireId(null), setShapeMenu(null));
               },

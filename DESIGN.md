@@ -86,6 +86,9 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 
 - App icons are line icons: 16×16 viewBox, `stroke="currentColor"`, stroke 1.5, round caps.
   Panel icons live in `public/panels.js` (`DDpanelGlyph`), others in the bundle's icon set and `board-icons.js`.
+- Icons read like SF Symbols (5.83): a clear line drawing, and where it helps a soft tinted body (`fill`, 22% of the color) or a small solid part (`solid`). Each picture shows what the thing is at a glance; no two actions share one.
+- Every icon-only button on the Board's bars shows a small glass label when the pointer rests on it: its name, then its key (e.g. "Sticky note · S").
+- Going back is a tinted chevron (‹), never a loud colored square. The header's back to where you were is a plain arrow, so it is never mistaken for the day's ‹ › chevrons.
 - Emoji are only for the person's own content (task emoji, notes).
 
 ## 5. Buttons and controls

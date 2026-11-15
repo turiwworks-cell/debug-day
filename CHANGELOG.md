@@ -1,3 +1,10 @@
+## 5.83.0 — 2026-11-15
+Branch: claude/project-thread-jqif1z
+- Icons redrawn in the style of SF Symbols: clearer pictures with a soft tinted body or a solid part (pointer, task, note, section, sticker, comment, pen, tag, photo, document and more), a little larger in the Board's dock.
+- Resting the pointer on a tool in the Board's dock (or the selection bar, zoom and top bar) shows a small glass label with its name and key, e.g. "Sticky note · S". Before, the dock showed nothing.
+- The back button in a section's path is now a tinted chevron, like iOS, instead of an orange square with an arrow.
+- The header's Board and Calendar icons are clearer (a note joined to a circle, a calendar page with today's dot), and its back button is a plain arrow.
+
 ## 5.82.0 — 2026-11-15
 Branch: claude/project-thread-jqif1z
 - The Board's day moved to the top centre as plain words, without a box, and now shows the Persian date too (e.g. "24 Aban 1405 · 0% completed").
