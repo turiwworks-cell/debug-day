@@ -63,9 +63,13 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 
 ## 3. Color
 
-- The UI itself is gray (Graphite): use the tokens in `public/graphite.js`
-  (`--paper`, `--panel`, `--wash`, `--ink` to `--ink-4`, `--rule`, `--rule-2`).
-- One accent: `--now`. Green `--ok` only for done.
+- The UI looks like iOS 27 (5.81): `public/glass.js` (`DDinstallGlass`, after `graphite.js`) sets the tokens
+  (`--paper`, `--panel`, `--raise`, `--wash`, `--ink` to `--ink-4`, `--rule`, `--rule-2`) to the iOS system grays,
+  and its labels to iOS label colors with alpha. Use the tokens; never a new hex for chrome.
+- One accent: `--now`, the classic iOS blue (`#0088FF` light, `#0091FF` dark). It is one line in `glass.js` (`const tint`). Green `--ok` only for done and switches.
+- Liquid Glass only on things that float over content: the view tabs, the Board's bars and dock, menus, popovers,
+  the selection bar and the phone tab bar (`--glass`, `--glass-strong`, `--glass-edge`, `--glass-shadow`).
+  Cards and pages stay solid. Without transparency (`prefers-reduced-transparency`) they turn solid.
 - Color belongs to the person's content: sections, notes, lanes, tags.
 - Colors are picked from the app's own swatches (a round dot that opens them). Never open the system color picker (`input type=color`).
 - The selection bar carries tools only: no name, icon or time copied from the card. A note's bar is Color, Align, Tags, Text style and ⋯.
@@ -75,7 +79,7 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 
 ## 3b. Type
 
-- Two faces: `--sans` (Geist, Vazirmatn) for all words, `--title` (Fraunces, Markazi Text for Persian) for titles only: headings in notes and documents, document names, page titles. Section names keep `--sans` (5.80). Never for buttons, labels or body text.
+- Two faces: `--sans` (the system SF face, then Geist, Vazirmatn) for all words, `--title` (Fraunces, Markazi Text for Persian) for titles only: headings in notes and documents, document names, page titles. Section names keep `--sans` (5.80). Never for buttons, labels or body text.
 
 ## 4. Icons
 
@@ -86,7 +90,9 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 ## 5. Buttons and controls
 
 - Heights: 28px quiet controls, 32–36px chips, 44px minimum on touch (`pointer:coarse`).
-- Pills (`dchip`, `dd-pill`) for tools; `btn solid` for the one main action; `textbtn` for small links.
+- Buttons are capsules on a soft fill (`--wash`); `btn solid` (the tint) for the one main action; `textbtn` for small links.
+- A choice between a few options is a segmented capsule: a soft track, the picked part a raised capsule.
+- On/off settings are iOS switches (green when on). Fields are filled, without outlines; focus shows a soft tint ring.
 - Destructive actions ask once or offer Undo; prefer Undo. Feed deletes also wait 30 days in Recently deleted (`trash.js`).
 - A nudge is one calm line with one button and "Not today" (`nudges.js`). It never moves anything on its own.
 
@@ -98,7 +104,8 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 
 ## 7. Phone
 
-- The tabs live at the bottom. Capture floats above them and never covers content.
+- The tabs live at the bottom, as a floating glass bar a little above the edge; content fades out under it.
+  Capture floats above them and never covers content.
 - The Board opens full screen and ends above the tabs.
 - Every tap target is at least 44px.
 

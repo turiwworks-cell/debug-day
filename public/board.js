@@ -3917,7 +3917,9 @@ export function DDcreateBoard(deps) {
       const input=elementRefs.current.get(node.id)?.querySelector("textarea,.dd-live"),text=editingRef.current?.ref===node.id?editingRef.current.value:node.title;
       const next=DDrichFormat(text,range?range[0]:input?.selectionStart??0,range?range[1]:input?.selectionEnd??text.length,kind,arg);
       commit(d=>{const list=node.lifeId?d.__life.items:d.notes,n=list.find(n=>n.id===(node.lifeId||node.noteId));if(n)n.text=next.text;return d;});
-      if(input){setEditing({ref:node.id,value:next.text});requestAnimationFrame(()=>{input.focus();input.setSelectionRange(next.start,next.end);});}
+      // The new selection lands on the next frame, unless a key or a press came
+      // first: then that key wins, so quick typing after Bold is never lost (5.81).
+      if(input){setEditing({ref:node.id,value:next.text});let moved=false;const mark=()=>{moved=true;};input.addEventListener("keydown",mark,{once:true});input.addEventListener("pointerdown",mark,{once:true});requestAnimationFrame(()=>{input.removeEventListener("keydown",mark);input.removeEventListener("pointerdown",mark);input.focus();if(!moved)input.setSelectionRange(next.start,next.end);});}
     }
     // Ctrl+K or the link button: a box for the web address of the chosen words.
     function openLink() {

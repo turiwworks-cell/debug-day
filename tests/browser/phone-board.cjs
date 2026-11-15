@@ -35,7 +35,8 @@ const { start, fixture } = require("./harness.cjs");
       page.setDefaultTimeout(8000);
       const f = await fixture(page, h.origin);
       const tabs = await page.locator(".top .dd-tabs").boundingBox();
-      assert.ok(tabs.y + tabs.height >= 843 && tabs.y > 700, "tabs sit at the bottom: " + JSON.stringify(tabs));
+      // 5.81: the tab bar floats just above the bottom edge (iOS 27).
+      assert.ok(tabs.y + tabs.height >= 820 && tabs.y > 700, "tabs sit at the bottom: " + JSON.stringify(tabs));
       await page.locator(".views button[data-panel=board]").click();
       await page.locator("#b2.focus-mode").waitFor();
       const board = await page.locator("#b2").boundingBox();
