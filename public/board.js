@@ -47,6 +47,11 @@ const life = { DDinstallLifeStyles, DDlifeAbs, DDlifeAdd, DDlifeBounds, DDlifeHe
 // Board interaction engine. Legacy planner adapters are injected once by the app.
 // On a phone the Board opens full screen unless the person chose otherwise
 // (Canvas settings › Open full screen); a computer keeps it in the page.
+// The board's day in the Persian calendar too, e.g. "24 Aban 1405" (5.82).
+const DDpersianDayFormat = (() => { try { return new Intl.DateTimeFormat("en-GB-u-ca-persian", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }); } catch { return null; } })();
+function DDpersianDay(date) {
+  try { return DDpersianDayFormat ? DDpersianDayFormat.formatToParts(new Date(date + "T12:00:00Z")).filter((p) => p.type !== "era").map((p) => p.value).join("").trim() : ""; } catch { return ""; }
+}
 function phoneBoard() {
   try { return matchMedia("(max-width:700px)").matches; } catch { return false; }
 }
@@ -5776,6 +5781,9 @@ export function DDcreateBoard(deps) {
             _.createElement(
               "small",
               null,
+              // The Persian date sits beside the day, then how much is done (5.82).
+              DDpersianDay(day.date) && _.createElement("span", { className: "b2-brand-alt", "data-persian-date": true }, DDpersianDay(day.date)),
+              DDpersianDay(day.date) && " \u00B7 ",
               completion,
               DDUI("% \u0627\u0646\u062C\u0627\u0645\u200C\u0634\u062F\u0647"),
             ),
