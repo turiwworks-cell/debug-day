@@ -1,3 +1,7 @@
+## 5.84.1 — 2026-11-15
+Branch: claude/project-thread-jqif1z
+- Like an app: labels, buttons, titles and menus can no longer be selected by mistake, and a long press on a phone no longer shows the copy bubble on them. Your own words stay selectable: fields, notes and documents while you write, a document you read, comments, the day note and code.
+
 ## 5.84.0 — 2026-11-15
 Branch: claude/project-thread-jqif1z
 - Calendar: every reminder is named on its day. In the month each one has its own line (a ring and its name, on up to two lines); the week and the list beside the month show them too.
