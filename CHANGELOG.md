@@ -1,3 +1,12 @@
+## 5.80.0 — 2026-11-15
+Branch: claude/project-thread-jqif1z
+- Lines on the Board leave a little air before the card they meet: an arrowhead stops just short of the edge instead of touching it (drawn lines without an arrow keep a hair of space; the mind map's own branches still grow out of their cards).
+- A picked note's bar is short and clear: a round color dot, align, tags, text style and ⋯. It no longer repeats the note's name and icon, and "→ Plan" moved to ⋯ (Convert note to task).
+- The color dot opens the app's own colors (and the eyedropper). Shapes, sections and habits pick from the app's colors too; the system color picker is gone everywhere.
+- Clearer tag and text style icons.
+- Section names on the Board, the Feed and the Engine are back in the app's own face (not the serif).
+- Installing Debug Day from the browser shows its own icon: a web app manifest with app icons, an iPhone home screen icon and a small favicon.
+
 ## 5.79.0 — 2026-11-14
 Branch: claude/project-thread-n79ngv
 - MCP can use the newer tools: make a note a document, a to-do list or plain text, give notes and Feed notes a deadline, edit or delete a note, comment on the board (reply, resolve, delete), add and edit reminders for any day, and add, rename, remove and tick habits. A task no longer needs a lane.

@@ -186,26 +186,27 @@ export function DDShapePicker({ React: R, current, onPick, onClose, title = "Sha
 }
 
 // Fill or stroke: the three ways, then the colors (FigJam).
-export function DDShapeColors({ React: R, part, mode, color, onMode, onColor, onDropper }) {
-  const h = R.createElement, fill = part === "fill";
+// The colors pop for a shape's fill or stroke, and for a note (5.80: only the
+// app's own colors, no system color picker; a note has no fill styles).
+export function DDShapeColors({ React: R, part, mode, color, onMode, onColor, onDropper, palette = DDshapePalette, label }) {
+  const h = R.createElement, fill = part === "fill" || part === "note", note = part === "note";
   const modes = fill
     ? [["fill", "Fill", "M4 4h12v12H4z", true], ["light", "Transparent", "M4 4h12v12H4zM7 13l6-6M7 9.5l2.5-2.5M10.5 13L13 10.5", false], ["none", "No fill", "M4 4h12v12H4zM6.5 6.5h7v7h-7z", false]]
     : [["solid", "Solid", "M4 16L16 4", false], ["dashed", "Dashed", "M4 16l2.5-2.5M8.75 11.25l2.5-2.5M13.5 6.5L16 4", false], ["none", "None", "M10 3.5a6.5 6.5 0 110 13 6.5 6.5 0 010-13zM5.4 14.6l9.2-9.2", false]];
-  const swatch = (c) => h("button", { type: "button", key: c, role: "radio", "aria-checked": String(color).toUpperCase() === c, "aria-label": (fill ? "Fill " : "Stroke ") + c, "data-shape-color": c, style: { "--swatch": c }, onClick: () => onColor(c) });
-  return h("div", { className: "dd-shape-pop dd-shape-colors", role: "dialog", "aria-label": fill ? "Fill" : "Stroke", "data-shape-part": part, onPointerDown: (e) => e.stopPropagation() },
-    h("div", { className: "dd-shape-modes", role: "radiogroup", "aria-label": fill ? "Fill style" : "Stroke style" },
+  const swatch = (c) => h("button", { type: "button", key: c, role: "radio", "aria-checked": String(color).toUpperCase() === c, "aria-label": (note ? "Color " : fill ? "Fill " : "Stroke ") + c, "data-shape-color": c, style: { "--swatch": c }, onClick: () => onColor(c) });
+  const row = Math.ceil(palette.length / 2);
+  return h("div", { className: "dd-shape-pop dd-shape-colors", role: "dialog", "aria-label": label || (note ? "Color" : fill ? "Fill" : "Stroke"), "data-shape-part": part, style: { "--cols": row + (onDropper ? 1 : 0) }, onPointerDown: (e) => e.stopPropagation() },
+    !note && h("div", { className: "dd-shape-modes", role: "radiogroup", "aria-label": fill ? "Fill style" : "Stroke style" },
       modes.map(([id, label, d, solid]) => h("button", { type: "button", key: id, role: "radio", "aria-checked": mode === id, "data-shape-mode": id, onClick: () => onMode(id) },
         h("svg", { width: 16, height: 16, viewBox: "0 0 20 20", "aria-hidden": true, fill: "none", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round" },
           solid && h("path", { d: "M6.5 6.5h7v7h-7z", fill: "currentColor", stroke: "none" }), h("path", { d })),
         label))),
-    h("div", { className: "dd-shape-swatches", role: "radiogroup", "aria-label": fill ? "Fill color" : "Stroke color" },
-      DDshapePalette.slice(0, 11).map(swatch),
+    h("div", { className: "dd-shape-swatches", role: "radiogroup", "aria-label": note ? "Note color" : fill ? "Fill color" : "Stroke color" },
+      palette.slice(0, row).map(swatch),
       onDropper && h("button", { type: "button", className: "dd-shape-dropper", "aria-label": "Eyedropper (I)", title: "Take a color from the board (I)", "data-shape-dropper": part, onClick: onDropper },
         h("svg", { width: 16, height: 16, viewBox: "0 0 20 20", "aria-hidden": true, fill: "none", stroke: "currentColor", strokeWidth: 1.6, strokeLinejoin: "round", strokeLinecap: "round" },
           h("path", { d: "M13.5 3.2a2 2 0 012.8 2.8l-1.9 1.9.9.9-1.4 1.4-.9-.9-6.1 6.1H4.5v-2.4l6.1-6.1-.9-.9 1.4-1.4.9.9zM8.9 8.7l2.4 2.4" }))),
-      DDshapePalette.slice(11).map(swatch),
-      h("label", { className: "dd-shape-custom", title: "Any color" },
-        h("input", { type: "color", value: HEX.test(color || "") ? color : "#757575", "aria-label": fill ? "Any fill color" : "Any stroke color", onChange: (e) => onColor(e.target.value.toUpperCase()) }))));
+      palette.slice(row).map(swatch)));
 }
 
 export const DDshapeCSS = `
@@ -236,12 +237,9 @@ export const DDshapeCSS = `
 .dd-shape-modes button{display:flex;align-items:center;gap:7px;padding:8px 12px;border-radius:8px;font-size:14px}
 .dd-shape-modes button:hover{background:#ffffff14}
 .dd-shape-modes button[aria-checked=true]{background:#9747FF}
-.dd-shape-swatches{display:grid;grid-template-columns:repeat(11,28px);gap:8px}
-.dd-shape-swatches:has(.dd-shape-dropper){grid-template-columns:repeat(12,28px)}
+.dd-shape-swatches{display:grid;grid-template-columns:repeat(var(--cols,11),28px);gap:8px}
 .dd-shape-swatches button{width:28px;height:28px;border-radius:50%;background:var(--swatch);box-shadow:inset 0 0 0 1px #ffffff2a}
 .dd-shape-swatches button[aria-checked=true]{box-shadow:0 0 0 2px #1E1E1E,0 0 0 4px #9747FF}
-.dd-shape-custom{position:relative;width:28px;height:28px;border-radius:50%;background:conic-gradient(red,#ff0,lime,cyan,blue,#f0f,red);cursor:pointer}
-.dd-shape-custom input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
 .dd-shape-row{position:absolute;left:50%;transform:translateX(-50%);bottom:76px;z-index:62;display:flex;align-items:center;gap:2px;background:var(--paper,#fff);color:var(--ink,#1e1e1e);border:1px solid color-mix(in srgb,var(--ink,#000) 12%,transparent);border-radius:14px;padding:5px;box-shadow:0 3px 12px #0000000d,0 12px 28px -22px #0004;max-width:calc(100% - 24px);overflow-x:auto;scrollbar-width:none}
 .dd-shape-row>button{display:grid;place-items:center;min-width:38px;height:38px;border:0;background:none;border-radius:9px;color:inherit;cursor:pointer}
 .dd-shape-row>button:hover{background:color-mix(in srgb,var(--ink,#000) 7%,transparent)}

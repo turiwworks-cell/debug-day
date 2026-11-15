@@ -44,7 +44,11 @@ export async function startServer() {
             headers: {
               "Content-Type": path.endsWith(".svg")
                 ? "image/svg+xml"
-                : path.endsWith(".js")
+                : path.endsWith(".png")
+                  ? "image/png"
+                  : path.endsWith(".webmanifest")
+                    ? "application/manifest+json"
+                    : path.endsWith(".js")
                   ? "text/javascript"
                   : "text/html",
             },

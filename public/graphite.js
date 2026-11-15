@@ -62,8 +62,8 @@ html :is(${labels}){text-transform:none;letter-spacing:0;font-family:var(--sans)
 /* Titles have their own face (5.77): a soft serif for headings in notes and
    documents, document names, section names and page titles; a Persian serif
    beside it. Body words keep the one face above. */
-html :is(.dd-rich-h1,.dd-rich-h2,.dd-doc-title,.dd-doc-name,.dd-life-area-title,.dd-engine-area-title,.dd-review-root h1,.dd-review-calendar-head h2){font-family:var(--title);letter-spacing:-.012em;font-optical-sizing:auto}
-html body .b4-node.b4-life-section .b4-node-title{font-family:var(--title);letter-spacing:-.01em}
+html :is(.dd-rich-h1,.dd-rich-h2,.dd-doc-title,.dd-doc-name,.dd-review-root h1,.dd-review-calendar-head h2){font-family:var(--title);letter-spacing:-.012em;font-optical-sizing:auto}
+/* Section names (on the Board, the Feed and the Engine) keep the app's own face (5.80). */
 html :is(.cap,.totals span,.row .ty,.chip,.addlane,.textbtn,.cal-head,.defp,.bug .when,.bug-in .on,.sw button.auto,.dd-card-field>span,.drop:empty:before,.subnode-add button){font-size:calc(12.5px * var(--k));font-weight:500}
 html .dd-card-field>span{color:var(--ink-3)}
 html .toast{font:500 13.5px/1.3 var(--sans);border-radius:999px;padding:12px 20px;box-shadow:var(--gr-shadow)}

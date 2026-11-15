@@ -437,20 +437,6 @@ export function DDSectionsFlowchart({ React: R, items = [], room = null, languag
           onClick: () => pick(node.id, color),
         }))),
       h("div", { className: "dd-flow-color-row" },
-        h("label", { className: "dd-flow-custom", title: t("Any color you like", "هر رنگی که دوست داری") },
-          h("input", {
-            type: "color",
-            value: custom,
-            "data-custom-color": node.id,
-            "aria-label": t("Custom color", "رنگ دلخواه"),
-            onInput: (event) => setDraft({ id: node.id, color: event.target.value }),
-            onChange: (event) => setDraft({ id: node.id, color: event.target.value }),
-            // The picker reports every step while you drag; save once, when it closes.
-            ref: (el) => {
-              if (el) el.onchange = () => pick(node.id, el.value.toUpperCase());
-            },
-          }),
-          h("span", null, t("Custom", "دلخواه"))),
         sub && h("button", {
           type: "button",
           className: "dd-flow-shade",

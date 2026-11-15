@@ -67,12 +67,15 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
   (`--paper`, `--panel`, `--wash`, `--ink` to `--ink-4`, `--rule`, `--rule-2`).
 - One accent: `--now`. Green `--ok` only for done.
 - Color belongs to the person's content: sections, notes, lanes, tags.
+- Colors are picked from the app's own swatches (a round dot that opens them). Never open the system color picker (`input type=color`).
+- The selection bar carries tools only: no name, icon or time copied from the card. A note's bar is Color, Align, Tags, Text style and ⋯.
+- A line meets a card with a little air: an arrowhead stops short of the edge (`DDwireGap`).
 - Every color works in light and dark. Never hard-code a hex for UI chrome.
 - **Never change the sticky notes' look** (shape, colors, fold, font).
 
 ## 3b. Type
 
-- Two faces: `--sans` (Geist, Vazirmatn) for all words, `--title` (Fraunces, Markazi Text for Persian) for titles only: headings in notes and documents, document names, section names, page titles. Never for buttons, labels or body text.
+- Two faces: `--sans` (Geist, Vazirmatn) for all words, `--title` (Fraunces, Markazi Text for Persian) for titles only: headings in notes and documents, document names, page titles. Section names keep `--sans` (5.80). Never for buttons, labels or body text.
 
 ## 4. Icons
 

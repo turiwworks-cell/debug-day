@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DDzoomKey, DDinstallZoomLock } from "../public/board-experience.js";
-import { DDconnectionGeometry } from "../public/connections.js";
+import { DDconnectionGeometry, DDwireGap, DDgrowRect } from "../public/connections.js";
 
 const key = (k, extra = {}) => ({ key: k, code: "", ctrlKey: true, ...extra });
 
@@ -89,4 +89,15 @@ test("an elbow line between two notes inside sections stays inside them", () => 
   // Even if the frames came in with another kind, a frame that holds a note is never in the way.
   const plain = DDconnectionGeometry(one, two, { style: "elbow" }, [{ ...outer, kind: "box" }, { ...studio, kind: "box" }, one, two]);
   assert.equal(plain.d, g.d);
+});
+
+test("an arrow stops a little short of the card it points at (5.80)", () => {
+  const a = { id: "a", x: 0, y: 0, w: 100, h: 60 }, b = { id: "b", x: 300, y: 0, w: 100, h: 60 };
+  const wire = { arrow: true, width: 3 }, gap = DDwireGap(wire, { start: false, end: true });
+  assert.ok(gap.to > gap.from && gap.to >= 5, "the arrow end keeps more air");
+  const g = DDconnectionGeometry(DDgrowRect(a, gap.from), DDgrowRect(b, gap.to), { style: "straight" });
+  assert.equal(g.q.x, b.x - gap.to, "the line ends before the card's edge");
+  assert.equal(g.p.x, a.x + a.w + gap.from);
+  assert.equal(DDwireGap({ automatic: true }, {}).from, 0, "the mind map's own branches still touch their cards");
+  assert.equal(DDgrowRect(null, 4), null);
 });
