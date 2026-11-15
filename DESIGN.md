@@ -91,6 +91,7 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 - Every icon-only button on the Board's bars shows a small glass label when the pointer rests on it: its name, then its key (e.g. "Sticky note · S").
 - Going back is a tinted chevron (‹), never a loud colored square. The header's back to where you were is a plain arrow, so it is never mistaken for the day's ‹ › chevrons.
 - Emoji are only for the person's own content (task emoji, notes).
+- The interface's own words (labels, buttons, titles, menus) can't be selected, like an app. Only what the person writes or reads can be: fields, the note and document editors, a document being read, comments, the day note and code (or anything with `.dd-selectable`).
 
 ## 5. Buttons and controls
 

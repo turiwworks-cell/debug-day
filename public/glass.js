@@ -93,6 +93,12 @@ html body{font-family:var(--sans);letter-spacing:-.01em;-webkit-font-smoothing:a
 html .brand{font:700 calc(17px * var(--k))/1.2 var(--display);letter-spacing:-.022em}
 html :is(.dd-review-root h1,.dd-review-calendar-head h2){font-family:var(--display);font-weight:700;letter-spacing:-.025em}
 html .dd-review-root h1{font-size:34px;line-height:41px}
+/* Like an app (5.84.1): the interface's own words can't be selected, and a long press on a phone shows no copy bubble.
+   What you write or read stays selectable: fields, the note and document editors, a document you read, comments, the day note, code. */
+html body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+html :is(input,textarea,select,[contenteditable]:not([contenteditable=false]),.dd-doc-read,.dd-thread p,.dd-review-note-text,code,pre,.dd-selectable),
+html :is([contenteditable]:not([contenteditable=false]),.dd-doc-read,.dd-thread p,.dd-review-note-text,.dd-selectable) *{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
+html :is(input[type=checkbox],input[type=radio],input[type=range],input[type=color],input[type=button],input[type=submit]){-webkit-user-select:none;user-select:none}
 
 /* Buttons are capsules; quiet buttons are tinted text on a soft fill */
 html :is(.btn,.dchip,.navb,.textbtn,.addlane,.defp,.bug-tag-btn,.dd-pill,.sw button){border-radius:var(--r-pill)}
