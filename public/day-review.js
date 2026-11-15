@@ -8,7 +8,9 @@ import { DDtodoDueItems, DDtodoLists } from "./todos.js";
 import { DDCalendarWeek, DDWeekReview, DDCalendarModes, DDCalSections } from "./calendar-week.js";
 import { DDaddDays, DDvalidDate } from "./dates.js";
 import { DDusualMinutes, DDdayLoad, DDloadName, DDmonthLoad, DDaltDay, DDaltMonth, DDshortTime, DDinstallCalendarLook } from "./calendar-look.js";
+import { DDremindersOn, DDcalDayRows, DDcalRemLines, DDcalOpenFrom, DDremOpenEvent, DDopenReminder, DDopenOnBoard, DDremIcon, DDinstallCalReminders } from "./cal-reminders.js";
 DDinstallCalendarLook();
+DDinstallCalReminders();
 // Calendar and feelings share one selected day. Reading a day never creates it.
 export const DDreviewValidDate = DDvalidDate;
 // Counted and waiting cards take no minutes from the day.
@@ -132,26 +134,7 @@ export function DDreviewSummary(day = {}, setup = {}) {
   };
 }
 export function DDreviewReminders(reminders = [], date) {
-  return reminders
-    .filter((reminder) => {
-      if (!DDreviewValidDate(reminder.date) || reminder.date > date)
-        return false;
-      const days = Math.round(
-        (Date.parse(date + "T12:00:00Z") -
-          Date.parse(reminder.date + "T12:00:00Z")) /
-          86400000,
-      );
-      return reminder.repeat === "weekly"
-        ? days % 7 === 0
-        : reminder.repeat === "alternate"
-          ? days % 2 === 0
-          : reminder.date === date;
-    })
-    .map((reminder) =>
-      reminder.repeat !== "once" && reminder.completedDates?.includes(date)
-        ? { ...reminder, done: true }
-        : reminder,
-    );
+  return DDremindersOn(reminders, date);
 }
 export function DDreviewSetReminderDone(snapshot, date, reminderId, done) {
   const reminder = snapshot.setup.reminders?.find(
@@ -548,7 +531,9 @@ function DDReviewCalendar({
           load = DDdayLoad(day, usual),
           due = feelingsOnly ? [] : DDdueOn(dueItems, cell.date),
           remList = feelingsOnly ? [] : DDreviewReminders(data.setup.reminders, cell.date),
-          reminders = remList.length,
+          // Each reminder by name (5.84): the Calendar's own, then to-do tasks with a time.
+          dayRows = DDcalDayRows(remList, due, language),
+          reminders = dayRows.rows.length,
           worries = (data.setup.worries || []).filter(
             (item) => item.createdAt === cell.date,
           ).length,
@@ -582,14 +567,19 @@ function DDReviewCalendar({
                 ? " · " + n(load.done) + t(" of ", " از ") + n(load.tasks) + t(" tasks done", " کار انجام شده") + " · " + DDloadName(load.level, language)
                 : "") +
               (feelingCount ? " · " + n(feelingCount) + t(feelingCount === 1 ? " feeling" : " feelings", " احساس") : "") +
-              (reminders ? t(" · reminder: ", " · یادآور: ") + remList.map((r) => r.title).join(", ") : "") +
+              (reminders ? t(" · reminder: ", " · یادآور: ") + dayRows.rows.map((r) => (r.time ? r.time + " " : "") + r.title).join(", ") : "") +
               (other ? " · " + other : "") +
               (due.length ? t(" · deadline: ", " · ددلاین: ") + due.map((i) => DDdueName(i, language)).join(", ") : ""),
             className:
               "dd-review-date" +
               (cell.inMonth ? "" : " outside") +
               (cell.date === today ? " today" : ""),
-            onClick: (event) => select(cell.date, event.detail > 0),
+            // A click on a reminder's line opens that reminder; anywhere else picks the day.
+            onClick: (event) => {
+              const line = event.target.closest?.("[data-cal-open]");
+              select(cell.date, event.detail > 0 && !line);
+              if (line) DDcalOpenFrom(line, cell.date, due);
+            },
             onKeyDown: (event) => key(event, cell),
           },
           h(
@@ -611,14 +601,7 @@ function DDReviewCalendar({
           h(
             "span",
             { className: "dd-cal-body", "aria-hidden": true },
-            reminders > 0 &&
-              h(
-                "span",
-                { className: "dd-cal-rem", "data-cal-remind": cell.date, "data-done": remList.every((r) => r.done) || undefined },
-                DDbell(h),
-                h("span", { dir: "auto" }, remList[0].title),
-                reminders > 1 && h("b", null, "+" + n(reminders - 1)),
-              ),
+            !feelingsOnly && DDcalRemLines(h, { rows: dayRows.rows, deadlines: dayRows.deadlines, date: cell.date, language, max: load.tasks ? 2 : 3 }),
             !feelingsOnly && !load.tasks && !reminders && other && h("span", { className: "dd-cal-word" }, other),
             !feelingsOnly &&
               load.tasks > 0 &&
@@ -690,7 +673,14 @@ export function DDcalComing(reminders = [], dueItems = [], today) {
 // date, or only this month's. A click picks that day.
 function DDCalReminders({ React: R, data, date, today, language, month, onSelectDay }) {
   const { h, t, n } = DDreviewUI(R, language),
-    [range, setRange] = R.useState(() => (DDreviewLocal("debug-day:cal-reminders", "coming") === "month" ? "month" : "coming"));
+    [range, setRange] = R.useState(() => (DDreviewLocal("debug-day:cal-reminders", "coming") === "month" ? "month" : "coming")),
+    [openId, setOpenId] = R.useState(null);
+  // The reminder open in the day panel is marked here too.
+  R.useEffect(() => {
+    const go = (event) => setOpenId(event.detail?.id || null);
+    window.addEventListener(DDremOpenEvent, go);
+    return () => window.removeEventListener(DDremOpenEvent, go);
+  }, []);
   if (!month) return null;
   const system = month.system,
     dueItems = [...DDlifeItems(data.setup), ...DDtodoDueItems(DDtodoLists(data))],
@@ -719,34 +709,66 @@ function DDCalReminders({ React: R, data, date, today, language, month, onSelect
       : h(
           "ol",
           null,
-          days.map((row) =>
-            h(
+          days.map((row) => {
+            // A day, then each of its reminders as its own row: a tap opens that reminder (5.84).
+            const rows = DDcalDayRows(row.items, row.due, language);
+            return h(
               "li",
               { key: row.date, "data-past": row.date < today || undefined, "data-today": row.date === today || undefined },
               h(
                 "button",
                 { type: "button", "data-cal-reminder-day": row.date, "aria-pressed": row.date === date, onClick: () => onSelectDay(row.date) },
                 h("time", { dateTime: row.date }, row.date === today ? t("Today", "امروز") : label(row.date) + (range === "coming" && row.date > today ? " · " + DDdueText(row.date, today, language) : "")),
-                h(
-                  "span",
-                  null,
-                  row.items.map((item) =>
+              ),
+              h(
+                "ul",
+                null,
+                rows.rows.map((item) =>
+                  h(
+                    "li",
+                    { key: item.kind + ":" + item.id },
                     h(
-                      "span",
-                      { key: item.id, className: "dd-cal-reminder", "data-done": item.done || undefined, dir: "auto" },
-                      item.title,
+                      "button",
+                      {
+                        type: "button",
+                        className: "dd-cal-reminder",
+                        "data-cal-open-reminder": item.kind === "reminder" ? item.id : undefined,
+                        "data-cal-open-todo": item.kind === "timed" ? item.id : undefined,
+                        "data-done": item.done || undefined,
+                        "data-open": (item.kind === "reminder" && openId === item.id && row.date === date) || undefined,
+                        "aria-label": (item.time ? item.time + " · " : "") + item.title + " · " + (item.kind === "timed" ? t("open on the Board", "باز کردن در برد") : t("open reminder", "باز کردن یادآور")),
+                        onClick: () => {
+                          if (item.kind === "timed") { DDopenOnBoard(item.item); return; }
+                          onSelectDay(row.date);
+                          DDopenReminder(item.id, row.date);
+                        },
+                      },
+                      DDremIcon(h, item.kind, item.done, 13),
+                      item.time && h("time", null, item.time),
+                      h("span", { dir: "auto" }, item.title),
                       item.repeat === "weekly" || item.repeat === "alternate"
-                        ? h("i", { title: item.repeat === "weekly" ? t("Every week", "هر هفته") : t("Every other day", "یک روز در میان") }, " ↻")
+                        ? h("i", { title: item.repeat === "weekly" ? t("Every week", "هر هفته") : t("Every other day", "یک روز در میان"), "aria-hidden": true }, "↻")
                         : null,
+                      h("i", { className: "dd-rem-go", "aria-hidden": true }),
                     ),
                   ),
-                  row.due.map((item) =>
-                    h("span", { key: "due:" + item.id, className: "dd-cal-reminder dd-cal-deadline", "data-cal-deadline": item.id, dir: "auto", title: t("Deadline", "ددلاین") }, "◆ " + DDdueName(item, language)),
+                ),
+                rows.deadlines.map((item) =>
+                  h(
+                    "li",
+                    { key: "due:" + item.id },
+                    h(
+                      "button",
+                      { type: "button", className: "dd-cal-reminder dd-cal-deadline", "data-cal-deadline": item.id, dir: "auto", title: t("Deadline · open on the Board", "ددلاین · باز کردن در برد"), onClick: () => DDopenOnBoard(item) },
+                      DDremIcon(h, "due", false, 13),
+                      h("span", { dir: "auto" }, DDdueName(item, language)),
+                      h("i", { className: "dd-rem-go", "aria-hidden": true }),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
+            );
+          }),
         ),
   );
 }
@@ -1533,20 +1555,81 @@ function DDReviewReminders({
   language,
   setData,
   onScheduleReminder,
+  onSelectDay,
   onToast,
+  first = false,
 }) {
-  const { h, t } = DDreviewUI(R, language),
+  const { h, t, n } = DDreviewUI(R, language),
     [text, setText] = R.useState(""),
     [repeat, setRepeat] = R.useState("once"),
     [on, setOn] = R.useState(date),
     [armed, setArmed] = R.useState(null),
-    reminders = DDreviewReminders(data.setup.reminders, date);
+    // The reminder that is open (5.84): { id, date }. It stays open only on its own day.
+    [open, setOpen] = R.useState(null),
+    [draft, setDraft] = R.useState(null),
+    root = R.useRef(null),
+    reminders = DDreviewReminders(data.setup.reminders, date),
+    // To-do tasks with a time on this day are reminders too; they open where they live, on the Board.
+    timed = DDcalDayRows([], DDdueOn([...DDlifeItems(data.setup), ...DDtodoDueItems(DDtodoLists(data))], date), language).rows,
+    openId = open && open.date === date ? open.id : null,
+    current = openId && (data.setup.reminders || []).find((item) => item.id === openId);
   R.useEffect(() => {
     setText("");
     setRepeat("once");
     setOn(date);
     setArmed(null);
   }, [date]);
+  // Opened from the month, the week or the list beside it.
+  R.useEffect(() => {
+    const go = (event) => {
+      const d = event.detail || {};
+      if (d.id && d.date) setOpen({ id: d.id, date: d.date, at: Date.now() });
+      else setOpen(null);
+    };
+    window.addEventListener(DDremOpenEvent, go);
+    return () => window.removeEventListener(DDremOpenEvent, go);
+  }, []);
+  R.useEffect(() => {
+    if (!current) { setDraft(null); return; }
+    setDraft({ id: current.id, title: current.title || "", note: current.note || "" });
+    const reduce = matchMedia("(prefers-reduced-motion:reduce)").matches;
+    requestAnimationFrame(() => root.current?.querySelector('[data-reminder-id="' + CSS.escape(current.id) + '"]')?.scrollIntoView({ block: "nearest", behavior: reduce ? "auto" : "smooth" }));
+  }, [openId, open?.at]);
+  const toggleOpen = (id) => {
+    const next = openId === id ? null : id;
+    setOpen(next ? { id: next, date, at: Date.now() } : null);
+    DDopenReminder(next, next ? date : null);
+  };
+  const edit = (id, patch) =>
+    setData((old) => ({
+      ...old,
+      setup: {
+        ...old.setup,
+        reminders: (old.setup.reminders || []).map((item) => (item.id === id ? { ...item, ...patch } : item)),
+      },
+    }));
+  const saveText = () => {
+    if (!draft || !current) return;
+    const title = draft.title.trim();
+    if ((title && title !== current.title) || draft.note !== (current.note || ""))
+      edit(current.id, { ...(title ? { title } : {}), note: draft.note });
+  };
+  // A new repeat keeps this day: when this day would drop out, the repeat starts from it.
+  const changeRepeat = (value) => {
+    if (!current || value === (current.repeat || "once")) return;
+    const keep = DDreviewReminders([{ ...current, repeat: value }], date).length > 0;
+    edit(current.id, keep ? { repeat: value } : { repeat: value, date });
+  };
+  // A new day moves the reminder; the Calendar goes with it, so it stays open.
+  const moveTo = (value) => {
+    if (!current || !DDreviewValidDate(value) || value === current.date) return;
+    edit(current.id, { date: value });
+    if (!DDreviewReminders([{ ...current, date: value }], date).length) {
+      setOpen({ id: current.id, date: value, at: Date.now() });
+      onSelectDay?.(value);
+      onToast?.(t("Reminder moved to ", "یادآور رفت به ") + DDreviewDateLabel(value, language));
+    }
+  };
   function add(event) {
     event.preventDefault();
     if (!text.trim()) return;
@@ -1574,11 +1657,19 @@ function DDReviewReminders({
     setOn(date);
     onToast?.(when === date ? t("Reminder added", "یادآور اضافه شد") : t("Reminder added for ", "یادآور اضافه شد برای ") + when);
   }
+  const repeatName = (value) =>
+    value === "weekly" ? t("Every week", "هر هفته") : value === "alternate" ? t("Every other day", "یک روز در میان") : t("This day only", "فقط این روز");
+  const count = reminders.length + timed.length;
   return h(
     "section",
-    { className: "dd-review-reminders" },
-    h("h2", null, t("Reminders", "یادآورها")),
-    !reminders.length &&
+    { className: "dd-review-reminders", ref: root, "data-first": first || undefined },
+    h(
+      "header",
+      null,
+      h("h2", null, DDremIcon(h, "timed", false, 15), t("Reminders", "یادآورها")),
+      count > 0 && h("span", { className: "dd-rem-count" }, n(count)),
+    ),
+    !count &&
       h(
         "p",
         { className: "dd-review-empty" },
@@ -1587,23 +1678,38 @@ function DDReviewReminders({
     reminders.map((item) =>
       h(
         "article",
-        { key: item.id, className: "dd-review-reminder" },
+        { key: item.id, className: "dd-review-reminder", "data-reminder-id": item.id, "data-done": item.done || undefined, "data-open": openId === item.id || undefined },
+        // The ring: done for this day, like Reminders.
         h(
-          "div",
-          null,
-          h("strong", { dir: "auto" }, item.title),
+          "button",
+          {
+            type: "button",
+            className: "dd-rem-check",
+            "aria-pressed": !!item.done,
+            "aria-label": item.done ? t("Reopen reminder", "باز کردن یادآور") : t("Mark this occurrence done", "انجام این نوبت"),
+            title: item.done ? t("Reopen reminder", "باز کردن یادآور") : t("Mark this occurrence done", "انجام این نوبت"),
+            onClick: () => setData((old) => DDreviewSetReminderDone(old, date, item.id, !item.done)),
+          },
+          h("svg", { viewBox: "0 0 12 12", width: 12, height: 12, "aria-hidden": true }, h("path", { d: "M3.2 6.2l1.8 1.8 3.8-4", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" })),
+        ),
+        // A tap on the reminder opens it.
+        h(
+          "button",
+          { type: "button", className: "dd-rem-open", "aria-expanded": openId === item.id, onClick: () => toggleOpen(item.id) },
           h(
-            "small",
+            "span",
             null,
-            item.repeat === "weekly"
-              ? t("Every week", "هر هفته")
-              : item.repeat === "alternate"
-                ? t("Every other day", "یک روز در میان")
-                : t("This day only", "فقط این روز"),
-            item.done
-              ? " · " + t("Done for this day", "این نوبت انجام‌شده")
-              : "",
+            // While it is open the row follows what you type, so saving never moves anything under the pointer.
+            h("strong", { dir: "auto" }, openId === item.id && draft?.id === item.id ? draft.title.trim() || item.title : item.title),
+            h(
+              "small",
+              null,
+              (item.repeat === "weekly" || item.repeat === "alternate" ? "↻ " : "") + repeatName(item.repeat),
+              item.done ? " · " + t("Done for this day", "این نوبت انجام‌شده") : "",
+              item.note && openId !== item.id ? " · " + t("has a note", "یادداشت دارد") : "",
+            ),
           ),
+          h("i", { className: "dd-rem-go", "aria-hidden": true }),
         ),
         h(
           "div",
@@ -1614,19 +1720,6 @@ function DDReviewReminders({
               { type: "button", onClick: () => onScheduleReminder(item, date) },
               t("Make a task in the Engine", "تبدیل به کار در انجین"),
             ),
-          h(
-            "button",
-            {
-              type: "button",
-              onClick: () =>
-                setData((old) =>
-                  DDreviewSetReminderDone(old, date, item.id, !item.done),
-                ),
-            },
-            item.done
-              ? t("Reopen reminder", "باز کردن یادآور")
-              : t("Mark this occurrence done", "انجام این نوبت"),
-          ),
           h(
             "button",
             {
@@ -1646,6 +1739,7 @@ function DDReviewReminders({
                   },
                 }));
                 setArmed(null);
+                if (openId === item.id) toggleOpen(item.id);
               },
             },
             armed === item.id
@@ -1660,6 +1754,78 @@ function DDReviewReminders({
               { type: "button", onClick: () => setArmed(null) },
               t("Cancel", "لغو"),
             ),
+        ),
+        // Inside the reminder: its words, its day, how it repeats, and a note.
+        openId === item.id && current && draft?.id === item.id &&
+          h(
+            "div",
+            { className: "dd-rem-detail", role: "group", "aria-label": t("Reminder details", "جزئیات یادآور") },
+            h(
+              "label",
+              null,
+              t("Title", "عنوان"),
+              h("input", {
+                value: draft.title,
+                maxLength: 300,
+                dir: "auto",
+                "data-rem-title": true,
+                onChange: (event) => setDraft({ ...draft, title: event.target.value }),
+                onBlur: saveText,
+                onKeyDown: (event) => { if (event.key === "Enter") { event.preventDefault(); saveText(); event.currentTarget.blur(); } },
+              }),
+            ),
+            h(
+              "label",
+              null,
+              current.repeat === "once" ? t("Day", "روز") : t("Starts on", "شروع از"),
+              h("input", { type: "date", value: current.date, "data-rem-date": true, onChange: (event) => moveTo(event.target.value) }),
+            ),
+            h(
+              "div",
+              { className: "dd-rem-repeat", role: "radiogroup", "aria-label": t("Repeat", "تکرار") },
+              ["once", "weekly", "alternate"].map((value) =>
+                h("button", { key: value, type: "button", role: "radio", "aria-checked": (current.repeat || "once") === value, "data-rem-repeat": value, onClick: () => changeRepeat(value) }, repeatName(value)),
+              ),
+            ),
+            h(
+              "label",
+              null,
+              t("Note", "یادداشت"),
+              h("textarea", {
+                value: draft.note,
+                rows: 2,
+                maxLength: 2000,
+                dir: "auto",
+                placeholder: t("Anything to remember with it", "هر چیزی که همراهش یادت باشد"),
+                "data-rem-note": true,
+                onChange: (event) => setDraft({ ...draft, note: event.target.value }),
+                onBlur: saveText,
+              }),
+            ),
+            h(
+              "div",
+              { className: "dd-rem-detail-actions" },
+              h("button", { type: "button", className: "btn solid", "data-rem-done": true, onClick: () => { saveText(); toggleOpen(item.id); } }, t("Done", "تمام")),
+            ),
+          ),
+      ),
+    ),
+    // To-do tasks with a time: they live in a to-do note, so a tap opens it on the Board.
+    timed.map((item) =>
+      h(
+        "article",
+        { key: item.id, className: "dd-review-reminder", "data-reminder-todo": item.id },
+        h("span", { className: "dd-rem-bell", "aria-hidden": true }, DDremIcon(h, "timed", false, 13)),
+        h(
+          "button",
+          { type: "button", className: "dd-rem-open", "aria-label": item.time + " · " + item.title + " · " + t("open on the Board", "باز کردن در برد"), onClick: () => DDopenOnBoard(item.item) },
+          h(
+            "span",
+            null,
+            h("strong", { dir: "auto" }, item.title),
+            h("small", null, h("time", null, item.time), " · ", t("A task in a to-do list · open on the Board", "کاری در یک لیست · باز کردن در برد")),
+          ),
+          h("i", { className: "dd-rem-go", "aria-hidden": true }),
         ),
       ),
     ),
@@ -1740,6 +1906,7 @@ function DDReviewDay({
   feelingsOnly = false,
   playful,
   PanelIcon,
+  onSelectDay,
 }) {
   const { h, t, n } = DDreviewUI(R, language),
     day = data.days[date] || DDreviewEmptyDay(date),
@@ -1749,7 +1916,9 @@ function DDReviewDay({
     ),
     id = feelingsOnly ? "dd-feelings-day" : "dd-calendar-day",
     usual = R.useMemo(() => DDusualMinutes(data.days, today), [data.days, today]),
-    load = DDdayLoad(day, usual);
+    load = DDdayLoad(day, usual),
+    // A day with reminders shows them first, right under its name (5.84).
+    remindersFirst = !feelingsOnly && (DDreviewReminders(data.setup.reminders, date).length > 0 || DDdueOn(DDtodoDueItems(DDtodoLists(data)), date).some((item) => item.time));
   return h(
     "section",
     {
@@ -1919,16 +2088,8 @@ function DDReviewDay({
           t("Open Worry parking", "باز کردن جای نگرانی‌ها"),
         ),
       ),
-    !feelingsOnly &&
-      h(DDReviewReminders, {
-        React: R,
-        data,
-        date,
-        language,
-        setData,
-        onScheduleReminder,
-        onToast,
-      }),
+    // Always in the same place, so an open reminder stays open; CSS lifts it to the top when the day has any.
+    !feelingsOnly && h(DDReviewReminders, { React: R, data, date, language, setData, onScheduleReminder, onSelectDay, onToast, first: remindersFirst }),
     ((notes) =>
       feelingsOnly
         ? h(

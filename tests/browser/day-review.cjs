@@ -135,6 +135,25 @@ async function scenario(h, mobile, language) {
   await activate(list.locator(`[data-cal-reminder-day="${f.last}"]`));
   await page.waitForFunction((date) => document.querySelector(".dd-review-day time")?.dateTime === date, f.last);
   assert.deepEqual(await read(page), baseline, "picking a reminder day changes nothing");
+  // 5.84: each reminder opens. A tap on it in the list picks its day and opens it in the day panel.
+  await activate(list.locator('[data-cal-range="coming"]'));
+  await activate(list.locator(`li:has(> [data-cal-reminder-day="${f.date}"]) [data-cal-open-reminder="weekly"]`));
+  await page.waitForFunction((date) => document.querySelector(".dd-review-day time")?.dateTime === date, f.date);
+  const openWeekly = page.locator('.dd-review-reminder[data-reminder-id="weekly"] .dd-rem-detail');
+  await openWeekly.waitFor();
+  assert.equal(await openWeekly.locator("[data-rem-title]").inputValue(), "Weekly reminder");
+  assert.equal(await openWeekly.locator('[data-rem-repeat="weekly"]').getAttribute("aria-checked"), "true");
+  assert.equal(await page.locator('.dd-review-reminders[data-first]').count(), 1, "a day with reminders shows them first");
+  await activate(openWeekly.locator("[data-rem-done]"));
+  await openWeekly.waitFor({ state: "detached" });
+  // On a computer the reminder's own line in the month opens it too.
+  if (!mobile) {
+    await todayCell.locator('[data-cal-open="reminder"][data-cal-open-id="weekly"]').click();
+    await openWeekly.waitFor();
+    await activate(openWeekly.locator("[data-rem-done]"));
+    await openWeekly.waitFor({ state: "detached" });
+  }
+  assert.deepEqual(await read(page), baseline, "opening a reminder changes nothing");
   await select(f.last);
   if (mobile)
     await page.waitForFunction(
@@ -383,6 +402,21 @@ async function scenario(h, mobile, language) {
   await page.waitForFunction(([date]) => JSON.parse(localStorage.getItem("debug-day:v2")).setup.reminders.some((r) => r.title === "Book the gallery" && r.date === date), [shift(f.date, 200)]);
   await activate(page.locator('.dd-cal-reminders [data-cal-range="coming"]'));
   assert.match(await page.locator(".dd-cal-reminders").innerText(), /Book the gallery/);
+  // 5.84: inside a reminder you can change its words, add a note and make it repeat.
+  // (Picking today by its middle may already have opened it: the reminder's own line sits there.)
+  const weeklyOpen = page.locator('.dd-review-reminder[data-reminder-id="weekly"] .dd-rem-open');
+  if ((await weeklyOpen.getAttribute("aria-expanded")) !== "true") await activate(weeklyOpen);
+  const inside = page.locator('.dd-review-reminder[data-reminder-id="weekly"] .dd-rem-detail');
+  await inside.waitFor();
+  await inside.locator("[data-rem-title]").fill("Weekly studio check");
+  await inside.locator("[data-rem-note]").fill("Bring the sketchbook");
+  await activate(inside.locator('[data-rem-repeat="alternate"]'));
+  await activate(inside.locator("[data-rem-done]"));
+  await page.waitForFunction(() => {
+    const r = JSON.parse(localStorage.getItem("debug-day:v2")).setup.reminders.find((x) => x.id === "weekly");
+    return r.title === "Weekly studio check" && r.note === "Bring the sketchbook" && r.repeat === "alternate";
+  });
+  assert.match(await page.locator(".dd-cal-reminders").innerText(), /Weekly studio check/, "the list beside the month follows");
   if (screenshots) {
     await page.screenshot({
       path: path.join(
