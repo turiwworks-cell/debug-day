@@ -1,3 +1,8 @@
+## 5.82.0 — 2026-11-15
+Branch: claude/project-thread-jqif1z
+- The Board's day moved to the top centre as plain words, without a box, and now shows the Persian date too (e.g. "24 Aban 1405 · 0% completed").
+- Fixed: at the top of Settings, the section bar no longer paints over the app's top bar (it is solid again, and the top bar always sits above it).
+
 ## 5.81.0 — 2026-11-15
 Branch: claude/project-thread-jqif1z
 - New look, as if Apple made Debug Day for iOS 27. Nothing works differently; every view simply looks calmer and clearer.

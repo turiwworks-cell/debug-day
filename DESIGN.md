@@ -58,6 +58,7 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 - Words are written without their marks: **, ## or - [ ] never show while writing a note, text or shape (`live-text.js`); the saved text keeps them.
 - A task in the Engine is one line. Details open with ⋯, steps open when asked.
 - The Board's top bar keeps only the daily tools: Undo, the timer, light / dark, Pause the day, Full screen. Search, Engine, Feed and Sections wait in its ⋯. No standing key hints on the canvas.
+- The Board's day sits at its top centre as plain words, never in a box: the day, then the Persian date and how much is done (5.82).
 - Full screen is only ever the person's choice: moving to the Board from the Calendar, search or a row never turns it on.
 - Back on the Board lives on the path under the top bar (← Main board › Section): it returns to where you were. Nothing beside the date.
 

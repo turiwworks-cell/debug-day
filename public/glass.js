@@ -63,7 +63,6 @@ const glassStrong = `background:var(--glass-strong);-webkit-backdrop-filter:blur
 // Floating things made of glass.
 const floating = [
   ".b6 .b2-top-actions",
-  ".b6 .b2-brandbar",
   ".b6 .b2-dock",
   ".b6 .b2-camera",
   ".b6 .b4-minimap",
@@ -136,7 +135,17 @@ html .drop:empty{box-shadow:none;border:1.5px dashed var(--rule-2);background:tr
 /* The Board: glass bars over a quiet canvas */
 html .b6 :is(${floating}){${glass}}
 html .b6 .b2-top-actions{border-radius:var(--r-pill);padding:4px 6px;min-height:44px}
-html .b6 .b2-brandbar{border-radius:18px}
+/* The day sits at the top centre of the Board as plain words, no box (5.82) */
+html .b6 .b2-top>.b2-brandbar{border-color:transparent;border-radius:0;background:none;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;justify-content:center;text-align:center}
+/* On a computer it floats at the top centre; a phone keeps it as its own row, so nothing below moves. */
+@media (min-width:701px){
+  html .b6 .b2-top>.b2-brandbar{position:absolute;left:50%;top:2px;transform:translateX(-50%);z-index:1;width:auto;max-width:min(360px,40%);min-height:0;padding:0;border:0;pointer-events:none}
+  html .b6 .b2-top>.b2-top-actions{margin-inline-start:auto}
+}
+html .b6 .b2-top>.b2-brandbar>div{display:flex;flex-direction:column;align-items:center;gap:1px}
+html .b6 .b2-brandbar strong{font:650 17px/1.2 var(--display);letter-spacing:-.02em;color:var(--ink);white-space:nowrap}
+html .b6 .b2-brandbar small{font:500 12px/1.3 var(--sans);color:var(--ink-3);white-space:nowrap}
+html .b6 .b2-brandbar .b2-brand-alt{color:var(--ink-2)}
 html .b6 .b2-dock{border-radius:var(--r-pill);padding:6px;height:54px;gap:2px}
 html .b6 .b2-dock>.b2-icon{border-radius:var(--r-pill);min-width:42px;height:42px}
 html .b6 .b2-dock .b2-icon[aria-pressed=true],html .b6 .b2-dock .b2-icon[aria-pressed=true]:has(>.dd-btn-label){background:var(--now);color:var(--on-now);box-shadow:0 4px 12px -4px color-mix(in srgb,var(--now) 70%,transparent)}
@@ -261,7 +270,9 @@ html .dd-command-row{border-radius:14px}
 html .dd-command-row.active{background:var(--glass-pill);box-shadow:none}
 
 /* Settings: grouped, with switches and segmented choices (iOS Settings) */
-html .dd-settings-nav{border-block-end:0;background:color-mix(in srgb,var(--paper) 80%,transparent);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+/* The section bar stays solid: a blurred sticky bar painted over the top bar in Safari (5.81.1). The top bar always sits above it. */
+html .dd-settings-nav{border-block-end:0;background:var(--paper);-webkit-backdrop-filter:none;backdrop-filter:none}
+html .app:has(> main > .dd-settings) > .top{position:relative;z-index:41}
 html .dd-settings-nav a{border-radius:var(--r-pill);background:var(--wash);font:500 13px var(--sans);padding:8px 14px}
 html .dd-settings-nav a:hover{background:var(--glass-press)}
 html .dd-settings :is(select,input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color])){border:0;background:var(--panel);border-radius:12px;box-shadow:none;color:var(--ink)}
