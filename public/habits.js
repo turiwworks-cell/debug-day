@@ -13,7 +13,32 @@ export const DDhabitPalette = [
   "#D39A00",
   "#D9434A",
   "#1E9BB3",
+  // More to choose from in the color dot (5.80); new habits still take the first seven in turn.
+  "#FF2D55",
+  "#6155F5",
+  "#34C759",
+  "#AC7F5E",
+  "#8E8E93",
 ];
+
+// A habit's color: a round dot that opens the app's own colors (5.80), never
+// the system color picker.
+export function DDHabitColor({ React: R, value, label, onPick }) {
+  const h = R.createElement, [open, setOpen] = R.useState(false), wrap = R.useRef(null);
+  R.useEffect(() => {
+    if (!open) return;
+    const away = (e) => { if (!wrap.current?.contains(e.target)) setOpen(false); };
+    const key = (e) => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); wrap.current?.querySelector("button")?.focus(); } };
+    document.addEventListener("pointerdown", away, true);
+    document.addEventListener("keydown", key, true);
+    return () => { document.removeEventListener("pointerdown", away, true); document.removeEventListener("keydown", key, true); };
+  }, [open]);
+  const list = DDhabitPalette.includes(String(value).toUpperCase()) ? DDhabitPalette : [String(value).toUpperCase(), ...DDhabitPalette];
+  return h("span", { className: "dd-habit-color-wrap", ref: wrap },
+    h("button", { type: "button", className: "dd-habit-color", style: { "--hc": value }, "aria-label": label, "aria-expanded": open, "data-habit-color": true, onClick: () => setOpen(!open) }),
+    open && h("span", { className: "dd-habit-colors", role: "radiogroup", "aria-label": label },
+      list.map((c) => h("button", { type: "button", key: c, role: "radio", "aria-checked": String(value).toUpperCase() === c, "aria-label": c, style: { "--hc": c }, onClick: () => { onPick(c); setOpen(false); } }))));
+}
 
 const DDhabitLabels = [
   ["Not yet", "هنوز نه"],
@@ -71,7 +96,7 @@ export function DDnormalizeHabits(list) {
       emo: typeof h.emo === "string" ? h.emo.slice(0, 16) : "",
       color: /^#[0-9a-fA-F]{6}$/.test(h.color)
         ? h.color
-        : DDhabitPalette[out.length % DDhabitPalette.length],
+        : DDhabitPalette[out.length % 7],
       ...(Number.isFinite(goal) && goal >= 5 && goal <= 600 ? { goal } : {}),
     });
   }
@@ -458,12 +483,7 @@ export function DDHabitManager({ React: R, habits, shared, onUpdateSetup }) {
       h(
         "li",
         { key: habit.id, style: { "--hc": habit.color }, "data-habit-id": habit.id },
-        h("input", {
-          type: "color",
-          value: habit.color,
-          "aria-label": "Color of " + habit.name,
-          onChange: (event) => patch(habit.id, { color: event.target.value }),
-        }),
+        h(DDHabitColor, { React: R, value: habit.color, label: "Color of " + habit.name, onPick: (color) => patch(habit.id, { color }) }),
         h("input", {
           dir: "auto",
           className: "dd-habit-rename",
@@ -602,12 +622,7 @@ export function DDHabitDetails({
           "aria-label": "Habit name",
           onChange: (event) => patchHabit({ name: event.target.value }),
         }),
-        h("input", {
-          type: "color",
-          value: habit.color,
-          "aria-label": "Habit color",
-          onChange: (event) => patchHabit({ color: event.target.value }),
-        }),
+        h(DDHabitColor, { React: R, value: habit.color, label: "Habit color", onPick: (color) => patchHabit({ color }) }),
       ),
       h(DDHabitGoalField, { React: R, habit, shared, onChange: (goal) => patchHabit({ goal }) }),
     ),
@@ -639,7 +654,11 @@ export const DDhabitCSS = `
 .dd-habit-name .dd-habit-goal{font-size:11px;font-weight:400;color:var(--ink-3)}
 .dd-habit-manage{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .dd-habit-manage li{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:6px 10px;border-radius:9px;background:var(--wash);border-inline-start:4px solid var(--hc)}
-.dd-habit-manage input[type=color]{width:28px;height:28px;padding:0;border:0;background:none;flex:none;cursor:pointer}
+.dd-habit-color-wrap{position:relative;display:inline-flex;flex:none}
+.dd-habit-color{width:28px;height:28px;padding:0;border:0;border-radius:50%;background:var(--hc);box-shadow:inset 0 0 0 1px #0000001f;cursor:pointer}
+.dd-habit-colors{position:absolute;z-index:30;top:calc(100% + 6px);inset-inline-start:0;display:grid;grid-template-columns:repeat(4,28px);gap:8px;padding:10px;border-radius:16px;background:var(--panel);box-shadow:0 12px 32px #0003,0 0 0 1px var(--rule-2)}
+.dd-habit-colors button{width:28px;height:28px;padding:0;border:0;border-radius:50%;background:var(--hc);cursor:pointer}
+.dd-habit-colors button[aria-checked=true]{box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--hc)}
 .dd-habit-manage .dd-habit-rename{flex:1 1 160px;min-width:0;border:1px solid var(--rule-2);background:var(--panel);color:var(--ink);border-radius:7px;padding:6px 9px;font:inherit}
 .dd-habit-goal-field{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-3)}
 .dd-habit-goal-field input{width:62px;border:1px solid var(--rule-2);background:var(--panel);color:var(--ink);border-radius:7px;padding:5px 7px;font:inherit;font-size:13px}

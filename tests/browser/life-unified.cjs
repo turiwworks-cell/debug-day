@@ -26,7 +26,9 @@ const {start,fixture,boardMenu}=require("./harness.cjs");
    await n.locator(".dd-note-preview").click();
    assert.equal(await n.getAttribute("aria-selected"),"true");
    assert.match(await n.evaluate((e)=>getComputedStyle(e).outlineColor),/23, 156, 242/);
-   await page.locator(".b4-selectionbar").getByRole("button",{name:t("Color & properties","رنگ و ویژگی‌ها"),exact:true}).click();
+   // 5.80: a note's bar shows a color dot; the full properties live in ⋯.
+   await page.locator(".b4-selectionbar").getByRole("button",{name:t("More actions","گزینه‌های بیشتر"),exact:true}).click();
+   await page.getByRole("menuitem",{name:t("Color & properties…","رنگ و ویژگی‌ها…"),exact:true}).click();
    const hex=page.locator(".b6-properties").getByRole("textbox",{name:t("Hex color","کد رنگ"),exact:true});
    await hex.fill("#D3BDFF");await hex.press("Enter");
    await page.locator(".b6-properties").getByRole("button",{name:t("Close properties","بستن ویژگی‌ها"),exact:true}).click();

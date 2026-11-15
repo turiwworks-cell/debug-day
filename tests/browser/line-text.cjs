@@ -21,11 +21,13 @@ const {start,fixture}=require('./harness.cjs');
   const read=async()=>(await page.evaluate(()=>JSON.parse(localStorage.getItem('debug-day:v2')))).days[f.date],
    settle=(ms=350)=>page.waitForTimeout(ms),
    box=(ref)=>page.locator(`[data-board-id="${ref}"]`).boundingBox();
-  // The line leaves a's right side and meets b's left side, each in its middle.
+  // The line leaves a's right side and meets b's left side, each in its middle,
+  // with a little air before each card (5.80: DDwireGap), never inside it.
   const ends=await page.locator('[data-wire-id="ab"] .b4-wire-line').evaluate((el)=>{const n=el.getTotalLength();const m=el.getScreenCTM();const p=(t)=>{const q=el.getPointAtLength(t);return {x:q.x*m.a+m.e,y:q.y*m.d+m.f};};return [p(0),p(n)];});
   const A=await box('sticky:a'),B=await box('sticky:b');
-  assert.ok(Math.abs(ends[0].x-(A.x+A.width))<3&&Math.abs(ends[0].y-(A.y+A.height/2))<3,'starts in the middle of a side: '+JSON.stringify(ends[0])+' '+JSON.stringify(A));
-  assert.ok(Math.abs(ends[1].x-B.x)<3&&Math.abs(ends[1].y-(B.y+B.height/2))<3,'ends in the middle of a side: '+JSON.stringify(ends[1])+' '+JSON.stringify(B));
+  const air=(d)=>d>-1&&d<10;
+  assert.ok(air(ends[0].x-(A.x+A.width))&&Math.abs(ends[0].y-(A.y+A.height/2))<3,'starts in the middle of a side: '+JSON.stringify(ends[0])+' '+JSON.stringify(A));
+  assert.ok(air(B.x-ends[1].x)&&Math.abs(ends[1].y-(B.y+B.height/2))<3,'ends in the middle of a side: '+JSON.stringify(ends[1])+' '+JSON.stringify(B));
   // A double-click on the line opens a text box in its middle.
   const mid=await page.locator('[data-wire-id="ab"] .b4-wire-line').evaluate((el)=>{const q=el.getPointAtLength(el.getTotalLength()/2);const m=el.getScreenCTM();return {x:q.x*m.a+m.e,y:q.y*m.d+m.f};});
   await page.mouse.dblclick(mid.x,mid.y);await settle();

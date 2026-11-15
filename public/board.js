@@ -1,6 +1,6 @@
 import { DDcompletion, DDTaskMetadata, DDTaskTags, DDpriorityLabel } from "./planner.js";
 import { DDreconcileDay, DDrelation, DDconnectRelation, DDdisconnectRelation, DDrewireRelation, DDremoveOrder, DDmoveOrder } from "./relations.js";
-import { DDconnectionGeometry } from "./connections.js";
+import { DDconnectionGeometry, DDwireGap, DDgrowRect } from "./connections.js";
 import { DDundoRevert } from "./board-history.js";
 import { DDcreateBoardLayout, DDengineShift, DDnoteOnEngine } from "./board-layout.js";
 import { DDengineBus, DDengineGoBus, DDengineTaskFromNote, DDengineSources, DDengineSourceHistory, DDengineStrip, DDinstallEngineStyles, DDengineCarry } from "./engine.js";
@@ -805,7 +805,7 @@ export function DDcreateBoard(deps) {
     function wireGeometry(wire, obstacles) {
       const steady = !preview.current.size && !pointerWire.current, kept = steady && steadyWires.current.layout === layoutRef.current ? steadyWires.current.map.get(wire.id) : null;
       if (kept && kept.wire === wire) { wireCache.current.set(wire.id, kept.geometry); return kept.geometry; }
-      const a = nodeFor(wire.from), b = nodeFor(wire.to);
+      const gap = DDwireGap(wire, wireEnds(wire)), a = DDgrowRect(nodeFor(wire.from), gap.from), b = DDgrowRect(nodeFor(wire.to), gap.to);
       if (!a || !b) return null;
       const drag = pointerWire.current, shift = bendShift(wire);
       const shown = shift && wire.bend ? { ...wire, bend: { x: wire.bend.x + shift.x, y: wire.bend.y + shift.y } } : wire;
@@ -5021,10 +5021,26 @@ export function DDcreateBoard(deps) {
           _.createElement("svg", { width: 18, height: 18, viewBox: "0 0 20 20", "aria-hidden": true, fill: "none", stroke: stroke === "none" ? "currentColor" : first.stroke || "#757575", strokeWidth: 1.8, strokeLinecap: "round", strokeDasharray: stroke === "dashed" ? "3 2.5" : undefined },
             _.createElement("path", { d: stroke === "none" ? "M10 3.5a6.5 6.5 0 110 13 6.5 6.5 0 010-13zM5.4 14.6l9.2-9.2" : "M3.5 4.5h13v4h-13zM3.5 12.5h13v3h-13z" }))));
     }
+    // Notes, text and documents (not shapes, which have their own fill): one
+    // round dot in the note's color opens the app's colors beside the bar.
+    function noteColorBar() {
+      const notes = selectedNodes.filter((n) => n.kind === "sticky" && !n.shape);
+      if (!notes.length || pen.hasSelection || selectedNodes.some((n) => n.kind !== "sticky")) return null;
+      const first = notes[0], off = notes.every((n) => locked.has(n.id));
+      return _.createElement("button", { type: "button", className: "b2-icon", "data-shape-open": "note", "data-note-color": true, "aria-expanded": shapeMenu === "note", "aria-label": t("Color", "رنگ"), "data-tip": t("Color", "رنگ"), disabled: off, onClick: () => setShapeMenu((v) => (v === "note" ? null : "note")) },
+        _.createElement("span", { className: "dd-shape-swatch", "data-mode": "fill", style: { "--swatch": first.color } }));
+    }
     // The open shape menu sits beside the selection bar (the bar itself scrolls).
     function shapePop() {
       // It steps aside while the eyedropper is picking, and comes back after.
-      if (!["kind", "fill", "stroke"].includes(shapeMenu) || tool === "dropper") return null;
+      if (!["kind", "fill", "stroke", "note"].includes(shapeMenu) || tool === "dropper") return null;
+      if (shapeMenu === "note") {
+        const note = selectedNodes.find((n) => n.kind === "sticky" && !n.shape), bar = selectionbar.current;
+        if (!note || !bar) return null;
+        const above = bar.offsetTop > 420, style = { position: "absolute", left: Math.max(8, bar.offsetLeft), zIndex: 80, ...(above ? { bottom: (bar.offsetParent?.clientHeight || 0) - bar.offsetTop + 8 } : { top: bar.offsetTop + bar.offsetHeight + 8 }) };
+        return _.createElement("div", { className: "dd-shape-anchor", "data-shape-menu": "note", style },
+          _.createElement(DDShapeColors, { React: _, part: "note", label: t("Note color", "رنگ نوت"), color: note.color, palette: [...new Set([...core.stickyColors, ...core.colors].map((c) => c.toUpperCase()))], onColor: (c) => applyStyle({ fill: c }), onDropper: () => paletteDropper("note") }));
+      }
       const first = selectedNodes.find((n) => n.kind === "sticky" && n.shape), bar = selectionbar.current;
       if (!first || !bar) return null;
       const above = bar.offsetTop > 420, style = { position: "absolute", left: Math.max(8, bar.offsetLeft), zIndex: 80, ...(above ? { bottom: (bar.offsetParent?.clientHeight || 0) - bar.offsetTop + 8 } : { top: bar.offsetTop + bar.offsetHeight + 8 }) };
@@ -5861,37 +5877,25 @@ export function DDcreateBoard(deps) {
             : _.createElement(
                 _.Fragment,
                 null,
-                _.createElement(
+                // The bar carries tools, not a copy of what is already on the
+                // card (5.80): a name, an icon and a time only when several things
+                // are picked, as a small count.
+                !selectedNode && _.createElement(
                   "strong",
                   { className: "b4-readout" },
-                  selectedNode &&
-                    _.createElement(
-                      "span",
-                      {
-                        style: {
-                          background: selectedNode.color,
-                          color: selectedNode.textColor,
-                        },
-                      },
-                      nodeIcon(selectedNode),
-                    ),
                   _.createElement(
                     "span",
                     { dir: "auto" },
-                    selectedNode
-                      ? (selectedNode.kind === "sticky" ? DDrichPlain(selectedNode.title) : selectedNode.title)
-                      : (selected.size
-                          ? selected.size + t(" objects", " شیء")
-                          : "") +
-                          (selectedWires.size
-                            ? (selected.size ? " \xB7 " : "") +
-                              selectedWires.size +
-                              " " +
-                              DDUI("lines")
-                            : ""),
+                    (selected.size
+                      ? selected.size + t(" objects", " شیء")
+                      : "") +
+                      (selectedWires.size
+                        ? (selected.size ? " \xB7 " : "") +
+                          selectedWires.size +
+                          " " +
+                          DDUI("lines")
+                        : ""),
                   ),
-                  selectedNode?.min > 0 &&
-                    _.createElement("b", null, w(selectedNode.min)),
                 ),
                 // Only what a card is opened for stays here; lock, layers, the
                 // section's add / remove and note styling outside typing live in ⋯
@@ -5916,7 +5920,9 @@ export function DDcreateBoard(deps) {
                     { "data-add-step": true },
                     t("Step", "قدم"),
                   ),
-                selected.size > 0 && toolButton(
+                // A note's color is one dot that opens the app's own colors (5.80).
+                noteColorBar(),
+                selected.size > 0 && (!selectedNodes.every((n) => n.kind === "sticky") || pen.hasSelection) && toolButton(
                   t("Color & properties", "رنگ و ویژگی‌ها"),
                   "palette",
                   () => {
@@ -5955,9 +5961,7 @@ export function DDcreateBoard(deps) {
                 selectedWires.size > 0 && _.createElement(_.Fragment, null,
                   _.createElement("span", { className: "b2-sep" }),
                   lineLook(layout.edges.filter((e) => selectedWires.has(e.id)), (patch, message) => patchWires([...selectedWires], patch, message))),
-                // The note's own bar stays out of sight on desktop (FigJam), so its
-                // "to plan" action lives here.
-                selectedNode?.kind === "sticky" && toolButton(DDUI("Convert note to plan"), "toPlan", () => convertSticky(selectedNode), {}, DDUI("→ پلن")),
+                // "To plan" lives in ⋯ (Convert note to task), not on the bar (5.80).
                 // Section actions live in the selection toolbar, as in FigJam; the
                 // section itself carries only its title.
                 selectedNode?.lifeSection && _.createElement(_.Fragment,null,
@@ -6034,7 +6038,7 @@ export function DDcreateBoard(deps) {
                 {
                   id: "b4-arrow",
                   viewBox: "0 0 10 10",
-                  refX: "8",
+                  refX: "9",
                   refY: "5",
                   markerWidth: "4",
                   markerHeight: "4",

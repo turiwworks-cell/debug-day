@@ -112,6 +112,17 @@ function middle(points) {
   }
   return points[0];
 }
+// FigJam leaves a little air between a line and the card it meets (5.80): an
+// arrowhead stops just short of the edge instead of touching it, and a drawn
+// line without an arrow keeps a hair of space too. The mind map's own branches
+// still grow straight out of their cards.
+export function DDwireGap(wire = {}, ends = {}) {
+  const w = Number(wire.width) || 3, arrow = 4 + w * 0.6, plain = wire.automatic && !wire.after ? 0 : 3;
+  return { from: ends.start ? arrow : plain, to: ends.end ? arrow : plain };
+}
+export function DDgrowRect(r, g) {
+  return r && g ? { ...r, x: r.x - g, y: r.y - g, w: r.w + 2 * g, h: r.h + 2 * g } : r;
+}
 export function DDconnectionGeometry(a, b, wire = {}, obstacles = []) {
   const ends = DDnearestEndpoints(a, b, wire.routing === "fixed" ? wire : {});
   if (!ends) return null;

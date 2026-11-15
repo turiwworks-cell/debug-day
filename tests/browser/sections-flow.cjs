@@ -210,11 +210,11 @@ const {start,fixture,openEngine,boardMenu}=require('./harness.cjs');
    await find.fill('');
    assert.equal((await marked('is-dim')).length,0);
 
-   // A subsection can have its own color: palette, custom, or back to the family shade.
+   // A subsection can have its own color: one of the app's colors, or back to the family shade (no system picker, 5.80).
    let menu=await menuFor('c');
    assert.equal(await menu.locator('[data-color]').count(),10,'eight soft colors, ink black and paper white');
    assert.equal(await menu.locator('[data-family-shade]').getAttribute('aria-pressed'),'true','it shows its family shade now');
-   assert.equal(await menu.locator('input[type=color]').count(),1,'and any custom color');
+   assert.equal(await menu.locator('input[type=color]').count(),0,'no system color picker');
    await tap(menu.locator('[data-color="#FFA799"]'));
    await menu.waitFor({state:'detached'});
    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('debug-day:v2')).setup.life.items.find(i=>i.id==='c').ownColor===true);
@@ -229,14 +229,8 @@ const {start,fixture,openEngine,boardMenu}=require('./harness.cjs');
    await chip.first().waitFor({state:'attached'});
    assert.match(await chip.first().innerText(),/Creative life › Sketches/);
    assert.equal(await chip.first().evaluate((el)=>getComputedStyle(el).backgroundColor),rgb('#FFA799'),'the task chip wears it too');
-   // A custom color, from the color picker.
-   await open();
-   menu=await menuFor('d');
-   await menu.locator('input[type=color]').evaluate((el)=>{el.value='#7a5ff5';el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));});
-   await page.waitForFunction(()=>JSON.parse(localStorage.getItem('debug-day:v2')).setup.life.items.find(i=>i.id==='d').color==='#7A5FF5');
-   assert.equal((await lifeItem('d')).ownColor,true);
-   assert.equal(await dot('d'),rgb('#7A5FF5'));
    // Back to the family shade.
+   await open();
    menu=await menuFor('c');
    assert.equal(await menu.locator('[data-color="#FFA799"]').getAttribute('aria-checked'),'true');
    await tap(menu.locator('[data-family-shade="c"]'));
