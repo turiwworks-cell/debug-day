@@ -257,6 +257,19 @@ export function DDHabitControls({ React: R, habit, entry, levels, language, onCh
       },
       entry.done ? "✓" : "",
     ),
+    // Minutes go down as easily as up (5.85.1).
+    R.createElement(
+      "button",
+      {
+        type: "button",
+        className: "dd-habit-minus",
+        dir: "ltr",
+        disabled: !(entry.min > 0),
+        "aria-label": "Take " + step + " minutes from " + habit.name,
+        onClick: () => onChange({ min: Math.max(0, (entry.min || 0) - step) }),
+      },
+      "\u2212" + step,
+    ),
     R.createElement(
       "label",
       { className: "dd-habit-min" },

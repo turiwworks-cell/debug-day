@@ -200,6 +200,10 @@ html body .b6 .b4-selectionbar .b2-sep{background:var(--rule-2)}
 html body .b6 .b4-selectionbar .dd-shape-swatch{width:22px;height:22px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.12)}
 html body .b6 .b4-selectionbar [data-shape-open]::after{display:none}
 html body .b6 .b4-readout{color:var(--ink-2);font-weight:500;padding-inline:8px 4px}
+/* 5.85.1: "5 objects" shows whole (the first span was a 26px icon slot). */
+html body .b6 .b4-readout>span:only-child{width:auto;height:auto;display:inline;white-space:nowrap;overflow:visible}
+/* Panel titles sit on the panel's own glass, not on a darker box. */
+html .b6 :is(.b6-properties,.b6-view-panel) .b6-panel-heading{position:static;background:transparent;margin-top:0;padding:2px 0 10px}
 
 /* Menus, popovers and panels over the Board: frosted, round, roomy */
 html body :is(${menus}){${glassStrong};border-radius:22px;color:var(--ink)}

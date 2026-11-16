@@ -1,3 +1,14 @@
+## 5.85.1 — 2026-11-16
+Branch: claude/project-thread-jqif1z
+- Lines stay whole when you move many things at once: a line's bend moves with its two ends (drag, arrow keys, moving the Engine or the Feed).
+- Select all (Ctrl+A) picks notes, sections, shapes and comments, but not today's Engine tasks, so a group drag never pulls tasks off their lanes.
+- Moving the Engine by its title carries the notes and the sections that sit on it.
+- Making a section a little bigger no longer throws out what lives outside its frame on its own board; only what was inside and ends up outside drops out.
+- Opening a section after a search opens that section; before, an old search result could send you back to the Main board until a refresh.
+- The selection bar shows the whole count ("5 objects"), stays clear of the Align panel, and panel titles sit on the panel's own glass.
+- Habits on the Board: a wider panel, a big minutes number, and −15 / +15 buttons.
+- A note's resize hint is shorter.
+
 ## 5.85.0 — 2026-11-15
 Branch: claude/project-thread-jqif1z
 - Board: a round dot beside the timer changes the accent color: 8 iOS colors, or your own from a color strip or a color code. It is the app's one accent, so Settings, the tabs and every view change with it.

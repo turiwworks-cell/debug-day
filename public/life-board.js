@@ -255,11 +255,13 @@ export function DDlifeHome(items, id) {
   return "";
 }
 // When a section gets smaller, what ends up outside it drops to the board it
-// sits on, so nothing disappears from view.
-export function DDlifeRelease(items, sectionId) {
+// sits on, so nothing disappears from view. Only what was inside its frame
+// before (`wasInside`) can drop: what already lived outside the frame, on the
+// section's own board, stays there (5.85.1).
+export function DDlifeRelease(items, sectionId, wasInside = null) {
   const sec = items.find((i) => i.id === sectionId);
   if (!sec || sec.type !== "section") return items;
-  const out = new Set(items.filter((i) => i.parent === sectionId && !DDlifeInFrame(items, i)).map((i) => i.id));
+  const out = new Set(items.filter((i) => i.parent === sectionId && (!wasInside || wasInside.has(i.id)) && !DDlifeInFrame(items, i)).map((i) => i.id));
   if (!out.size) return items;
   // Out of a section that sits outside the Feed, it stays outside the Feed too.
   return items.map((i) => (out.has(i.id) ? { ...i, parent: sec.parent || "", x: Math.round(sec.x + i.x), y: Math.round(sec.y + i.y), ...(!sec.parent && sec.out ? { out: true } : {}) } : i));
