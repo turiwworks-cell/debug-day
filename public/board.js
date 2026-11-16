@@ -344,6 +344,7 @@ export function DDcreateBoard(deps) {
       dayRef = useRef(day),
       ownUpdate = useRef(null),
       searchShown = useRef(null),
+      searchLeft = useRef(null),
       propsRef = useRef({
         day: day,
         setup: setup,
@@ -557,11 +558,67 @@ export function DDcreateBoard(deps) {
     }, [day]);
     // Where the Engine was moved to (board-layout.js); a resize keeps it there.
     const engineShift = (saved) => DDengineShift(saved, allDays, day.date);
+    // After a move, a line whose two ends moved by the same step takes its bend
+    // along (5.85.1): day lines, overrides of automatic lines and Feed lines.
+    function carryBends(doc, deltas) {
+      if (!deltas || !deltas.size) return doc;
+      const step = (l) => {
+        if (!l?.bend) return null;
+        const a = deltas.get(l.from), b = deltas.get(l.to);
+        return a && b && Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5 && (a.x || a.y) ? a : null;
+      };
+      const move = (l) => { const s = step(l); return s ? { ...l, bend: { x: Math.round(l.bend.x + s.x), y: Math.round(l.bend.y + s.y) } } : l; };
+      const board = doc.canvas?.board4;
+      if (board) {
+        if (Array.isArray(board.links)) board.links = board.links.map(move);
+        if (board.overrides) for (const [id, o] of Object.entries(board.overrides)) {
+          const edge = layout.edges.find((e) => e.id === id);
+          if (edge && o?.bend) { const s = step({ ...edge, bend: o.bend }); if (s) board.overrides = { ...board.overrides, [id]: { ...o, bend: { x: Math.round(o.bend.x + s.x), y: Math.round(o.bend.y + s.y) } } }; }
+        }
+      }
+      if (doc.__life && Array.isArray(doc.__life.links)) doc.__life.links = doc.__life.links.map(move);
+      return doc;
+    }
+    // Select all (Ctrl+A): every note, section, shape and comment on the board.
+    // Today's Engine tree (tasks, steps and their feelings) stays out: it moves
+    // with the Engine's title, so a group drag never pulls tasks off their lanes
+    // and leaves their lines stretched behind (5.85.1).
+    function allObjectRefs() {
+      return layout.nodes
+        .filter((n) => !locked.has(n.id) && !["day", "lane", "frame", "section", "block", "subtask"].includes(n.kind) && !(n.kind === "bug" && n.blockId) && !n.room)
+        .map((n) => n.id);
+    }
+    // Every card moved by one step: the chosen ones and all a section holds.
+    function groupDeltas(nodes, dx, dy) {
+      const deltas = new Map(), items = DDlifeItems(setup), step = { x: dx, y: dy };
+      for (const n of nodes) {
+        deltas.set(n.id, step);
+        if (n.lifeSection) for (const id of DDlifeDescendants(items, n.lifeId)) deltas.set("life:" + id, step);
+        for (const m of n.members || []) deltas.set(m, step);
+      }
+      return deltas;
+    }
+    function dragDeltas(ct, ends) {
+      const deltas = new Map();
+      for (const ref of ct.refs) { const e = ends[ref], s = ct.starts[ref]; if (e && s) deltas.set(ref, { x: e.x - s.x, y: e.y - s.y }); }
+      return deltas;
+    }
     // Dragging the Engine's title moves the whole Engine: today's tree and its section.
     function startEngineMove(e) {
       const area = layout.map.get("section:engine");
       if (!area || mode !== "mindmap" || layout.room) return;
       const refs = [area.id, ...layout.nodes.filter((n) => ["day", "lane", "block", "subtask", "bug"].includes(n.kind) && !n.lifeId).map((n) => n.id)];
+      // What sits on the Engine comes along (5.85.1): today's notes, and sections
+      // placed on the board (with all they hold), judged by their middle.
+      const onArea = (n) => { const cx = n.x + n.w / 2, cy = n.y + n.h / 2; return cx >= area.x && cx <= area.x + area.w && cy >= area.y && cy <= area.y + area.h; };
+      const items = DDlifeItems(setup);
+      for (const n of layout.nodes) if (n.noteId && !n.memberOf && !locked.has(n.id) && onArea(n)) refs.push(n.id);
+      for (const it of items.filter((i) => !i.parent && i.out)) {
+        const top = layout.map.get("life:" + it.id);
+        if (!top || locked.has(top.id) || !onArea(top)) continue;
+        refs.push(top.id);
+        for (const id of DDlifeDescendants(items, it.id)) if (id !== it.id && layout.map.has("life:" + id)) refs.push("life:" + id);
+      }
       setSelected(new Set());
       gesture.current = {
         kind: "move", pointerId: e.pointerId, sx: e.clientX, sy: e.clientY, refs,
@@ -675,7 +732,7 @@ export function DDcreateBoard(deps) {
       moveDrawingGroup: (dx, dy) => {
         const nodes = DDrootSelection(layout.nodes, selected).filter(n => !locked.has(n.id));
         const positions = Object.fromEntries(nodes.map(n => [n.id, { x: n.x + dx, y: n.y + dy }]));
-        commit(d => pen.moveDraft(core.place(d, nodes, positions, mode), dx, dy), t("Selection moved", "انتخاب جابه‌جا شد"));
+        commit(d => pen.moveDraft(carryBends(core.place(d, nodes, positions, mode), groupDeltas(nodes, dx, dy)), dx, dy), t("Selection moved", "انتخاب جابه‌جا شد"));
       },
       commit: (change, message) => commit(change, message), toWorld, getCamera: () => cam.current, viewport, setStatus,
       pinching: () => !!pinch.current || touches.current.size > 1, panKey: () => space.current,
@@ -825,12 +882,23 @@ export function DDcreateBoard(deps) {
       const shift = layoutRef.current?.roomShift;
       return shift && wire.from?.startsWith("life:") && wire.to?.startsWith("life:") ? shift : null;
     }
+    // Both ends of a line moving together carry its bend along (5.85.1), so a
+    // line never leaves a corner behind while a group is dragged.
+    function previewCarry(wire) {
+      if (!preview.current.size) return null;
+      const a = preview.current.get(wire.from), b = preview.current.get(wire.to);
+      const na = layoutRef.current.map.get(wire.from), nb = layoutRef.current.map.get(wire.to);
+      if (!a || !b || !na || !nb) return null;
+      const da = { x: a.x - na.x, y: a.y - na.y }, db = { x: b.x - nb.x, y: b.y - nb.y };
+      return Math.abs(da.x - db.x) < 0.5 && Math.abs(da.y - db.y) < 0.5 && (da.x || da.y) ? da : null;
+    }
     function wireGeometry(wire, obstacles) {
       const steady = !preview.current.size && !pointerWire.current, kept = steady && steadyWires.current.layout === layoutRef.current ? steadyWires.current.map.get(wire.id) : null;
       if (kept && kept.wire === wire) { wireCache.current.set(wire.id, kept.geometry); return kept.geometry; }
       const gap = DDwireGap(wire, wireEnds(wire)), a = DDgrowRect(nodeFor(wire.from), gap.from), b = DDgrowRect(nodeFor(wire.to), gap.to);
       if (!a || !b) return null;
-      const drag = pointerWire.current, shift = bendShift(wire);
+      const drag = pointerWire.current, room = bendShift(wire), carried = wire.bend && previewCarry(wire),
+        shift = room || carried ? { x: (room?.x || 0) + (carried?.x || 0), y: (room?.y || 0) + (carried?.y || 0) } : null;
       const shown = shift && wire.bend ? { ...wire, bend: { x: wire.bend.x + shift.x, y: wire.bend.y + shift.y } } : wire;
       const geometry = DDconnectionGeometry(a, b, drag?.id === wire.id && drag.end === "bend" ? { ...wire, bend: drag.point } : shown, (typeof obstacles === "function" ? obstacles() : obstacles) || layoutRef.current.nodes.map((n) => nodeFor(n.id)));
       if (geometry && drag?.id === wire.id && ["from", "to"].includes(drag.end)) {
@@ -906,6 +974,11 @@ export function DDcreateBoard(deps) {
           else if(B+8+bar.offsetHeight<=vr.height-8)position.y=B+8;
           else if(T-8-bar.offsetHeight>=8)position.y=T-8-bar.offsetHeight;
         }
+      }
+      // An open side panel (Align, properties) wins last: the bar never sits on it (5.85.1).
+      if(pr && position.x+bar.offsetWidth>pr.left-vr.left && position.x<pr.right-vr.left && position.y+bar.offsetHeight>pr.top-vr.top && position.y<pr.bottom-vr.top) {
+        if(pr.left-vr.left-bar.offsetWidth-12>=8)position.x=pr.left-vr.left-bar.offsetWidth-12;
+        else position.y=Math.max(8,pr.top-vr.top-bar.offsetHeight-8);
       }
       bar.style.left = position.x + "px"; bar.style.top = position.y + "px";
     }
@@ -1618,7 +1691,7 @@ export function DDcreateBoard(deps) {
             commit((d) => {
               d.__life.frame = { ...d.__life.frame, x, y };
               d.__life.items = d.__life.items.map((i) => (!i.parent && i.out ? { ...i, x: i.x - dx, y: i.y - dy } : i));
-              return d;
+              return carryBends(d, new Map(ct.refs.map((r) => [r, { x: dx, y: dy }])));
             }, t("Feed moved", "فید جابه‌جا شد"));
           }
         } else if (ct.kind === "note-resize" && ct.moved) {
@@ -1627,6 +1700,8 @@ export function DDcreateBoard(deps) {
             commit(
               (d) => {
                 // A scaled sticky keeps its text in proportion (FigJam).
+                // What sits inside the section's frame now; only these may drop out when it shrinks.
+                const wasInside = n.lifeSection && d.__life ? new Set(d.__life.items.filter((i) => i.parent === n.lifeId && DDlifeInFrame(d.__life.items, i)).map((i) => i.id)) : null;
                 const textSize = n.kind === "sticky" && !n.shape && ct.scale && ct.scale !== 1 ? { textSize: Math.round((ct.textSize || 16) * ct.scale * 10) / 10 } : {};
                 if(n.kind === "sticky" && !n.shape && !n.plain) {
                   const corner=(ct.edge||"se").length===2,base=Math.max(160,(n.baseW||240)*(corner?(ct.scale||1):1));
@@ -1651,7 +1726,7 @@ export function DDcreateBoard(deps) {
                 // A section grown over neighbours takes them in, as in FigJam. Made
                 // smaller, what ends up outside drops to the board it sits on, so
                 // nothing vanishes; on its own board the whole board is still its.
-                if (n.lifeSection && next.__life) next.__life.items = DDlifeAdopt(layout.room === n.lifeId ? next.__life.items : DDlifeRelease(next.__life.items, n.lifeId), n.lifeId);
+                if (n.lifeSection && next.__life) next.__life.items = DDlifeAdopt(layout.room === n.lifeId ? next.__life.items : DDlifeRelease(next.__life.items, n.lifeId, wasInside), n.lifeId);
                 return next;
               },
               t("Note resized", "اندازهٔ نوت تغییر کرد"),
@@ -1662,14 +1737,17 @@ export function DDcreateBoard(deps) {
           if (end && begin) {
             const dx = Math.round(end.x - begin.x), dy = Math.round(end.y - begin.y),
               tree = (ref) => ref === "day:root" || /^(lane|b|sub|bug):/.test(ref);
-            commit((d) => {
+            // Notes and sections that sit on the Engine move by the same step.
+            const riders = ct.refs.filter((r) => r !== "section:engine" && !tree(r)).map((r) => layout.map.get(r)).filter(Boolean);
+            commit((d0) => {
+              const d = riders.length ? core.place(d0, riders, Object.fromEntries(riders.map((n) => [n.id, { x: ct.starts[n.id].x + dx, y: ct.starts[n.id].y + dy }])), mode) : d0;
               const board = clean(d.canvas?.board4), saved = { ...(board.layouts.mindmap || {}) }, from = engineShift(saved);
               for (const [ref, pos] of Object.entries(saved))
                 if (tree(ref) && Number.isFinite(pos?.x) && Number.isFinite(pos?.y)) saved[ref] = { ...pos, x: pos.x + dx, y: pos.y + dy };
               saved["section:engine"] = { ...from, x: from.x + dx, y: from.y + dy };
               board.layouts = { ...board.layouts, mindmap: saved };
               d.canvas = { ...(d.canvas || {}), board4: board };
-              return d;
+              return carryBends(d, new Map(ct.refs.map((r) => [r, { x: dx, y: dy }])));
             }, t("Engine moved", "انجین جابه‌جا شد"));
           }
         } else if (ct.kind === "move" && ct.moved && ct.alt) {
@@ -1710,6 +1788,7 @@ export function DDcreateBoard(deps) {
             habitRefs = new Set(toHabits.map((n) => n.id)),
             madeTasks = [],
             movedRef = ct.refs.find(ref => ot[ref] && ct.starts[ref]),
+            bendDeltas = dragDeltas(ct, ot),
             strokeDelta = movedRef ? { x: ot[movedRef].x - ct.starts[movedRef].x, y: ot[movedRef].y - ct.starts[movedRef].y } : { x: 0, y: 0 };
           commit((Tt) => {
             // A note dragged into the Engine's section from outside becomes a task
@@ -1832,6 +1911,7 @@ export function DDcreateBoard(deps) {
               tidy && Object.keys(ot).forEach((ref) => { if (/^(day:|lane:|b:|sub:)/.test(ref) && ref in yn) { if (ref in tidyKept) yn[ref] = tidyKept[ref]; else delete yn[ref]; } }),
               (Pt.layouts = { ...Pt.layouts, [mode]: yn }),
               (Tt.canvas = { ...(Tt.canvas || {}), board4: Pt }),
+              carryBends(Tt, bendDeltas),
               pen.moveDraft(Tt, strokeDelta.x, strokeDelta.y)
             );
           }, madeTasks.length ? t("The note is now a task in the Engine", "یادداشت حالا یک کار در انجین است") : DDUI("\u062C\u0627\u06CC \u0646\u0648\u062F\u0647\u0627 \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F"));
@@ -3315,14 +3395,22 @@ export function DDcreateBoard(deps) {
       goEngine: goEngine,
     }),
       useEffect(() => {
+        // A search result is gone to once. Opening another section later must not
+        // send you back to the main board because that old result is not there (5.85.1).
+        if (ddSearchNode && searchShown.current === ddSearchNode) return;
         const n = ddSearchNode && layout.map.get(ddSearchNode.ref);
         // A search result on a section's own board opens that board; one outside
         // the open section takes you back to the main board.
         if (ddSearchNode && !n && !ddNodeMatches && ddSearchNode.ref?.startsWith("life:")) {
           const items = DDlifeItems(setup), id = ddSearchNode.ref.slice(5), home = items.some((i) => i.id === id) ? DDlifeHome(items, id) : "";
-          if (home && home !== layout.room) return enterRoom(home, true);
+          if (home && home !== layout.room) { if (searchLeft.current === ddSearchNode) return; searchLeft.current = ddSearchNode; return enterRoom(home, true); }
         }
-        if (ddSearchNode && !n && layout.room) return dropRoom();
+        if (ddSearchNode && !n && layout.room) {
+          // Once per result: if it is on no board, later sections still open.
+          if (searchLeft.current === ddSearchNode) return;
+          searchLeft.current = ddSearchNode;
+          return dropRoom();
+        }
         if (!n && ddSearchNode?.ref?.startsWith("life:")) {
           const items=DDlifeItems(setup), parents=new Set();let item=items.find((i)=>"life:"+i.id===ddSearchNode.ref);
           while(item?.parent){parents.add(item.parent);item=items.find((i)=>i.id===item.parent);}
@@ -3562,19 +3650,7 @@ export function DDcreateBoard(deps) {
                 setTool("select");
                 pen.selectAll();
               } else {
-                setSelected(
-                  new Set(
-                    layout.nodes
-                      .filter(
-                        (Pt) =>
-                          !locked.has(Pt.id) && Pt.kind !== "frame" &&
-                          Pt.kind !== "section" &&
-                          Pt.kind !== "day" &&
-                          Pt.kind !== "lane",
-                      )
-                      .map((Pt) => Pt.id),
-                  ),
-                );
+                setSelected(new Set(allObjectRefs()));
                 pen.selectAll();
               }
               setWireId(null);
@@ -3671,6 +3747,7 @@ export function DDcreateBoard(deps) {
                     return (
                       (Xn.layouts = { ...Xn.layouts, [mode]: On }),
                       (Jt.canvas = { ...(Jt.canvas || {}), board4: Xn }),
+                      carryBends(Jt, groupDeltas(DDrootSelection(layout.nodes, selected).filter((n) => !locked.has(n.id) && !n.memberOf), yn, An)),
                       pen.moveDraft(Jt, yn, An)
                     );
                   },
@@ -4549,8 +4626,8 @@ export function DDcreateBoard(deps) {
                   t("Resize note", "تغییر اندازهٔ نوت") +
                   (edge === "se" || (Y.memberOf && edge === "s") ? "" : " (" + edge + ")"),
                 title: t(
-                  "Drag to resize (Shift keeps the shape). Double-click to fit the text.",
-                  "برای تغییر اندازه بکش (با Shift شکلش حفظ می‌شود). دابل‌کلیک: اندازه به اندازهٔ متن",
+                  "Drag to resize · double-click to fit",
+                  "بکش تا اندازه عوض شود · دابل‌کلیک: اندازهٔ متن",
                 ),
                 onDoubleClick: (event) => {
                   event.stopPropagation();
@@ -5661,13 +5738,7 @@ export function DDcreateBoard(deps) {
           "انتخاب همهٔ اشیا",
           "select",
           () => {
-            setSelected(
-              new Set(
-                layout.nodes
-                  .filter((n) => !locked.has(n.id) && !["day", "lane", "frame", "section"].includes(n.kind))
-                  .map((n) => n.id),
-              ),
-            );
+            setSelected(new Set(allObjectRefs()));
             pen.selectAll();
             setWireId(null);
           },
@@ -5756,7 +5827,7 @@ export function DDcreateBoard(deps) {
         setSelected(new Set([n.id]));setWireId(null);queueCamera();scheduleCamera();viewport.current.focus({preventScroll:true});
       }
       paintSelection();
-    },[layout,selected,wireId,wireSelection,focus,properties,tick,setup.preferences]);
+    },[layout,selected,wireId,wireSelection,focus,properties,alignPanel,tick,setup.preferences]);
     live.current = { backgroundDown, openContext, finishEdit, startEngineMove, startFeedMove, startAreaResize, nodeDown, openEdit, selectOne, commit, toggleDone,
       returnFromEdit, sendToToday, convertSticky, enterRoom, addLifeSection, ddAddFeeling, ddAddHabit, addSticky, addBlock, fitNote, portDown, showGhost, hideGhost, addNear, pickColor, setTodoText };
     relay.current ||= Object.fromEntries(Object.keys(live.current).map((name) => [name, (...args) => live.current[name](...args)]));

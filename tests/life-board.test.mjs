@@ -195,6 +195,11 @@ test("a section's own board keeps what sits outside its frame (5.29)", () => {
   assert.equal(DDlifeHome(items, "in"), "");
   const released = DDlifeRelease(items, "c");
   assert.deepEqual([released.find((i) => i.id === "k").parent, released.find((i) => i.id === "k").x], ["a", 320], "made smaller, what is outside drops onto the board it sits on");
+  // 5.85.1: only what was inside before the resize can drop; what lived on the
+  // section's own board, outside its frame, stays its.
+  const kept = DDlifeRelease(items, "a", new Set(["in", "c"]));
+  assert.equal(kept.find((i) => i.id === "far").parent, "a", "a note that already lived outside the frame stays in its section");
+  assert.equal(kept, items, "nothing that was inside ended up outside, so nothing changes");
 });
 test("a section outside the Feed stays out of it (5.29)", () => {
   const items = [
