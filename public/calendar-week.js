@@ -93,6 +93,58 @@ export function DDsetWeekFocus(data, weekStart, focus) {
 }
 
 // The numbers behind the weekly look back.
+// Pauses and feelings (5.89.0): the week's calm look at what got in the way.
+// The days paused with Pause the day (with the outside event's own name once
+// it has one), and the feelings & events noted, in your own words, by how many
+// days they came up. It counts; it never scores.
+const UNNAMED_PAUSE = new Set(["outside event", "اتفاق خارج از برنامه"]);
+export function DDweekPauses(days, dates) {
+  const pauses = [], rows = new Map();
+  for (const date of dates || []) {
+    const day = days?.[date];
+    if (!day) continue;
+    const bugs = Array.isArray(day.bugs) ? day.bugs : [];
+    if (day.pause && typeof day.pause === "object") {
+      const name = String(bugs.find((b) => b?.id === day.pause.eventId)?.text || "").trim();
+      pauses.push({ date, count: Math.max(1, Math.round(Number(day.pause.count)) || 1), name: UNNAMED_PAUSE.has(name.toLowerCase()) ? "" : name });
+    }
+    const seen = new Set();
+    for (const b of bugs) {
+      const text = String(b?.text || "").trim();
+      if (!text || b.triggerTag === "outside-event") continue;
+      const key = text.toLowerCase(), row = rows.get(key) || { key, text, color: "", days: 0, count: 0, last: "" };
+      row.count++;
+      if (!seen.has(key)) { seen.add(key); row.days++; }
+      row.last = date;
+      if (typeof b.color === "string" && /^#[0-9a-f]{6}$/i.test(b.color)) row.color = b.color;
+      rows.set(key, row);
+    }
+  }
+  const feelings = [...rows.values()].sort((a, b) => b.days - a.days || b.count - a.count || b.last.localeCompare(a.last));
+  return { pauses, feelings, noted: feelings.reduce((sum, r) => sum + r.count, 0) };
+}
+
+// The words of that block, in either language: a title, a short count, and
+// one row per paused day, then the six feelings that came up most.
+export function DDweekPausesText({ pauses = [], feelings = [], noted = 0 }, language) {
+  const fa = language === "fa", t = (en, f) => (fa ? f : en), num = (n) => (fa ? n.toLocaleString("fa-IR") : String(n));
+  return {
+    title: t("Pauses and feelings", "مکث‌ها و احساسات"),
+    summary: [
+      pauses.length && t(pauses.length + (pauses.length === 1 ? " day paused" : " days paused"), num(pauses.length) + " روز مکث"),
+      noted && t(noted + " noted", num(noted) + " مورد ثبت شد"),
+    ].filter(Boolean).join(" · "),
+    rows: [
+      ...pauses.map((p) => ({
+        key: "pause-" + p.date, color: "",
+        name: fmt(language, { weekday: "long" }).format(at(p.date)) + (p.name ? " · " + p.name : ""),
+        value: p.count > 1 ? t("Paused " + p.count + "×", num(p.count) + " بار مکث") : t("Paused", "مکث"),
+      })),
+      ...feelings.slice(0, 6).map((r) => ({ key: "feeling-" + r.key, color: r.color, name: r.text, value: r.days === 1 ? t("1 day", "۱ روز") : t(r.days + " days", num(r.days) + " روز") })),
+    ],
+  };
+}
+
 export function DDweekSummary(data, date, today, language) {
   const days = DDweekDays(date, language), items = DDlifeItems(data.setup), types = data.setup.types || [];
   let planned = 0, done = 0, doneMinutes = 0, light = 0, heavy = 0;
@@ -130,6 +182,7 @@ export function DDweekSummary(data, date, today, language) {
   const focusedTasks = DDfocusedTasks(data.days, days), focused = focusedTasks.reduce((sum, r) => sum + r.seconds, 0);
   return {
     days, planned, done, doneMinutes, light, heavy, moods, goals, due, focused, focusedTasks,
+    ...DDweekPauses(data.days, days),
     sections: [...sections.values()].sort((a, b) => (b.id ? 1 : 0) - (a.id ? 1 : 0) || b.minutes - a.minutes || b.tasks - a.tasks),
     types,
   };
@@ -236,6 +289,9 @@ export function DDWeekReview({ React: R, data, date, today, language, setData })
     s.due.length > 0 && h("div", { className: "dd-week-block" },
       h("h3", null, t("Deadlines", "ددلاین‌ها")),
       h("ul", { className: "dd-week-rows" }, s.due.map((d) => row("due-" + d.id, d.color, d.name, DDdueDate(d.due, language), DDdueText(d.due, today, language))))),
+    (s.pauses.length > 0 || s.feelings.length > 0) && ((w) => h("div", { className: "dd-week-block", "data-week-pauses": s.pauses.length },
+      h("h3", null, w.title, h("small", null, w.summary)),
+      h("ul", { className: "dd-week-rows" }, w.rows.map((r) => row(r.key, r.color, r.name, r.value)))))(DDweekPausesText(s, language)),
     h("div", { className: "dd-week-moods", "aria-label": t("Moods this week", "حال این هفته") },
       s.moods.map((m) => h("span", { key: m.date, title: fmt(language, { weekday: "long" }).format(at(m.date)) }, m.mood || "·"))),
     h("label", { className: "dd-week-focus" },

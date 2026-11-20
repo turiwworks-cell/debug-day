@@ -56,6 +56,7 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 - Deadlines are soft too: "◆ 8 days left", "tomorrow", "date passed" (`deadlines.js`). On a note the badge sits above the paper, never on it.
 - A task may be light or heavy (`energy.js`), never required. A tired day (😫 😕) offers the light ones first.
 - The Week view and its look back count what happened; they never score it. Next week's focus is one line.
+- The look back has a quiet "Pauses and feelings" list (5.89): the days you paused with Pause the day (with the outside event's own name once it has one), and the feelings and events you noted, in your own words, by how many days they came up. No "open" counts, no score; it hides in a quiet week.
 - Help text fades away: show a hint once, then rely on `?` and tooltips.
 - Words are written without their marks: **, ## or - [ ] never show while writing a note, text or shape (`live-text.js`); the saved text keeps them.
 - A task in the Engine is one line. Details open with ⋯, steps open when asked.
