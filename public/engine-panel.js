@@ -35,6 +35,7 @@ import {
 import { DDcompletion, DDpriorityLabel, DDTaskMetadata, DDTaskTags } from "./planner.js";
 import { DDmeasureOf, DDmeasureText, DDMeasureControl, DDsetMeasure, DDplanMinutes, DDduration, DDstepMinutes } from "./measure.js";
 import { DDenergyOf, DDsetEnergy, DDenergyLabel } from "./energy.js";
+import { DDspentOf, DDspentText } from "./focus-time.js";
 import { DDsetTaskDone, DDtoggleSubtask, DDcleanBoard } from "./search.js";
 import { DDPlanNudges } from "./nudges.js";
 import { DDshortPath } from "./life-board.js";
@@ -590,6 +591,8 @@ function TaskRow(props) {
         { className: "dd-engine-meta" },
         today && kind !== "time" && h(DDMeasureControl, { React: R, block, language, onChange }),
         kind === "time" && Number(block.min) > 0 && h("span", { className: "dd-engine-min" }, DDmeasureText(block, language)),
+        // Time focused on it with the timer (5.88.0): history, not a target.
+        DDspentOf(block) >= 60 && h("span", { className: "dd-engine-spent", "data-spent": DDspentOf(block) }, DDspentText(DDspentOf(block), language)),
         h(StepsToggle, { React: R, block, language, flow, open: stepsOpen, onToggle: onToggleSteps }),
         // What this task waits for (its own order, or a step's in another task).
         (waiting.length > 0 || after.length > 0) &&
@@ -1125,6 +1128,7 @@ export const DDenginePanelCSS = `
 .dd-engine-pri[data-pri="3"]{color:var(--ink-3,#666);box-shadow:inset 0 0 0 1px var(--rule-2,#ccc)}
 .dd-engine-up-next{flex:none;margin-inline-start:auto;font-size:11px;color:color-mix(in srgb,var(--now,var(--panel-engine,#F05A28)) 80%,var(--ink,#121211))}
 .dd-engine-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px;color:var(--ink-3,#666);min-width:0}
+.dd-engine-spent{white-space:nowrap}
 .dd-engine-meta .step{min-height:24px;border:0;padding:0;background:none;color:var(--ink-2,#444);font-family:inherit}
 .dd-engine-meta .step span{font-family:inherit;letter-spacing:0}
 .dd-engine-steps-toggle{display:inline-flex;align-items:center;gap:5px;max-width:100%;min-width:0;padding:2px 6px;border-radius:6px;background:none;color:var(--ink-2,#444);font-size:12px}

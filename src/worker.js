@@ -9,7 +9,7 @@ import { oauth, oauthRoute, oauthAccess } from "./oauth.js";
 import { DDmcpMoreTools, DDmcpMoreCall } from "./mcp-tools.js";
 const MAX_BYTES = 1500000;
 const VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"];
-const INFO = { name: "debug-day", title: "Debug Day", version: "5.87.0" };
+const INFO = { name: "debug-day", title: "Debug Day", version: "5.88.0" };
 class HttpError extends Error {
   constructor(status, message) {
     super(message);

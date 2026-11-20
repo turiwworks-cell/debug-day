@@ -8,6 +8,7 @@ import { DDdueOn, DDdueName, DDdueBetween, DDdueText } from "./deadlines.js";
 import { DDtodoDueItems, DDtodoLists } from "./todos.js";
 import { DDCalendarWeek, DDWeekReview, DDCalendarModes, DDCalSections } from "./calendar-week.js";
 import { DDaddDays, DDvalidDate } from "./dates.js";
+import { DDspentOf, DDspentText, DDdayFocused } from "./focus-time.js";
 import { DDusualMinutes, DDdayLoad, DDloadName, DDmonthLoad, DDaltDay, DDaltMonth, DDshortTime, DDinstallCalendarLook } from "./calendar-look.js";
 import { DDremindersOn, DDcalDayRows, DDcalRemLines, DDcalOpenFrom, DDremOpenEvent, DDopenReminder, DDopenOnBoard, DDremIcon, DDinstallCalReminders } from "./cal-reminders.js";
 DDinstallCalendarLook();
@@ -133,6 +134,8 @@ export function DDreviewSummary(day = {}, setup = {}) {
     feelings: (day.bugs || []).length,
     openFeelings: (day.bugs || []).filter((bug) => !bug.fixed).length,
     notes: (day.notes || []).length,
+    // Time focused with the timer, in seconds (5.88.0).
+    focused: DDdayFocused(day),
   };
 }
 export function DDreviewReminders(reminders = [], date) {
@@ -1485,6 +1488,8 @@ function DDReviewTasks({
                 ? t("Waiting", "در انتظار")
                 : DDtimeText(block.min, language),
           ),
+          // Time focused on it with the timer (5.88.0).
+          DDspentOf(block) >= 60 && h("span", { className: "dd-review-spent", "data-spent": DDspentOf(block) }, DDspentText(DDspentOf(block), language)),
         ),
         h(
           "details",
@@ -2010,6 +2015,13 @@ function DDReviewDay({
               h("dt", null, t("Progress", "پیشرفت")),
               h("dd", { className: "dd-day-progress", title: DDprogressLabel(language), "data-completion": summary.completionPct }, n(summary.completionPct), "%"),
             ),
+            summary.focused >= 60 &&
+              h(
+                "div",
+                { className: "dd-review-focused" },
+                h("dt", null, t("Focused", "تمرکز با تایمر")),
+                h("dd", null, DDduration(Math.round(summary.focused / 60), language)),
+              ),
             // Feelings left the app in 5.16; old ones still show here.
             summary.feelings > 0 &&
               h(

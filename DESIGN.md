@@ -47,6 +47,7 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 - One main action per area. Everything else is quieter (ghost button, text button, or behind "…").
 - A tool with nothing in it hides until it has something, or until "…" is open (`dd-quiet` class).
 - No hour grids, Gantt bars or red "late" states. Time is a small number next to the name, and optional.
+- Time focused with the timer is history, never a target (5.88): "45m focused" beside the task, a day's total, the week's "Focused" list. Nothing compares it with the planned time.
 - No guilt: no red, no streak-loss warnings, no "you failed". Use neutral words ("not yet", "left").
 - Budgets and goals are soft: "1h 30m / 6h · week", "12 of 35 · 9 days left". Green when reached, never red when over or behind.
 - A goal with a date counts down quietly in the Goals rail ("◆ 12d 02:10:16 left"). Never red; a passed date just says "date passed".

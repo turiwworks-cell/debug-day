@@ -1,3 +1,11 @@
+## 5.88.0 — 2026-11-20
+Branch: claude/project-thread-h96514
+- Focus counts real time on a task (wave 3): Focus started from a task (the Engine's ⋯ › Focus, on the Board too now, or Search) writes the time that really passed while the timer ran on that task. A pause, a reset, switching to another task or the end of the timer settles it; a long break is not counted.
+- The time shows as history, never as a target: "45m focused" on the Engine row and in the Calendar's day (with the day's total), and a "Focused" list in the week's look back ("Cover · 3h"), adding up a task across the days it was carried on.
+- A timer that ran out while the app was closed still gives its task the time, once, even with two tabs open. The timer says which task it is for, with × to let it go.
+- A carried-on or copied task starts with no focused time; the time stays with the day it was spent on.
+- The timer's buzz on a phone waits until the page has been touched, so the browser no longer blocks it with a warning.
+
 ## 5.87.0 — 2026-11-20
 Branch: claude/project-thread-h96514
 - The phone opens on Today (wave 3): the first time the app is opened on a new day (or comes back to the screen on a new day), a phone on the Board shows the Engine's Today right away, with quick add. One tap on Close and the Board is there. Once a day per device; a desktop opens as before.

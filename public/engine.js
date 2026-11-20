@@ -222,6 +222,7 @@ export function DDengineCopy(block, makeId = () => crypto.randomUUID()) {
     (items || []).map((item) => ({ ...item, id: makeId(), done: false, children: steps(item.children) }));
   const copy = { ...structuredClone(block), id: makeId(), done: false, subtasks: steps(block.subtasks) };
   delete copy.score;
+  delete copy.spent;
   delete copy.bx;
   delete copy.by;
   delete copy.at;
@@ -240,7 +241,8 @@ export function DDcarryId(id, to) {
 }
 export function DDengineCarryCopy(block, from, to) {
   const copy = { ...structuredClone(block), id: DDcarryId(block.id, to), done: false, carriedFrom: { date: from || "", id: block.id } };
-  for (const key of ["carriedTo", "score", "bx", "by", "at"]) delete copy[key];
+  // Focused time stays with the day it was spent on (5.88.0).
+  for (const key of ["carriedTo", "score", "spent", "bx", "by", "at"]) delete copy[key];
   return copy;
 }
 // The earlier day after its tasks `ids` were carried on to `to` (a date or "park").

@@ -120,6 +120,7 @@ test("reading summaries and browsing calendar months never creates days or chang
     feelings: 0,
     openFeelings: 0,
     notes: 0,
+    focused: 0,
   });
 });
 test("saving mood or a journal on an empty day creates only that day without template tasks", () => {

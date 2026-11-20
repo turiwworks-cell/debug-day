@@ -4,6 +4,9 @@
 // another app: a system notice (when the browser allows it), a soft chime, the
 // tab title, and a banner that stays until you close it.
 // Bar mode hides the numbers, for when you only want a feel for what is left.
+// Started from a task (5.88.0), the clock keeps which task it is for and owes
+// it the time that really passed while it ran; the app writes that time on
+// the task (focus-time.js) and takes it from here with DDtimer.takeOwed().
 import { DDBoardIcon } from "./board-icons.js";
 
 const KEY = "debug-day:timer", MAX = 5999, LATE = 5 * 60e3;
@@ -29,12 +32,38 @@ export function DDtimerRestore(saved, base = 1500, now = Date.now()) {
     base: b, total, view: s.view === "bar" ? "bar" : "numbers", sound: s.sound !== false,
     ended: Number(s.ended) || 0, announced: Number(s.announced) || 0, asked: !!s.asked,
     running: false, deadline: 0, seconds: s.seconds == null ? total : clamp(s.seconds),
+    task: DDtimerTask(s.task), runFrom: 0, owed: DDtimerOwed(s.owed),
   };
   if (s.running && Number(s.deadline) > 0) {
     out.running = true; out.deadline = Number(s.deadline);
     out.seconds = DDtimerRemaining(out.deadline, now);
+    if (out.task && Number(s.runFrom) > 0) out.runFrom = Number(s.runFrom);
   }
   return out;
+}
+
+// The task a clock is for: { date, id, name }, or null.
+export function DDtimerTask(task) {
+  if (!task || typeof task !== "object" || typeof task.id !== "string" || !task.id || task.id.length > 160) return null;
+  return { date: /^\d{4}-\d{2}-\d{2}$/.test(task.date) ? task.date : "", id: task.id, name: typeof task.name === "string" ? task.name.slice(0, 200) : "" };
+}
+// Time owed to tasks and not yet written on them: [{ date, id, seconds, key }].
+export function DDtimerOwed(list) {
+  return (Array.isArray(list) ? list : [])
+    .filter((e) => e && DDtimerTask(e) && Number.isFinite(e.seconds) && e.seconds > 0)
+    .slice(-50)
+    .map((e) => ({ date: DDtimerTask(e).date, id: e.id, seconds: Math.min(MAX * 10, Math.round(e.seconds)), key: String(e.key || "") }));
+}
+// What the clock owes its task for the run so far, ending at `until`, added
+// to `patch`; the run's start is cleared.
+function owe(patch, until) {
+  if (!state.task || !state.runFrom) return { runFrom: 0, ...patch };
+  const seconds = Math.round((until - state.runFrom) / 1000), owed = state.owed || [];
+  return {
+    runFrom: 0,
+    owed: seconds > 0 ? [...owed, { date: state.task.date, id: state.task.id, seconds, key: state.runFrom + "-" + until }].slice(-50) : owed,
+    ...patch,
+  };
 }
 
 // How much time is left, from 1 (all of it) to 0, for the bar.
@@ -64,8 +93,8 @@ function readSaved() {
 }
 function persist() {
   try {
-    const { running, deadline, seconds, total, base, view, sound, ended, announced, asked } = state;
-    localStorage.setItem(KEY, JSON.stringify({ running, deadline, seconds, total, base, view, sound, ended, announced, asked }));
+    const { running, deadline, seconds, total, base, view, sound, ended, announced, asked, task, runFrom, owed } = state;
+    localStorage.setItem(KEY, JSON.stringify({ running, deadline, seconds, total, base, view, sound, ended, announced, asked, task, runFrom, owed }));
   } catch {}
 }
 function emit() {
@@ -123,7 +152,8 @@ function finish() {
   if (now < deadline) { arm(); return; }
   // Another open tab may have told you already.
   const told = Number(readSaved()?.announced) === deadline;
-  commit({ running: false, deadline: 0, seconds: 0, ended: deadline, announced: deadline });
+  // The time up to the end belongs to the task; then the clock is free again.
+  commit({ ...owe({ running: false, deadline: 0, seconds: 0, ended: deadline, announced: deadline }, deadline), task: null });
   if (!told && now - deadline < LATE) tell();
 }
 
@@ -177,7 +207,8 @@ function flashTitle() {
 function tell() {
   const body = lengthText(state.total) + " are done. Take a breath.";
   const chimed = state.sound && chime();
-  if (state.sound) try { navigator.vibrate?.([180, 120, 180]); } catch {}
+  // A phone buzzes only once the page has been touched (the browser blocks it before).
+  if (state.sound) try { if (navigator.userActivation?.hasBeenActive !== false) navigator.vibrate?.([180, 120, 180]); } catch {}
   const notice = systemNotice(body, chimed || !state.sound);
   flashTitle();
   window.dispatchEvent(new CustomEvent("debug-day-timer-end", { detail: { chime: chimed, notice } }));
@@ -222,9 +253,9 @@ export const DDtimer = {
   // A fresh length. While running it restarts from now with that length.
   set(seconds) {
     boot();
-    const n = clamp(seconds);
-    if (state.running && n) commit({ seconds: n, total: n, deadline: Date.now() + n * 1000, ended: 0 });
-    else commit({ running: false, deadline: 0, seconds: n, total: n || state.total, ended: 0 });
+    const n = clamp(seconds), now = Date.now();
+    if (state.running && n) commit({ ...owe({ seconds: n, total: n, deadline: now + n * 1000, ended: 0 }, now), runFrom: state.task ? now : 0 });
+    else commit({ ...owe({ running: false, deadline: 0, seconds: n, total: n || state.total, ended: 0 }, now) });
   },
   add(seconds) {
     boot();
@@ -237,15 +268,15 @@ export const DDtimer = {
     boot();
     if (state.running) return;
     wakeSound(); askNotice(false);
-    const n = state.seconds || state.total || state.base;
-    commit({ running: true, deadline: Date.now() + n * 1000, seconds: n, total: state.seconds ? Math.max(state.total, n) : n, ended: 0 });
+    const n = state.seconds || state.total || state.base, now = Date.now();
+    commit({ running: true, deadline: now + n * 1000, seconds: n, total: state.seconds ? Math.max(state.total, n) : n, ended: 0, runFrom: state.task ? now : 0 });
   },
   pause() {
     boot();
     if (!state.running) return;
     const left = DDtimerRemaining(state.deadline);
     if (!left) { finish(); return; }
-    commit({ running: false, deadline: 0, seconds: left });
+    commit(owe({ running: false, deadline: 0, seconds: left }, Date.now()));
   },
   setRunning(next) {
     boot();
@@ -254,7 +285,22 @@ export const DDtimer = {
   },
   preset(minutes) { DDtimer.set(minutes * 60); DDtimer.start(); },
   more() { boot(); wakeSound(); if (state.running) DDtimer.add(300); else { DDtimer.set(300); DDtimer.start(); } },
-  reset() { boot(); commit({ running: false, deadline: 0, seconds: state.base, total: state.base, ended: 0 }); },
+  reset() { boot(); commit({ ...owe({ running: false, deadline: 0, seconds: state.base, total: state.base, ended: 0 }, Date.now()), task: null }); },
+  // Focus on a task: from now on the clock's time is that task's. null lets go.
+  link(task) {
+    boot();
+    const next = DDtimerTask(task), now = Date.now();
+    if (next && state.task && next.id === state.task.id && next.date === state.task.date) return;
+    commit({ ...owe({}, now), task: next, runFrom: next && state.running ? now : 0 });
+  },
+  // The time owed to tasks, taken once: the app writes it on them. Read from
+  // storage, so two open tabs never write the same time twice.
+  takeOwed() {
+    boot();
+    const owed = DDtimerOwed(readSaved()?.owed);
+    if (owed.length || state.owed?.length) commit({ owed: [] });
+    return owed;
+  },
   dismiss() { boot(); commit({ ended: 0, seconds: state.running ? state.seconds : state.seconds || state.total }); },
   view(view) { boot(); commit({ view: view === "bar" ? "bar" : "numbers" }); },
   sound(on) { boot(); if (on) wakeSound(); commit({ sound: !!on }); },
@@ -329,6 +375,10 @@ export function DDTimerPanel({ React: R, onClose, autoFocus = true }) {
             onChange: (e) => setDraft(e.target.value), onBlur: save,
             onKeyDown: (e) => { if (e.key === "Enter") { e.preventDefault(); save(); e.currentTarget.blur(); } } })),
     h("p", { className: "dd-timer-status", role: "status" }, status),
+    // The task this time is for (5.88.0); × lets it go.
+    s.task && h("p", { className: "dd-timer-task" },
+      "For ", h("b", { dir: "auto" }, s.task.name || "a task"),
+      h("button", { type: "button", className: "dd-timer-unlink", "aria-label": "Not for this task", title: "Not for this task", onClick: () => DDtimer.link(null) }, icon("close", 12))),
     h("div", { className: "dd-timer-presets", role: "group", "aria-label": "Start a length" },
       DDtimerPresets.map((m) => h("button", { key: m, type: "button", "aria-label": "Start " + m + " minutes", "aria-pressed": s.total === m * 60, onClick: () => DDtimer.preset(m) },
         m, h("small", null, "m")))),
@@ -390,6 +440,10 @@ export const DDtimerCSS = `
 .dd-timer-bar{width:100%;height:14px;border-radius:999px;background:var(--wash);box-shadow:inset 0 0 0 1px var(--rule-2);overflow:hidden}
 .dd-timer-bar>i{display:block;height:100%;border-radius:inherit;background:var(--now);transition:width 1s linear}
 .dd-timer-status{margin:-4px 0 0;text-align:center;color:var(--ink-3);font-size:12px}
+.dd-timer-task{display:flex;align-items:center;justify-content:center;gap:4px;margin:-6px 0 0;color:var(--ink-3);font-size:12px}
+.dd-timer-task b{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-2);font-weight:600}
+.dd-timer-unlink{display:inline-grid;place-items:center;width:22px;height:22px;padding:0;border:0;border-radius:999px;background:none;color:var(--ink-3);cursor:pointer}
+@media (pointer:coarse){.dd-timer-unlink{width:44px;height:44px}}
 .dd-timer-presets{display:flex;gap:6px}
 .dd-timer-presets>button{flex:1;height:32px;border-radius:999px;box-shadow:inset 0 0 0 1px var(--rule-2);font-weight:500;font-variant-numeric:tabular-nums}
 .dd-timer-presets>button>small{font-size:10px;color:var(--ink-3);margin-inline-start:1px}
