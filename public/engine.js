@@ -349,6 +349,7 @@ button.dd-task-from{font-family:inherit;font-weight:500;cursor:pointer}button.dd
 .dd-engine-area-title{position:absolute;left:18px;bottom:calc(100% - 16px);transform:scale(clamp(1,var(--b4-inverse,1),4));display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:var(--panel-engine,#F05A28);color:#fff;font:600 15px/1.2 var(--sans,system-ui);white-space:nowrap;transform-origin:0 100%;box-shadow:0 2px 8px #0002}
 .dd-engine-area-title small{font-weight:500;opacity:.85}
 .dd-engine-area-title button{padding:2px 8px;border-radius:999px;background:#fff3;color:#fff;font-size:12px}
+@media (pointer:coarse){.dd-engine-area-title button{position:relative;padding:6px 12px;font-size:13px}.dd-engine-area-title button::before{content:"";position:absolute;inset:-10px -6px}}
 `;
 
 export function DDinstallEngineStyles() {

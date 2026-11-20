@@ -1,3 +1,10 @@
+## 5.85.2 — 2026-11-20
+Branch: claude/project-thread-h96514
+- Phone: the Board's top bar fits again, so ⋯ (Search, Engine, Feed, Sections) is always in sight; before, it was cut off at the edge when the Board was not full screen. On a very narrow phone the other tools slide under it.
+- Phone: "Open · E" on the Engine's title has a finger-sized touch area.
+- Phone: the Engine scrolls as one sheet, so Today shows under the tools and the line at the end no longer sits on the Today heading.
+- Capture steps aside while the Engine is open (the Engine has its own Add), and every page ends with room under it, so Capture never covers the last things on a page.
+
 ## 5.85.1 — 2026-11-16
 Branch: claude/project-thread-jqif1z
 - Lines stay whole when you move many things at once: a line's bend moves with its two ends (drag, arrow keys, moving the Engine or the Feed).

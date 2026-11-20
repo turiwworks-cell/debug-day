@@ -232,6 +232,9 @@ html .toast{${glass};color:var(--ink);font:500 14px/1.3 var(--sans);border-radiu
 /* Floating Capture: a prominent tinted glass button */
 html .dd-floating-capture{background:var(--now);color:var(--on-now);border:0;border-radius:var(--r-pill);box-shadow:0 10px 24px -8px color-mix(in srgb,var(--now) 65%,transparent),inset 0 1px 0 rgba(255,255,255,.35);font:600 15px var(--sans)}
 html .dd-floating-capture.dd-on-board{width:52px;height:52px;min-height:52px;padding:0;justify-content:center}
+/* Capture never covers the end of a page, and it steps aside while the Engine is open (it has its own Add). */
+html .foot{padding-bottom:80px}
+html body:has(.dd-engine-backdrop) .dd-floating-capture{visibility:hidden}
 
 /* Phone: the tab bar floats as a glass capsule above the content (iOS 27) */
 @media (max-width:700px){

@@ -5904,7 +5904,7 @@ export function DDcreateBoard(deps) {
             DDUI(focus ? "Exit full screen" : "Full screen"),
             focus ? "shrink" : "expand",
             () => setFocus((Y) => !Y),
-            {},
+            { "data-full-screen": focus ? "on" : "off" },
             DDUI(focus ? "Exit full screen" : "Full screen"),
           ),
           dockMore("top"),
