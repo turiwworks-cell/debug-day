@@ -43,14 +43,13 @@ const {start,fixture,openEngine}=require('./harness.cjs');
    assert.deepEqual(data.days[f.date].canvas.board4.layouts.mindmap,{},'the saved day no longer keeps Feed places');
    // 2. A very full day offers to move the easiest task to tomorrow.
    assert.match(await nudge('full').innerText(),/This day is very full \(11h 30m\)/);
-   // The lowest priority goes first, the last one among equals.
-   await nudge('full').getByRole('button',{name:'Move “Old sketch”'}).click();
-   await page.waitForFunction((d)=>JSON.parse(localStorage.getItem('debug-day:v2')).days[d]?.blocks.some((b)=>b.name==='Old sketch'),tomorrow);
-   assert.match(await nudge('full').innerText(),/This day is very full \(11h\)/);
+   // The least important goes first and, among equals, the longest: moving
+   // it frees the most room (5.86.1), so one move is enough here.
    await nudge('full').getByRole('button',{name:'Move “Emails”'}).click();
    await page.waitForFunction((d)=>JSON.parse(localStorage.getItem('debug-day:v2')).days[d]?.blocks.some((b)=>b.name==='Emails'),tomorrow);
    data=await read();
    assert.equal(data.days[f.date].blocks.some((b)=>b.name==='Emails'),false);
+   assert.equal(data.days[f.date].blocks.some((b)=>b.name==='Old sketch'),true,'the short one stays');
    await nudge('full').waitFor({state:'detached'});
    await page.keyboard.press('Escape');await page.locator('.dd-engine').waitFor({state:'detached'});
    // 3. Settings says how much space the planner uses.

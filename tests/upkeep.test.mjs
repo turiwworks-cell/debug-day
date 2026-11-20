@@ -99,6 +99,17 @@ test('a very full day is noticed, and the easiest task is offered to move', () =
   assert.deepEqual(DDdayLoad(day).minutes, 660, 'done and nameless tasks do not count');
   assert.equal(DDdayFull(day), true);
   assert.equal(DDmoveCandidate(day).id, 'b', 'the lowest priority');
+  // 5.86.1 (L2): P1 is the most important, so it moves last.
+  const task = (id, extra = {}) => ({ id, name: 'Task ' + id, min: 60, ...extra });
+  assert.equal(DDmoveCandidate({ blocks: [task('p1', { pri: 1 }), task('p3', { pri: 3 })] }).id, 'p3', 'P3 before P1');
+  assert.equal(DDmoveCandidate({ blocks: [task('p1', { pri: 1 }), task('p2', { pri: 2 })] }).id, 'p2', 'P2 before P1');
+  assert.equal(DDmoveCandidate({ blocks: [task('n'), task('p3', { pri: 3 })] }).id, 'n', 'a normal task before P3');
+  const begun = task('begun', { subtasks: [{ id: 's', text: 'Step', done: true, children: [] }] });
+  assert.equal(DDmoveCandidate({ blocks: [begun, task('fresh')] }).id, 'fresh', 'a task not started yet before one under way');
+  assert.equal(DDmoveCandidate({ blocks: [task('short', { min: 30 }), task('long', { min: 240 })] }).id, 'long', 'the longest frees the most room');
+  assert.equal(DDmoveCandidate({ blocks: [task('first'), task('second')] }).id, 'first', 'then the first in the list, not the newest');
+  assert.equal(DDmoveCandidate({ blocks: [task('nine', { at: '09:00' }), task('p1', { pri: 1 })] }).id, 'p1', 'a task set for a time stays');
+  assert.equal(DDmoveCandidate({ blocks: [task('nine', { at: '09:00' })] }), null);
   assert.equal(DDdayFull({ blocks: [{ id: 'a', name: 'One', min: 480 }] }), false);
   assert.equal(DDdayFull({ blocks: Array.from({ length: 12 }, (_, i) => ({ id: 'x' + i, name: 'Count ' + i, measure: 'count' })) }), true, 'twelve open tasks is full too');
 });

@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {DDvalidAnchor,DDscheduleLater,DDbeginPause,DDresolvePause} from '../public/life.js';
+import {DDvalidAnchor,DDscheduleLater,DDbeginPause,DDresolvePause,DDfoldPauseEvents} from '../public/life.js';
 import {DDcaptureItem,DDconvertWorry} from '../public/capture.js';
 import {callTool,save,read} from '../src/worker.js';
 import {DatabaseSync} from 'node:sqlite';
@@ -11,3 +11,30 @@ test('moving the remaining day preserves completed work, clears board references
 test('Later capture and worry conversion stay outside days until explicitly scheduled',()=>{const data=snapshot(),later=DDcaptureItem(data,{kind:'task',text:'Unscheduled',date:'later'},ensureDay,text=>({...block,id:'later',name:text,at:'14:00'}));assert.equal(later.setup.later[0].name,'Unscheduled');assert.equal(later.days.later,undefined);const scheduled=DDscheduleLater(later,'later',tomorrow,ensureDay);assert.equal(scheduled.setup.later.length,0);assert.equal(scheduled.days[tomorrow].blocks[0].at,'14:00');assert.equal(DDscheduleLater(later,'later','2026-02-30',ensureDay),later);const worried=DDcaptureItem(data,{kind:'worry',text:'Concern',date:today},ensureDay);const converted=DDconvertWorry(worried,worried.setup.worries[0].id,'later',ensureDay);assert.equal(converted.setup.later.length,1);assert.equal(converted.days[today].blocks.length,2);assert.ok(converted.setup.worries[0].convertedTo.startsWith('later|'))});
 test('anchor validation accepts only a clock time and leaves floating tasks optional',()=>{for(const at of ['00:00','14:00','23:59'])assert.equal(DDvalidAnchor(at),true);for(const at of ['24:00','12:60','2:00','tomorrow',''])assert.equal(DDvalidAnchor(at),false)});
 test('MCP adds and schedules Later tasks, preserving anchors and rejecting invalid or stale writes',async()=>{const sql=new DatabaseSync(':memory:');sql.exec(readFileSync(new URL('../schema.sql',import.meta.url),'utf8'));const env={DB:{prepare(query){let args=[];return {bind(...values){args=values;return this},async first(){return sql.prepare(query).get(...args)||null}}}}};try{await save(env,snapshot(),0);const args={expected_revision:1,name:'Anchor outreach',minutes:30,type_id:'work',lane_id:'work',anchor_time:'14:00'};await assert.rejects(callTool('add_later',{...args,anchor_time:'24:00'},env,'write'),/anchor_time/);await assert.rejects(callTool('add_later',args,env,'read'));const added=await callTool('add_later',args,env,'write');assert.equal(added.revision,2);await assert.rejects(callTool('schedule_later',{expected_revision:1,block_id:added.id,date:tomorrow},env,'write'),/Conflict/);await callTool('schedule_later',{expected_revision:2,block_id:added.id,date:tomorrow},env,'write');const {day}=await callTool('get_day',{date:tomorrow},env,'read');assert.equal(day.blocks[0].at,'14:00');await callTool('update_block',{expected_revision:3,date:tomorrow,block_id:added.id,anchor_time:''},env,'write');assert.equal((await read(env)).data.days[tomorrow].blocks[0].at,'');assert.equal((await read(env)).data.setup.later.length,0);}finally{sql.close()}});
+
+// One "Outside event" a day (5.86.1, L8).
+test('pausing twice on one day keeps one Outside event and counts the pauses',()=>{
+ let data=snapshot();
+ data=DDbeginPause(data,today,false,ensureDay);
+ data=DDresolvePause(data,today,'continue',ensureDay);
+ data=DDbeginPause(data,today,false,ensureDay);
+ const day=data.days[today];
+ assert.equal(day.bugs.filter(b=>b.triggerTag==='outside-event').length,1,'the same line opens again');
+ assert.equal(day.bugs[0].fixed,false,'and is open while the day is paused');
+ assert.equal(day.pause.eventId,day.bugs[0].id);
+ assert.equal(day.pause.count,2);
+ data=DDresolvePause(data,today,'continue',ensureDay);
+ assert.equal(data.days[today].bugs[0].fixed,true);
+});
+test('copies of the Outside event from older versions fold into one',()=>{
+ const ev=(id,fixed,text='Outside event')=>({id,text,fixed,category:'plan',triggerTag:'outside-event'});
+ const other={id:'f',text:'Tired',fixed:false,triggerTag:'low-energy'};
+ const folded=DDfoldPauseEvents([ev('a',true),other,ev('b',false),ev('c',true)],'b');
+ assert.deepEqual(folded.map(b=>b.id),['f','b'],'the line the pause points at is kept, feelings stay');
+ assert.equal(folded[1].fixed,false,'open while any copy is open');
+ assert.deepEqual(DDfoldPauseEvents([ev('a',true),ev('b',true)]).map(b=>b.id),['a']);
+ assert.equal(DDfoldPauseEvents([ev('a',true),ev('b',true)])[0].fixed,true);
+ assert.equal(DDfoldPauseEvents([ev('a',true),ev('d',false,'Doctor')]).length,2,'a different event stays its own line');
+ const list=[ev('a',true),other];
+ assert.equal(DDfoldPauseEvents(list),list,'nothing to fold: the same list');
+});

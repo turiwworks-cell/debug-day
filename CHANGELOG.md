@@ -1,3 +1,8 @@
+## 5.86.1 — 2026-11-20
+Branch: claude/project-thread-h96514
+- A very full day offers to move the right task (L2): the least important first (a normal task, then P3, then P2; P1 moves last, it used to go first), then one not started yet, then the longest, since it frees the most room. A task set for a time stays where it is.
+- Pause the day writes one "Outside event" a day (L8): pausing again the same day opens that line again, and the copies older versions left fold into one, so the Calendar's "Feelings & events" counts it once. Each day remembers how many times it was paused.
+
 ## 5.86.0 — 2026-11-20
 Branch: claude/project-thread-h96514
 - Time is optional (L1): a new task has no time unless you give it one. Settings › New tasks take offers "No time" first and starts there; a planner that still had the old untouched 60 minutes moves to "No time" once, and a length you pick (an hour too) stays.

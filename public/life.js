@@ -40,6 +40,30 @@ export function DDscheduleLater(snapshot, id, date, ensureDay) {
   data.setup.later = data.setup.later.filter((b) => b.id !== id);
   return data;
 }
+// One "Outside event" line a day (5.86.1, L8). Pausing again on the same day
+// opens that line again instead of writing it once more, and copies left by
+// older versions fold into one: it stays open while any copy is open, and the
+// line the pause points at is the one kept.
+const DDpauseKey = (bug) => String(bug?.text || "").trim().toLowerCase();
+export function DDfoldPauseEvents(bugs, keepId = "") {
+  const list = Array.isArray(bugs) ? bugs : [],
+    groups = new Map();
+  for (const bug of list)
+    if (bug?.triggerTag === "outside-event") {
+      const key = DDpauseKey(bug);
+      groups.set(key, [...(groups.get(key) || []), bug]);
+    }
+  if (![...groups.values()].some((group) => group.length > 1)) return list;
+  const drop = new Set(),
+    keep = new Map();
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const kept = group.find((bug) => keepId && bug.id === keepId) || group[0];
+    group.forEach((bug) => bug !== kept && drop.add(bug));
+    keep.set(kept, { ...kept, fixed: group.every((bug) => bug.fixed) });
+  }
+  return list.filter((bug) => !drop.has(bug)).map((bug) => keep.get(bug) || bug);
+}
 export function DDbeginPause(
   snapshot,
   date,
@@ -51,25 +75,34 @@ export function DDbeginPause(
     day =
       data.days[date] || (data.days[date] = structuredClone(ensureDay(date)));
   if (day.pause?.active) return snapshot;
-  const id = crypto.randomUUID();
+  day.bugs = DDfoldPauseEvents(day.bugs || [], day.pause?.eventId);
+  const again = day.bugs.find(
+    (bug) =>
+      bug.triggerTag === "outside-event" &&
+      DDpauseKey(bug) === DDpauseKey({ text: label }),
+  );
+  const id = again?.id || crypto.randomUUID();
   day.pause = {
     active: true,
     closed: false,
     at: new Date().toISOString(),
     wasRunning: !!wasRunning,
     eventId: id,
+    // How many times the day was paused (for the weekly look at Pauses).
+    count: (Number(day.pause?.count) || 0) + 1,
   };
-  day.bugs ||= [];
-  day.bugs.push({
-    id,
-    text: label,
-    type: "",
-    on: "",
-    fixed: false,
-    category: "plan",
-    triggerTag: "outside-event",
-    antidote: "",
-  });
+  if (again) day.bugs = day.bugs.map((bug) => (bug === again ? { ...bug, fixed: false } : bug));
+  else
+    day.bugs.push({
+      id,
+      text: label,
+      type: "",
+      on: "",
+      fixed: false,
+      category: "plan",
+      triggerTag: "outside-event",
+      antidote: "",
+    });
   return data;
 }
 export function DDresolvePause(snapshot, date, choice, ensureDay) {
