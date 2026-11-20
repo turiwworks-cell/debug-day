@@ -4,19 +4,23 @@
 //   today, parked, or left for you to choose (the Engine's carry line).
 // - A task can repeat every day. It is kept in the day templates (Settings),
 //   so each new day starts with it, and stops when you say so.
-import { DDengineCarry, DDengineCopy, DDengineParked, DDengineEarlierDay, DDhideEngineCarry } from "./engine.js";
+import { DDengineCarry, DDcarryOn, DDengineParked, DDengineEarlierDay, DDhideEngineCarry } from "./engine.js";
 
 export const DDroutineModes = ["ask", "bring", "park"];
 const RAN_KEY = "debug-day:routine-ran";
 const same = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
 
 // What the person chose, kept in preferences so it syncs. "ask" is the default.
+// `ran` is the last day the routine ran, kept with it so every device knows
+// (5.86.2, L4): the routine runs once a day, not once per device.
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
 export function DDroutineOf(setup) {
   const r = setup?.preferences?.routine;
-  return { leftovers: DDroutineModes.includes(r?.leftovers) ? r.leftovers : "ask" };
+  return { leftovers: DDroutineModes.includes(r?.leftovers) ? r.leftovers : "ask", ran: DAY.test(r?.ran || "") ? r.ran : "" };
 }
 export function DDroutineClean(routine) {
-  return routine && DDroutineModes.includes(routine.leftovers) && routine.leftovers !== "ask" ? { leftovers: routine.leftovers } : null;
+  if (!routine || !DDroutineModes.includes(routine.leftovers) || routine.leftovers === "ask") return null;
+  return DAY.test(routine.ran || "") ? { leftovers: routine.leftovers, ran: routine.ran } : { leftovers: routine.leftovers };
 }
 export function DDsetRoutine(setup, patch) {
   const next = DDroutineClean({ ...DDroutineOf(setup), ...patch }), preferences = { ...(setup.preferences || {}) };
@@ -28,20 +32,19 @@ export function DDsetRoutine(setup, patch) {
 // This morning's leftovers, done the chosen way. Returns null when there is
 // nothing to do, or { data, mode, from, names }. Running it again does nothing
 // new: tasks already in today (or already parked) are left alone.
-export function DDroutineMorning(data, today, ensureDay = (date) => ({ date, blocks: [], notes: [], bugs: [] }), makeId = () => crypto.randomUUID()) {
-  const { leftovers } = DDroutineOf(data?.setup);
-  if (leftovers === "ask" || !data?.days) return null;
+// Since 5.86.2 (L3) the tasks are carried on, not copied fresh: their done
+// steps stay, and the last day marks them carried on so it no longer counts
+// them as left undone. The day it ran is kept in the synced routine (L4).
+export function DDroutineMorning(data, today, ensureDay = (date) => ({ date, blocks: [], notes: [], bugs: [] })) {
+  const { leftovers, ran } = DDroutineOf(data?.setup);
+  if (leftovers === "ask" || !data?.days || ran === today) return null;
   const day = data.days[today] || ensureDay(today),
     carry = DDengineCarry(data.days, day),
     parked = DDengineParked(data.setup),
-    list = [...carry.open, ...carry.waiting].filter((b) => leftovers === "bring" || !parked.some((p) => same(p.name, b.name)));
-  if (!list.length) return null;
-  const copies = list.map((b) => DDengineCopy(b, makeId));
-  const next =
-    leftovers === "bring"
-      ? { ...data, days: { ...data.days, [today]: { ...day, blocks: [...(day.blocks || []), ...copies] } } }
-      : { ...data, setup: { ...data.setup, later: [...parked, ...copies.map(({ at: _at, ...b }) => b)] } };
-  return { data: next, mode: leftovers, from: carry.date, names: list.map((b) => b.name) };
+    items = carry.items.filter(({ block }) => leftovers === "bring" || !parked.some((p) => same(p.name, block.name) || p.carriedFrom?.id === block.id));
+  if (!items.length) return null;
+  const next = DDcarryOn(data, items, leftovers === "bring" ? today : "park", ensureDay);
+  return { data: { ...next, setup: DDsetRoutine(next.setup, { ran: today }) }, mode: leftovers, from: carry.date, names: items.map(({ block }) => block.name) };
 }
 
 // Repeat every day: a copy of the task in every day template (each day uses
@@ -76,17 +79,36 @@ export function DDrepeatList(setup) {
 const ran = (date) => { try { return localStorage.getItem(RAN_KEY) === date; } catch { return false; } };
 const mark = (date) => { try { localStorage.setItem(RAN_KEY, date); } catch {} };
 
+// With sync on, the routine waits for this visit's first sync (5.86.2, L4), so
+// it sees what the other devices already did; with no answer it goes ahead
+// after 20 seconds. `cloud` reads the sync state.
+export function DDroutineSettled(cloud) {
+  let state = null;
+  try { state = typeof cloud === "function" ? cloud() : null; } catch {}
+  return !state || !state.connected || !!state.lastSync || !!state.error;
+}
 // Mounted once by the app: does the morning routine the first time today is
-// seen on this device, and says what it did.
-export function DDDailyRoutine({ React: R, data, today, setData, ensureDay, makeId, language, onToast }) {
+// seen, once a day across devices, and says what it did.
+export function DDDailyRoutine({ React: R, data, today, setData, ensureDay, makeId, language, onToast, cloud }) {
   const fa = language === "fa", t = (en, f) => (fa ? f : en),
-    { leftovers } = DDroutineOf(data?.setup),
-    earlier = DDengineEarlierDay(data?.days || {}, today)?.date || "";
+    { leftovers, ran: ranOn } = DDroutineOf(data?.setup),
+    earlier = DDengineEarlierDay(data?.days || {}, today)?.date || "",
+    [settled, setSettled] = R.useState(() => DDroutineSettled(cloud)),
+    latest = R.useRef(data);
+  latest.current = data;
   R.useEffect(() => {
-    if (leftovers === "ask" || !earlier || ran(today)) return;
-    mark(today);
-    const result = DDroutineMorning(data, today, ensureDay, makeId);
+    if (settled) return;
+    const check = () => DDroutineSettled(cloud) && setSettled(true),
+      timer = setTimeout(() => setSettled(true), 20000);
+    window.addEventListener("debug-day-cloud-status", check);
+    check();
+    return () => (window.removeEventListener("debug-day-cloud-status", check), clearTimeout(timer));
+  }, [settled]);
+  R.useEffect(() => {
+    if (!settled || leftovers === "ask" || !earlier || ranOn === today || ran(today)) return;
+    const result = DDroutineMorning(latest.current, today, ensureDay, makeId);
     if (!result) return;
+    mark(today);
     setData((old) => DDroutineMorning(old, today, ensureDay, makeId)?.data || old);
     // Parked ones no longer need the carry line today.
     if (result.mode === "park") DDhideEngineCarry(today);
@@ -94,7 +116,7 @@ export function DDDailyRoutine({ React: R, data, today, setData, ensureDay, make
     onToast?.(result.mode === "bring"
       ? t(n === 1 ? "Brought 1 open task into today" : `Brought ${n} open tasks into today`, `${n.toLocaleString("fa-IR")} کار باز به امروز آمد`)
       : t(n === 1 ? "Parked 1 open task from the last day" : `Parked ${n} open tasks from the last day`, `${n.toLocaleString("fa-IR")} کار باز روز قبل پارک شد`));
-  }, [today, leftovers, earlier]);
+  }, [settled, today, leftovers, earlier, ranOn]);
   return null;
 }
 

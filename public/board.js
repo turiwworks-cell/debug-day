@@ -3,7 +3,7 @@ import { DDreconcileDay, DDrelation, DDconnectRelation, DDdisconnectRelation, DD
 import { DDconnectionGeometry, DDwireGap, DDgrowRect } from "./connections.js";
 import { DDundoRevert } from "./board-history.js";
 import { DDcreateBoardLayout, DDengineShift, DDnoteOnEngine } from "./board-layout.js";
-import { DDengineBus, DDengineGoBus, DDengineTaskFromNote, DDengineSources, DDengineSourceHistory, DDengineStrip, DDinstallEngineStyles, DDengineCarry, DDnoType } from "./engine.js";
+import { DDengineBus, DDengineGoBus, DDengineTaskFromNote, DDengineSources, DDengineSourceHistory, DDengineStrip, DDinstallEngineStyles, DDengineCarry, DDnoType, DDcarryCopies, DDmarkCarried } from "./engine.js";
 import { DDEngineOverlay } from "./engine-panel.js";
 import { DDengineSectionIds, DDinstallEngineQuietStyles } from "./engine-quiet.js";
 import { DDboardShortcuts, DDboardSearchRows, DDrootSelection, DDmarqueeSelection, DDselectionToolbar, DDBoardSearch, DDBoardTimer, DDBoardTimerButton, DDinstallBoardExperience, DDinstallZoomLock } from "./board-experience.js";
@@ -417,9 +417,11 @@ export function DDcreateBoard(deps) {
         .join("|");
     // An undo step keeps the state before and right after the action, so undo
     // takes back only that action (see board-history.js).
-    function remember(Y, shared = DDlifeState(propsRef.current.setup), afterDay = null, afterLife = null) {
-      const G = history.current;
-      (G.past.push({ day: copy(Y), life: copy(shared), ...(afterDay ? { after: { day: copy(afterDay), life: copy(afterLife || shared) } } : {}), bytes: JSON.stringify([Y,shared,afterDay,afterLife]).length }),
+    // `others`: earlier days the same action changed (a carried task is marked
+    // on its own day, 5.86.2), so one undo takes those back too.
+    function remember(Y, shared = DDlifeState(propsRef.current.setup), afterDay = null, afterLife = null, others = null) {
+      const G = history.current, more = others?.length ? { others: others.map((o) => ({ date: o.date, day: copy(o.day), after: copy(o.after) })) } : {};
+      (G.past.push({ day: copy(Y), life: copy(shared), ...(afterDay ? { after: { day: copy(afterDay), life: copy(afterLife || shared) } } : {}), ...more, bytes: JSON.stringify([Y,shared,afterDay,afterLife,others]).length }),
         (G.future = []));
       let ct = G.past.reduce((ot, St) => ot + St.bytes, 0);
       for (; G.past.length > 50 || (ct > 24e6 && G.past.length > 1); )
@@ -484,13 +486,26 @@ export function DDcreateBoard(deps) {
       const lifeChanged = JSON.stringify(shared) !== JSON.stringify(nextLife);
       !St ||
         (!lifeChanged && JSON.stringify(St) === JSON.stringify(ot)) ||
-        (ct.history !== !1 && remember(ot, shared, St, nextLife),
+        (ct.history !== !1 && remember(ot, shared, St, nextLife, ct.others),
         lifeChanged && (propsRef.current.setup = { ...propsRef.current.setup, life: nextLife }, propsRef.current.onUpdateSetup?.((s) => ({ ...s, life: nextLife }))),
         (dayRef.current = St),
         (ownUpdate.current = St),
         propsRef.current.onUpdateDay(() => St),
         setTick((Tt) => Tt + 1),
         G && setStatus(G));
+    }
+    // Carrying tasks on (5.86.2): today gets the copies and each earlier day
+    // marks its tasks carried on, in one undo step.
+    function carryOn(items) {
+      const date = dayRef.current.date, all = propsRef.current.allDays || {}, byDate = new Map();
+      for (const { date: from, block } of items || []) if (from && from !== date) byDate.set(from, [...(byDate.get(from) || []), block.id]);
+      const others = [];
+      for (const [from, ids] of byDate) {
+        const before = all[from];
+        if (before) others.push({ date: from, day: before, after: DDmarkCarried(before, ids, date) });
+      }
+      commit((d) => ({ ...d, blocks: [...d.blocks, ...DDcarryCopies(items || [], d)] }), t("Engine updated", "انجین به‌روز شد"), { others });
+      for (const o of others) propsRef.current.onUpdateDayOnDate?.(o.date, (d) => DDmarkCarried(d, byDate.get(o.date), date));
     }
     function boardDocument() {
       const d = copy(dayRef.current), frame = layoutRef.current?.map.get("section:life");
@@ -524,7 +539,13 @@ export function DDcreateBoard(deps) {
       const beforeLife = St.life && (Array.isArray(St.life) ? { ...shared, items: St.life } : St.life);
       const nextDay = St.day && (St.after?.day ? DDundoRevert(Tt, St.after.day, St.day) : copy(St.day));
       const nextLife = beforeLife && (St.after?.life ? DDundoRevert(shared, St.after.life, beforeLife) : copy(beforeLife));
-      ot.push({ day: St.day ? Tt : null, life: copy(shared), ...(St.after ? { after: { day: nextDay ? copy(nextDay) : null, life: copy(nextLife || shared) } } : {}), bytes: JSON.stringify([Tt,shared,nextDay,nextLife]).length });
+      // Other days the step changed go back too (and come again on redo).
+      const others = (St.others || []).map((o) => {
+        const now = copy(propsRef.current.allDays?.[o.date] || o.after);
+        return { date: o.date, day: now, after: DDundoRevert(now, o.after, o.day) || copy(o.day) };
+      });
+      ot.push({ day: St.day ? Tt : null, life: copy(shared), ...(St.after ? { after: { day: nextDay ? copy(nextDay) : null, life: copy(nextLife || shared) } } : {}), ...(others.length ? { others } : {}), bytes: JSON.stringify([Tt,shared,nextDay,nextLife,others]).length });
+      for (const o of others) propsRef.current.onUpdateDayOnDate?.(o.date, () => copy(o.after));
       if (nextLife) {
         propsRef.current.setup = { ...propsRef.current.setup, life: copy(nextLife) };
         propsRef.current.onUpdateSetup?.((s) => ({ ...s, life: copy(nextLife) }));
@@ -6786,6 +6807,10 @@ export function DDcreateBoard(deps) {
                   : propsRef.current.onUpdateDayOnDate?.(before.date, (d) => DDundoRevert(d, after, before) || d));
           },
           onSetup: (change) => propsRef.current.onUpdateSetup?.(change),
+          // Carrying a task on marks it on its own earlier day (5.86.2); on the
+          // Board both are one step, so one undo takes the whole bring back.
+          onUpdateDayOnDate: (date, change) => propsRef.current.onUpdateDayOnDate?.(date, change),
+          onCarry: (items) => carryOn(items),
           onToast: (message, undo) => propsRef.current.onToast?.(message, undo),
           onTomorrow: propsRef.current.onMoveTask ? (id) => propsRef.current.onMoveTask(day.date, id) : undefined,
           onReveal: (blockId) => {

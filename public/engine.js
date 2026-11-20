@@ -212,10 +212,67 @@ export function DDengineCopy(block, makeId = () => crypto.randomUUID()) {
   return copy;
 }
 
-// Is a task with this name already in today's Engine?
+// Carrying a task on (5.86.2, L3): the same task, brought to a later day, not
+// a fresh copy. Its steps keep what is done and it remembers where it came
+// from; the earlier day's task is marked carried on (carriedTo), so that day no
+// longer counts it as left undone. The new id comes from the task's own id and
+// the day it goes to, so bringing it twice, or on two devices, adds it once.
+export function DDcarryId(id, to) {
+  const root = String(id || "").replace(/^c\d{8}-/, "").replace(/^cpark-/, "");
+  return "c" + (to === "park" ? "park" : String(to || "").replace(/-/g, "")) + "-" + root;
+}
+export function DDengineCarryCopy(block, from, to) {
+  const copy = { ...structuredClone(block), id: DDcarryId(block.id, to), done: false, carriedFrom: { date: from || "", id: block.id } };
+  for (const key of ["carriedTo", "score", "bx", "by", "at"]) delete copy[key];
+  return copy;
+}
+// The earlier day after its tasks `ids` were carried on to `to` (a date or "park").
+export function DDmarkCarried(day, ids, to) {
+  const set = new Set(ids);
+  if (!day?.blocks?.some((b) => set.has(b.id) && b.carriedTo !== to)) return day;
+  return { ...day, blocks: day.blocks.map((b) => (set.has(b.id) ? { ...b, carriedTo: to } : b)) };
+}
+// The copies `list` ({ date, block } pairs) adds to `day`: the ones not there yet.
+export function DDcarryCopies(list, day) {
+  const here = new Set((day?.blocks || []).map((b) => b.id));
+  return (list || []).filter(({ block }) => !here.has(DDcarryId(block.id, day.date))).map(({ date, block }) => DDengineCarryCopy(block, date, day.date));
+}
+// Carry `list` on to the day `to`, or to Park when `to` is "park", in one change.
+export function DDcarryOn(data, list, to, ensureDay = (date) => ({ date, blocks: [], notes: [], bugs: [] })) {
+  if (!list?.length) return data;
+  const days = { ...data.days };
+  let setup = data.setup;
+  if (to === "park") {
+    const parked = DDengineParked(setup), here = new Set(parked.map((b) => b.id));
+    const copies = list.filter(({ block }) => !here.has(DDcarryId(block.id, "park"))).map(({ date, block }) => DDengineCarryCopy(block, date, "park"));
+    setup = { ...setup, later: [...parked, ...copies] };
+  } else {
+    const day = days[to] || ensureDay(to);
+    days[to] = { ...day, blocks: [...(day.blocks || []), ...DDcarryCopies(list, { ...day, date: to })] };
+  }
+  const byDate = new Map();
+  for (const { date, block } of list) byDate.set(date, [...(byDate.get(date) || []), block.id]);
+  for (const [date, ids] of byDate) if (days[date]) days[date] = DDmarkCarried(days[date], ids, to);
+  return { ...data, setup, days };
+}
+
+// "→ Fri 21 Nov" or "→ Park" for a task carried on (5.86.2), in the calendar
+// the Calendar uses on this device.
+export function DDcarriedText(block, language) {
+  const to = block?.carriedTo, fa = language === "fa";
+  if (!to) return "";
+  if (to === "park") return fa ? "→ پارک" : "→ Park";
+  let calendar = fa ? "persian" : "gregory";
+  try { const saved = JSON.parse(localStorage.getItem("debug-day:review-calendar")); if (["persian", "gregory"].includes(saved)) calendar = saved; } catch {}
+  try { return "→ " + new Intl.DateTimeFormat(fa ? "fa-IR" : "en-GB", { calendar, weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(to + "T12:00:00Z")); } catch { return "→ " + to; }
+}
+
+// Is this task already in today's Engine? The task carried on from it is (by
+// its id), and so is one with the same name (older days have no ids to go by).
 const sameName = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
 export function DDengineHas(day, block) {
-  return (day?.blocks || []).some((b) => sameName(b.name, block.name));
+  const id = block?.id, carried = id && day?.date ? DDcarryId(id, day.date) : "";
+  return (day?.blocks || []).some((b) => (id && (b.id === carried || b.carriedFrom?.id === id)) || sameName(b.name, block?.name));
 }
 
 // What is still open to bring into today (5.37), read from the days, nothing
@@ -227,19 +284,26 @@ export function DDengineCarry(days = {}, day = {}, lookback = 60) {
   const date = day?.date || "",
     named = (b) => String(b?.name || "").trim() !== "",
     earlier = DDengineEarlierDay(days, date),
-    open = earlier ? (earlier.day.blocks || []).filter((b) => named(b) && !b.done && !DDengineHas(day, b)) : [],
+    // A task already carried on (to another day or to Park) is not offered
+    // again. One carried to this day comes back only if its copy was taken off.
+    gone = (b) => !!b.carriedTo && b.carriedTo !== date,
+    open = earlier ? (earlier.day.blocks || []).filter((b) => named(b) && !b.done && !gone(b) && !DDengineHas(day, b)) : [],
     taken = new Set(open.map((b) => String(b.name).trim().toLowerCase())),
     dates = Object.keys(days).filter((key) => key < date).sort().reverse().slice(0, lookback),
-    waiting = [];
+    waiting = [],
+    from = new Map();
   for (const key of dates)
     for (const block of days[key]?.blocks || []) {
       const name = String(block.name || "").trim().toLowerCase();
-      if (block.measure !== "wait" || block.done || !named(block) || taken.has(name) || DDengineHas(day, block)) continue;
+      if (block.measure !== "wait" || block.done || gone(block) || !named(block) || taken.has(name) || DDengineHas(day, block)) continue;
       if (dates.some((later) => later > key && DDengineHas(days[later], block))) continue;
       taken.add(name);
       waiting.push(block);
+      from.set(block.id, key);
     }
-  return { date: earlier?.date || "", open, waiting, count: open.length + waiting.length };
+  // `items`: each task with the day it is on, for DDcarryOn.
+  const items = [...open.map((block) => ({ date: earlier.date, block })), ...waiting.map((block) => ({ date: from.get(block.id), block }))];
+  return { date: earlier?.date || "", open, waiting, items, count: open.length + waiting.length };
 }
 
 // "Not today" on the carry line is remembered for that day on this device only.

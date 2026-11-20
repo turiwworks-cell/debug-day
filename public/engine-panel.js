@@ -15,6 +15,9 @@
 // search show it at once.
 import {
   DDengineCarry,
+  DDcarryCopies,
+  DDmarkCarried,
+  DDcarriedText,
   DDengineCarryHidden,
   DDhideEngineCarry,
   DDengineCopy,
@@ -158,7 +161,8 @@ function EarlierEngine({ React: R, days, day, language, dateFormat, onCopy }) {
     [skip, setSkip] = R.useState(0),
     earlier = DDengineEarlierDay(days, day.date, skip);
   if (!earlier) return h("div", { className: "dd-engine-earlier", "data-empty": true }, t("No earlier day has tasks yet.", "هنوز روز قبلی با کار نداری."));
-  const open = earlier.day.blocks.filter((b) => !b.done && !DDengineHas(day, b));
+  const open = earlier.day.blocks.filter((b) => !b.done && !b.carriedTo && !DDengineHas(day, b)),
+    copy = (list) => onCopy(list, earlier.date);
   return h(
     "div",
     { className: "dd-engine-earlier", "data-earlier-date": earlier.date },
@@ -168,7 +172,7 @@ function EarlierEngine({ React: R, days, day, language, dateFormat, onCopy }) {
       h("button", { type: "button", disabled: !earlier.more, "aria-label": t("Earlier day", "روز قبل‌تر"), onClick: () => setSkip(skip + 1) }, fa ? "›" : "‹"),
       h("strong", null, t("Engine of ", "انجین ") + (dateFormat ? dateFormat(earlier.date) : earlier.date)),
       h("button", { type: "button", disabled: !skip, "aria-label": t("Later day", "روز بعدتر"), onClick: () => setSkip(Math.max(0, skip - 1)) }, fa ? "‹" : "›"),
-      h("button", { type: "button", className: "dd-engine-copy-all", disabled: !open.length, onClick: () => onCopy(open) }, t("Copy all open", "کپی همهٔ کارهای باز") + " (" + digits(open.length, fa) + ")"),
+      h("button", { type: "button", className: "dd-engine-copy-all", disabled: !open.length, onClick: () => copy(open) }, t("Bring all open", "آوردن همهٔ کارهای باز") + " (" + digits(open.length, fa) + ")"),
     ),
     h(
       "ul",
@@ -180,7 +184,9 @@ function EarlierEngine({ React: R, days, day, language, dateFormat, onCopy }) {
           h("span", { className: "dd-engine-earlier-name", dir: "auto" }, (block.done ? "✓ " : "") + (block.name || t("Untitled", "بی‌نام"))),
           DDengineHas(day, block)
             ? h("span", { className: "dd-engine-here" }, t("Already today", "امروز هست"))
-            : h("button", { type: "button", className: "dd-engine-copy", "aria-label": t("Copy to today: ", "کپی به امروز: ") + (block.name || ""), onClick: () => onCopy([block]) }, t("+ Today", "+ امروز")),
+            : block.carriedTo
+              ? h("span", { className: "dd-engine-here", "data-carried": true }, DDcarriedText(block, language))
+              : h("button", { type: "button", className: "dd-engine-copy", "aria-label": t("Copy to today: ", "کپی به امروز: ") + (block.name || ""), onClick: () => copy([block]) }, t("+ Today", "+ امروز")),
         ),
       ),
     ),
@@ -678,6 +684,8 @@ export function DDEnginePanel(props) {
       from = "",
       focusId,
       onChange,
+      onUpdateDayOnDate,
+      onCarry,
       onSetup,
       onToast,
       onTomorrow,
@@ -799,6 +807,16 @@ export function DDEnginePanel(props) {
           if (later.some((b) => b.id === id)) return s;
           return { ...s, later: [...later.slice(0, at), block, ...later.slice(at)] };
         }));
+    },
+    // Carrying on (5.86.2): today gets the tasks, their done steps kept, and
+    // each earlier day marks them carried on, so it no longer counts them.
+    carryOn = (items) => {
+      if (!items?.length) return;
+      if (onCarry) return onCarry(items);
+      onChange((d) => ({ ...d, blocks: [...d.blocks, ...DDcarryCopies(items, d)] }));
+      const byDate = new Map();
+      for (const { date, block } of items) byDate.set(date, [...(byDate.get(date) || []), block.id]);
+      for (const [date, ids] of byDate) if (date && date !== day.date) onUpdateDayOnDate?.(date, (d) => DDmarkCarried(d, ids, day.date));
     },
     duplicate = (id) =>
       onChange((d) => {
@@ -936,7 +954,7 @@ export function DDEnginePanel(props) {
         carry,
         language,
         dateFormat,
-        onBring: () => onChange((d) => ({ ...d, blocks: [...d.blocks, ...[...carry.open, ...carry.waiting].map((b) => DDengineCopy(b, makeId))] })),
+        onBring: () => carryOn(carry.items),
         onChoose: () => setEarlierOpen(true),
         onHide: () => (DDhideEngineCarry(day.date), setCarryHidden(true)),
       }),
@@ -947,7 +965,13 @@ export function DDEnginePanel(props) {
         day,
         language,
         dateFormat,
-        onCopy: (list) => onChange((d) => ({ ...d, blocks: [...d.blocks, ...list.map((b) => DDengineCopy(b, makeId))] })),
+        // An open task is carried on (its done steps stay, its day lets it go);
+        // a done one comes back as a fresh copy, to do again.
+        onCopy: (list, date) => {
+          const done = list.filter((b) => b.done);
+          if (done.length) onChange((d) => ({ ...d, blocks: [...d.blocks, ...done.map((b) => DDengineCopy(b, makeId))] }));
+          carryOn(list.filter((b) => !b.done).map((block) => ({ date, block })));
+        },
       }),
     // Capture, Today and Park work together (5.55): ideas caught on the go wait
     // in Capture until you send each one to Today or to Park.

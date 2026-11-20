@@ -1,3 +1,12 @@
+## 5.86.2 — 2026-11-20
+Branch: claude/project-thread-h96514
+- Bringing yesterday's open tasks into today carries them on instead of copying them fresh (L3): done steps stay done, and the task remembers the day it came from.
+- The day a task came from lets it go: it shows "→ Fri 21 Nov" (or "→ Park") in the Calendar, the week and the Earlier Engine, and that day's Progress, fullness and week numbers no longer count it as left undone.
+- A task is matched by its own id now, so a carried task you rename is not offered again, and bringing the same task twice, or on two devices, adds it once.
+- The Earlier Engine brings an open task on the same way; a done task still comes back as a fresh copy to do again.
+- On the Board one undo takes the whole bring back, the marks on the earlier days too, and redo brings it again. A task carried to today that you take off today is offered again, as before.
+- The morning routine runs once a day on every device, not once per device (L4): the day it ran is kept with the routine and syncs. With sync on it waits for the first sync of the visit (up to 20 seconds), so it sees what your other devices already did.
+
 ## 5.86.1 — 2026-11-20
 Branch: claude/project-thread-h96514
 - A very full day offers to move the right task (L2): the least important first (a normal task, then P3, then P2; P1 moves last, it used to go first), then one not started yet, then the longest, since it frees the most room. A task set for a time stays where it is.

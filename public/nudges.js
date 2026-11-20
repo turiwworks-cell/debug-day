@@ -1,7 +1,7 @@
 // Gentle nudges at the top of the Engine (5.45). Each one is a single calm line with
 // one button and a way to say "not today". Nothing is red and nothing moves on
 // its own; the person decides.
-import { DDengineCarry, DDengineCopy, DDengineCarryHidden, DDhideEngineCarry } from "./engine.js";
+import { DDengineCarry, DDcarryCopies, DDengineCarryHidden, DDhideEngineCarry } from "./engine.js";
 import { DDplanMinutes, DDduration } from "./measure.js";
 import { DDlowDay, DDlightTasks, DDlightFirst } from "./energy.js";
 import { DDaddDays } from "./dates.js";
@@ -12,7 +12,7 @@ export const DDfullMinutes = 600, DDfullCount = 12;
 const FULL_KEY = "debug-day:full-day-ok", LOW_KEY = "debug-day:low-day-ok";
 
 export function DDdayLoad(day) {
-  const open = (day?.blocks || []).filter((b) => !b.done && String(b.name || "").trim());
+  const open = (day?.blocks || []).filter((b) => !b.done && !b.carriedTo && String(b.name || "").trim());
   return { open, minutes: open.reduce((sum, b) => sum + DDplanMinutes(b), 0) };
 }
 
@@ -53,7 +53,7 @@ const icon = (h, d) => h("svg", { className: "dd-nudge-icon", viewBox: "0 0 16 1
 const hidden = (key, date) => { try { return localStorage.getItem(key) === date; } catch { return false; } };
 const hide = (key, date) => { try { localStorage.setItem(key, date); } catch {} };
 
-export function DDPlanNudges({ React: R, day, days, date, today, language, makeId, onUpdateDay, onMove, dateLabel, without = [] }) {
+export function DDPlanNudges({ React: R, day, days, date, today, language, makeId, onUpdateDay, onCarry, onMove, dateLabel, without = [] }) {
   const h = R.createElement, fa = language === "fa", t = (en, f) => (fa ? f : en),
     num = (n) => (fa ? n.toLocaleString("fa-IR") : String(n)),
     [, redraw] = R.useState(0);
@@ -69,7 +69,7 @@ export function DDPlanNudges({ React: R, day, days, date, today, language, makeI
       h("div", { className: "dd-nudge-text" },
         h("b", null, carry.count === 1 ? t("1 left from " + when, "۱ کار از " + when + " مانده") : t(carry.count + " left from " + when, num(carry.count) + " کار از " + when + " مانده")),
         h("small", { dir: "auto", title: all.map((b) => b.name).join(" · ") }, all.map((b) => b.name).join(" · "))),
-      h("button", { type: "button", className: "dd-nudge-go", onClick: () => onUpdateDay((d) => ({ ...d, blocks: [...d.blocks, ...all.map((b) => DDengineCopy(b, makeId))] })) },
+      h("button", { type: "button", className: "dd-nudge-go", onClick: () => (onCarry ? onCarry(carry.items) : onUpdateDay((d) => ({ ...d, blocks: [...d.blocks, ...DDcarryCopies(carry.items, d)] }))) },
         carry.count === 1 ? t("Bring it", "بیارش") : t("Bring them", "بیارشون")),
       h("button", { type: "button", className: "dd-nudge-later", onClick: () => { DDhideEngineCarry(date); redraw((n) => n + 1); } }, t("Not today", "امروز نه"))));
   }

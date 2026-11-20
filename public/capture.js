@@ -4,6 +4,7 @@ import { DDduration, DDtimeText, DDdefaultMinutes } from "./measure.js";
 import { DDlifeState, DDlifeAdd, DDcaptureEnsure } from "./life-board.js";
 import { DDcaptureId } from "./section-keys.js";
 import { DDPlanNudges, DDmoveToDay, DDnextDay } from "./nudges.js";
+import { DDcarryOn } from "./engine.js";
 import { DDvalidDate } from "./dates.js";
 const DDcaptureDate = DDvalidDate;
 export function DDworry(text, date, tag = "general-friction") {
@@ -464,6 +465,8 @@ export function DDCaptureTools({
         h(DDPlanNudges, {
           React: R, day, days: data.days, date, today, language,
           onUpdateDay: (change) => setData((d) => ({ ...d, days: { ...d.days, [date]: change(d.days[date] || ensureDay(date)) } })),
+          // Carried on (5.86.2): today gets them, their own days let them go.
+          onCarry: (items) => setData((d) => DDcarryOn(d, items, date, ensureDay)),
           onMove: (id) => { const name = day.blocks.find((b) => b.id === id)?.name || ""; setData((d) => DDmoveToDay(d, date, DDnextDay(date), id, ensureDay)); onToast?.(t("Moved “" + name + "” to tomorrow", "«" + name + "» رفت برای فردا")); },
         }),
         current

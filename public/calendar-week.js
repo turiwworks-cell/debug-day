@@ -9,6 +9,7 @@ import { DDremindersOn, DDcalDayRows, DDremIcon, DDopenReminder, DDopenOnBoard }
 import { DDtodoDueItems, DDtodoLists } from "./todos.js";
 import { DDenergyOf, DDenergyLabel } from "./energy.js";
 import { DDaddDays } from "./dates.js";
+import { DDcarriedText } from "./engine.js";
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 export const DDcalShift = DDaddDays;
@@ -41,7 +42,8 @@ export function DDweekLabel(date, language) {
 export function DDdaySections(day, items) {
   const out = new Map();
   for (const b of day?.blocks || []) {
-    if (!b?.from || !String(b.name || "").trim()) continue;
+    // A task carried on counts on the day it went to (5.86.2).
+    if (!b?.from || b.carriedTo || !String(b.name || "").trim()) continue;
     const tint = DDsectionTint(items, b.from);
     if (!tint) continue;
     const row = out.get(b.from) || { id: b.from, color: tint.fill, name: DDsectionPath(items, b.from, 28).short, minutes: 0, tasks: 0, done: 0 };
@@ -87,7 +89,7 @@ export function DDweekSummary(data, date, today, language) {
     const day = data.days?.[key];
     moods.push({ date: key, mood: day?.mood || "" });
     for (const b of day?.blocks || []) {
-      if (!String(b?.name || "").trim()) continue;
+      if (!String(b?.name || "").trim() || b.carriedTo) continue;
       planned++;
       if (!b.done) continue;
       done++;
@@ -179,7 +181,7 @@ export function DDCalendarWeek({ React: R, data, date, today, language, onSelect
         h("ul", { className: "dd-week-tasks" },
           due.map((i) => h("li", { key: "due-" + i.id, className: "dd-week-due", "data-week-due": i.id, dir: "auto", title: t("Deadline: ", "ددلاین: ") + DDdueName(i, language) }, "◆ " + DDdueName(i, language))),
           blocks.map((b) => h("li", {
-              key: b.id, className: "dd-week-task", "data-week-task": b.id, "data-done": !!b.done, draggable: true,
+              key: b.id, className: "dd-week-task", "data-week-task": b.id, "data-done": !!b.done, "data-carried": b.carriedTo ? true : undefined, title: b.carriedTo ? b.name + " " + DDcarriedText(b, language) : undefined, draggable: true,
               onDragStart: (e) => { drag.current = { kind: "block", id: b.id, from: key }; e.dataTransfer.setData("text/plain", JSON.stringify(drag.current)); e.dataTransfer.effectAllowed = "move"; },
               onDragEnd: () => { drag.current = null; setOver(null); },
             },
@@ -252,6 +254,7 @@ export const DDcalendarWeekCSS = `
 .dd-week-tasks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;min-width:0}
 .dd-week-task{display:flex;align-items:center;gap:6px;min-width:0;padding:5px 6px;border-radius:8px;background:var(--paper);box-shadow:inset 0 0 0 1px var(--rule);font-size:12px;line-height:1.3;color:var(--ink);cursor:grab}
 .dd-week-task[data-done=true] .dd-week-name{color:var(--ink-3);text-decoration:line-through}
+.dd-week-task[data-carried] .dd-week-name{color:var(--ink-3)}
 .dd-week-task{align-items:flex-start}
 .dd-week-name{flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .dd-week-check,.dd-review-root button.dd-week-check{flex:none;display:grid;place-items:center;width:16px;height:16px;min-width:0;min-height:0;margin-top:1px;padding:0;border-radius:50%;border:1.5px solid var(--dot);background:none;color:#fff;cursor:pointer}
