@@ -10,7 +10,7 @@ import { DDmcpMoreTools, DDmcpMoreCall } from "./mcp-tools.js";
 import { DDarchiveOf, DDarchiveJoin, DDarchiveName } from "../public/archive.js";
 const MAX_BYTES = 1500000;
 const VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"];
-const INFO = { name: "debug-day", title: "Debug Day", version: "5.91.0" };
+const INFO = { name: "debug-day", title: "Debug Day", version: "5.92.0" };
 class HttpError extends Error {
   constructor(status, message) {
     super(message);
