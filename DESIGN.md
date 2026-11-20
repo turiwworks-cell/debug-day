@@ -51,7 +51,7 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 - No guilt: no red, no streak-loss warnings, no "you failed". Use neutral words ("not yet", "left").
 - Budgets and goals are soft: "1h 30m / 6h · week", "12 of 35 · 9 days left". Green when reached, never red when over or behind.
 - A goal with a date counts down quietly in the Goals rail ("◆ 12d 02:10:16 left"). Never red; a passed date just says "date passed".
-- Reminders and deadlines work for any date. The Calendar's Reminders list shows everything coming ("This month" is one tap away).
+- Reminders and deadlines work for any date. A reminder repeats this day only, every day, week, other day, month or year (5.93); a month too short for its day uses its last day. A time is optional. The Calendar's Reminders list shows everything coming ("This month" is one tap away).
 - Every reminder is named on its day (5.84): in the month (a ring and the name, two lines at most), in the week and in the list. A to-do task with a time is a reminder too (a bell and its time). A tap opens it: the Calendar's own reminder opens in the day panel (title, day, repeat, note), and a to-do task or a note's deadline opens where it lives, on the Board. A day with reminders shows them first, under its name.
 - Deadlines are soft too: "◆ 8 days left", "tomorrow", "date passed" (`deadlines.js`). On a note the badge sits above the paper, never on it.
 - A task may be light or heavy (`energy.js`), never required. A tired day (😫 😕) offers the light ones first.

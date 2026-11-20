@@ -6,14 +6,67 @@
 import { DDdueName } from "./deadlines.js";
 import { DDvalidDate } from "./dates.js";
 
+// How a reminder repeats (5.93.0 adds every day, every month and every year).
+// A monthly or yearly one counts months in the calendar it was made with
+// (reminder.cal: Persian or Gregorian), and on a month too short for its day
+// (the 31st, or Esfand 30 in a common year) it comes on the month's last day.
+export const DDrepeatKinds = ["once", "daily", "weekly", "alternate", "monthly", "yearly"];
+export const DDrepeats = (reminder) => DDrepeatKinds.includes(reminder?.repeat) && reminder.repeat !== "once";
+export function DDrepeatName(value, language = "en") {
+  const fa = language === "fa";
+  return ({
+    daily: fa ? "هر روز" : "Every day",
+    weekly: fa ? "هر هفته" : "Every week",
+    alternate: fa ? "یک روز در میان" : "Every other day",
+    monthly: fa ? "هر ماه" : "Every month",
+    yearly: fa ? "هر سال" : "Every year",
+  })[value] || (fa ? "فقط این روز" : "This day only");
+}
+const partsSeen = new Map(), formats = {};
+function parts(date, cal) {
+  const key = cal + date;
+  if (!partsSeen.has(key)) {
+    if (partsSeen.size > 5000) partsSeen.clear();
+    formats[cal] ||= new Intl.DateTimeFormat("en", { calendar: cal, timeZone: "UTC", year: "numeric", month: "numeric", day: "numeric", numberingSystem: "latn" });
+    const out = {};
+    for (const p of formats[cal].formatToParts(new Date(date + "T12:00:00Z"))) if (p.type === "year" || p.type === "month" || p.type === "day") out[p.type] = +p.value;
+    partsSeen.set(key, out);
+  }
+  return partsSeen.get(key);
+}
+const next = (date) => new Date(Date.parse(date + "T12:00:00Z") + 864e5).toISOString().slice(0, 10);
+export function DDrepeatHits(reminder, date) {
+  if (!DDvalidDate(reminder?.date) || !DDvalidDate(date) || reminder.date > date) return false;
+  const repeat = reminder.repeat, days = Math.round((Date.parse(date + "T12:00:00Z") - Date.parse(reminder.date + "T12:00:00Z")) / 86400000);
+  if (repeat === "daily") return true;
+  if (repeat === "weekly") return days % 7 === 0;
+  if (repeat === "alternate") return days % 2 === 0;
+  if (repeat === "monthly" || repeat === "yearly") {
+    const cal = reminder.cal === "persian" ? "persian" : "gregory", start = parts(reminder.date, cal), here = parts(date, cal);
+    if (repeat === "yearly" && here.month !== start.month) return false;
+    return here.day === start.day || (here.day < start.day && parts(next(date), cal).day === 1);
+  }
+  return reminder.date === date;
+}
+// The next day a reminder comes on, from `from` on ("" when it has passed).
+export function DDrepeatNext(reminder, from) {
+  if (!DDvalidDate(reminder?.date) || !DDvalidDate(from)) return "";
+  if (reminder.date >= from) return reminder.date;
+  if (!DDrepeats(reminder)) return "";
+  if (reminder.repeat === "daily") return from;
+  if (reminder.repeat === "weekly" || reminder.repeat === "alternate") {
+    const step = reminder.repeat === "weekly" ? 7 : 2, days = Math.round((Date.parse(from + "T12:00:00Z") - Date.parse(reminder.date + "T12:00:00Z")) / 86400000);
+    return new Date(Date.parse(reminder.date + "T12:00:00Z") + Math.ceil(days / step) * step * 864e5).toISOString().slice(0, 10);
+  }
+  let date = from;
+  for (let i = 0; i < 400; i++, date = next(date)) if (DDrepeatHits(reminder, date)) return date;
+  return "";
+}
+
 // The Calendar's reminders that come on `date` (a repeating one is done one day at a time).
 export function DDremindersOn(reminders = [], date) {
   return (reminders || [])
-    .filter((reminder) => {
-      if (!DDvalidDate(reminder?.date) || reminder.date > date) return false;
-      const days = Math.round((Date.parse(date + "T12:00:00Z") - Date.parse(reminder.date + "T12:00:00Z")) / 86400000);
-      return reminder.repeat === "weekly" ? days % 7 === 0 : reminder.repeat === "alternate" ? days % 2 === 0 : reminder.date === date;
-    })
+    .filter((reminder) => DDrepeatHits(reminder, date))
     .map((reminder) => (reminder.repeat !== "once" && reminder.completedDates?.includes(date) ? { ...reminder, done: true } : reminder));
 }
 
@@ -23,7 +76,7 @@ export function DDcalDayRows(reminders = [], due = [], language) {
   const timed = (due || []).filter((i) => i.time).sort((a, b) => a.time.localeCompare(b.time));
   return {
     rows: [
-      ...(reminders || []).map((r) => ({ kind: "reminder", id: r.id, title: r.title, done: !!r.done, repeat: r.repeat || "once" })),
+      ...(reminders || []).map((r) => ({ kind: "reminder", id: r.id, title: r.title, done: !!r.done, repeat: r.repeat || "once", ...(r.time ? { time: r.time } : {}) })),
       ...timed.map((i) => ({ kind: "timed", id: i.id, title: DDdueName(i, language), time: i.time, item: i })),
     ],
     deadlines: (due || []).filter((i) => !i.time),
@@ -167,8 +220,8 @@ export const DDcalRemindersCSS = `
 .dd-rem-detail label{display:grid;gap:4px;font-size:12px;font-weight:500;color:var(--ink-2,var(--muted))}
 .dd-review-root .dd-rem-detail input,.dd-review-root .dd-rem-detail textarea{width:100%;min-height:38px;padding:8px 12px;border:0;border-radius:10px;background:var(--panel,var(--paper));color:var(--ink);font:inherit;font-size:14px;box-sizing:border-box}
 .dd-review-root .dd-rem-detail textarea{min-height:64px;resize:vertical}
-.dd-rem-repeat{display:flex;padding:2px;border-radius:10px;background:color-mix(in srgb,var(--ink) 7%,transparent)}
-.dd-review-root .dd-rem-repeat button{flex:1 1 auto;min-height:32px;padding:0 6px;white-space:nowrap;border:0;border-radius:8px;background:none;color:var(--ink-2,var(--muted));font-size:12.5px;font-weight:500;box-shadow:none}
+.dd-rem-repeat{display:flex;flex-wrap:wrap;padding:2px;border-radius:10px;background:color-mix(in srgb,var(--ink) 7%,transparent)}
+.dd-review-root .dd-rem-repeat button{flex:1 1 30%;min-height:32px;padding:0 6px;white-space:nowrap;border:0;border-radius:8px;background:none;color:var(--ink-2,var(--muted));font-size:12.5px;font-weight:500;box-shadow:none}
 .dd-review-root .dd-rem-repeat button[aria-checked=true]{background:var(--panel,var(--paper));color:var(--ink);box-shadow:0 1px 3px #0002}
 .dd-rem-detail-actions{display:flex;justify-content:flex-end;gap:6px}
 .dd-review-root .dd-rem-detail-actions button{min-height:34px;padding:0 16px;border-radius:999px;font-weight:600}

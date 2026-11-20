@@ -11,6 +11,8 @@ import { DDaddDays, DDvalidDate } from "./dates.js";
 import { DDspentOf, DDspentText, DDdayFocused } from "./focus-time.js";
 import { DDusualMinutes, DDdayLoad, DDloadName, DDmonthLoad, DDaltDay, DDaltMonth, DDshortTime, DDinstallCalendarLook } from "./calendar-look.js";
 import { DDArchivedNote } from "./archive.js";
+import { DDrepeatKinds, DDrepeats, DDrepeatName, DDrepeatNext } from "./cal-reminders.js";
+import { DDcalendarSystem } from "./dates.js";
 import { DDremindersOn, DDcalDayRows, DDcalRemLines, DDcalOpenFrom, DDremOpenEvent, DDopenReminder, DDopenOnBoard, DDremIcon, DDinstallCalReminders } from "./cal-reminders.js";
 DDinstallCalendarLook();
 DDinstallCalReminders();
@@ -663,13 +665,12 @@ const DDbell = (h) =>
   h("svg", { viewBox: "0 0 16 16", width: 12, height: 12, fill: "none", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true },
     h("path", { d: "M4 11.5V7.2a4 4 0 0 1 8 0v4.3l1.2 1.3H2.8z" }), h("path", { d: "M6.6 14.2a1.6 1.6 0 0 0 2.8 0" }));
 // The next day a reminder comes on, from `from` on ("" when it has passed).
+// A reminder with a time may tell you with a notification: ask once, when a time is set.
+function DDaskToTell(time) {
+  try { if (time && typeof Notification !== "undefined" && Notification.permission === "default") Notification.requestPermission(); } catch {}
+}
 export function DDreminderNext(reminder, from) {
-  if (!DDreviewValidDate(reminder?.date) || !DDreviewValidDate(from)) return "";
-  if (reminder.date >= from) return reminder.date;
-  const step = reminder.repeat === "weekly" ? 7 : reminder.repeat === "alternate" ? 2 : 0;
-  if (!step) return "";
-  const days = Math.round((Date.parse(from + "T12:00:00Z") - Date.parse(reminder.date + "T12:00:00Z")) / 86400000);
-  return DDreviewShift(reminder.date, Math.ceil(days / step) * step);
+  return DDrepeatNext(reminder, from);
 }
 // Everything coming, on any date (5.75): each reminder's next day and every
 // deadline (Feed notes and to-do tasks) from today on, soonest first.
@@ -762,8 +763,8 @@ function DDCalReminders({ React: R, data, date, today, language, month, onSelect
                       DDremIcon(h, item.kind, item.done, 13),
                       item.time && h("time", null, item.time),
                       h("span", { dir: "auto" }, item.title),
-                      item.repeat === "weekly" || item.repeat === "alternate"
-                        ? h("i", { title: item.repeat === "weekly" ? t("Every week", "هر هفته") : t("Every other day", "یک روز در میان"), "aria-hidden": true }, "↻")
+                      DDrepeats(item)
+                        ? h("i", { title: DDrepeatName(item.repeat, language), "aria-hidden": true }, "↻")
                         : null,
                       h("i", { className: "dd-rem-go", "aria-hidden": true }),
                     ),
@@ -1583,6 +1584,7 @@ function DDReviewReminders({
   const { h, t, n } = DDreviewUI(R, language),
     [text, setText] = R.useState(""),
     [repeat, setRepeat] = R.useState("once"),
+    [time, setTime] = R.useState(""),
     [on, setOn] = R.useState(date),
     [armed, setArmed] = R.useState(null),
     // The reminder that is open (5.84): { id, date }. It stays open only on its own day.
@@ -1597,6 +1599,7 @@ function DDReviewReminders({
   R.useEffect(() => {
     setText("");
     setRepeat("once");
+    setTime("");
     setOn(date);
     setArmed(null);
   }, [date]);
@@ -1638,8 +1641,10 @@ function DDReviewReminders({
   // A new repeat keeps this day: when this day would drop out, the repeat starts from it.
   const changeRepeat = (value) => {
     if (!current || value === (current.repeat || "once")) return;
-    const keep = DDreviewReminders([{ ...current, repeat: value }], date).length > 0;
-    edit(current.id, keep ? { repeat: value } : { repeat: value, date });
+    // Every month or year counts in the calendar you use now (Persian or Gregorian).
+    const cal = value === "monthly" || value === "yearly" ? { cal: DDcalendarSystem(language) } : {};
+    const keep = DDreviewReminders([{ ...current, repeat: value, ...cal }], date).length > 0;
+    edit(current.id, keep ? { repeat: value, ...cal } : { repeat: value, ...cal, date });
   };
   // A new day moves the reminder; the Calendar goes with it, so it stays open.
   const moveTo = (value) => {
@@ -1661,6 +1666,8 @@ function DDReviewReminders({
       date: when,
       title: text.trim(),
       repeat,
+      ...(repeat === "monthly" || repeat === "yearly" ? { cal: DDcalendarSystem(language) } : {}),
+      ...(/^([01]\d|2[0-3]):[0-5]\d$/.test(time) ? { time } : {}),
       done: false,
       type: data.setup.types?.[0]?.id || "other",
       lane: data.setup.lanes?.[0]?.id || "",
@@ -1676,11 +1683,11 @@ function DDReviewReminders({
       },
     }));
     setText("");
+    setTime("");
     setOn(date);
     onToast?.(when === date ? t("Reminder added", "یادآور اضافه شد") : t("Reminder added for ", "یادآور اضافه شد برای ") + when);
   }
-  const repeatName = (value) =>
-    value === "weekly" ? t("Every week", "هر هفته") : value === "alternate" ? t("Every other day", "یک روز در میان") : t("This day only", "فقط این روز");
+  const repeatName = (value) => DDrepeatName(value, language);
   const count = reminders.length + timed.length;
   return h(
     "section",
@@ -1726,7 +1733,7 @@ function DDReviewReminders({
             h(
               "small",
               null,
-              (item.repeat === "weekly" || item.repeat === "alternate" ? "↻ " : "") + repeatName(item.repeat),
+              (item.time ? item.time + " · " : "") + (DDrepeats(item) ? "↻ " : "") + repeatName(item.repeat),
               item.done ? " · " + t("Done for this day", "این نوبت انجام‌شده") : "",
               item.note && openId !== item.id ? " · " + t("has a note", "یادداشت دارد") : "",
             ),
@@ -1805,9 +1812,16 @@ function DDReviewReminders({
             h(
               "div",
               { className: "dd-rem-repeat", role: "radiogroup", "aria-label": t("Repeat", "تکرار") },
-              ["once", "weekly", "alternate"].map((value) =>
+              DDrepeatKinds.map((value) =>
                 h("button", { key: value, type: "button", role: "radio", "aria-checked": (current.repeat || "once") === value, "data-rem-repeat": value, onClick: () => changeRepeat(value) }, repeatName(value)),
               ),
+            ),
+            // A time is optional (5.93.0): a reminder with one says so when it comes.
+            h(
+              "label",
+              null,
+              t("Time (optional)", "ساعت (اختیاری)"),
+              h("input", { type: "time", value: current.time || "", "data-rem-time": true, onChange: (event) => { edit(current.id, { time: /^([01]\d|2[0-3]):[0-5]\d$/.test(event.target.value) ? event.target.value : "" }); DDaskToTell(event.target.value); } }),
             ),
             h(
               "label",
@@ -1891,14 +1905,14 @@ function DDReviewReminders({
               value: repeat,
               onChange: (event) => setRepeat(event.target.value),
             },
-            h("option", { value: "once" }, t("This day only", "فقط این روز")),
-            h("option", { value: "weekly" }, t("Every week", "هر هفته")),
-            h(
-              "option",
-              { value: "alternate" },
-              t("Every other day", "یک روز در میان"),
-            ),
+            DDrepeatKinds.map((value) => h("option", { key: value, value }, repeatName(value))),
           ),
+        ),
+        h(
+          "label",
+          null,
+          t("Time (optional)", "ساعت (اختیاری)"),
+          h("input", { type: "time", value: time, onChange: (event) => { setTime(event.target.value); DDaskToTell(event.target.value); }, "aria-label": t("Reminder time", "ساعت یادآور") }),
         ),
         h(
           "button",

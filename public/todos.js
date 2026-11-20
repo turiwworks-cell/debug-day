@@ -14,6 +14,7 @@
 
 import { DDdueText, DDdueDate, DDdueClean } from "./deadlines.js";
 import { DDaddDays, DDtoday } from "./dates.js";
+import { DDremindersOn } from "./cal-reminders.js";
 
 export function DDtodoLook(raw) {
   return raw && typeof raw === "object" && raw.todo === true ? { todo: true } : {};
@@ -118,8 +119,14 @@ export function DDtodoRemindersDue(data, now = new Date(), told = new Set()) {
   const pad = (n) => String(n).padStart(2, "0");
   const stamp = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate()) + "T" + pad(now.getHours()) + ":" + pad(now.getMinutes());
   const dayAgo = new Date(now.getTime() - 864e5), since = dayAgo.getFullYear() + "-" + pad(dayAgo.getMonth() + 1) + "-" + pad(dayAgo.getDate()) + "T" + pad(dayAgo.getHours()) + ":" + pad(dayAgo.getMinutes());
-  return DDtodoDueItems(DDtodoLists(data)).filter((r) => r.time && r.due + "T" + r.time <= stamp && r.due + "T" + r.time > since)
-    .map((r) => ({ key: r.id + "@" + r.due + "T" + r.time + ":" + r.text.slice(0, 40), text: r.text, at: r.due + "T" + r.time }))
+  // The Calendar's own reminders with a time say so too (5.93.0), unless done for that day.
+  const calendar = [];
+  for (const date of [since.slice(0, 10), stamp.slice(0, 10)].filter((d, i, all) => all.indexOf(d) === i))
+    for (const r of DDremindersOn(data?.setup?.reminders || [], date))
+      if (r.time && !r.done && date + "T" + r.time <= stamp && date + "T" + r.time > since)
+        calendar.push({ key: "rem:" + r.id + "@" + date + "T" + r.time, text: r.title, at: date + "T" + r.time, bell: true });
+  return [...DDtodoDueItems(DDtodoLists(data)).filter((r) => r.time && r.due + "T" + r.time <= stamp && r.due + "T" + r.time > since)
+    .map((r) => ({ key: r.id + "@" + r.due + "T" + r.time + ":" + r.text.slice(0, 40), text: r.text, at: r.due + "T" + r.time })), ...calendar]
     .filter((r) => !told.has(r.key));
 }
 let reminderTimer = null;
@@ -143,8 +150,9 @@ export function DDtodoStartReminders(read, say) {
     for (const r of due) {
       told.add(r.key);
       let shown = false;
-      try { if (typeof Notification !== "undefined" && Notification.permission === "granted") { new Notification("Debug Day", { body: "☐ " + r.text, tag: r.key }); shown = true; } } catch {}
-      if (!shown) (say || toast)("☐ " + r.text);
+      const words = (r.bell ? "🔔 " : "☐ ") + r.text;
+      try { if (typeof Notification !== "undefined" && Notification.permission === "granted") { new Notification("Debug Day", { body: words, tag: r.key }); shown = true; } } catch {}
+      if (!shown) (say || toast)(words);
     }
     try { localStorage.setItem("debug-day:todo-told", JSON.stringify([...told].slice(-300))); } catch {}
   };

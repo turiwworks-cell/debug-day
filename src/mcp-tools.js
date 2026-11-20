@@ -12,6 +12,10 @@ const CARD = /^(?:sticky|b|sub|bug|life):[A-Za-z0-9_:.-]+$/;
 const daySchema = { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" };
 const dueSchema = { type: "string", pattern: "^(?:\\d{4}-\\d{2}-\\d{2})?$", description: "A deadline day (YYYY-MM-DD) shown as ◆ days left; an empty string clears it." };
 const colorSchema = { type: "string", pattern: "^#[0-9a-fA-F]{6}$" };
+// Reminders (5.93.0): every day, month and year too, and an optional time.
+const repeatSchema = { type: "string", enum: ["once", "daily", "weekly", "alternate", "monthly", "yearly"] };
+const timeSchema = { type: "string", pattern: "^(?:(?:[01]\\d|2[0-3]):[0-5]\\d)?$", description: "HH:MM; an empty string clears it." };
+const calendarSchema = { type: "string", enum: ["gregory", "persian"], description: "The calendar a monthly or yearly reminder counts in." };
 const lookSchema = { type: "string", enum: ["note", "document", "todo", "text"], description: "How the note shows on the board: a sticky note, a document, a to-do list (one '- [ ] item' per line) or plain text with no paper." };
 const pos = { type: "number", minimum: -100000, maximum: 100000 };
 const str = { type: "string", maxLength: 80 };
@@ -46,12 +50,12 @@ export function DDmcpMoreTools(tool, revisionSchema) {
       date: daySchema, feed: { type: "boolean" }, comment_id: str, reply: { type: "string", minLength: 1, maxLength: 2000 },
       done: { type: "boolean" }, delete: { type: "boolean" },
     }, ["comment_id"]),
-    w("add_reminder", "Add a reminder for any day, near or far, once, every week or every other day. Read get_setup first. Requires explicit user intent.", {
-      date: daySchema, title: { type: "string", minLength: 1, maxLength: 300 }, repeat: { type: "string", enum: ["once", "weekly", "alternate"] },
+    w("add_reminder", "Add a reminder for any day, near or far: once, every day, every week, every other day, every month or every year (monthly and yearly count in the calendar given, Gregorian by default; a day the month lacks falls on its last day), with an optional time (HH:MM). Read get_setup first. Requires explicit user intent.", {
+      date: daySchema, title: { type: "string", minLength: 1, maxLength: 300 }, repeat: repeatSchema, time: timeSchema, calendar: calendarSchema,
     }, ["date", "title"]),
-    w("update_reminder", "Edit a reminder (setup.reminders): title, day, repeat, done for a day (date_done) or delete it (delete:true, only when asked).", {
+    w("update_reminder", "Edit a reminder (setup.reminders): title, day, repeat, time (\"\" clears it), done for a day (date_done) or delete it (delete:true, only when asked).", {
       reminder_id: str, title: { type: "string", minLength: 1, maxLength: 300 }, date: daySchema,
-      repeat: { type: "string", enum: ["once", "weekly", "alternate"] }, done: { type: "boolean" }, date_done: daySchema, delete: { type: "boolean" },
+      repeat: repeatSchema, time: timeSchema, calendar: calendarSchema, done: { type: "boolean" }, date_done: daySchema, delete: { type: "boolean" },
     }, ["reminder_id"]),
     w("add_habit", "Add a habit beside the board (Today's habits). Read get_setup first. Requires explicit user intent.", {
       name: { type: "string", minLength: 1, maxLength: 120 }, color: colorSchema, goal_minutes: { type: "integer", minimum: 5, maximum: 600 },
@@ -159,6 +163,7 @@ export function DDmcpMoreCall(name, args, data) {
   if (name === "add_reminder") {
     data.setup.reminders ||= [];
     const item = { id: id(), date: args.date, title: args.title.trim(), repeat: args.repeat || "once", done: false,
+      ...(args.repeat === "monthly" || args.repeat === "yearly" ? { cal: args.calendar || "gregory" } : {}), ...(args.time ? { time: args.time } : {}),
       type: data.setup.types?.[0]?.id || "other", lane: data.setup.lanes?.[0]?.id || "", min: 0, note: "" };
     data.setup.reminders.unshift(item);
     return { id: item.id, changed: true };
@@ -171,6 +176,8 @@ export function DDmcpMoreCall(name, args, data) {
     if (args.title) item.title = args.title.trim();
     if (args.date) item.date = args.date;
     if (args.repeat) item.repeat = args.repeat;
+    if (args.calendar || ((args.repeat === "monthly" || args.repeat === "yearly") && !item.cal)) item.cal = args.calendar || "gregory";
+    if (Object.hasOwn(args, "time")) { if (args.time) item.time = args.time; else delete item.time; }
     if (Object.hasOwn(args, "done")) {
       // A repeating reminder is done one day at a time, like in the Calendar.
       if (item.repeat === "once") item.done = args.done;

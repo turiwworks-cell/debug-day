@@ -1,3 +1,10 @@
+## 5.93.0 — 2026-11-20
+Branch: claude/project-thread-h96514
+- Reminders repeat every day, every month and every year too (rent, birthdays), beside this day only, every week and every other day.
+- Every month and every year count in the calendar you use (Persian or Gregorian). A day the month lacks (the 31st, Esfand 30) falls on the month's last day.
+- A reminder can have a time (optional). It shows beside the reminder, and while the app is open it says so when the time comes, like to-do tasks with a time.
+- MCP add_reminder and update_reminder take the new repeats, a time and the calendar.
+
 ## 5.92.0 — 2026-11-20
 Branch: claude/project-thread-h96514
 - Near the 1.5 MB sync limit (80% and up), today's Engine says so in one calm line, once a day: "Your planner is 84% full", with "See what takes room" and "Not today".
