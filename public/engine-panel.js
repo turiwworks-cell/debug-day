@@ -1225,6 +1225,11 @@ button.dd-engine-tag{cursor:pointer}
 @media (max-width:760px){.dd-engine-cols{grid-template-columns:1fr;padding:12px}.dd-engine-tools{padding:10px 12px 0}.dd-engine-head{padding:12px}.dd-engine-carry{flex-wrap:wrap;margin:10px 12px 0}.dd-engine-carry-text{flex-basis:calc(100% - 40px)}.dd-engine-carry-all,.dd-engine-carry-pick{min-height:36px}.dd-engine-backdrop{padding:10px;align-items:stretch}.dd-engine[data-mode=overlay]{max-height:none}.dd-engine-bar{width:64px}.dd-engine-check{min-width:28px;min-height:28px}.dd-engine .dd-nudges{margin:10px 12px 0}.dd-engine-steps .dd-engine-steps{padding-inline-start:10px;margin-inline-start:6px}.dd-engine-task{display:grid;grid-template-columns:auto minmax(0,1fr) auto;column-gap:8px;row-gap:6px;align-items:start}.dd-engine-main{display:contents}.dd-engine-line{grid-row:1;grid-column:2}.dd-engine-side{grid-row:1;grid-column:3}.dd-engine-main>.dd-engine-meta{grid-column:2/-1}.dd-engine-main>.dd-engine-steps,.dd-engine-main>.dd-engine-details{grid-column:1/-1}}
 /* Phone: the whole sheet scrolls as one, so Today shows right under the tools and the line at the end never sits on it. */
 @media (max-width:760px){html .dd-engine[data-mode=overlay]{overflow-y:auto;overscroll-behavior:contain}html .dd-engine[data-mode=overlay]>.dd-engine-cols{overflow:visible;padding:12px}html .dd-engine[data-mode=overlay]>.dd-engine-head{padding:16px 16px 6px}html .dd-engine[data-mode=overlay]>.dd-engine-tools{padding:8px 16px 0}html .dd-engine[data-mode=overlay]>.dd-engine-carry,html .dd-engine[data-mode=overlay] .dd-nudges{margin:8px 12px 0}html .dd-engine[data-mode=overlay] :is(.dd-engine-carry,.dd-nudge){padding:8px 8px 8px 12px;gap:8px}html .dd-engine[data-mode=overlay]>.dd-engine-foot{padding:0 16px 16px}}
+/* Phone (5.87.0): Today comes first; yesterday's leftovers, Capture and the
+   day's nudges wait under it, so opening on Today shows the tasks. */
+@media (max-width:760px){html .dd-engine[data-mode=overlay]>:is(.dd-engine-carry,.dd-engine-capture,.dd-nudges){order:3;margin-bottom:12px}html .dd-engine[data-mode=overlay]>.dd-engine-foot{order:4}}
+/* The board's "Tap to use the board" waits while the Engine is open. */
+body:has(.dd-engine-backdrop) .dd-board-hint{visibility:hidden}
 @media (prefers-reduced-motion:reduce){.dd-engine-backdrop{animation:none}}
 `;
 
