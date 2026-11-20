@@ -6,10 +6,11 @@ import { DDplanMinutes, DDduration } from "./measure.js";
 import { DDlowDay, DDlightTasks, DDlightFirst } from "./energy.js";
 import { DDaddDays } from "./dates.js";
 import { DDpriorityWeight } from "./planner.js";
+import { DDroomPart, DDroomNear } from "./upkeep.js";
 
 // A day this full is a lot for one person: more than 10 hours, or 12 open tasks.
 export const DDfullMinutes = 600, DDfullCount = 12;
-const FULL_KEY = "debug-day:full-day-ok", LOW_KEY = "debug-day:low-day-ok";
+const FULL_KEY = "debug-day:full-day-ok", LOW_KEY = "debug-day:low-day-ok", ROOM_KEY = "debug-day:room-ok";
 
 export function DDdayLoad(day) {
   const open = (day?.blocks || []).filter((b) => !b.done && !b.carriedTo && String(b.name || "").trim());
@@ -95,6 +96,18 @@ export function DDPlanNudges({ React: R, day, days, date, today, language, makeI
         h("small", { dir: "auto", title: light.map((b) => b.name).join(" · ") }, light.map((b) => b.name).join(" · "))),
       h("button", { type: "button", className: "dd-nudge-go", onClick: () => { onUpdateDay((d) => DDlightFirst(d)); hide(LOW_KEY, date); redraw((n) => n + 1); } }, t("Light ones first", "سبک‌ها اول")),
       h("button", { type: "button", className: "dd-nudge-later", onClick: () => { hide(LOW_KEY, date); redraw((n) => n + 1); } }, t("Not today", "امروز نه"))));
+  }
+  // 4. The planner nears the 1.5 MB sync limit (5.92.0): once a day, on today.
+  const room = date === today ? DDroomPart() : 0;
+  if (room >= DDroomNear && !hidden(ROOM_KEY, date)) {
+    const pct = Math.min(100, Math.round(room * 100));
+    lines.push(h("div", { key: "room", className: "dd-nudge", "data-nudge": "room", role: "group", "aria-label": t("Room in your planner", "جای برنامه") },
+      icon(h, "M2.5 4.5h11v8h-11zM2.5 7h11M6 9.5h4"),
+      h("div", { className: "dd-nudge-text" },
+        h("b", null, t("Your planner is " + pct + "% full", "برنامه‌ات " + num(pct) + "٪ پر است")),
+        h("small", null, t("Archiving old months makes room.", "بایگانی ماه‌های قدیمی جا باز می‌کند."))),
+      h("button", { type: "button", className: "dd-nudge-go", onClick: () => { hide(ROOM_KEY, date); window.dispatchEvent(new CustomEvent("debug-day-open-settings", { detail: "room" })); } }, t("See what takes room", "ببین چه چیزی جا گرفته")),
+      h("button", { type: "button", className: "dd-nudge-later", onClick: () => { hide(ROOM_KEY, date); redraw((n) => n + 1); } }, t("Not today", "امروز نه"))));
   }
   return lines.length ? h("div", { className: "dd-nudges", dir: fa ? "rtl" : "ltr" }, lines) : null;
 }

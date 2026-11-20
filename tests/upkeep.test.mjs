@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DDtrashAdd, DDtrashClean, DDtrashRestore, DDtrashLabel } from '../public/trash.js';
 import { DDnormalizeLife } from '../public/life-board.js';
-import { DDcanvasTidy, DDsyncAgo, DDstorageText, DDstorageBytes } from '../public/upkeep.js';
+import { DDcanvasTidy, DDsyncAgo, DDstorageText, DDstorageBytes, DDroomParts, DDroomText, DDroomPart, DDsyncLimit } from '../public/upkeep.js';
 import { DDdayLoad, DDdayFull, DDmoveCandidate } from '../public/nudges.js';
 
 const NOW = Date.parse('2026-11-04T10:00:00Z');
@@ -112,4 +112,24 @@ test('a very full day is noticed, and the easiest task is offered to move', () =
   assert.equal(DDmoveCandidate({ blocks: [task('nine', { at: '09:00' })] }), null);
   assert.equal(DDdayFull({ blocks: [{ id: 'a', name: 'One', min: 480 }] }), false);
   assert.equal(DDdayFull({ blocks: Array.from({ length: 12 }, (_, i) => ({ id: 'x' + i, name: 'Count ' + i, measure: 'count' })) }), true, 'twelve open tasks is full too');
+});
+
+// What takes room (5.92.0): Feed, days, drawings and the rest, nothing counted twice.
+test('what takes room adds up, biggest first, and the saved planner is read rarely', () => {
+  const data = { setup: { life: { items: [{ id: 'a', text: 'x'.repeat(3000) }], strokes: [{ id: 's', d: 'M'.repeat(5000) }] }, types: [] }, days: { '2026-11-01': { blocks: [{ id: 'b', name: 'y'.repeat(8000) }], canvas: { board4: { strokes: [{ id: 't', d: 'L'.repeat(2000) }] } } } } };
+  const parts = DDroomParts(data);
+  assert.equal(parts.feed + parts.days + parts.drawings + parts.other, parts.total);
+  assert.ok(parts.drawings > 7000 && parts.drawings < 7200, 'the Feed\'s and the day\'s drawings');
+  assert.equal(DDroomText(parts, 'en'), 'Days 8 KB · Drawings 7 KB · Feed 3 KB');
+  assert.equal(DDroomText(parts, 'fa'), 'روزها ۸ KB · نقاشی‌ها ۷ KB · فید ۳ KB');
+  const store = new Map([['debug-day:v2', 'z'.repeat(1200000)]]);
+  globalThis.localStorage = { getItem: (k) => store.get(k) ?? null };
+  try {
+    assert.equal(DDroomPart(1e12), 1200000 / DDsyncLimit);
+    store.set('debug-day:v2', '');
+    assert.equal(DDroomPart(1e12 + 1000), 0.8, 'measured again only after 30 seconds');
+    assert.equal(DDroomPart(1e12 + 31000), 0);
+  } finally {
+    delete globalThis.localStorage;
+  }
 });

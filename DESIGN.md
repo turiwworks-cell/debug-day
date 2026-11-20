@@ -140,6 +140,9 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
   in the planner; the Calendar says "in your archive" with Bring back, which joins
   them again. Archiving asks first and offers Undo; bringing back never passes the
   sync limit.
+- Near the limit (5.92), today's Engine has one nudge, once a day: "Your planner is
+  84% full", "See what takes room", "Not today". Settings › Your data names what
+  takes the room (Feed, Days, Drawings, Everything else). Never red.
 - Limits are measured in room, not in counts (5.88.1): new drawings stop only when
   the planner nears the 1.5 MB sync limit, or when one board holds more than it can
   show smoothly. Deleting, erasing and moving always work, and the message says what helps.

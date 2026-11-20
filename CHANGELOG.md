@@ -1,3 +1,9 @@
+## 5.92.0 — 2026-11-20
+Branch: claude/project-thread-h96514
+- Near the 1.5 MB sync limit (80% and up), today's Engine says so in one calm line, once a day: "Your planner is 84% full", with "See what takes room" and "Not today".
+- Settings › Your data shows what takes the room under Space used (Feed, Days, Drawings, Everything else, biggest first), and near the limit says what makes room.
+- The "Sync paused · over 1.5 MB" message now points to what takes room and to archiving old months.
+
 ## 5.91.0 — 2026-11-20
 Branch: claude/project-thread-h96514
 - Archive old months: with sync on, Settings › Your data can move a month you're done with (before last month) to your server, so the planner stays far from the 1.5 MB sync limit. It asks first and offers Undo.
