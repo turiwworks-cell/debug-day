@@ -47,6 +47,23 @@ export const DDengineBus = {
   },
 };
 
+// The phone opens on Today (5.87.0). The first time the app is opened on a
+// new day, a phone shows the Engine's Today over the Board; the Board is one
+// tap away. Settings › Basics can turn it off. Once a day per device: this
+// says whether now is that first time, and remembers it.
+const PHONE_TODAY_KEY = "debug-day:phone-today";
+export const DDisPhone = () => { try { return matchMedia("(max-width:700px)").matches; } catch { return false; } };
+export function DDphoneTodayDue(today, preferences) {
+  if (!today || preferences?.phoneToday === false || !DDisPhone()) return false;
+  try {
+    if (localStorage.getItem(PHONE_TODAY_KEY) === today) return false;
+    localStorage.setItem(PHONE_TODAY_KEY, today);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Today and Park (5.50). Today is every task of the day in one list. A task
 // still keeps its lane for the Board's Lanes view, but lanes no longer split the
 // Engine. Park is the shelf that stays from day to day: setup.later, the same

@@ -1,3 +1,10 @@
+## 5.87.0 — 2026-11-20
+Branch: claude/project-thread-h96514
+- The phone opens on Today (wave 3): the first time the app is opened on a new day (or comes back to the screen on a new day), a phone on the Board shows the Engine's Today right away, with quick add. One tap on Close and the Board is there. Once a day per device; a desktop opens as before.
+- Settings › Basics › "On a phone, open on Today" turns it off.
+- On a phone, the Engine shows Today right under quick add; yesterday's leftovers, Capture and the day's nudges wait under Today instead of pushing it off the screen.
+- The board's "Tap to use the board" no longer shows on top of the Engine.
+
 ## 5.86.3 — 2026-11-20
 Branch: claude/project-thread-h96514
 - A new day can start after midnight (L5): Settings › Basics › "A new day starts at" (Midnight, or 1:00 to 6:00 am). Until that hour it is still the day before everywhere: the Board, the Engine, quick add, the Calendar, Search, notes and to-do dates. The hour syncs with your preferences.

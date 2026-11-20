@@ -115,6 +115,8 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 - The tabs live at the bottom, as a floating glass bar a little above the edge; content fades out under it.
   Capture floats above them and never covers content.
 - The Board opens full screen and ends above the tabs.
+- The first time the app is opened on a new day, a phone shows the Engine's Today over the Board (5.87); Close is one tap back to the Board. Settings › Basics › "On a phone, open on Today" turns it off.
+- In the Engine on a phone, Today comes right under quick add; leftovers, Capture and nudges wait under it.
 - Every tap target is at least 44px.
 
 ## 8. Persian and right-to-left
