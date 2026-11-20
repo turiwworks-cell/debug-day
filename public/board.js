@@ -43,6 +43,7 @@ import { DDcanvasTidy } from "./upkeep.js";
 import { DDdueText, DDdueDate, DDdueDaysLeft, DDdueSet, DDDueEditor } from "./deadlines.js";
 import { DDbudgetOf, DDbudgetUsed, DDbudgetText, DDbudgetLabel, DDbudgetPresets, DDbudgetSame } from "./budgets.js";
 import { DDBoardAccentButton, DDBoardAccent } from "./board-accent.js";
+import { DDtoday } from "./dates.js";
 import { DDsyncCopies, DDsyncNewId, DDsyncValid, DDsyncForget, DDsyncMarkLife, DDsyncJoin, DDsyncPlaces, DDsyncSameNotes, DDinstallLinkedStyles } from "./linked.js";
 const life = { DDinstallLifeStyles, DDlifeAbs, DDlifeAdd, DDlifeBounds, DDlifeHead, DDlifeItems, DDlifeParentAt };
 // Board interaction engine. Legacy planner adapters are injected once by the app.
@@ -181,7 +182,7 @@ export function DDcreateBoard(deps) {
     if (ddPerf) ddPerf.board++;
     const DDlanguage = deps.language(),
       t = (en, fa) => (DDlanguage === "fa" ? fa : en),
-      railDate = new Date().toLocaleDateString("en-CA");
+      railDate = DDtoday();
     const {
         useState: useState,
         useRef: useRef,
@@ -2544,7 +2545,7 @@ export function DDcreateBoard(deps) {
     }
     // Above the note, never on its paper: "◆ 8 days left".
     function dueBadge(Y) {
-      const today = new Date().toLocaleDateString("en-CA"), left = DDdueDaysLeft(Y.due, today), text = DDdueText(Y.due, today, DDlanguage);
+      const today = DDtoday(), left = DDdueDaysLeft(Y.due, today), text = DDdueText(Y.due, today, DDlanguage);
       if (!text) return null;
       const label = t("Deadline ", "ددلاین ") + DDdueDate(Y.due, DDlanguage) + " · " + text;
       return _.createElement("button", {
@@ -4182,11 +4183,11 @@ export function DDcreateBoard(deps) {
       const { enterRoom } = relay.current;
       const entries = sourceHistory.get(Y.lifeId) || [], strip = entries.length ? DDengineStrip(entries, day.date, 14) : [],
         done = strip.reduce((a, d) => a + d.done, 0), total = strip.reduce((a, d) => a + d.total, 0),
-        here = entries.find((e) => e.date === day.date)?.total || 0, isToday = day.date === new Date().toLocaleDateString("en-CA"),
+        here = entries.find((e) => e.date === day.date)?.total || 0, isToday = day.date === DDtoday(),
         budget = DDbudgetOf(DDlifeItems(setup).find((i) => i.id === Y.lifeId)),
         used = budget ? DDbudgetUsed(budgetDays, DDlifeItems(setup), Y.lifeId, day.date, budget, DDlanguage) : 0,
         reached = !!budget && used >= (budget.unit === "h" ? budget.n * 60 : budget.n),
-        due = Y.due ? DDdueText(Y.due, new Date().toLocaleDateString("en-CA"), DDlanguage) : "";
+        due = Y.due ? DDdueText(Y.due, DDtoday(), DDlanguage) : "";
       if (!total && !budget && !due) return null;
       const num = (n) => DDlanguage === "fa" ? n.toLocaleString("fa-IR") : String(n),
         hereText = here ? (isToday ? t(num(here) + " today", num(here) + " امروز") : t(num(here) + " on this day", num(here) + " این روز")) : "",
@@ -5955,7 +5956,7 @@ export function DDcreateBoard(deps) {
         React: _, day, items: DDlifeItems(setup), room: layout.room, sharedLinks: lifeView.links,
         nodes: layout.nodes, preferences: setup.preferences, language: DDlanguage,
         onToggle: toggleRail, onReveal: revealRail, days: allDays, habits: setup.habits || undefined,
-        today: new Date().toLocaleDateString("en-CA"),
+        today: DDtoday(),
         onSetup: (change) => propsRef.current.onUpdateSetup?.(change), makeId: C,
         onGoalChange: (ref, goal) => commit((d) => {
           const life = ref.startsWith("life:"), id = ref.slice(life ? 5 : 7), note = (life ? d.__life.items : d.notes).find((i) => i.id === id);
@@ -5965,7 +5966,7 @@ export function DDcreateBoard(deps) {
         }),
         habitDay: day.date === railDate ? day : allDays?.[railDate] || { date: railDate, blocks: [], notes: [], bugs: [] },
         onHabitChange: (id, patch) => {
-          const date = new Date().toLocaleDateString("en-CA"), update = (d) => deps.habits.DDsetHabitEntry(d, id, patch);
+          const date = DDtoday(), update = (d) => deps.habits.DDsetHabitEntry(d, id, patch);
           if (day.date === date) commit(update);
           else onUpdateDayOnDate?.(date, update);
         },
@@ -6701,7 +6702,7 @@ export function DDcreateBoard(deps) {
               : t("Canvas", "بوم"),
         }),
       dueEdit && ((n) => n && _.createElement(DDDueEditor, {
-        React: _, item: { type: n.lifeSection ? "section" : "sticky", text: n.title, due: n.due }, today: new Date().toLocaleDateString("en-CA"), language: DDlanguage,
+        React: _, item: { type: n.lifeSection ? "section" : "sticky", text: n.title, due: n.due }, today: DDtoday(), language: DDlanguage,
         style: { left: Math.max(8, Math.min(dueEdit.x, (root.current?.clientWidth || 600) - 276)), top: Math.max(8, Math.min(dueEdit.y, (root.current?.clientHeight || 600) - 250)) },
         onChange: (due) => setDue(n.id, due), onClose: () => setDueEdit(null),
       }))(layout.map.get(dueEdit.ref)),

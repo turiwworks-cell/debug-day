@@ -10,6 +10,7 @@ import { DDtagList, DDtagColors } from "./note-tags.js";
 import { DDmediaList } from "./media.js";
 import { DDnormalizeComments } from "./comments.js";
 import { DDnormalizeStrokes } from "./pen.js";
+import { DDtoday } from "./dates.js";
 import { DDbudgetOf, DDgoalClean } from "./budgets.js";
 import { DDtrashClean } from "./trash.js";
 import { DDdueClean } from "./deadlines.js";
@@ -375,7 +376,7 @@ export function DDlifeAdd(items, spec) {
       w,
       h,
       text: spec.text || "",
-      ...(!section ? {at:spec.at || new Date().toLocaleDateString("en-CA"),...(spec.baseW?{baseW:spec.baseW}:{})} : {}),
+      ...(!section ? {at:spec.at || DDtoday(),...(spec.baseW?{baseW:spec.baseW}:{})} : {}),
       ...(!section && ["goal", "note"].includes(spec.role) ? { role: spec.role } : {}),
       ...(!section && DDgoalClean(spec.goal) ? { goal: DDgoalClean(spec.goal) } : {}),
       ...(DDdueClean(spec.due) ? { due: DDdueClean(spec.due) } : {}),

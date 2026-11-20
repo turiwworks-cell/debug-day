@@ -1,3 +1,10 @@
+## 5.86.3 — 2026-11-20
+Branch: claude/project-thread-h96514
+- A new day can start after midnight (L5): Settings › Basics › "A new day starts at" (Midnight, or 1:00 to 6:00 am). Until that hour it is still the day before everywhere: the Board, the Engine, quick add, the Calendar, Search, notes and to-do dates. The hour syncs with your preferences.
+- An app left open moves on to the new day by itself when the day changes (it used to stay on yesterday until a reload), and only if you were on today.
+- The week starts with the Calendar's choice, not the app's language (L6): Saturday with the Persian calendar, Monday with the Gregorian one, in the month, the week view, the weekly look back, budgets and habit stats.
+- A week's focus saved before the week start changed is still found in the same seven days, and saving it again keeps one copy.
+
 ## 5.86.2 — 2026-11-20
 Branch: claude/project-thread-h96514
 - Bringing yesterday's open tasks into today carries them on instead of copying them fresh (L3): done steps stay done, and the task remembers the day it came from.

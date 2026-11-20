@@ -2,6 +2,7 @@ import{DDstickySnap}from"./stickies.js";
 import { DDshapeLook } from "./shapes.js";
 import { DDdocLook } from "./documents.js";
 import { DDtodoLook } from "./todos.js";
+import { DDtoday } from "./dates.js";
 // Pure board operations. View preferences stay on this device; object styles sync with the day.
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const finite = (value, fallback = 0) =>
@@ -795,7 +796,7 @@ export const DDboardCore = {
     for (const item of payload.items) {
       const data = clone(item.data),
         newKey = newId();
-      if (data.kind === "sticky" || data.type === "sticky") data.at = new Date().toLocaleDateString("en-CA");
+      if (data.kind === "sticky" || data.type === "sticky") data.at = DDtoday();
       let ref;
       if (item.kind === "life" && next.__life) {
         data.id = newKey;

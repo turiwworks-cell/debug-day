@@ -13,6 +13,7 @@
 //   - [ ] Call 📅2026-11-20T14:30     a due date with a time (a reminder)
 
 import { DDdueText, DDdueDate, DDdueClean } from "./deadlines.js";
+import { DDaddDays, DDtoday } from "./dates.js";
 
 export function DDtodoLook(raw) {
   return raw && typeof raw === "object" && raw.todo === true ? { todo: true } : {};
@@ -171,7 +172,7 @@ function DueCard({ React: R, value, language, onChange, onClose }) {
     return () => document.removeEventListener("pointerdown", away, true);
   }, []);
   const set = (d, tm) => onChange(d ? DDtodoDueClean(d + (tm ? "T" + tm : "")) : "");
-  const quick = (n) => { const x = new Date(); x.setDate(x.getDate() + n); return x.toLocaleDateString("en-CA"); };
+  const quick = (n) => DDaddDays(DDtoday(), n);
   return h("div", { ref, className: "dd-todo-due-card", role: "dialog", "aria-label": t("Due date", "تاریخ سررسید"), dir: fa ? "rtl" : "ltr",
       onPointerDown: (e) => e.stopPropagation(), onDoubleClick: (e) => e.stopPropagation(), onWheel: (e) => e.stopPropagation(),
       onKeyDown: (e) => { e.stopPropagation(); if (e.key === "Escape") { e.preventDefault(); onClose(); } } },

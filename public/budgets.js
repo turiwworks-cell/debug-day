@@ -4,6 +4,7 @@
 // count up toward a number by a date. No red, no warnings: just the numbers.
 import { DDplanMinutes, DDduration } from "./measure.js";
 import { DDdueOf } from "./deadlines.js";
+import { DDweekStartDay } from "./dates.js";
 // life-board.js reads DDbudgetOf and DDgoalClean, so this file does not import it.
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -25,11 +26,12 @@ export function DDbudgetOf(item) {
 
 export const DDbudgetSame = (a, b) => !!a && !!b && a.n === b.n && a.unit === b.unit && a.per === b.per;
 
-// The week starts on Saturday in Persian and on Monday in English, like the Calendar.
+// The week starts when the Calendar's week does: Saturday with the Persian
+// calendar, Monday with the Gregorian (5.86.3).
 export function DDbudgetRange(date, per, language) {
   if (!DAY.test(date || "")) return [];
   if (per === "day") return [date];
-  const start = language === "fa" ? 6 : 1, at = new Date(date + "T12:00:00Z"),
+  const start = DDweekStartDay(language), at = new Date(date + "T12:00:00Z"),
     back = (at.getUTCDay() - start + 7) % 7, out = [];
   for (let i = back; i >= 0; i--) out.push(new Date(at.getTime() - i * 864e5).toISOString().slice(0, 10));
   return out;

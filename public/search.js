@@ -2,7 +2,7 @@ import { DDlifeItems, DDlifeRemoveTree, DDlifeHistory, DDlifeState, DDSectionChi
 import { DDnoteTags, DDtagText } from "./note-tags.js";
 import { DDmediaTitle } from "./media.js";
 import { DDpanelGlyph } from "./panels.js";
-import { DDaddDays } from "./dates.js";
+import { DDaddDays, DDtoday } from "./dates.js";
 import { DDcleanMinutes } from "./measure.js";
 // Readable, additive search and command palette. React is supplied by the app.
 export function DDsearchDigits(value = "") {
@@ -72,7 +72,8 @@ export function DDsearchDate(value, today) {
 }
 export function DDparseSearch(
   raw = "",
-  today = new Date().toISOString().slice(0, 10),
+  // The local day, as the app counts it (5.86.3); not the UTC date.
+  today = DDtoday(),
 ) {
   const query = {
     raw,

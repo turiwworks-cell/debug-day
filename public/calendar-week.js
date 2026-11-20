@@ -8,15 +8,16 @@ import { DDdueBetween, DDdueOn, DDdueText, DDdueDate, DDdueName } from "./deadli
 import { DDremindersOn, DDcalDayRows, DDremIcon, DDopenReminder, DDopenOnBoard } from "./cal-reminders.js";
 import { DDtodoDueItems, DDtodoLists } from "./todos.js";
 import { DDenergyOf, DDenergyLabel } from "./energy.js";
-import { DDaddDays } from "./dates.js";
+import { DDaddDays, DDweekStartDay } from "./dates.js";
 import { DDcarriedText } from "./engine.js";
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 export const DDcalShift = DDaddDays;
 
-// The week starts on Saturday in Persian and on Monday in English, like the month.
+// The week starts on Saturday with the Persian calendar and on Monday with the
+// Gregorian one, like the month (5.86.3: the Calendar's choice, not the language).
 export function DDweekStart(date, language) {
-  const start = language === "fa" ? 6 : 1, at = new Date(date + "T12:00:00Z");
+  const start = DDweekStartDay(language), at = new Date(date + "T12:00:00Z");
   return DDcalShift(date, -((at.getUTCDay() - start + 7) % 7));
 }
 export const DDweekDays = (date, language) => Array.from({ length: 7 }, (_, i) => DDcalShift(DDweekStart(date, language), i));
@@ -72,9 +73,19 @@ export function DDreviewsClean(value) {
     .map(([k, v]) => [k, { focus: v.focus.slice(0, 500) }]);
   return rows.length ? Object.fromEntries(rows) : undefined;
 }
-export const DDweekFocus = (setup, date, language) => setup?.reviews?.[DDweekStart(date, language)]?.focus || "";
+// A week's focus is kept under the day the week starts. One saved when the
+// week started on another day (Monday before Saturday, or back) is still found
+// inside the same seven days (5.86.3), and saving again keeps one copy.
+const weekKeys = (start) => Array.from({ length: 7 }, (_, i) => DDcalShift(start, i));
+export function DDweekFocusAt(setup, start) {
+  const reviews = setup?.reviews || {};
+  for (const key of weekKeys(start)) if (reviews[key]?.focus) return reviews[key].focus;
+  return "";
+}
+export const DDweekFocus = (setup, date, language) => DDweekFocusAt(setup, DDweekStart(date, language));
 export function DDsetWeekFocus(data, weekStart, focus) {
   const reviews = { ...(data.setup.reviews || {}) }, text = String(focus || "").slice(0, 500);
+  for (const key of weekKeys(weekStart)) if (key !== weekStart) delete reviews[key];
   if (text.trim()) reviews[weekStart] = { focus: text }; else delete reviews[weekStart];
   const { reviews: _old, ...setup } = data.setup;
   return { ...data, setup: Object.keys(reviews).length ? { ...setup, reviews } : setup };
@@ -195,7 +206,7 @@ export function DDCalendarWeek({ React: R, data, date, today, language, onSelect
 export function DDWeekReview({ React: R, data, date, today, language, setData }) {
   const h = R.createElement, fa = language === "fa", t = (en, f) => (fa ? f : en), num = (n) => (fa ? n.toLocaleString("fa-IR") : String(n)),
     s = DDweekSummary(data, date, today, language), next = DDcalShift(s.days[0], 7),
-    saved = data.setup.reviews?.[next]?.focus || "", [draft, setDraft] = R.useState(saved),
+    saved = DDweekFocusAt(data.setup, next), [draft, setDraft] = R.useState(saved),
     save = () => { if (draft.trim() !== saved.trim()) setData((old) => DDsetWeekFocus(old, next, draft.trim())); };
   R.useEffect(() => setDraft(saved), [next, saved]);
   const row = (key, color, name, value, extra) => h("li", { key, "data-review-row": key },
