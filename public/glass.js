@@ -428,8 +428,6 @@ html[data-theme=dark] .dd-capture-kinds button[aria-pressed=true]{background:#63
 @media (prefers-color-scheme:dark){html:root:not([data-theme=light]) .dd-capture-kinds button[aria-pressed=true]{background:#636366}}
 html .dd-capture-dialog :is(input,select){border:0;border-radius:12px;background:var(--wash);box-shadow:none;min-height:44px;padding-inline:14px;font-size:16px;color:var(--ink)}
 html .dd-capture-dialog :is(input,select):focus{outline:0;box-shadow:0 0 0 3.5px color-mix(in srgb,var(--now) 30%,transparent)}
-html .dd-capture-lanes button{border:0;border-radius:var(--r-pill);background:var(--wash);color:var(--ink);box-shadow:none;font-weight:500}
-html .dd-capture-lanes button[aria-pressed=true]{background:var(--now);color:var(--on-now)}
 html .dd-capture-dialog .btn.solid{min-height:46px;font:600 16px var(--sans)}
 html .dd-capture-bar .textbtn{color:var(--now)}
 /* Documents: a clean page under a quiet bar (Notes) */

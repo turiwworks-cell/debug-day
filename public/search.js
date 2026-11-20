@@ -138,6 +138,9 @@ export function DDbuildSearchIndex(data, today) {
     lifeItems = DDlifeItems(setup),
     sectionOf = (id) => (id && lifeItems.some((i) => i.id === id && i.type === "section") ? DDsectionPath(lifeItems, id, 200).full : "");
   function add(row) {
+    // Words find what you can see (5.85.3): a task's hidden category and lane
+    // left the app, so "work" no longer finds every task in the Work lane.
+    // "#category" and "@lane" still filter by them.
     row.searchText = DDsearchText(
       [
         row.title,
@@ -145,10 +148,6 @@ export function DDbuildSearchIndex(data, today) {
         row.note,
         row.section,
         row.category,
-        row.type,
-        types.get(row.type),
-        row.lane,
-        lanes.get(row.lane),
         row.extra,
         ...(row.tags || []),
       ]
@@ -180,8 +179,7 @@ export function DDbuildSearchIndex(data, today) {
         tags: block.tags || [],
         detail: [
           date,
-          sectionOf(block.from) || types.get(block.type) || block.type,
-          lanes.get(block.lane),
+          sectionOf(block.from),
           block.measure === "count"
             ? (block.count || 0) + "/" + (block.times || 1) + "×"
             : block.measure === "wait"

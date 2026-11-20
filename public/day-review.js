@@ -265,7 +265,8 @@ export function DDreviewScheduleReminder(
   day.blocks.push({
     id: taskId,
     name: reminder.title,
-    type: reminder.type || data.setup.types?.[0]?.id || "other",
+    // No category (5.85.3): a task made from a reminder starts plain, like every new task.
+    type: "",
     lane: reminder.lane || data.setup.lanes?.[0]?.id || "",
     min: reminder.min || 30,
     note: reminder.note || "",
@@ -611,7 +612,8 @@ function DDReviewCalendar({
                 h("span", null, load.allDone ? h("span", { className: "dd-cal-check" }, "✓ ") : null, h("b", null, n(load.done)), "/" + n(load.tasks)),
                 load.planned > 0 && h("span", null, DDshortTime(load.planned, language)),
               ),
-            !feelingsOnly && load.tasks > 0 && h("span", { className: "dd-cal-meter" }, h("i", { style: { width: load.share + "%" } })),
+            // The bar is the day's Progress, the same number as its percent (5.85.3).
+            !feelingsOnly && load.tasks > 0 && h("span", { className: "dd-cal-meter" }, h("i", { style: { width: summary.completionPct + "%" } })),
             !feelingsOnly && h(DDCalSections, { React: R, day, items: lifeItems }),
           ),
           h(
@@ -1971,7 +1973,7 @@ function DDReviewDay({
             t("How the day looks", "این روز چطور است"),
             h("span", { className: "dd-cal-load-word" }, DDloadName(load.level, language)),
           ),
-          load.tasks > 0 && h("span", { className: "dd-cal-meter", "aria-hidden": true }, h("i", { style: { width: load.share + "%" } })),
+          load.tasks > 0 && h("span", { className: "dd-cal-meter", "aria-hidden": true }, h("i", { style: { width: summary.completionPct + "%" } })),
           h(
             "dl",
             null,

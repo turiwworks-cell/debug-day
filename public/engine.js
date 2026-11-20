@@ -158,11 +158,14 @@ export function DDengineUnpark(data, id, date, ensureDay = (d) => ({ date: d, bl
 
 // A new task for the Engine, with the same defaults as the Board's "+ task".
 // `from` is the Life section it came from, if any (see DDengineSourceHistory).
+// No category (5.85.3): section tags replaced categories, so a new task gets
+// none and wears the plain look until it has a section (see task-look.js).
+export const DDnoType = "";
 export function DDengineTask(name, lane, setup = {}, id = crypto.randomUUID(), from = "") {
   return {
     id,
     name: String(name || "").trim().slice(0, 300),
-    type: setup.types?.[0]?.id || "work",
+    type: DDnoType,
     lane: lane || "",
     min: Number(setup.preferences?.defaultMinutes) || 60,
     note: "",

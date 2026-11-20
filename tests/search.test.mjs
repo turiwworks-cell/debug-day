@@ -24,3 +24,7 @@ test('a panel named like the query comes before one that only mentions it',()=>{
   assert.deepEqual(pick('>'),rows.map(row=>row.panel.id),'with nothing typed the order stays');
 });
 test('deleting a Life section from search deletes its contents and their links, as on the Board',()=>{const data={setup:{life:{v:2,items:[{id:'s',type:'section',parent:'',x:0,y:0,w:400,h:300,text:'Studio'},{id:'n',type:'sticky',parent:'s',x:20,y:20,w:100,h:100,text:'Clay study'},{id:'o',type:'sticky',parent:'',x:600,y:0,w:100,h:100,text:'Other'}],links:[{id:'l',from:'life:n',to:'life:o'}]}},days:{}};const row=DDbuildSearchIndex(data,today).find(r=>r.id==='life:s');const next=DDeditSearchResult(data,row,'delete');assert.deepEqual(next.setup.life.items.map(i=>i.id),['o']);assert.deepEqual(next.setup.life.links,[])});
+// Categories and lanes left the app (5.54, 5.78): plain words no longer find a
+// task by its hidden category or lane, and its result line does not name them.
+// "#category" and "@lane" still filter (5.85.3).
+test('words find what you can see, not a hidden category or lane',()=>{const data=fixture();const block=results(data,'Portfolio').find(r=>r.kind==='block');assert.ok(!/Create|Work/.test(block.detail),block.detail);assert.equal(results(data,'Create').filter(r=>r.kind==='block').length,0);assert.equal(results(data,'work').filter(r=>r.kind==='block'&&r.title==='Last week outreach').length,0);assert.ok(results(data,'#create').some(r=>r.kind==='block'));assert.ok(results(data,'@work').some(r=>r.kind==='block'))});

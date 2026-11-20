@@ -222,3 +222,11 @@ test('a lane edit over MCP invalidates old positions in both Board modes and pre
  const actual=(await read(env)).data.days[date];assert.equal(actual.blocks[0].lane,'life');assert.equal(actual.blocks[0].subtasks[0].children[0].text,'Heading');
  assert.equal(actual.canvas.board4.layouts.lanes['b:task'],undefined);assert.equal(actual.canvas.board4.layouts.mindmap['b:task'],undefined);
 }));
+// Section tags replaced categories: MCP adds a task without one unless asked (5.85.3).
+test('MCP adds a task or a parked task with no category when type_id is left out',()=>withCloud(async(env)=>{
+ const added=await callTool('add_block',{date,expected_revision:1,name:'Sketch',minutes:30},env,'write');
+ assert.equal((await read(env)).data.days[date].blocks.find(b=>b.id===added.id).type,'');
+ const parked=await callTool('add_later',{expected_revision:added.revision,name:'Frame it',minutes:30},env,'write');
+ assert.equal((await read(env)).data.setup.later.find(b=>b.id===parked.id).type,'');
+ await assert.rejects(()=>callTool('add_block',{date,expected_revision:parked.revision,name:'X',minutes:30,type_id:'nope'},env,'write'),/Unknown type_id/);
+}));
