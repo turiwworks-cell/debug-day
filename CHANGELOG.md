@@ -1,3 +1,10 @@
+## 5.85.4 — 2026-11-20
+Branch: claude/project-thread-h96514
+- A long step on the Board shows every word (B5): its card is measured at the width the words really get, a step taller than the steps inside it keeps its own room, and a text longer than six lines ends with "…" instead of a cut line.
+- Deleting a task in the Engine says "Task deleted" with Undo, on a phone too (B9). Undo brings the task back with its steps and lines; a parked task comes back to its place in Park.
+- The message with Undo sits above the full-screen Board and the Engine, so it can always be tapped.
+- Over the 1.5 MB sync limit, sync says why in plain words (B10): "Sync paused · over 1.5 MB" beside the logo, and the full reason on hover: new changes are saved on this device only, nothing is lost, download a backup in Settings › Your data. It no longer says "Your backup is invalid".
+
 ## 5.85.3 — 2026-11-20
 Branch: claude/project-thread-h96514
 - New tasks no longer get a hidden category (B2): made in the Engine, on the Board, in Capture, from a worry or a reminder, they wear the plain grey until they have a section. Old tasks keep theirs.

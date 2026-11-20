@@ -4298,6 +4298,8 @@ export function DDcreateBoard(deps) {
             // A note without a size of its own reads at 16px, the size new notes get.
             "--object-size": (Y.textSize || (Y.kind === "sticky" ? 16 : 14)) + "px",
             "--object-align": Y.textAlign || (Y.shape ? "center" : "start"),
+            // A step shows the lines its card has room for, then "…" (5.85.3).
+            ...(Y.kind === "subtask" && Y.lines ? { "--step-lines": Y.lines } : {}),
             ...(Tt && Y.plain && !Y.fixed && Y.fitMax ? { "--fit-max": Y.fitMax + "px" } : {}),
             ...(Tt && Y.shape ? ((b) => ({ "--shape-text-left": b.left + "px", "--shape-text-width": b.width + "px", "--shape-text-top": b.top + "px", "--shape-text-bottom": b.bottom + "px" }))(DDshapeTextBox(Y.shape, Y.w, Y.h)) : {}),
             background: St
@@ -6765,8 +6767,24 @@ export function DDcreateBoard(deps) {
           Emoji: B,
           // Made inside a section's board, a new task comes from that section.
           from: layout.room || "",
-          onChange: (change) => commit((d) => change(d), t("Engine updated", "انجین به‌روز شد")),
+          onChange: (change, how) => {
+            if (!how?.undo) return commit((d) => change(d), t("Engine updated", "انجین به‌روز شد"));
+            // A delete says what it did and offers Undo (5.85.3). Undo takes back
+            // only that step, so a change made since then stays.
+            const before = copy(dayRef.current), toast = propsRef.current.onToast;
+            commit((d) => change(d), toast ? undefined : how.message);
+            const after = copy(dayRef.current);
+            if (toast && JSON.stringify(before) !== JSON.stringify(after))
+              toast(how.message, () =>
+                dayRef.current.date === before.date
+                  ? commit(({ __life, ...d }) => {
+                      const back = DDundoRevert(d, after, before);
+                      return back && { ...back, __life };
+                    }, t("Undone", "بازگشت تغییر"))
+                  : propsRef.current.onUpdateDayOnDate?.(before.date, (d) => DDundoRevert(d, after, before) || d));
+          },
           onSetup: (change) => propsRef.current.onUpdateSetup?.(change),
+          onToast: (message, undo) => propsRef.current.onToast?.(message, undo),
           onTomorrow: propsRef.current.onMoveTask ? (id) => propsRef.current.onMoveTask(day.date, id) : undefined,
           onReveal: (blockId) => {
             setEngine(false);

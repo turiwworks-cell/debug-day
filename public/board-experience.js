@@ -203,6 +203,7 @@ export const DDboardExperienceCSS = `
 /* Corners sit above the edge bands, so grabbing a corner resizes both ways (the bottom band used to cover it). */
 .b6 .b4-node>.b6-note-resize[data-resize][data-edge=nw],.b6 .b4-node>.b6-note-resize[data-resize][data-edge=ne],.b6 .b4-node>.b6-note-resize[data-resize][data-edge=sw],.b6 .b4-node>.b6-note-resize[data-resize][data-edge=se]{z-index:32}
 .b6 .b4-life-section>.b4-node-body{align-items:stretch}
+.b4-node.b4-subtask .b4-node-title{-webkit-line-clamp:var(--step-lines,6)}
 .b6 .b4-life-section>.b4-node-body .b4-node-title{font-size:calc(16px * var(--dd-sec-k));font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;min-width:0}
 .b6 .b4-life-section>.b4-node-body .b4-node-title::before{content:none}
 .b6 .b4-life-section>.b4-node-actions{display:none}

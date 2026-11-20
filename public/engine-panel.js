@@ -678,6 +678,7 @@ export function DDEnginePanel(props) {
       focusId,
       onChange,
       onSetup,
+      onToast,
       onTomorrow,
       onReveal,
       onFocusTimer,
@@ -777,6 +778,8 @@ export function DDEnginePanel(props) {
       onChange((d) => ({ ...d, blocks: [...d.blocks, task] }));
       onSetup((s) => ({ ...s, later: DDengineParked(s).filter((b) => b.id !== id) }));
     },
+    // A delete says so and offers Undo, on a phone too (5.85.3): nothing asks
+    // first, and the task, its steps and its lines come back as they were.
     removeToday = (id) =>
       onChange((d) => {
         const block = d.blocks.find((b) => b.id === id),
@@ -784,7 +787,18 @@ export function DDEnginePanel(props) {
         next.blocks = next.blocks.filter((b) => b.id !== id);
         if (block) DDcleanBoard(next, ["b:" + id, ...stepRefs(block.subtasks, id)]);
         return next;
-      }),
+      }, { undo: true, message: t("Task deleted", "کار حذف شد") }),
+    removePark = (id) => {
+      const list = DDengineParked(setup), at = list.findIndex((b) => b.id === id), block = list[at];
+      if (!block) return;
+      onSetup((s) => ({ ...s, later: DDengineParked(s).filter((b) => b.id !== id) }));
+      onToast?.(t("Task deleted", "کار حذف شد"), () =>
+        onSetup((s) => {
+          const later = DDengineParked(s);
+          if (later.some((b) => b.id === id)) return s;
+          return { ...s, later: [...later.slice(0, at), block, ...later.slice(at)] };
+        }));
+    },
     duplicate = (id) =>
       onChange((d) => {
         const index = d.blocks.findIndex((b) => b.id === id);
@@ -810,7 +824,7 @@ export function DDEnginePanel(props) {
         onToggleSteps: () => toggleSteps(block.id),
         onChange: place === "today" ? changeToday(block.id) : changePark(block.id),
         onMove: place === "today" ? park : unpark,
-        onRemove: place === "today" ? removeToday : (id) => onSetup((s) => ({ ...s, later: DDengineParked(s).filter((b) => b.id !== id) })),
+        onRemove: place === "today" ? removeToday : removePark,
         onDuplicate: duplicate,
         onTomorrow,
         onReveal,
