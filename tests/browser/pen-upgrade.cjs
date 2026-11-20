@@ -190,7 +190,8 @@ const results=[];
  assert.equal(color.undo.canvas.board4.strokes[0].color, '#0D99FF');
  const limit = get('eraser-at-stroke-limit-drops-untouched-stroke');
  assert.deepEqual(limit.lostUntouchedIds, []);
- assert.equal(limit.afterErase, 600);
+ // Erasing is never turned down (5.88.1): at 600 drawings the eraser splits s1 in two.
+ assert.equal(limit.afterErase, 601);
  console.log('Pen upgrade: direction, selection, properties, undo, resize, capacity and mobile passed');
 
 })().catch(e=>{console.error(e);process.exitCode=1;});

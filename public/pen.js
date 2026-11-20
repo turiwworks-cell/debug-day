@@ -10,10 +10,21 @@
 //   - anywhere else it belongs to the day (day.canvas.board4.strokes, board points).
 // Points are saved simplified, as one short text of tenths ("x,y dx,dy dx,dy"),
 // so a drawing stays small and sync stays light.
+// How much you can draw (5.88.1) is measured in room, not in a count of lines:
+// new drawings stop only when the planner nears the 1.5 MB sync limit, or when
+// one board holds more than it can show smoothly. Deleting, erasing, moving
+// and restyling always go through.
+import { DDstorageBytes } from "./upkeep.js";
 
 export const DDpenColors = ["#1E1E1E", "#F24822", "#FFA629", "#14AE5C", "#0D99FF", "#9747FF"];
 export const DDpenWidths = [2, 4, 8];
-const MAX_POINTS = 1500, MAX_STROKES = 600;
+// MAX_STROKES drawings are read back on each list (a day's board, or the whole
+// Feed); new ones stop at MAX_NEW, so the eraser can still split lines near
+// the top and nothing saved is ever dropped when it is read back.
+const MAX_POINTS = 1500, MAX_STROKES = 5000, MAX_NEW = 3000;
+// New drawings stop when the planner gets this close to the 1.5 MB sync limit,
+// so there is always room left for words.
+export const DDinkRoomLine = 1400000;
 const num = (v, d = 0) => (Number.isFinite(v) ? Math.max(-1e5, Math.min(1e5, v)) : d);
 
 // [x0, y0, x1, y1, ...] → "x0,y0 dx,dy …" in tenths, exact both ways.
@@ -41,20 +52,56 @@ export function DDstrokeDecode(text) {
   return out;
 }
 
+// A stroke's text, checked and written the one exact way, remembered by the
+// text itself: a board with thousands of drawings does the work once per
+// line, not on every change (5.88.1). "" when the text holds no points.
+// Both memories below are let go when they grow past about 16 MB.
+const canon = new Map();
+let canonSize = 0;
+function canonical(text) {
+  if (typeof text !== "string" || !text) return "";
+  let out = canon.get(text);
+  if (out === undefined) {
+    if (canon.size > 12000 || canonSize > 4e6) { canon.clear(); canonSize = 0; }
+    const points = DDstrokeDecode(text);
+    out = points.length < 2 ? "" : DDstrokeEncode(points);
+    canon.set(text, out === text ? text : out);
+    canonSize += text.length + (out === text ? 0 : out.length);
+  }
+  return out;
+}
+// Decoded points to draw, shared by everyone who draws the same line at the
+// same place, so the path behind it is worked out once too. Never changed in
+// place (DDstrokeDecode gives a fresh copy for that).
+const shared = new Map();
+let sharedSize = 0;
+function drawPoints(text, ox = 0, oy = 0) {
+  const key = ox || oy ? text + "@" + ox + "," + oy : text;
+  let points = shared.get(key);
+  if (!points) {
+    if (shared.size > 12000 || sharedSize > 2e6) { shared.clear(); sharedSize = 0; }
+    points = DDstrokeDecode(text);
+    if (ox || oy) points = points.map((v, i) => v + (i % 2 ? oy : ox));
+    shared.set(key, points);
+    sharedSize += points.length;
+  }
+  return points;
+}
+
 // Keep only valid strokes. In the Feed (`life`), each stroke names its section.
 export function DDnormalizeStrokes(list, { life = false } = {}) {
   if (!Array.isArray(list)) return [];
   const out = [], seen = new Set();
   for (const s of list) {
     if (!s || typeof s !== "object" || typeof s.id !== "string" || !s.id || s.id.length > 80 || seen.has(s.id)) continue;
-    const points = DDstrokeDecode(s.pts);
-    if (points.length < 2) continue;
+    const pts = canonical(s.pts);
+    if (!pts) continue;
     seen.add(s.id);
     const opacity = Number.isFinite(s.opacity) ? Math.round(Math.max(0.05, Math.min(1, s.opacity)) * 100) / 100 : 1;
     out.push({
       id: s.id,
       ...(life ? { parent: typeof s.parent === "string" ? s.parent.slice(0, 80) : "" } : {}),
-      pts: DDstrokeEncode(points),
+      pts,
       color: typeof s.color === "string" && /^#[0-9a-f]{6}$/i.test(s.color) ? s.color : DDpenColors[0],
       width: DDpenWidths.includes(s.width) ? s.width : DDpenWidths.reduce((a, b) => (Math.abs(b - (s.width || 4)) < Math.abs(a - (s.width || 4)) ? b : a)),
       ...(opacity < 1 ? { opacity } : {}),
@@ -62,6 +109,47 @@ export function DDnormalizeStrokes(list, { life = false } = {}) {
     if (out.length >= MAX_STROKES) break;
   }
   return out;
+}
+
+// Whether a change to the drawings can be kept (5.88.1). `before` and `after`
+// are [the day's list, the Feed's list]. Deleting, erasing, moving and
+// restyling always go through; a change that `adds` drawings stops when a list
+// would hold more than it can show smoothly, or when the planner (about
+// `plannerBytes` now) would pass the room line. Returns { stop, grows }: stop
+// is "" or why ("board", "feed", "room"); grows is the bytes it adds.
+export function DDinkCheck(before, after, { adds = false, plannerBytes = 0 } = {}) {
+  const [bd, bl] = before, [ad, al] = after, more = (a, b, cap) => a.length > b.length && a.length > cap;
+  if (more(ad, bd, MAX_STROKES)) return { stop: "board", grows: 0 };
+  if (more(al, bl, MAX_STROKES)) return { stop: "feed", grows: 0 };
+  if (!adds) return { stop: "", grows: 0 };
+  if (more(ad, bd, MAX_NEW)) return { stop: "board", grows: 0 };
+  if (more(al, bl, MAX_NEW)) return { stop: "feed", grows: 0 };
+  const had = new Set([...bd.map((s) => "D:" + s.id), ...bl.map((s) => "L:" + s.id)]);
+  let grows = 0;
+  for (const s of ad) if (!had.has("D:" + s.id)) grows += JSON.stringify(s).length + 1;
+  for (const s of al) if (!had.has("L:" + s.id)) grows += JSON.stringify(s).length + 1;
+  return { stop: grows > 0 && plannerBytes + grows > DDinkRoomLine ? "room" : "", grows };
+}
+export function DDinkStopText(stop, language = "en") {
+  const fa = language === "fa";
+  if (stop === "room")
+    return fa
+      ? "برنامه‌ریزت نزدیک سقف ۱٫۵ مگ همگام‌سازی است، برای همین این طراحی اضافه نشد. طراحی‌هایی را که دیگر لازم نداری پاک کن تا جا باز شود."
+      : "Your planner is close to the 1.5 MB sync limit, so this drawing wasn't added. Delete drawings you no longer need to make room.";
+  if (stop === "feed")
+    return fa ? "فید بیشتر از این طراحی را روان نشان نمی‌دهد. چند خط را پاک کن تا باز بکشی." : "The Feed holds as many drawings as it can show smoothly. Delete a few to draw more.";
+  return fa ? "این برد بیشتر از این طراحی را روان نشان نمی‌دهد. چند خط را پاک کن تا باز بکشی." : "This board holds as many drawings as it can show smoothly. Delete a few to draw more.";
+}
+// The planner's size for the room line: measured again every few seconds, and
+// at every new drawing once it is near the line. What is drawn in between is
+// added on, so quick drawings can't slip past it.
+const room = { at: 0, bytes: 0 };
+function plannerSize(c, now = Date.now()) {
+  if (now - room.at > 5000 || room.bytes > DDinkRoomLine - 150000) {
+    room.bytes = DDstorageBytes({ setup: c.setup, days: c.days });
+    room.at = now;
+  }
+  return room.bytes;
 }
 
 // Fewer points, same line (Ramer–Douglas–Peucker). `tolerance` is in board units.
@@ -360,14 +448,14 @@ export function DDusePen(ctx) {
     const out = [];
     if (ctx.mode === "mindmap" && !ctx.layout.room)
       for (const s of DDnormalizeStrokes(board4?.strokes)) {
-        const points = DDstrokeDecode(s.pts);
+        const points = drawPoints(s.pts);
         out.push({ ...s, life: false, points, box: DDstrokeBox(points) });
       }
     for (const s of DDnormalizeStrokes(lifeStrokes, { life: true })) {
-      const rel = DDstrokeDecode(s.pts), b = DDstrokeBox(rel),
+      const rel = drawPoints(s.pts), b = DDstrokeBox(rel),
         origin = DDmarkOrigin(ctx.layout, s.parent, ctx.lifeHead, { x: b.x + b.w / 2, y: b.y + b.h / 2 });
       if (!origin) continue;
-      const points = rel.map((v, i) => v + (i % 2 ? origin.y : origin.x));
+      const points = drawPoints(s.pts, origin.x, origin.y);
       out.push({ ...s, life: true, points, box: DDstrokeBox(points), origin });
     }
     return out;
@@ -405,14 +493,18 @@ export function DDusePen(ctx) {
     };
   }, [active, opts.straight]);
 
-  // Write strokes: `change(day, life)` returns the new lists.
-  function write(change, message) {
+  // Write strokes: `change(day, life)` returns the new lists. Only a change
+  // that adds drawings (`adds`) can be turned down, with a calm word on why.
+  function write(change, message, { adds = false } = {}) {
     ctxRef.current.commit((d) => {
-      const [nextDay, nextLife] = change(dayList(d), DDnormalizeStrokes(d.__life.strokes, { life: true }));
-      if (nextDay.length > MAX_STROKES || nextLife.length > MAX_STROKES) {
-        ctxRef.current.setStatus(t("Drawing limit reached. Delete a drawing, then try again.", "ظرفیت طراحی پر است. یک خط را حذف کن و دوباره امتحان کن."));
+      const c = ctxRef.current, before = [dayList(d), DDnormalizeStrokes(d.__life.strokes, { life: true })];
+      const [nextDay, nextLife] = change(before[0], before[1]);
+      const check = DDinkCheck(before, [nextDay, nextLife], { adds, plannerBytes: adds ? plannerSize(c) : 0 });
+      if (check.stop) {
+        c.setStatus(DDinkStopText(check.stop, c.language));
         return d;
       }
+      room.bytes += check.grows;
       setDayList(d, nextDay);
       setLifeList(d, nextLife);
       return d;
@@ -433,7 +525,7 @@ export function DDusePen(ctx) {
       c.setStatus("In Lanes, draw inside a section, or switch to the Mind map");
       return;
     }
-    write((day, life) => (placed.life ? [day, [...life, placed.stroke]] : [[...day, placed.stroke], life]), null);
+    write((day, life) => (placed.life ? [day, [...life, placed.stroke]] : [[...day, placed.stroke], life]), null, { adds: true });
   }
   function removeKeys(keys, message) {
     if (!keys.size) return;
@@ -475,7 +567,7 @@ export function DDusePen(ctx) {
       const nextDay = [...day], nextLife = [...life];
       for (const c of copies) (c.life ? nextLife : nextDay).push(c.stroke);
       return [nextDay, nextLife];
-    }, t("Drawing duplicated", "کپی خط ساخته شد"));
+    }, t("Drawing duplicated", "کپی خط ساخته شد"), { adds: true });
     setSel(new Set(copies.map((c) => (c.life ? "L:" : "D:") + c.stroke.id)));
   }
   function restyle(patch, message = null) {
