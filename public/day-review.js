@@ -375,7 +375,8 @@ function DDReviewCalendar({
       : "gregory";
   const [anchor, setAnchor] = R.useState(date),
     root = R.useRef(null),
-    weekStart = fa ? 6 : 1;
+    // Saturday with the Persian calendar, Monday with the Gregorian (5.86.3).
+    weekStart = system === "persian" ? 6 : 1;
   R.useEffect(() => setAnchor(date), [date]);
   const month = R.useMemo(
     () => DDreviewMonth(anchor, system, weekStart),

@@ -1,3 +1,4 @@
+import { DDtoday } from "./dates.js";
 // Every note shows its date, so the label is kept once per date, language and
 // calendar instead of building a new date formatter for each note on each render.
 const ddStickyLabels=new Map();
@@ -14,7 +15,8 @@ export function DDstickyDateLabel(date,language) {
  return label;
 }
 // Canonical sticky text stays plain markdown; rendering never stores a second copy.
-export const DDstickyToday = () => new Date().toLocaleDateString("en-CA");
+// The day a note is written: today as the app counts it (5.86.3).
+export const DDstickyToday = () => DDtoday();
 export const DDstickyHeight = (width, content) => Math.ceil(Math.max(width, content));
 export const DDstickySnap = (width, base = 240) => Math.abs(width-base) <= Math.abs(width-base*1.5) ? base : base*1.5;
 export function DDstickyFormat(text, start, end, kind) {

@@ -4,7 +4,7 @@
 // 1 done · 2 good (half the goal) · 3 enough (the goal) · 4 too much (twice the goal).
 // Each habit has its own goal (5.31), so 60 minutes of sport can be "enough"
 // while 60 minutes of writing is "too much".
-import { DDaddDays } from "./dates.js";
+import { DDaddDays, DDweekStartDay } from "./dates.js";
 export const DDhabitPalette = [
   "#E2683C",
   "#3F8CFF",
@@ -308,8 +308,8 @@ export function DDHabitStats({ React: R, habit, days, date, levels, language, we
     summary = DDhabitSummary(history),
     streak = DDhabitStreak(days, habit.id, date),
     weekday = new Date(history[0].date + "T12:00:00Z").getUTCDay(),
-    // Weeks start on Saturday in Persian and on Monday in English.
-    pad = language === "fa" ? (weekday + 1) % 7 : (weekday + 6) % 7;
+    // Weeks start when the Calendar's week does (5.86.3).
+    pad = (weekday - DDweekStartDay(language) + 7) % 7;
   return R.createElement(
     "div",
     { className: "dd-habit-stats", style: { "--hc": habit.color } },
