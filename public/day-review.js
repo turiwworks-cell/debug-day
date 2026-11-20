@@ -10,6 +10,7 @@ import { DDCalendarWeek, DDWeekReview, DDCalendarModes, DDCalSections } from "./
 import { DDaddDays, DDvalidDate } from "./dates.js";
 import { DDspentOf, DDspentText, DDdayFocused } from "./focus-time.js";
 import { DDusualMinutes, DDdayLoad, DDloadName, DDmonthLoad, DDaltDay, DDaltMonth, DDshortTime, DDinstallCalendarLook } from "./calendar-look.js";
+import { DDArchivedNote } from "./archive.js";
 import { DDremindersOn, DDcalDayRows, DDcalRemLines, DDcalOpenFrom, DDremOpenEvent, DDopenReminder, DDopenOnBoard, DDremIcon, DDinstallCalReminders } from "./cal-reminders.js";
 DDinstallCalendarLook();
 DDinstallCalReminders();
@@ -363,6 +364,8 @@ function DDReviewCalendar({
   mode,
   onMode,
   onMonth: reportMonth,
+  setData,
+  onToast,
 }) {
   const { h, fa, t, n } = DDreviewUI(R, language),
     lifeItems = DDlifeItems(data.setup),
@@ -510,6 +513,9 @@ function DDReviewCalendar({
         monthLoad.full > 0 && h("li", null, h("b", null, n(monthLoad.full)), t(monthLoad.full === 1 ? "full day" : "full days", "روز پر")),
         topLabel && h("li", null, t("Fullest: ", "پرترین: "), h("b", null, topLabel)),
       ),
+    // A month in the archive says so, with Bring back (5.91.0).
+    !feelingsOnly &&
+      h(DDArchivedNote, { React: R, data, from: month.start, to: DDreviewShift(month.start, month.length - 1), setData, onToast, language, scope: "month" }),
     h(
       "div",
       {
@@ -1974,6 +1980,8 @@ function DDReviewDay({
         t("Back to calendar", "برگشت به تقویم"),
       ),
     ),
+    !feelingsOnly &&
+      h(DDArchivedNote, { React: R, data, from: date, setData, onToast, language, scope: "day" }),
     !feelingsOnly &&
       h(
         R.Fragment,

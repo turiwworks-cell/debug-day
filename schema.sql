@@ -19,6 +19,16 @@ CREATE TABLE IF NOT EXISTS planner_daily (
  revision INTEGER NOT NULL,
  updated_at TEXT NOT NULL
 );
+-- Months moved out of the planner to keep it light (5.91.0), one row for each
+-- time a month is archived. setup.archive in the planner lists them. The
+-- server also makes this table by itself.
+CREATE TABLE IF NOT EXISTS planner_archive (
+ id TEXT PRIMARY KEY,
+ data TEXT NOT NULL,
+ days INTEGER NOT NULL,
+ bytes INTEGER NOT NULL,
+ archived_at TEXT NOT NULL
+);
 CREATE TRIGGER IF NOT EXISTS planner_history_update
 AFTER UPDATE ON planner
 BEGIN

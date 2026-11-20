@@ -1,3 +1,11 @@
+## 5.91.0 — 2026-11-20
+Branch: claude/project-thread-h96514
+- Archive old months: with sync on, Settings › Your data can move a month you're done with (before last month) to your server, so the planner stays far from the 1.5 MB sync limit. It asks first and offers Undo.
+- Archived days keep their light record (habits, mood, energy), so habit streaks and history stay whole.
+- The Calendar says when a month or a day is in your archive, with "Bring back"; Settings lists archived months too. Bringing a month back joins it with anything added since, and never goes past the sync limit.
+- Months follow the Calendar's choice (Gregorian or Persian). Each archive is its own server row (`planner_archive`, made by the server itself), so one never writes over another.
+- MCP: get_day reads an archived day from the archive, and list_days names archived months.
+
 ## 5.90.0 — 2026-11-20
 Branch: claude/project-thread-h96514
 - Copies on your server (wave 3): with sync on, the server now keeps your planner as it was at the end of each of the last 30 days you changed it, beside the last 20 saves it already kept. The first change of a new day makes the copy; a copy that fails never stops a save.
