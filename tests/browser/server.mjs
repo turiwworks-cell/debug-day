@@ -22,6 +22,9 @@ export async function startServer() {
           async run() {
             return sql.prepare(query).run(...args);
           },
+          async all() {
+            return { results: sql.prepare(query).all(...args) };
+          },
         };
       },
     },
@@ -83,6 +86,8 @@ export async function startServer() {
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   return {
     origin: `http://127.0.0.1:${server.address().port}`,
+    // The disposable database, for tests that need to set the server's clock back.
+    sql,
     async close() {
       await new Promise((resolve) => server.close(resolve));
       sql.close();
