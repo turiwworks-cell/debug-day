@@ -123,6 +123,10 @@ test("a new Engine task has one lane, no category and the usual defaults", () =>
     expanded: true,
     subtasks: [],
   });
+  // Time is optional (5.86.0): with nothing picked a new task has no time.
+  assert.equal(DDengineTask("Sketch", "work", {}, "id2").min, 0);
+  assert.equal(DDengineTask("Sketch", "work", { preferences: { defaultMinutes: 60 } }, "id3").min, 0, "the old untouched 60");
+  assert.equal(DDengineTask("Sketch", "work", { preferences: { defaultMinutes: 60, timeOptional: true } }, "id4").min, 60);
 });
 
 test("the bus keeps a request until a Board takes it", () => {

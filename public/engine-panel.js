@@ -30,7 +30,7 @@ import {
   DDcaptureWaiting,
 } from "./engine.js";
 import { DDcompletion, DDpriorityLabel, DDTaskMetadata, DDTaskTags } from "./planner.js";
-import { DDmeasureOf, DDmeasureText, DDMeasureControl, DDsetMeasure, DDplanMinutes, DDduration } from "./measure.js";
+import { DDmeasureOf, DDmeasureText, DDMeasureControl, DDsetMeasure, DDplanMinutes, DDduration, DDstepMinutes } from "./measure.js";
 import { DDenergyOf, DDsetEnergy, DDenergyLabel } from "./energy.js";
 import { DDsetTaskDone, DDtoggleSubtask, DDcleanBoard } from "./search.js";
 import { DDPlanNudges } from "./nudges.js";
@@ -414,9 +414,10 @@ function Details({ React: R, block, place, lanes, sources, language, flow, onCha
         h(
           "span",
           { className: "dd-engine-time" },
-          h("button", { type: "button", "aria-label": t("Less time", "زمان کمتر"), onClick: () => onChange((b) => ({ ...b, min: Math.max(15, (Number(b.min) || 60) - 15) })) }, "−"),
-          h("b", null, DDduration(Number(block.min) || 0, language)),
-          h("button", { type: "button", "aria-label": t("More time", "زمان بیشتر"), onClick: () => onChange((b) => ({ ...b, min: Math.min(720, (Number(b.min) || 60) + 15) })) }, "+"),
+          // Time is optional (5.86.0): − from 15 minutes gives "No time".
+          h("button", { type: "button", "aria-label": t("Less time", "زمان کمتر"), disabled: !(Number(block.min) > 0), onClick: () => onChange((b) => ({ ...b, min: DDstepMinutes(b.min, -1) })) }, "−"),
+          h("b", { "data-no-time": Number(block.min) > 0 ? undefined : true }, Number(block.min) > 0 ? DDduration(Number(block.min), language) : t("No time", "بدون زمان")),
+          h("button", { type: "button", "aria-label": t("More time", "زمان بیشتر"), onClick: () => onChange((b) => ({ ...b, min: DDstepMinutes(b.min, 1) })) }, "+"),
         ),
       ),
     field(

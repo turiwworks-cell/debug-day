@@ -1,6 +1,6 @@
 // Quick capture, permanent worry parking and the phone's quiet Today view.
 import { DDTimerMini } from "./timer.js";
-import { DDduration } from "./measure.js";
+import { DDduration, DDtimeText, DDdefaultMinutes } from "./measure.js";
 import { DDlifeState, DDlifeAdd, DDcaptureEnsure } from "./life-board.js";
 import { DDcaptureId } from "./section-keys.js";
 import { DDPlanNudges, DDmoveToDay, DDnextDay } from "./nudges.js";
@@ -92,7 +92,8 @@ export function DDconvertWorry(snapshot, id, date, ensureDay) {
       data.setup.lanes.find((l) => l.id === "life")?.id ||
       data.setup.lanes[0]?.id ||
       "",
-    min: 30,
+    // Time is optional (5.86.0): it takes what Settings › New tasks take says.
+    min: DDdefaultMinutes(data.setup.preferences),
     note: "",
     pri: 0,
     emo: "",
@@ -373,8 +374,8 @@ export function DDCaptureTools({
             h(
               "p",
               null,
-              block.at && h("time", null, block.at + " · "),
-              DDduration(block.min, language),
+              block.at && h("time", null, block.at + (Number(block.min) > 0 ? " · " : "")),
+              DDtimeText(block.min, language),
             ),
             label === t("Current", "کار فعلی") &&
               h(
@@ -499,7 +500,7 @@ export function DDCaptureTools({
             },
             h("small", null, t("Next", "کار بعدی")),
             h("span", { dir: "auto" }, next.name),
-            h("em", null, DDduration(next.min, language)),
+            Number(next.min) > 0 && h("em", null, DDduration(next.min, language)),
           ),
         timer.running &&
           h(

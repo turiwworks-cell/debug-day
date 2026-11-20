@@ -5,6 +5,7 @@
 import { DDsectionTint, DDlifePath, DDlifeItems } from "./life-board.js";
 import { DDcaptureId } from "./section-keys.js";
 import { DDcleanBoard } from "./search.js";
+import { DDdefaultMinutes } from "./measure.js";
 
 // Ask the Board to bring the Engine up. The request waits until a Board is
 // on screen (Ctrl+Space can ask from Plan or Calendar before the Board opens).
@@ -167,7 +168,8 @@ export function DDengineTask(name, lane, setup = {}, id = crypto.randomUUID(), f
     name: String(name || "").trim().slice(0, 300),
     type: DDnoType,
     lane: lane || "",
-    min: Number(setup.preferences?.defaultMinutes) || 60,
+    // Time is optional (5.86.0): Settings › New tasks take, "No time" (0) by default.
+    min: DDdefaultMinutes(setup.preferences),
     note: "",
     pri: 0,
     emo: "",

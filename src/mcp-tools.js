@@ -159,7 +159,7 @@ export function DDmcpMoreCall(name, args, data) {
   if (name === "add_reminder") {
     data.setup.reminders ||= [];
     const item = { id: id(), date: args.date, title: args.title.trim(), repeat: args.repeat || "once", done: false,
-      type: data.setup.types?.[0]?.id || "other", lane: data.setup.lanes?.[0]?.id || "", min: 30, note: "" };
+      type: data.setup.types?.[0]?.id || "other", lane: data.setup.lanes?.[0]?.id || "", min: 0, note: "" };
     data.setup.reminders.unshift(item);
     return { id: item.id, changed: true };
   }

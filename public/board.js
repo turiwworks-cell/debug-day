@@ -4854,15 +4854,17 @@ export function DDcreateBoard(deps) {
             { className: "dd-card-minutes" },
             h("input", {
               type: "number",
-              min: 5,
+              // Time is optional (5.86.0): 0 is "No time".
+              min: 0,
               max: 720,
               step: 5,
-              value: block.min,
+              value: Number(block.min) || 0,
               disabled: isLocked,
               "aria-label": t("Minutes", "دقیقه"),
               onChange: (event) => {
+                if (event.target.value === "") return;
                 const value = Math.round(+event.target.value);
-                if (!Number.isFinite(value) || value < 5 || value > 720) return;
+                if (!Number.isFinite(value) || value < 0 || (value > 0 && value < 5) || value > 720) return;
                 commit((d) => {
                   const b = d.blocks.find((b) => b.id === block.id);
                   if (b) b.min = value;
@@ -4870,7 +4872,7 @@ export function DDcreateBoard(deps) {
                 });
               },
             }),
-            h("small", null, t("min", "دقیقه") + " · " + w(block.min)),
+            h("small", null, Number(block.min) > 0 ? t("min", "دقیقه") + " · " + w(block.min) : t("No time", "بدون زمان")),
           )
             : h(measure.DDMeasureControl, {
                 React: _,

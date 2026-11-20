@@ -9,7 +9,7 @@ import { oauth, oauthRoute, oauthAccess } from "./oauth.js";
 import { DDmcpMoreTools, DDmcpMoreCall } from "./mcp-tools.js";
 const MAX_BYTES = 1500000;
 const VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"];
-const INFO = { name: "debug-day", title: "Debug Day", version: "5.85.4" };
+const INFO = { name: "debug-day", title: "Debug Day", version: "5.86.0" };
 class HttpError extends Error {
   constructor(status, message) {
     super(message);
@@ -236,6 +236,13 @@ const string = { type: "string" },
     minimum: 1,
     description:
       "The exact revision returned by get_day or get_setup. A stale revision is rejected.",
+  },
+  // Time is optional (5.86.0): leave minutes out, or 0, for a task with no time.
+  minutesSchema = {
+    type: "integer",
+    minimum: 0,
+    maximum: 720,
+    description: "Minutes the task takes, 5 to 720. Leave it out, or 0, for a task with no time; do not guess a length.",
   };
 function tool(name, description, properties, required = [], write = false) {
   return {
@@ -301,7 +308,7 @@ const WRITE_TOOLS = [
     {
       expected_revision: revisionSchema,
       name: { type: "string", minLength: 1, maxLength: 300 },
-      minutes: { type: "integer", minimum: 15, maximum: 720 },
+      minutes: minutesSchema,
       type_id: string,
       lane_id: string,
       priority: { type: "integer", minimum: 0, maximum: 3 },
@@ -309,7 +316,7 @@ const WRITE_TOOLS = [
       note: { type: "string", maxLength: 4000 },
       anchor_time: anchorSchema,
     },
-    ["expected_revision", "name", "minutes"],
+    ["expected_revision", "name"],
     true,
   ),
   tool(
@@ -368,7 +375,7 @@ const WRITE_TOOLS = [
       date: daySchema,
       expected_revision: revisionSchema,
       name: { type: "string", minLength: 1, maxLength: 300 },
-      minutes: { type: "integer", minimum: 15, maximum: 720 },
+      minutes: minutesSchema,
       type_id: string,
       lane_id: string,
       priority: { type: "integer", minimum: 0, maximum: 3 },
@@ -376,7 +383,7 @@ const WRITE_TOOLS = [
       note: { type: "string", maxLength: 4000 },
       anchor_time: anchorSchema,
     },
-    ["date", "expected_revision", "name", "minutes"],
+    ["date", "expected_revision", "name"],
     true,
   ),
   tool(
@@ -387,7 +394,7 @@ const WRITE_TOOLS = [
       expected_revision: revisionSchema,
       block_id: string,
       name: { type: "string", minLength: 1, maxLength: 300 },
-      minutes: { type: "integer", minimum: 15, maximum: 720 },
+      minutes: minutesSchema,
       done: { type: "boolean" },
       note: { type: "string", maxLength: 4000 },
       lane_id: string,
@@ -677,7 +684,7 @@ async function callTool(name, args, env, access) {
       data.setup.later.push({
         id,
         name: args.name.trim(),
-        min: args.minutes,
+        min: args.minutes ?? 0,
         type: args.type_id ?? "",
         lane: args.lane_id ?? data.setup.lanes?.[0]?.id ?? "",
         note: args.note || "",
@@ -777,7 +784,7 @@ async function callTool(name, args, env, access) {
     day.blocks.push({
       id,
       name: args.name.trim(),
-      min: args.minutes,
+      min: args.minutes ?? 0,
       type: args.type_id ?? "",
       lane: args.lane_id ?? data.setup.lanes?.[0]?.id ?? "",
       note: args.note || "",

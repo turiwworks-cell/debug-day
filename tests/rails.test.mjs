@@ -8,6 +8,7 @@ import { DDtags } from "../public/planner.js";
 import {DDmediaList} from "../public/media.js";
 import {DDgoalClean} from "../public/budgets.js";
 import {DDdueClean} from "../public/deadlines.js";
+import { DDdefaultMinutes } from "../public/measure.js";
 import { DDroutineClean } from "../public/routine.js";
 import { DDboardCore as core } from "../public/board-core.js";
 import { DatabaseSync } from "node:sqlite";
@@ -68,7 +69,7 @@ test("legacy day-note and preference normalizers preserve only supported roles a
   const html = readFileSync(new URL("../public/index.html", import.meta.url), "utf8"),
     ve = html.match(/function Ve\(at\).*?(?=var He=)/s)[0],
     prefs = html.match(/function DDprefs\(at\).*?(?=function DDdownload)/s)[0],
-    context = { L: (v) => typeof v === "string" ? v : "", C: () => "id", Ie: Number.isFinite, Le: /^#[a-f0-9]{6}$/i, we: ["#FFE299"], DDhabitLevels: (v) => v, DDroutineClean, DDtags, DDmediaList, DDgoalClean, DDdueClean };
+    context = { L: (v) => typeof v === "string" ? v : "", C: () => "id", Ie: Number.isFinite, Le: /^#[a-f0-9]{6}$/i, we: ["#FFE299"], DDhabitLevels: (v) => v, DDdefaultMinutes, DDroutineClean, DDtags, DDmediaList, DDgoalClean, DDdueClean };
   runInNewContext(ve + prefs + ';this.note=Ve;this.prefs=DDprefs;', context);
   assert.equal(context.note({ role: "goal" }).role, "goal");
   assert.equal(context.note({ kind: "emoji", role: "goal" }).role, undefined);
@@ -80,6 +81,12 @@ test("legacy day-note and preference normalizers preserve only supported roles a
   assert.equal(p.boardRailHabits, undefined);
   assert.deepEqual(context.prefs({ routine: { leftovers: "bring", x: 1 } }).routine, { leftovers: "bring" }, "the daily routine syncs (5.56)");
   assert.equal(context.prefs({ routine: { leftovers: "ask" } }).routine, undefined);
+  // Time is optional (5.86.0): "No time" by default, the old untouched 60 too, once.
+  assert.equal(context.prefs({}).defaultMinutes, 0);
+  assert.equal(context.prefs({ defaultMinutes: 60 }).defaultMinutes, 0);
+  assert.equal(context.prefs({ defaultMinutes: 45 }).defaultMinutes, 45);
+  assert.equal(context.prefs({ defaultMinutes: 60 }).timeOptional, true);
+  assert.equal(context.prefs(context.prefs({ defaultMinutes: 60, timeOptional: true })).defaultMinutes, 60, "60 picked later stays");
   assert.deepEqual(DDrailPreferences({}, true), { goal: false, note: false, habits: false });
   assert.deepEqual(DDrailPreferences({}), { goal: false, note: false, habits: false });
   assert.deepEqual(DDrailPreferences(p), { goal: false, note: true, habits: false });
