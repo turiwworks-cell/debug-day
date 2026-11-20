@@ -33,7 +33,8 @@ function shift(date, amount) {
 // measure as the percent everywhere else (planner.js DDcompletion, by
 // priority), so the bar and the number never disagree. Fullness stays by time.
 export function DDdayLoad(day, usual = 300, laneIds) {
-  const blocks = (day?.blocks || []).filter(named),
+  // A task carried on to a later day counts there, not here (5.86.2).
+  const blocks = (day?.blocks || []).filter((b) => named(b) && !b.carriedTo),
     minutes = blocks.reduce((sum, b) => sum + weight(b), 0),
     done = blocks.filter((b) => b.done),
     ratio = usual > 0 ? minutes / usual : 0;
@@ -215,6 +216,7 @@ export const DDcalendarLookCSS = `
 .dd-review-root .dd-review-check[aria-pressed=true]{background:#2BA672;border-color:#2BA672;color:#fff}
 .dd-review-root .dd-review-task-name{min-height:32px;padding:4px 2px!important;font-size:14px!important;background:none}
 .dd-review-root .dd-review-task-name:hover{background:none;text-decoration:underline;text-underline-offset:3px}
+.dd-review-root .dd-review-task.carried .dd-review-task-name,.dd-review-root .dd-review-task.carried .dd-review-minutes{color:var(--ink-3,var(--muted))}
 .dd-review-root .dd-review-minutes{padding:1px 8px;border-radius:999px;background:var(--wash);font-size:11.5px;font-variant-numeric:tabular-nums}
 .dd-review-root .dd-review-task-options{padding-inline-start:30px}
 .dd-review-root .dd-review-task-options summary{min-height:0;padding:0 0 4px;font-size:11.5px}

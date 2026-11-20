@@ -10,9 +10,10 @@ export function DDtags(value) {
 export function DDpriorityWeight(task) {
   return { 1: 4, 2: 3, 3: 2 }[task?.pri] || 1;
 }
+// A task carried on to a later day (or to Park) counts there, not here (5.86.2).
 export function DDcompletion(day, laneIds) {
   const planned = (day?.blocks || []).filter(
-    (b) => !laneIds || laneIds.includes(b.lane),
+    (b) => (!laneIds || laneIds.includes(b.lane)) && !b.carriedTo,
   );
   const weight = planned.reduce((sum, b) => sum + DDpriorityWeight(b), 0);
   const doneWeight = planned

@@ -65,6 +65,13 @@ test("the carry line offers yesterday's open tasks and waiting tasks left behind
   // A waiting task already on yesterday's list is offered once, as open.
   const both = DDengineCarry({ "2026-10-25": day("2026-10-25", [task("w", "Hear back", { measure: "wait" })]) }, day("2026-10-26", []));
   assert.deepEqual([both.open.length, both.waiting.length], [1, 0]);
+  // Carried on (5.86.2): to another day or to Park, it is not offered again.
+  // Carried to this day, it comes back only if its copy was taken off.
+  const marked = (to) => ({ "2026-10-25": day("2026-10-25", [task("m", "Mount the prints", { carriedTo: to })]) });
+  assert.equal(DDengineCarry(marked("park"), day("2026-10-26", [])).count, 0);
+  assert.equal(DDengineCarry(marked("2026-10-27"), day("2026-10-26", [])).count, 0);
+  assert.equal(DDengineCarry(marked("2026-10-26"), day("2026-10-26", [task("c20261026-m", "Mount the prints")])).count, 0);
+  assert.deepEqual(DDengineCarry(marked("2026-10-26"), day("2026-10-26", [])).open.map((b) => b.id), ["m"]);
   // Nothing earlier: nothing to offer.
   assert.equal(DDengineCarry({}, day("2026-10-26", [])).count, 0);
   // Only the last 60 days are looked at.

@@ -3,6 +3,7 @@ import { DDduration, DDtimeText, DDdefaultMinutes } from "./measure.js";
 import { DDnoteTags, DDtagText } from "./note-tags.js";
 import { DDmediaTitle } from "./media.js";
 import { DDlifeItems } from "./life-board.js";
+import { DDcarriedText } from "./engine.js";
 import { DDdueOn, DDdueName, DDdueBetween, DDdueText } from "./deadlines.js";
 import { DDtodoDueItems, DDtodoLists } from "./todos.js";
 import { DDCalendarWeek, DDWeekReview, DDCalendarModes, DDCalSections } from "./calendar-week.js";
@@ -111,8 +112,9 @@ export function DDreviewEmptyDay(date) {
   };
 }
 export function DDreviewSummary(day = {}, setup = {}) {
+  // A task carried on to a later day counts there, not here (5.86.2).
   const lanes = setup.lanes || [],
-    blocks = day.blocks || [],
+    blocks = (day.blocks || []).filter((block) => !block.carriedTo),
     planned = blocks.filter(
       (block) => !lanes.length || lanes.some((lane) => lane.id === block.lane),
     );
@@ -1441,7 +1443,7 @@ function DDReviewTasks({
         "article",
         {
           key: block.id,
-          className: "dd-review-task" + (block.done ? " done" : ""),
+          className: "dd-review-task" + (block.done ? " done" : "") + (block.carriedTo ? " carried" : ""),
           "data-review-task": block.id,
         },
         h(
@@ -1473,7 +1475,10 @@ function DDReviewTasks({
           h(
             "span",
             { className: "dd-review-minutes" },
-            block.measure === "count"
+            // A task carried on says where it went (5.86.2).
+            block.carriedTo
+              ? DDcarriedText(block, language)
+              : block.measure === "count"
               ? n(block.count || 0) + "/" + n(block.times || 1) + t(" times", " بار")
               : block.measure === "wait"
                 ? t("Waiting", "در انتظار")
