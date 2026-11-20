@@ -1,3 +1,12 @@
+## 5.86.0 — 2026-11-20
+Branch: claude/project-thread-h96514
+- Time is optional (L1): a new task has no time unless you give it one. Settings › New tasks take offers "No time" first and starts there; a planner that still had the old untouched 60 minutes moves to "No time" once, and a length you pick (an hour too) stays.
+- The Engine's − goes down to "No time" and + starts again from 15 minutes. The Board card, Park and search's "Change duration" take 0 for no time.
+- A task with no time says nothing about time: no "0m" on its row, card, Capture's Now and Next, the Calendar's day list or search, and Focus starts with your usual focus length.
+- Capture, a worry made into a task and a new reminder no longer add a hidden 30 minutes. A task from a reminder keeps the reminder's own length when it has one.
+- A "5m" task stays 5 minutes after a reload (it used to become 15), and "no time" stays no time.
+- MCP: minutes is optional for add_block and add_later (left out means no time) and 0 clears a task's time in update_block.
+
 ## 5.85.4 — 2026-11-20
 Branch: claude/project-thread-h96514
 - A long step on the Board shows every word (B5): its card is measured at the width the words really get, a step taller than the steps inside it keeps its own room, and a text longer than six lines ends with "…" instead of a cut line.

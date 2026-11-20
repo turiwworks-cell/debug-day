@@ -3,6 +3,7 @@ import { DDnoteTags, DDtagText } from "./note-tags.js";
 import { DDmediaTitle } from "./media.js";
 import { DDpanelGlyph } from "./panels.js";
 import { DDaddDays } from "./dates.js";
+import { DDcleanMinutes } from "./measure.js";
 // Readable, additive search and command palette. React is supplied by the app.
 export function DDsearchDigits(value = "") {
   return String(value).replace(/[۰-۹٠-٩]/g, (c) =>
@@ -184,7 +185,7 @@ export function DDbuildSearchIndex(data, today) {
             ? (block.count || 0) + "/" + (block.times || 1) + "×"
             : block.measure === "wait"
               ? "⏳"
-              : block.min + "m",
+              : Number(block.min) > 0 ? block.min + "m" : "",
         ]
           .filter(Boolean)
           .join(" · "),
@@ -198,6 +199,7 @@ export function DDbuildSearchIndex(data, today) {
         ...(block.from ? { from: block.from } : {}),
         done: !!block.done,
         note: block.note,
+        minutes: Number(block.min) || 0,
         extra: DDsubText(block.subtasks),
         group: date === today ? "today" : "other",
       });
@@ -287,6 +289,7 @@ export function DDbuildSearchIndex(data, today) {
       priority: block.pri || 0,
         tags: block.tags || [],
       done: !!block.done,
+      minutes: Number(block.min) || 0,
       detail: "Later",
       extra: DDsubText(block.subtasks),
       group: "notes",
@@ -443,7 +446,8 @@ export function DDeditSearchResult(snapshot, row, action, value, ensureDay) {
     (value === row.date || DDsearchDate(value, row.date) !== value)
   )
     return snapshot;
-  if (action === "duration" && !Number.isFinite(Number(value))) return snapshot;
+  // Time is optional (5.86.0): 0 is "No time".
+  if (action === "duration" && !Number.isFinite(DDcleanMinutes(value))) return snapshot;
   const data = structuredClone(snapshot),
     setup = data.setup,
     day = data.days[row.date];
@@ -466,10 +470,7 @@ export function DDeditSearchResult(snapshot, row, action, value, ensureDay) {
           : DDsetTaskDone(block, !block.done);
     } else if (action === "category") block.type = value;
     else if (action === "duration") {
-      const minutes = Math.max(
-        5,
-        Math.min(720, Math.round(Number(value) / 5) * 5),
-      );
+      const minutes = DDcleanMinutes(value);
       if (!Number.isFinite(minutes)) return snapshot;
       if (row.kind === "subtask") target.min = minutes;
       else block.min = minutes;
@@ -501,7 +502,8 @@ export function DDeditSearchResult(snapshot, row, action, value, ensureDay) {
             name: target.text,
             type: block.type,
             lane: block.lane,
-            min: target.min || 30,
+            // A step becoming a task keeps its own time, or none (5.86.0).
+            min: Number(target.min) > 0 ? target.min : 0,
             note: "",
             pri: block.pri || 0,
             emo: "",
@@ -565,11 +567,7 @@ export function DDeditSearchResult(snapshot, row, action, value, ensureDay) {
       block.done = !block.done;
       DDsetSubDone(block.subtasks, block.done);
     } else if (action === "category") block.type = value;
-    else if (action === "duration")
-      block.min = Math.max(
-        5,
-        Math.min(720, Math.round(Number(value) / 5) * 5),
-      );
+    else if (action === "duration") block.min = DDcleanMinutes(value);
     else if (action === "delete" || action === "move") {
       setup.later = setup.later.filter((b) => b.id !== row.itemId);
       if (action === "move") {
@@ -891,7 +889,8 @@ export function DDCommandPalette(props) {
         key: "duration",
         label: t("Change duration", "تغییر مدت"),
         run: () => {
-          setAmount("60");
+          // Starts from the length it has; a step or a task with no time shows 0.
+          setAmount(String(row.minutes || 0));
           setEdit("duration");
         },
       });
@@ -1501,15 +1500,16 @@ export function DDCommandPalette(props) {
                 "data-dd-editor": true,
                 onSubmit: (e) => {
                   e.preventDefault();
+                  // Time is optional (5.86.0): 0 is "No time".
                   if (
                     !/^\d+$/.test(DDsearchDigits(amount)) ||
-                    +DDsearchDigits(amount) < 5 ||
+                    (+DDsearchDigits(amount) > 0 && +DDsearchDigits(amount) < 5) ||
                     +DDsearchDigits(amount) > 720
                   ) {
                     setError(
                       t(
-                        "Use 5–720 minutes",
-                        "مدت باید بین ۵ تا ۷۲۰ دقیقه باشد",
+                        "Use 5–720 minutes, or 0 for no time",
+                        "مدت بین ۵ تا ۷۲۰ دقیقه، یا ۰ برای بدون زمان",
                       ),
                     );
                     return;
@@ -1520,7 +1520,7 @@ export function DDCommandPalette(props) {
               h(
                 "label",
                 null,
-                t("Minutes (5–720)", "دقیقه (۵ تا ۷۲۰)"),
+                t("Minutes (0 = no time)", "دقیقه (۰ = بدون زمان)"),
                 h("input", {
                   autoFocus: true,
                   inputMode: "numeric",

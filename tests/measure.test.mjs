@@ -8,6 +8,11 @@ import {
   DDsetCount,
   DDsetTimes,
   DDmeasureText,
+  DDtimeText,
+  DDstepMinutes,
+  DDdefaultMinutes,
+  DDcleanMinutes,
+  DDtaskLengths,
 } from "../public/measure.js";
 import { DDsetTaskDone } from "../public/search.js";
 import { DDreviewSummary } from "../public/day-review.js";
@@ -66,4 +71,44 @@ test("waiting cards remember when the wait started and drop it when back to time
   const back = DDsetMeasure(waiting, "time");
   assert.equal(back.measure, undefined);
   assert.equal(DDplanMinutes(back), 45);
+});
+
+// Time is optional (5.86.0).
+test("a task can have no time: it says nothing about time and takes none from the day", () => {
+  assert.equal(DDmeasureText({ min: 0 }, "en"), "");
+  assert.equal(DDmeasureText({ min: 45 }, "en"), "45m");
+  assert.equal(DDtimeText(0, "en"), "");
+  assert.equal(DDtimeText(90, "en"), "1h 30m");
+});
+
+test("the Engine's − and + step through No time", () => {
+  assert.equal(DDstepMinutes(15, -1), 0, "− from 15 minutes is no time");
+  assert.equal(DDstepMinutes(0, -1), 0);
+  assert.equal(DDstepMinutes(0, 1), 15, "+ from no time is 15 minutes");
+  assert.equal(DDstepMinutes(5, -1), 0);
+  assert.equal(DDstepMinutes(20, -1), 15);
+  assert.equal(DDstepMinutes(60, 1), 75);
+  assert.equal(DDstepMinutes(720, 1), 720);
+});
+
+test("new tasks take no time by default; a length someone picked stays", () => {
+  assert.equal(DDtaskLengths[0], 0, "No time comes first");
+  assert.equal(DDdefaultMinutes(undefined), 0);
+  assert.equal(DDdefaultMinutes({}), 0);
+  assert.equal(DDdefaultMinutes({ defaultMinutes: 60 }), 0, "the old untouched 60 becomes no time");
+  assert.equal(DDdefaultMinutes({ defaultMinutes: 60, timeOptional: true }), 60, "60 picked after the change stays");
+  assert.equal(DDdefaultMinutes({ defaultMinutes: 45 }), 45);
+  assert.equal(DDdefaultMinutes({ defaultMinutes: 0, timeOptional: true }), 0);
+  assert.equal(DDdefaultMinutes({ defaultMinutes: 37 }), 0, "a length the menu does not offer is no time");
+});
+
+test("a typed length: 0 is no time, the rest is 5 to 720 in steps of 5", () => {
+  assert.equal(DDcleanMinutes(0), 0);
+  assert.equal(DDcleanMinutes("0"), 0);
+  assert.equal(DDcleanMinutes(47), 45);
+  assert.equal(DDcleanMinutes(2), 5);
+  assert.equal(DDcleanMinutes(900), 720);
+  assert.ok(Number.isNaN(DDcleanMinutes("")));
+  assert.ok(Number.isNaN(DDcleanMinutes("soon")));
+  assert.ok(Number.isNaN(DDcleanMinutes(-5)));
 });

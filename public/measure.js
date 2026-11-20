@@ -23,9 +23,43 @@ export function DDsetScore(block, score) {
   return next;
 }
 
-// Minutes a card takes from the day. Scored, counted and waiting cards take none.
+// Minutes a card takes from the day. Scored, counted and waiting cards take none,
+// and so does a task with no time (5.86.0: time is optional, "No time" is 0).
 export function DDplanMinutes(block) {
   return DDmeasureOf(block) === "time" ? Number(block?.min) || 0 : 0;
+}
+
+// A length of time, or nothing when there is none: "45m", "" (5.86.0).
+export function DDtimeText(minutes, language) {
+  return Number(minutes) > 0 ? DDduration(minutes, language) : "";
+}
+
+// How long a new task takes when nobody says (5.86.0). Time is optional: these
+// are the lengths Settings › New tasks take offers, "No time" (0) first and by
+// default. A planner from before that still holds the old untouched 60 starts
+// with no time; a length someone picked (30, 45…) stays.
+export const DDtaskLengths = [0, 15, 30, 45, 60, 90, 120];
+export function DDdefaultMinutes(preferences) {
+  const p = preferences && typeof preferences === "object" ? preferences : {};
+  const m = Number(p.defaultMinutes);
+  if (!p.timeOptional && m === 60) return 0;
+  return DDtaskLengths.includes(m) ? m : 0;
+}
+
+// A length someone typed (5.86.0): 0 is "No time", else 5 to 720 minutes in
+// steps of 5. Anything that is not a length gives NaN, so nothing changes.
+export function DDcleanMinutes(value) {
+  if (value === "" || value === null || value === undefined) return NaN;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return NaN;
+  return n === 0 ? 0 : Math.max(5, Math.min(720, Math.round(n / 5) * 5));
+}
+
+// The Engine's − and + (5.86.0): − from 15 minutes gives "No time", + from no
+// time gives 15 minutes; steps of 15 up to 12 hours.
+export function DDstepMinutes(minutes, step) {
+  const m = Math.max(0, Number(minutes) || 0);
+  return step < 0 ? (m <= 15 ? 0 : Math.max(15, m - 15)) : Math.min(720, m ? m + 15 : 15);
 }
 
 export function DDcountOf(block) {
@@ -102,7 +136,10 @@ export function DDmeasureText(block, language, formatMinutes) {
       ? (fa ? "در انتظار از " : "Waiting since ") + since
       : (fa ? "در انتظار · " : "Waiting · ") + since;
   }
-  return formatMinutes ? formatMinutes(block?.min || 0) : DDduration(block?.min || 0, language);
+  // A task with no time says nothing about time (5.86.0).
+  const minutes = Number(block?.min) || 0;
+  if (!minutes) return "";
+  return formatMinutes ? formatMinutes(minutes) : DDduration(minutes, language);
 }
 
 const DDmeasureLabels = {

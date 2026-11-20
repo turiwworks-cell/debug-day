@@ -230,3 +230,14 @@ test('MCP adds a task or a parked task with no category when type_id is left out
  assert.equal((await read(env)).data.setup.later.find(b=>b.id===parked.id).type,'');
  await assert.rejects(()=>callTool('add_block',{date,expected_revision:parked.revision,name:'X',minutes:30,type_id:'nope'},env,'write'),/Unknown type_id/);
 }));
+// Time is optional (5.86.0): MCP adds a task with no time unless a length is given, and 0 clears one.
+test('MCP adds a task or a parked task with no time when minutes is left out',()=>withCloud(async(env)=>{
+ const added=await callTool('add_block',{date,expected_revision:1,name:'Sketch'},env,'write');
+ assert.equal((await read(env)).data.days[date].blocks.find(b=>b.id===added.id).min,0);
+ const parked=await callTool('add_later',{expected_revision:added.revision,name:'Frame it'},env,'write');
+ assert.equal((await read(env)).data.setup.later.find(b=>b.id===parked.id).min,0);
+ const timed=await callTool('add_block',{date,expected_revision:parked.revision,name:'Ink',minutes:45},env,'write');
+ assert.equal((await read(env)).data.days[date].blocks.find(b=>b.id===timed.id).min,45);
+ await callTool('update_block',{date,expected_revision:timed.revision,block_id:timed.id,minutes:0},env,'write');
+ assert.equal((await read(env)).data.days[date].blocks.find(b=>b.id===timed.id).min,0);
+}));

@@ -1,5 +1,5 @@
 import { DDcompletion, DDprogressLabel } from "./planner.js";
-import { DDduration } from "./measure.js";
+import { DDduration, DDtimeText, DDdefaultMinutes } from "./measure.js";
 import { DDnoteTags, DDtagText } from "./note-tags.js";
 import { DDmediaTitle } from "./media.js";
 import { DDlifeItems } from "./life-board.js";
@@ -268,7 +268,9 @@ export function DDreviewScheduleReminder(
     // No category (5.85.3): a task made from a reminder starts plain, like every new task.
     type: "",
     lane: reminder.lane || data.setup.lanes?.[0]?.id || "",
-    min: reminder.min || 30,
+    // Time is optional (5.86.0): the reminder's own length when it has one,
+    // else what Settings › New tasks take says ("No time" by default).
+    min: Number(reminder.min) > 0 ? reminder.min : DDdefaultMinutes(data.setup?.preferences),
     note: reminder.note || "",
     pri: 1,
     emo: "",
@@ -1475,7 +1477,7 @@ function DDReviewTasks({
               ? n(block.count || 0) + "/" + n(block.times || 1) + t(" times", " بار")
               : block.measure === "wait"
                 ? t("Waiting", "در انتظار")
-                : DDduration(block.min, language),
+                : DDtimeText(block.min, language),
           ),
         ),
         h(
@@ -1645,7 +1647,8 @@ function DDReviewReminders({
       done: false,
       type: data.setup.types?.[0]?.id || "other",
       lane: data.setup.lanes?.[0]?.id || "",
-      min: 30,
+      // Time is optional (5.86.0): a reminder carries no length of its own.
+      min: 0,
       note: "",
     };
     setData((old) => ({

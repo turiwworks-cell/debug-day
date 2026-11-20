@@ -1,5 +1,5 @@
 // Optional scheduling and a gentle pause when the day changes unexpectedly.
-import { DDduration } from "./measure.js";
+import { DDtimeText, DDcleanMinutes } from "./measure.js";
 import { DDcleanBoard } from "./search.js";
 import { DDaddDays, DDvalidDate } from "./dates.js";
 export function DDvalidAnchor(value) {
@@ -480,8 +480,8 @@ export function DDLifeTools({
                     h(
                       "small",
                       null,
-                      block.at ? block.at + " · " : "",
-                      DDduration(block.min, language),
+                      block.at ? block.at + (Number(block.min) > 0 ? " · " : "") : "",
+                      DDtimeText(block.min, language),
                     ),
                     h(
                       "details",
@@ -502,21 +502,19 @@ export function DDLifeTools({
                       h(
                         "label",
                         null,
-                        t("Minutes", "دقیقه"),
+                        t("Minutes (0 = no time)", "دقیقه (۰ = بدون زمان)"),
                         h("input", {
                           type: "number",
-                          min: 5,
+                          // Time is optional (5.86.0): 0 is "No time".
+                          min: 0,
                           max: 720,
                           step: 5,
-                          value: block.min,
+                          value: Number(block.min) || 0,
                           onChange: (e) => {
-                            const value = +e.target.value;
-                            if (
-                              Number.isFinite(value) &&
-                              value >= 5 &&
-                              value <= 720
-                            )
-                              edit(block.id, { min: value });
+                            const raw = +e.target.value;
+                            if (e.target.value === "" || (raw > 0 && raw < 5)) return;
+                            const value = DDcleanMinutes(raw);
+                            if (Number.isFinite(value)) edit(block.id, { min: value });
                           },
                           "aria-label": t(
                             "Parked task minutes",
