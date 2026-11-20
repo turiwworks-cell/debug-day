@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { DDenergyOf, DDsetEnergy, DDenergyLabel, DDlowDay, DDlightTasks, DDlightFirst } from '../public/energy.js';
 import { DDdueClean, DDdueSet, DDdueText, DDdueDaysLeft, DDdueBetween, DDdueOn, DDduePresets, DDdueName } from '../public/deadlines.js';
-import { DDweekStart, DDweekDays, DDweekLabel, DDdaySections, DDreviewsClean, DDweekFocus, DDsetWeekFocus, DDweekSummary } from '../public/calendar-week.js';
+import { DDweekStart, DDweekDays, DDweekLabel, DDdaySections, DDreviewsClean, DDweekFocus, DDsetWeekFocus, DDweekSummary, DDweekPauses, DDweekPausesText } from '../public/calendar-week.js';
 import { DDnormalizeLife, DDlifeAdd } from '../public/life-board.js';
 
 const task = (id, extra = {}) => ({ id, name: 'Task ' + id, type: 'writing', lane: 'work', min: 60, done: false, subtasks: [], ...extra });
@@ -110,4 +110,33 @@ test('the weekly look back adds up the week without scoring it', () => {
   assert.deepEqual(s.goals, [{ id: 'reels', name: 'Post 35 reels', text: '12 of 35 · 20 days left' }]);
   assert.deepEqual(s.due.map((d) => [d.id, d.due]), [['fox', '2026-11-06'], ['jobs', '2026-11-12']]);
   assert.deepEqual(s.moods.map((m) => m.mood), ['🙂', '', '😕', '', '', '', '']);
+});
+
+test('the week looks back at Pauses and feelings, in your own words, without scoring', () => {
+  const event = (id, text, extra = {}) => ({ id, text, type: '', on: '', fixed: true, category: 'plan', triggerTag: 'outside-event', antidote: '', ...extra });
+  const feel = (id, text, extra = {}) => ({ id, text, type: '', on: '', fixed: false, category: 'inner', triggerTag: 'general-friction', antidote: '', ...extra });
+  const days = {
+    '2026-11-17': { pause: { active: false, closed: false, eventId: 'ev1', count: 2 }, bugs: [event('ev1', 'Doctor visit'), feel('t1', 'Tired', { color: '#9DD6FF' })] },
+    '2026-11-19': { pause: { active: false, closed: true, eventId: 'ev2' }, bugs: [event('ev2', 'Outside event'), feel('t2', 'tired '), feel('p1', 'Phone again')] },
+    '2026-11-20': { bugs: [feel('p2', 'Phone again'), feel('p3', 'Phone again'), feel('e', '   ')] },
+    '2026-11-24': { pause: { count: 1 }, bugs: [feel('x', 'Next week')] },
+  };
+  const week = ['2026-11-16', '2026-11-17', '2026-11-18', '2026-11-19', '2026-11-20', '2026-11-21', '2026-11-22'];
+  const r = DDweekPauses(days, week);
+  assert.deepEqual(r.pauses, [{ date: '2026-11-17', count: 2, name: 'Doctor visit' }, { date: '2026-11-19', count: 1, name: '' }], 'an unnamed outside event shows only its day; an old pause counts once');
+  assert.deepEqual(r.feelings.map((f) => [f.text, f.days, f.count]), [['Phone again', 2, 3], ['Tired', 2, 2]], 'grouped by your words, by days');
+  assert.equal(r.feelings[1].color, '#9DD6FF');
+  assert.equal(r.noted, 5);
+  assert.deepEqual(DDweekPauses({}, week), { pauses: [], feelings: [], noted: 0 }, 'a quiet week has nothing to show');
+  const s = DDweekSummary({ setup: { life: { v: 2, items: [], links: [] } }, days }, '2026-11-18', '2026-11-18', 'en');
+  assert.equal(s.pauses.length, 2);
+  assert.equal(s.noted, 5);
+  // The words, in English and in Persian.
+  const en = DDweekPausesText(r, 'en'), fa = DDweekPausesText(r, 'fa');
+  assert.deepEqual([en.title, en.summary], ['Pauses and feelings', '2 days paused · 5 noted']);
+  assert.deepEqual(en.rows.map((x) => [x.name, x.value]), [['Tuesday · Doctor visit', 'Paused 2×'], ['Thursday', 'Paused'], ['Phone again', '2 days'], ['Tired', '2 days']]);
+  assert.deepEqual([fa.title, fa.summary], ['مکث‌ها و احساسات', '۲ روز مکث · ۵ مورد ثبت شد']);
+  assert.deepEqual(fa.rows.map((x) => [x.name, x.value]), [['سه‌شنبه · Doctor visit', '۲ بار مکث'], ['پنجشنبه', 'مکث'], ['Phone again', '۲ روز'], ['Tired', '۲ روز']]);
+  assert.equal(DDweekPausesText({ pauses: [r.pauses[1]], feelings: [], noted: 0 }, 'en').summary, '1 day paused');
+  for (const x of [...en.rows, en]) assert.doesNotMatch(JSON.stringify(x), /fail|missed|late|!/i, 'counted, never scored');
 });

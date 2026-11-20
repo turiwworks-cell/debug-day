@@ -1,3 +1,9 @@
+## 5.89.0 — 2026-11-20
+Branch: claude/project-thread-h96514
+- A calm weekly look at Pauses and feelings (wave 3): the week's look back in the Calendar now shows the days you paused with Pause the day ("Tuesday · Doctor visit · Paused 2×"), and the feelings and events you noted that week, in your own words, by how many days they came up ("Phone again · 2 days").
+- An outside event shows its own name once you give it one in Feelings; until then only its day shows. Each pause is counted, older pauses count once.
+- It only counts, never scores: no "open" numbers and nothing red, and it stays hidden in a quiet week. A pause on the Board shows there at once.
+
 ## 5.88.1 — 2026-11-20
 Branch: claude/project-thread-h96514
 - Drawing is measured in room, not in a count of lines (wave 3): the old wall of 600 lines per board, and 600 for the whole Feed, is gone. A board or the Feed now keeps up to 3000 new lines, and a new line stops only when the planner gets close to the 1.5 MB sync limit (1.4 MB), so there is always room left for words.
