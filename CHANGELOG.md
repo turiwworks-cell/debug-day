@@ -1,3 +1,12 @@
+## 5.85.3 — 2026-11-20
+Branch: claude/project-thread-h96514
+- New tasks no longer get a hidden category (B2): made in the Engine, on the Board, in Capture, from a worry or a reminder, they wear the plain grey until they have a section. Old tasks keep theirs.
+- A #word in quick add is always a tag now, even when it matches an old category name like #sport or #work.
+- Search finds what you can see: plain words no longer find a task by its hidden category or lane ("work" used to find every task in the Work lane), and the result line no longer names them. #category and @lane still filter.
+- Capture no longer asks "Goes to" Work or Life (B3): lanes left the app in 5.78, so a captured task goes where the Engine puts a new one.
+- The Calendar's bar is the day's Progress (B4): the same number as its percent, by priority, so a short important task done no longer shows an almost empty bar.
+- Claude (MCP) can add a task or a parked task without a category; type_id is optional.
+
 ## 5.85.2 — 2026-11-20
 Branch: claude/project-thread-h96514
 - Phone: the Board's top bar fits again, so ⋯ (Search, Engine, Feed, Sections) is always in sight; before, it was cut off at the edge when the Board was not full screen. On a very narrow phone the other tools slide under it.

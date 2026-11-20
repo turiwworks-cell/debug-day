@@ -3,7 +3,7 @@ import { DDreconcileDay, DDrelation, DDconnectRelation, DDdisconnectRelation, DD
 import { DDconnectionGeometry, DDwireGap, DDgrowRect } from "./connections.js";
 import { DDundoRevert } from "./board-history.js";
 import { DDcreateBoardLayout, DDengineShift, DDnoteOnEngine } from "./board-layout.js";
-import { DDengineBus, DDengineGoBus, DDengineTaskFromNote, DDengineSources, DDengineSourceHistory, DDengineStrip, DDinstallEngineStyles, DDengineCarry } from "./engine.js";
+import { DDengineBus, DDengineGoBus, DDengineTaskFromNote, DDengineSources, DDengineSourceHistory, DDengineStrip, DDinstallEngineStyles, DDengineCarry, DDnoType } from "./engine.js";
 import { DDEngineOverlay } from "./engine-panel.js";
 import { DDengineSectionIds, DDinstallEngineQuietStyles } from "./engine-quiet.js";
 import { DDboardShortcuts, DDboardSearchRows, DDrootSelection, DDmarqueeSelection, DDselectionToolbar, DDBoardSearch, DDBoardTimer, DDBoardTimerButton, DDinstallBoardExperience, DDinstallZoomLock } from "./board-experience.js";
@@ -3109,7 +3109,7 @@ export function DDcreateBoard(deps) {
           (St.blocks.push({
             id: ct,
             name: t("New task", "بلاک جدید"),
-            type: setup.types[0]?.id || "work",
+            type: DDnoType,
             lane: ot,
             min: prefs.defaultMinutes,
             note: "",
@@ -3151,7 +3151,7 @@ export function DDcreateBoard(deps) {
                 DDUI(
                   "\u0627\u06CC\u062F\u0647 \u0627\u0632 \u0628\u0631\u062F",
                 ),
-              type: setup.types[0]?.id || "work",
+              type: DDnoType,
               lane: setup.lanes[0]?.id || "",
               min: prefs.defaultMinutes,
               note: DDUI(

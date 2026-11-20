@@ -107,12 +107,13 @@ test("the Today column is named after the day", () => {
   assert.equal(DDengineDayName("2026-11-13", "2026-11-13", "fa"), "جمعه");
 });
 
-test("a new Engine task has one lane and the usual defaults", () => {
+test("a new Engine task has one lane, no category and the usual defaults", () => {
+  // Section tags replaced categories: a new task is not given the first one (5.85.3).
   const task = DDengineTask("  Sketch frames  ", "life", { types: [{ id: "art" }], preferences: { defaultMinutes: 45 } }, "id1");
   assert.deepEqual(task, {
     id: "id1",
     name: "Sketch frames",
-    type: "art",
+    type: "",
     lane: "life",
     min: 45,
     note: "",

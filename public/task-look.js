@@ -4,6 +4,8 @@
 // the Tab flowchart). A colour picked for the task itself still wins. Old tasks
 // without a section keep the colour of the category they were saved with, so
 // past days look the way they did. Nothing is removed from the saved data.
+// A task made since 5.85.3 has no category at all (type ""): it wears the plain
+// look, a soft grey dot, until it gets a section.
 import { DDlifeItems, DDsectionTint, DDsectionPath } from "./life-board.js";
 
 const PLAIN = { id: "", name: "", color: "#8E8A80", icon: "dot", emo: "" };
@@ -15,6 +17,6 @@ export function DDtaskLook(block, setup, items = DDlifeItems(setup)) {
     return block.color ? { ...look, color: block.color } : look;
   }
   const type = (setup?.types || []).find((t) => t.id === block?.type);
-  const look = type ? { ...PLAIN, ...type, section: "" } : { ...PLAIN, id: block?.type || "", name: "Other", section: "" };
+  const look = type ? { ...PLAIN, ...type, section: "" } : { ...PLAIN, id: block?.type || "", name: block?.type ? "Other" : "", section: "" };
   return block?.color ? { ...look, color: block.color } : look;
 }

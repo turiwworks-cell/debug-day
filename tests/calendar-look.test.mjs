@@ -24,7 +24,9 @@ test("a day's fullness is measured against your own usual day, not fixed hours",
 test("done share, all done and the month line", () => {
   const a = day("2026-11-02", task(60, { done: true }), task(180)), b = day("2026-11-03", task(60, { done: true }));
   const load = DDdayLoad(a, 180);
-  assert.deepEqual([load.tasks, load.done, load.share, load.allDone, load.planned], [2, 1, 25, false, 240]);
+  assert.deepEqual([load.tasks, load.done, load.share, load.allDone, load.planned], [2, 1, 50, false, 240]);
+  // The bar is the day's Progress (5.85.3): by priority, like the percent, not by minutes.
+  assert.equal(DDdayLoad(day("x", task(30, { done: true, pri: 1 }), task(240)), 180).share, 80);
   assert.equal(DDdayLoad(b, 180).allDone, true);
   const month = DDmonthLoad({ [a.date]: a, [b.date]: b }, [a.date, b.date, "2026-11-04"], 180, "2026-11-14");
   assert.deepEqual([month.tasks, month.done, month.finished, month.full, month.top.date], [3, 2, 1, 1, a.date]);

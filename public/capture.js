@@ -78,25 +78,6 @@ export function DDcaptureItem(
   else return snapshot;
   return data;
 }
-export function DDcaptureLane(task, lane, text, lanes = [], blocks = []) {
-  if (!task || !lane || !lanes.some((l) => l.id === lane)) return task;
-  const typed = (" " + text + " ").match(/\s@(\S+)(?=\s)/);
-  if (
-    typed &&
-    lanes.some((l) =>
-      (l.name || "").toLowerCase().startsWith(typed[1].toLowerCase()),
-    )
-  )
-    return task;
-  if (task.lane === lane) return task;
-  const same = blocks.filter((b) => b.lane === lane),
-    tagged = /(?:^|\s)#\S/.test(text);
-  return {
-    ...task,
-    lane,
-    type: !tagged && same.length ? same.at(-1).type : task.type,
-  };
-}
 export function DDconvertWorry(snapshot, id, date, ensureDay) {
   if (date !== "later" && !DDcaptureDate(date)) return snapshot;
   const data = structuredClone(snapshot),
@@ -105,10 +86,8 @@ export function DDconvertWorry(snapshot, id, date, ensureDay) {
   const block = {
     id: crypto.randomUUID(),
     name: worry.text,
-    type:
-      data.setup.types.find((t) => t.id === "other")?.id ||
-      data.setup.types[0]?.id ||
-      "other",
+    // No category (5.85.3): like every new task, it starts plain.
+    type: "",
     lane:
       data.setup.lanes.find((l) => l.id === "life")?.id ||
       data.setup.lanes[0]?.id ||
@@ -238,9 +217,6 @@ export function DDCaptureTools({
     ),
     [coarse, setCoarse] = R.useState(
       () => matchMedia("(pointer:coarse)").matches,
-    ),
-    [lane, setLane] = R.useState(() =>
-      DDcaptureLocal("debug-day:capture-lane", ""),
     );
   const dialog = R.useRef(null),
     entry = R.useRef(null),
@@ -283,22 +259,6 @@ export function DDCaptureTools({
       (opener.current?.isConnected ? opener.current : trigger.current)?.focus();
     };
   }, [panel]);
-  const lanes = data.setup.lanes || [],
-    chosenLane = lanes.some((l) => l.id === lane) ? lane : lanes[0]?.id || "",
-    typedLane = (() => {
-      const m = (" " + text + " ").match(/\s@(\S+)(?=\s)/);
-      return m
-        ? lanes.find((l) =>
-            (l.name || "").toLowerCase().startsWith(m[1].toLowerCase()),
-          )?.id
-        : "";
-    })(),
-    shownLane = typedLane || chosenLane;
-  function pickLane(id) {
-    setLane(id);
-    DDcaptureRemember("debug-day:capture-lane", id);
-    entry.current?.focus();
-  }
   const worries = data.setup.worries || [],
     openWorries = worries.filter((w) => !w.closed),
     pending = day.blocks.filter((b) => !b.done),
@@ -322,20 +282,13 @@ export function DDCaptureTools({
       return;
     }
     const captureDate = kind === "worry" ? today : target;
+    // Lanes left the app in 5.78: a captured task goes where the Engine puts a
+    // new task (5.85.3), so the dialog no longer asks "Goes to".
     const scope =
         target === "later"
           ? { blocks: data.setup.later || [] }
           : data.days[target] || ensureDay(target),
-      task =
-        kind === "task"
-          ? DDcaptureLane(
-              parseTask(text, scope),
-              chosenLane,
-              text,
-              lanes,
-              scope.blocks || [],
-            )
-          : null;
+      task = kind === "task" ? parseTask(text, scope) : null;
     if (kind === "task" && !task) {
       setError(t("Enter a task name", "نام کار را بنویس"));
       entry.current?.focus();
@@ -690,37 +643,6 @@ export function DDCaptureTools({
                         ? t("Leave the thought here…", "فکرت را همین‌جا بگذار…")
                         : t("What are you feeling?", "الان چه حسی داری؟"),
                 }),
-                kind === "task" &&
-                  lanes.length > 1 &&
-                  h(
-                    "div",
-                    {
-                      className: "dd-capture-lanes",
-                      role: "group",
-                      "aria-label": t("Goes to", "کجا برود"),
-                    },
-                    h("span", null, t("Goes to", "کجا برود")),
-                    lanes.map((l) =>
-                      h(
-                        "button",
-                        {
-                          type: "button",
-                          key: l.id,
-                          "aria-pressed": shownLane === l.id,
-                          disabled: !!typedLane && typedLane !== l.id,
-                          title: typedLane
-                            ? t(
-                                "Set by @ in the text",
-                                "با @ در متن انتخاب شده",
-                              )
-                            : undefined,
-                          onClick: () => pickLane(l.id),
-                          style: l.color ? { "--lane": l.color } : undefined,
-                        },
-                        l.name || l.id,
-                      ),
-                    ),
-                  ),
                 kind === "idea" &&
                   h(
                     "p",

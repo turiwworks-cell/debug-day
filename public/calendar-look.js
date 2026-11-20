@@ -3,6 +3,7 @@
 // measured against your own usual day, not against a fixed number of hours.
 import { DDplanMinutes } from "./measure.js";
 import { DDenergyOf } from "./energy.js";
+import { DDcompletion } from "./planner.js";
 
 const named = (b) => b && String(b.name || "").trim();
 // A heavy task weighs a little more than its minutes; a task with no time
@@ -28,19 +29,20 @@ function shift(date, amount) {
 }
 
 // One day: how full (level 0 = nothing, 1 light, 2 steady, 3 full, 4 packed)
-// and how much is done (tasks and planned time).
-export function DDdayLoad(day, usual = 300) {
+// and how much is done. `share` is the day's Progress (5.85.3): the same
+// measure as the percent everywhere else (planner.js DDcompletion, by
+// priority), so the bar and the number never disagree. Fullness stays by time.
+export function DDdayLoad(day, usual = 300, laneIds) {
   const blocks = (day?.blocks || []).filter(named),
     minutes = blocks.reduce((sum, b) => sum + weight(b), 0),
     done = blocks.filter((b) => b.done),
-    doneMinutes = done.reduce((sum, b) => sum + weight(b), 0),
     ratio = usual > 0 ? minutes / usual : 0;
   return {
     tasks: blocks.length,
     done: done.length,
     minutes,
     planned: blocks.reduce((sum, b) => sum + (DDplanMinutes(b) || 0), 0),
-    share: minutes ? Math.round((doneMinutes / minutes) * 100) : 0,
+    share: DDcompletion(day, laneIds).percent,
     allDone: blocks.length > 0 && done.length === blocks.length,
     level: !blocks.length ? 0 : ratio < 0.5 ? 1 : ratio < 1.05 ? 2 : ratio < 1.4 ? 3 : 4,
   };

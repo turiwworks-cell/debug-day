@@ -9,7 +9,7 @@ import { oauth, oauthRoute, oauthAccess } from "./oauth.js";
 import { DDmcpMoreTools, DDmcpMoreCall } from "./mcp-tools.js";
 const MAX_BYTES = 1500000;
 const VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"];
-const INFO = { name: "debug-day", title: "Debug Day", version: "5.85.2" };
+const INFO = { name: "debug-day", title: "Debug Day", version: "5.85.3" };
 class HttpError extends Error {
   constructor(status, message) {
     super(message);
@@ -297,7 +297,7 @@ const WRITE_TOOLS = [
   },["expected_revision","item_id"],true),
   tool(
     "add_later",
-    "Add a task to Park (the Engine's shelf for tasks that are not for today; stored as setup.later). Read get_setup first. Requires explicit user intent to capture it.",
+    "Add a task to Park (the Engine's shelf for tasks that are not for today; stored as setup.later). Read get_setup first. type_id is optional: section tags replaced categories, so leave it out unless the user names one. Requires explicit user intent to capture it.",
     {
       expected_revision: revisionSchema,
       name: { type: "string", minLength: 1, maxLength: 300 },
@@ -309,7 +309,7 @@ const WRITE_TOOLS = [
       note: { type: "string", maxLength: 4000 },
       anchor_time: anchorSchema,
     },
-    ["expected_revision", "name", "minutes", "type_id"],
+    ["expected_revision", "name", "minutes"],
     true,
   ),
   tool(
@@ -363,7 +363,7 @@ const WRITE_TOOLS = [
   ),
   tool(
     "add_block",
-    "Add a time block to an existing day. Read get_day/get_setup first. Requires a write key and expected_revision. Ask the user before making changes.",
+    "Add a task to an existing day. Read get_day/get_setup first. type_id is optional: section tags replaced categories, so leave it out unless the user names one. Requires a write key and expected_revision. Ask the user before making changes.",
     {
       date: daySchema,
       expected_revision: revisionSchema,
@@ -376,7 +376,7 @@ const WRITE_TOOLS = [
       note: { type: "string", maxLength: 4000 },
       anchor_time: anchorSchema,
     },
-    ["date", "expected_revision", "name", "minutes", "type_id"],
+    ["date", "expected_revision", "name", "minutes"],
     true,
   ),
   tool(
@@ -665,7 +665,7 @@ async function callTool(name, args, env, access) {
     data.setup.later ||= [];
     let id;
     if (name === "add_later") {
-      if (!data.setup.types.some((t) => t.id === args.type_id))
+      if (Object.hasOwn(args, "type_id") && !data.setup.types.some((t) => t.id === args.type_id))
         throw Error("Unknown type_id");
       if (
         args.lane_id !== undefined &&
@@ -678,7 +678,7 @@ async function callTool(name, args, env, access) {
         id,
         name: args.name.trim(),
         min: args.minutes,
-        type: args.type_id,
+        type: args.type_id ?? "",
         lane: args.lane_id ?? data.setup.lanes?.[0]?.id ?? "",
         note: args.note || "",
         at: args.anchor_time || "",
@@ -778,7 +778,7 @@ async function callTool(name, args, env, access) {
       id,
       name: args.name.trim(),
       min: args.minutes,
-      type: args.type_id,
+      type: args.type_id ?? "",
       lane: args.lane_id ?? data.setup.lanes?.[0]?.id ?? "",
       note: args.note || "",
       at: args.anchor_time || "",
