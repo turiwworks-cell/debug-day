@@ -167,6 +167,8 @@ export function DDcreateBoard(deps) {
     // and moves a task to tomorrow through the app.
     parseTask,
     onMoveTask,
+    // Focus on a task from the Engine (5.88.0): the timer counts its time.
+    onFocusTimer,
     onToast: onToast,
     matchesFilter: matchesFilter,
     nodeMatches: ddNodeMatches,
@@ -395,7 +397,7 @@ export function DDcreateBoard(deps) {
       onUpdateDay: onUpdateDay,
       onUpdateSetup: onUpdateSetup,
       onUpdateDayOnDate, allDays,
-      parseTask, onMoveTask,
+      parseTask, onMoveTask, onFocusTimer,
       onToast: onToast,
     }),
       (editingRef.current = editing),
@@ -6814,6 +6816,8 @@ export function DDcreateBoard(deps) {
           onCarry: (items) => carryOn(items),
           onToast: (message, undo) => propsRef.current.onToast?.(message, undo),
           onTomorrow: propsRef.current.onMoveTask ? (id) => propsRef.current.onMoveTask(day.date, id) : undefined,
+          // Focus on a task (5.88.0): the timer counts the time for it.
+          onFocusTimer: propsRef.current.onFocusTimer ? (block) => propsRef.current.onFocusTimer(block) : undefined,
           onReveal: (blockId) => {
             setEngine(false);
             revealBoardResult({ id: "b:" + blockId, blockId, kind: "block" });

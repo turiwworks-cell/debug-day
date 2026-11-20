@@ -218,6 +218,7 @@ export const DDcalendarLookCSS = `
 .dd-review-root .dd-review-task-name:hover{background:none;text-decoration:underline;text-underline-offset:3px}
 .dd-review-root .dd-review-task.carried .dd-review-task-name,.dd-review-root .dd-review-task.carried .dd-review-minutes{color:var(--ink-3,var(--muted))}
 .dd-review-root .dd-review-minutes{padding:1px 8px;border-radius:999px;background:var(--wash);font-size:11.5px;font-variant-numeric:tabular-nums}
+.dd-review-root .dd-review-spent{flex:none;color:var(--ink-3,var(--muted));font-size:11.5px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .dd-review-root .dd-review-task-options{padding-inline-start:30px}
 .dd-review-root .dd-review-task-options summary{min-height:0;padding:0 0 4px;font-size:11.5px}
 .dd-review-root .dd-review-task-options[open]{padding-bottom:6px}

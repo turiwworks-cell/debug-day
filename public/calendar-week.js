@@ -10,6 +10,7 @@ import { DDtodoDueItems, DDtodoLists } from "./todos.js";
 import { DDenergyOf, DDenergyLabel } from "./energy.js";
 import { DDaddDays, DDweekStartDay } from "./dates.js";
 import { DDcarriedText } from "./engine.js";
+import { DDfocusedTasks } from "./focus-time.js";
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 export const DDcalShift = DDaddDays;
@@ -125,8 +126,10 @@ export function DDweekSummary(data, date, today, language) {
   const goals = items.filter((i) => i.type === "sticky" && (i.goal || i.role === "goal")).map((i) => ({ id: i.id, name: DDdueName(i, language), text: DDgoalText(DDgoalOf(i), today, language) })),
     // Tasks with a due date in a to-do list show next to the deadlines (5.65).
     due = DDdueBetween([...items, ...DDtodoDueItems(DDtodoLists(data))], days[0], DDcalShift(days[6], 14)).map((i) => ({ id: i.id, name: DDdueName(i, language), due: i.due, color: i.type === "section" ? DDsectionTint(items, i.id)?.fill : i.color }));
+  // Time focused with the timer, by task (5.88.0): "3h on the cover".
+  const focusedTasks = DDfocusedTasks(data.days, days), focused = focusedTasks.reduce((sum, r) => sum + r.seconds, 0);
   return {
-    days, planned, done, doneMinutes, light, heavy, moods, goals, due,
+    days, planned, done, doneMinutes, light, heavy, moods, goals, due, focused, focusedTasks,
     sections: [...sections.values()].sort((a, b) => (b.id ? 1 : 0) - (a.id ? 1 : 0) || b.minutes - a.minutes || b.tasks - a.tasks),
     types,
   };
@@ -224,6 +227,9 @@ export function DDWeekReview({ React: R, data, date, today, language, setData })
       h("h3", null, t("Where the time went", "وقت کجا رفت")),
       h("ul", { className: "dd-week-rows" }, s.sections.map((r) => row(r.id || "other", r.color, r.name || t("Not from a section", "بدون سکشن"),
         r.minutes ? DDduration(r.minutes, language) : r.tasks ? t(r.tasks + (r.tasks === 1 ? " task" : " tasks"), num(r.tasks) + " کار") : "", r.budget)))),
+    s.focused >= 60 && h("div", { className: "dd-week-block", "data-week-focused": s.focused },
+      h("h3", null, t("Focused", "تمرکز با تایمر"), h("small", null, DDduration(Math.round(s.focused / 60), language))),
+      h("ul", { className: "dd-week-rows" }, s.focusedTasks.filter((r) => r.seconds >= 60).slice(0, 6).map((r) => row("focus-" + r.id, "", r.name || t("A task", "یک کار"), DDduration(Math.round(r.seconds / 60), language))))),
     s.goals.length > 0 && h("div", { className: "dd-week-block" },
       h("h3", null, t("Goals", "هدف‌ها")),
       h("ul", { className: "dd-week-rows" }, s.goals.map((g) => row("goal-" + g.id, "", g.name, g.text)))),
@@ -278,6 +284,7 @@ export const DDcalendarWeekCSS = `
 .dd-week-total{margin:0;font:500 14px/1.4 var(--sans);color:var(--ink)}
 .dd-week-energy{margin:-6px 0 0;font-size:12px;color:var(--ink-3)}
 .dd-week-block h3{margin:0 0 6px;font:600 12px/1.3 var(--sans);color:var(--ink-3);text-transform:none}
+.dd-week-block h3 small{margin-inline-start:6px;font-weight:500;font-variant-numeric:tabular-nums}
 .dd-week-rows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
 .dd-week-rows li{display:grid;grid-template-columns:10px minmax(0,1fr) auto;align-items:center;column-gap:8px;font-size:13px;line-height:1.35;color:var(--ink-2)}
 .dd-week-rows li>i{width:10px;height:10px;border-radius:3px}
