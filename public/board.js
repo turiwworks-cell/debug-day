@@ -404,7 +404,8 @@ export function DDcreateBoard(deps) {
       (appearanceRef.current = appearance));
     useEffect(() => {
       if (!status) return;
-      const timer = setTimeout(() => setStatus(""), 2600);
+      // A longer message stays long enough to be read (5.88.1).
+      const timer = setTimeout(() => setStatus(""), Math.max(2600, Math.min(8000, status.length * 50)));
       return () => clearTimeout(timer);
     }, [status]);
     const laneIds = setup.lanes.map((Y) => Y.id),

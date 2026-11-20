@@ -130,3 +130,6 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
 
 - No view keeps its own copy of the truth. If Board can change it, the Engine,
   Calendar and the Feed show the change at once (see `CLAUDE.md` › 0).
+- Limits are measured in room, not in counts (5.88.1): new drawings stop only when
+  the planner nears the 1.5 MB sync limit, or when one board holds more than it can
+  show smoothly. Deleting, erasing and moving always work, and the message says what helps.

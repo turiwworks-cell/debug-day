@@ -1,3 +1,10 @@
+## 5.88.1 — 2026-11-20
+Branch: claude/project-thread-h96514
+- Drawing is measured in room, not in a count of lines (wave 3): the old wall of 600 lines per board, and 600 for the whole Feed, is gone. A board or the Feed now keeps up to 3000 new lines, and a new line stops only when the planner gets close to the 1.5 MB sync limit (1.4 MB), so there is always room left for words.
+- When a drawing can't be added, the board says why in a calm line ("Your planner is close to the 1.5 MB sync limit…", or "This board holds as many drawings as it can show smoothly…"), and a longer message stays long enough to read.
+- Deleting, erasing, moving and restyling drawings always go through, even on a full planner, so you can always make room. The eraser can split a line at any count.
+- Boards with many drawings are quicker: each line is read once instead of on every change, so adding a line to a board with 3000 drawings takes about half the time it did.
+
 ## 5.88.0 — 2026-11-20
 Branch: claude/project-thread-h96514
 - Focus counts real time on a task (wave 3): Focus started from a task (the Engine's ⋯ › Focus, on the Board too now, or Search) writes the time that really passed while the timer ran on that task. A pause, a reset, switching to another task or the end of the timer settles it; a long break is not counted.
