@@ -11,6 +11,14 @@ CREATE TABLE IF NOT EXISTS planner_history (
  data TEXT NOT NULL,
  updated_at TEXT NOT NULL
 );
+-- One copy a day, as the planner stood at the end of each of the last 30 days
+-- it changed (5.90.0). The server also makes this table by itself.
+CREATE TABLE IF NOT EXISTS planner_daily (
+ day TEXT PRIMARY KEY,
+ data TEXT NOT NULL,
+ revision INTEGER NOT NULL,
+ updated_at TEXT NOT NULL
+);
 CREATE TRIGGER IF NOT EXISTS planner_history_update
 AFTER UPDATE ON planner
 BEGIN

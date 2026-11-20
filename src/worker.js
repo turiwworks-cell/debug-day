@@ -9,7 +9,7 @@ import { oauth, oauthRoute, oauthAccess } from "./oauth.js";
 import { DDmcpMoreTools, DDmcpMoreCall } from "./mcp-tools.js";
 const MAX_BYTES = 1500000;
 const VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"];
-const INFO = { name: "debug-day", title: "Debug Day", version: "5.89.0" };
+const INFO = { name: "debug-day", title: "Debug Day", version: "5.90.0" };
 class HttpError extends Error {
   constructor(status, message) {
     super(message);
@@ -195,6 +195,74 @@ async function read(env) {
       }
     : { data: null, revision: 0, updatedAt: null };
 }
+// Daily copies (5.90.0): the planner as it was at the end of each day it was
+// changed, for the last 30 such days, next to the last 20 saves that
+// planner_history keeps. The first save of a new day (UTC) copies the planner
+// as it stood before it. Best effort: a copy that fails never stops a save.
+// The table is made here too, so a server set up before 5.90.0 needs no
+// manual migration.
+const DAILY_KEEP = 30, dailyTables = new WeakMap();
+function dailyTable(env) {
+  let ready = dailyTables.get(env.DB);
+  if (!ready) {
+    ready = (async () => env.DB.prepare(
+      "CREATE TABLE IF NOT EXISTS planner_daily (day TEXT PRIMARY KEY, data TEXT NOT NULL, revision INTEGER NOT NULL, updated_at TEXT NOT NULL)",
+    ).run())();
+    ready.catch(() => dailyTables.delete(env.DB));
+    dailyTables.set(env.DB, ready);
+  }
+  return ready;
+}
+async function keepDaily(env, today) {
+  try {
+    await dailyTable(env);
+    const made = await env.DB.prepare(
+      "INSERT OR IGNORE INTO planner_daily (day, data, revision, updated_at) SELECT substr(updated_at, 1, 10), data, revision, updated_at FROM planner WHERE id = 1 AND substr(updated_at, 1, 10) < ?",
+    )
+      .bind(today)
+      .run();
+    if ((made?.meta?.changes ?? made?.changes) > 0)
+      await env.DB.prepare(
+        "DELETE FROM planner_daily WHERE day NOT IN (SELECT day FROM planner_daily ORDER BY day DESC LIMIT ?)",
+      )
+        .bind(DAILY_KEEP)
+        .run();
+  } catch {}
+}
+const rowsOf = async (statement) => {
+  const out = await statement.all();
+  return Array.isArray(out) ? out : out?.results || [];
+};
+// GET /api/backups lists the copies; ?day=YYYY-MM-DD or ?revision=N reads one.
+async function backups(env, url) {
+  if (!env.DB) throw new HttpError(503, "D1 binding DB is missing");
+  await dailyTable(env).catch(() => {});
+  const day = url.searchParams.get("day"), revision = url.searchParams.get("revision"), fresh = { "Cache-Control": "no-store" };
+  if (day !== null || revision !== null) {
+    let row;
+    if (day !== null) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new HttpError(400, "Invalid day");
+      row = await env.DB.prepare("SELECT data, revision, updated_at FROM planner_daily WHERE day = ?").bind(day).first();
+    } else {
+      const n = Number(revision);
+      if (!Number.isSafeInteger(n) || n < 1) throw new HttpError(400, "Invalid revision");
+      row = await env.DB.prepare("SELECT data, revision, updated_at FROM planner_history WHERE revision = ?").bind(n).first();
+    }
+    if (!row) throw new HttpError(404, "That copy is no longer on the server");
+    return json({ data: JSON.parse(row.data), revision: row.revision, updatedAt: row.updated_at }, 200, fresh);
+  }
+  let daily = [], recent = [];
+  try {
+    daily = await rowsOf(env.DB.prepare("SELECT day, revision, updated_at, length(CAST(data AS BLOB)) AS bytes FROM planner_daily ORDER BY day DESC LIMIT ?").bind(DAILY_KEEP));
+  } catch {}
+  try {
+    recent = await rowsOf(env.DB.prepare("SELECT revision, updated_at, length(CAST(data AS BLOB)) AS bytes FROM planner_history ORDER BY revision DESC LIMIT 20"));
+  } catch {}
+  return json({
+    daily: daily.map((r) => ({ day: r.day, revision: r.revision, updatedAt: r.updated_at, bytes: r.bytes })),
+    recent: recent.map((r) => ({ revision: r.revision, updatedAt: r.updated_at, bytes: r.bytes })),
+  }, 200, fresh);
+}
 // MCP edits pass `before`, so the linked copies of what they changed follow.
 async function save(env, data, revision, before) {
   if (before) {
@@ -206,6 +274,7 @@ async function save(env, data, revision, before) {
   if (!Number.isSafeInteger(revision) || revision < 0)
     throw new HttpError(428, "A valid revision is required");
   let result;
+  if (revision > 0) await keepDaily(env, now.slice(0, 10));
   if (revision === 0)
     result = await env.DB.prepare(
       "INSERT INTO planner (id, data, revision, updated_at) VALUES (1, ?, 1, ?) ON CONFLICT(id) DO NOTHING RETURNING revision",
@@ -1051,13 +1120,14 @@ export default {
     const url = new URL(request.url),
       api = url.pathname === "/api/sync",
       isArena = url.pathname === "/api/arena",
+      isBackups = url.pathname === "/api/backups",
       isMcp = url.pathname === "/mcp";
     if (oauthRoute(url.pathname)) return oauth(request, env);
     if (url.pathname === "/api/media-config" && request.method === "GET")
       return json({ googleClientId: env.GOOGLE_CLIENT_ID || "" }, 200, {
         "Cache-Control": "no-store",
       });
-    if (!api && !isMcp && !isArena) return env.ASSETS.fetch(request);
+    if (!api && !isMcp && !isArena && !isBackups) return env.ASSETS.fetch(request);
     const origin = request.headers.get("Origin"),
       allowed = new Set([
         url.origin,
@@ -1084,6 +1154,10 @@ export default {
       const access = await authorize(request, env, isMcp ? "mcp" : "sync");
       let response;
       if (isArena) response = await arenaRead(request, env);
+      else if (isBackups) {
+        if (request.method !== "GET") throw new HttpError(405, "Use GET");
+        response = await backups(env, url);
+      }
       else if (isMcp) {
         if (request.method !== "POST")
           throw new HttpError(405, "Use POST for MCP");
@@ -1122,5 +1196,5 @@ export default {
     }
   },
 };
-export { validate, save, read, callTool };
+export { validate, save, read, callTool, backups };
 

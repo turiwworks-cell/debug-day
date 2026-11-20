@@ -57,6 +57,7 @@ async function start() {
     browser,
     context,
     origin: server.origin,
+    sql: server.sql,
     async stop() {
       await browser.close();
       await server.close();

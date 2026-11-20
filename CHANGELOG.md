@@ -1,3 +1,10 @@
+## 5.90.0 — 2026-11-20
+Branch: claude/project-thread-h96514
+- Copies on your server (wave 3): with sync on, the server now keeps your planner as it was at the end of each of the last 30 days you changed it, beside the last 20 saves it already kept. The first change of a new day makes the copy; a copy that fails never stops a save.
+- Settings › Your data › "Copies on your server" lists them ("Yesterday, 15:30 · 412 KB"), with Download (a backup file, the same shape as "Download a backup") and Restore.
+- Restore asks first, then works like importing a backup: your setup and the days in that copy come back, days added since stay, and a recovery copy of how things are now is saved in this browser before anything changes. The restored planner syncs to your other devices.
+- The server makes its new table by itself, so an existing server needs no manual database step (schema.sql has it too, for new servers).
+
 ## 5.89.0 — 2026-11-20
 Branch: claude/project-thread-h96514
 - A calm weekly look at Pauses and feelings (wave 3): the week's look back in the Calendar now shows the days you paused with Pause the day ("Tuesday · Doctor visit · Paused 2×"), and the feelings and events you noted that week, in your own words, by how many days they came up ("Phone again · 2 days").
