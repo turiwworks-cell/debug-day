@@ -135,6 +135,11 @@ One word for each thing. Use these in labels, tooltips, toasts and tests.
   it changed, and its last 20 saves (5.90). Settings › Your data lists them: Download
   gives a backup file, Restore works like importing one (a recovery copy of how things
   are now is saved first, days added since stay). Restore always asks first.
+- Old months can be archived (5.91): Settings › Your data moves a month before last
+  month to the server. Its days keep only their light record (habits, mood, energy)
+  in the planner; the Calendar says "in your archive" with Bring back, which joins
+  them again. Archiving asks first and offers Undo; bringing back never passes the
+  sync limit.
 - Limits are measured in room, not in counts (5.88.1): new drawings stop only when
   the planner nears the 1.5 MB sync limit, or when one board holds more than it can
   show smoothly. Deleting, erasing and moving always work, and the message says what helps.
