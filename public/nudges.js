@@ -5,6 +5,7 @@ import { DDengineCarry, DDengineCopy, DDengineCarryHidden, DDhideEngineCarry } f
 import { DDplanMinutes, DDduration } from "./measure.js";
 import { DDlowDay, DDlightTasks, DDlightFirst } from "./energy.js";
 import { DDaddDays } from "./dates.js";
+import { DDpriorityWeight } from "./planner.js";
 
 // A day this full is a lot for one person: more than 10 hours, or 12 open tasks.
 export const DDfullMinutes = 600, DDfullCount = 12;
@@ -20,10 +21,21 @@ export function DDdayFull(day) {
   return load.minutes > DDfullMinutes || load.open.length >= DDfullCount;
 }
 
-// The task that is easiest to move: the lowest priority, then the last one.
+// The task that is easiest to move to another day (5.86.1, L2): the least
+// important first (a normal task, then P3, P2, and P1 last), then one not
+// started yet, then the longest (it frees the most room), then the first in
+// the list. A task set for a time (09:00) is a promise and stays where it is.
+const started = (b) =>
+  (function any(items) { return (items || []).some((s) => s?.done || any(s?.children)); })(b.subtasks) ||
+  (b.measure === "count" && Number(b.count) > 0) ||
+  Number(b.spent) > 0;
 export function DDmoveCandidate(day) {
-  const { open } = DDdayLoad(day);
-  return open.reduce((best, b) => (!best || (Number(b.pri) || 0) <= (Number(best.pri) || 0) ? b : best), null);
+  const free = DDdayLoad(day).open.filter((b) => !b.at);
+  const rank = (b, i) => [DDpriorityWeight(b), started(b) ? 1 : 0, -DDplanMinutes(b), i];
+  const before = (x, y) => { for (let k = 0; k < x.length; k++) if (x[k] !== y[k]) return x[k] < y[k]; return false; };
+  let best = null, bestRank = null;
+  free.forEach((b, i) => { const r = rank(b, i); if (!best || before(r, bestRank)) (best = b), (bestRank = r); });
+  return best;
 }
 
 // Move one task to another day (the same task, so every view follows).
