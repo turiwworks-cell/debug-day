@@ -227,7 +227,8 @@ html body .dd-shape-row{border-radius:var(--r-pill)}
 /* Windows over the page: sheets with large round corners and a soft scrim */
 html :is(.cmd-modal,.app-map-modal,.dd-capture-dialog){border-radius:var(--r-panel);background:var(--panel);box-shadow:0 30px 80px -20px rgba(0,0,0,.35),0 0 0 .5px var(--rule-2);border:0}
 html :is(.dd-engine-backdrop,.cmd-backdrop,.dd-doc-backdrop,.b4-help-backdrop,.dd-flow-backdrop){background:var(--scrim);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
-html .toast{${glass};color:var(--ink);font:500 14px/1.3 var(--sans);border-radius:var(--r-pill);padding:12px 20px}
+/* Above the full-screen Board and the Engine, so its Undo can always be reached (5.85.4) */
+html .toast{${glass};color:var(--ink);font:500 14px/1.3 var(--sans);border-radius:var(--r-pill);padding:12px 20px;z-index:1200}
 
 /* Floating Capture: a prominent tinted glass button */
 html .dd-floating-capture{background:var(--now);color:var(--on-now);border:0;border-radius:var(--r-pill);box-shadow:0 10px 24px -8px color-mix(in srgb,var(--now) 65%,transparent),inset 0 1px 0 rgba(255,255,255,.35);font:600 15px var(--sans)}

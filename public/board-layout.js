@@ -44,32 +44,37 @@ export function DDcreateBoardLayout(deps) {
       laneIds = setup.lanes.map((Y) => Y.id),
       isScheduled = (Y) => laneIds.includes(Y.lane);
     // Steps wrap instead of hiding words, so their card grows with the text.
-    const stepHeight = (text) => {
+    // Measured at the width the words really get (5.85.3): the card's "+" and,
+    // for a step with steps inside, its "−" take room beside them. The card
+    // shows that many lines and ends a longer text with "…", never a cut line.
+    const stepLines = (text, inner) => {
+        const width = inner ? 158 : 182;
         // Word wrapping depends on the installed font, not just character count.
         stepTextContext ||= document.createElement("canvas").getContext("2d");
         if (!stepTextContext)
-          return Math.min(150, 40 + 17 * Math.max(1, Math.ceil(String(text || "").length / 24)));
+          return Math.min(6, Math.max(1, Math.ceil(String(text || "").length / (inner ? 19 : 22))));
         const family = getComputedStyle(document.documentElement).getPropertyValue("--sans").trim()
           || getComputedStyle(document.body).fontFamily;
         stepTextContext.font = "550 12.5px " + family;
         let lines = 1, line = "";
         for (const word of String(text || "").split(/\s+/)) {
           const candidate = line ? line + " " + word : word;
-          if (stepTextContext.measureText(candidate).width <= 204) {
+          if (stepTextContext.measureText(candidate).width <= width) {
             line = candidate;
             continue;
           }
           if (line) { lines++; line = ""; }
           for (const letter of word) {
-            if (line && stepTextContext.measureText(line + letter).width > 204) {
+            if (line && stepTextContext.measureText(line + letter).width > width) {
               lines++; line = "";
             }
             line += letter;
           }
           if (lines >= 6) break;
         }
-        return Math.min(150, 40 + 17 * lines);
+        return Math.min(6, lines);
       },
+      stepHeight = (lines) => 40 + 17 * lines,
       stepLabel = (index, total, children) =>
         t("Step ", "قدم ") +
         (index + 1) +
@@ -186,10 +191,14 @@ export function DDcreateBoardLayout(deps) {
           (ma || []).forEach((Fn, index, list) => {
             const Ga = Jt,
               Xa = `sub:${fa.id}:${Fn.id}`,
-              stepH = stepHeight(Fn.text);
+              lines = stepLines(Fn.text, !!Fn.children?.length),
+              stepH = stepHeight(lines);
             Fn.expanded !== !1 && Fn.children?.length
               ? On(Fn.children, Xa, fa, Pl + 1, kl)
               : (Jt += stepH + gap.step);
+            // A step taller than the steps inside it keeps its own room, so a
+            // long one never slides under the next (5.85.3).
+            Jt = Math.max(Jt, Ga + stepH + gap.step);
             Pt({
               id: Xa,
               kind: "subtask",
@@ -205,6 +214,7 @@ export function DDcreateBoardLayout(deps) {
               y: (Ga + Math.max(Ga + stepH, Jt - gap.step)) / 2 - stepH / 2,
               w: 258,
               h: stepH,
+              lines,
               hasChildren: !!Fn.children?.length,
               expanded: Fn.expanded !== !1,
             });
