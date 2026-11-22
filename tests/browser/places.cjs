@@ -104,11 +104,13 @@ const {start,fixture,boardMenu}=require('./harness.cjs');
    await alt('ArrowDown');
    assert.equal(await selected(),'calendar');
    await alt('ArrowDown');
+   assert.equal(await selected(),'projects');
+   await alt('ArrowDown');
    assert.equal(await selected(),'board','the tabs go round');
    await alt('ArrowUp');
-   assert.equal(await selected(),'calendar');
+   assert.equal(await selected(),'projects');
    // From another tab, Back opens the board in the section, where you were.
-   await alt('ArrowLeft');await alt('ArrowLeft');
+   await alt('ArrowLeft');await alt('ArrowLeft');await alt('ArrowLeft');
    assert.equal(await selected(),'calendar');
    await alt('ArrowLeft');
    assert.equal(await selected(),'board');
