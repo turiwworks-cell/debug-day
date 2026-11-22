@@ -24,6 +24,8 @@ async function seed(page, origin) {
     note("lead", "Review the next three leads", "research", 24, 40),
     section("other1", "projects", 40, 850, 420, 300),
     section("other2", "Projects", 500, 850, 420, 300),
+    // The existing Send to menu is only offered when a quick target exists.
+    section("this-app", "This App", 3200, 40, 420, 300),
   ] };
   Object.assign(f.data.setup.preferences, { boardRailGoal: false, boardRailNote: false, boardRailHabits: false, phoneToday: false });
   await page.evaluate(({ data, date }) => {
@@ -153,16 +155,14 @@ async function seed(page, origin) {
     await card("personal").locator('[data-project-history="log"] button').click();
     await selected(log.id).waitFor();
     assert.equal((await read()).setup.life.items.find((i) => i.id === "lead").text, "Review three leads and their sites");
+    const mobileFixture = await read();
 
     // A real menu move and delete both clear the continuation, without affecting
     // the completed task. Removing a role never removes the section.
     await tab("projects").click(); await card("outreach").locator("[data-project-next]").click();
     await selected("lead").waitFor(); await openMenu("lead");
-    await menuItem("Send to").click(); await menuItem("Out of its section").click();
-    // This moved it out of Research but still inside Outreach. It remains a valid continuation.
-    await tab("projects").click(); await card("outreach").locator("[data-project-next]").waitFor();
-    await card("outreach").locator("[data-project-next]").click(); await selected("lead").waitFor();
-    await openMenu("lead"); await menuItem("Send to").click(); await menuItem("Out of its section").click();
+    await menuItem("Send to").click(); await menuItem("This App").click();
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem("debug-day:v2")).setup.life.items.find((i) => i.id === "lead").parent === "this-app");
     await tab("projects").click();
     assert.equal(await card("outreach").locator("[data-project-next]").count(), 0);
     assert.equal((await read()).setup.life.items.find((i) => i.id === "outreach").nextNoteId, undefined);
@@ -170,7 +170,11 @@ async function seed(page, origin) {
     await action("step", "Delete selection");
     await tab("projects").click();
     assert.equal(await card("personal").locator("[data-project-next]").count(), 0);
-    const saved = await read();
+    // The small empty-state picker can select a new note, and that exact
+    // continuation should survive exporting the standalone app.
+    await card("outreach").getByRole("button", { name: "+ Choose a note", exact: true }).click();
+    await card("outreach").getByRole("combobox", { name: "Choose a note" }).selectOption("out-goal");
+    await card("outreach").locator('[data-project-next="out-goal"]').waitFor();
     assert.deepEqual(errors, []);
 
     // The actual standalone export must include the module and its metadata.
@@ -186,6 +190,7 @@ async function seed(page, origin) {
     await off.goto(pathToFileURL(file).href);
     await off.locator('.views [role="tab"][data-panel="projects"]').click();
     assert.equal(await off.locator(".dd-project-card").count(), 2);
+    await off.locator('[data-project-next="out-goal"]').waitFor();
     await off.locator('[data-project-id="outreach"]').getByRole("button", { name: "Details" }).click();
     await off.locator('[data-project-history="done"]').waitFor();
     assert.deepEqual(offlineErrors, []);
@@ -194,8 +199,10 @@ async function seed(page, origin) {
     // Mobile and mixed-direction copy, with the same underlying records.
     const mobile = await h.context(true);
     await fixture(mobile.page, h.origin);
-    saved.setup.preferences.language = "fa";
-    await mobile.page.evaluate((data) => { localStorage.setItem("debug-day:v2", JSON.stringify(data)); localStorage.setItem("debug-day:ui", JSON.stringify({ view: "projects" })); }, saved);
+    mobileFixture.setup.preferences.language = "fa";
+    mobileFixture.setup.life.items.find((i) => i.id === "goal").text = "یک ریتم پایدار برای مطالعه و نوشتن";
+    mobileFixture.setup.life.items.find((i) => i.id === "step").text = "خواندن فصل بعدی و یادداشت‌برداری از نکته‌های مهم برای The Way";
+    await mobile.page.evaluate((data) => { localStorage.setItem("debug-day:v2", JSON.stringify(data)); localStorage.setItem("debug-day:ui", JSON.stringify({ view: "projects" })); }, mobileFixture);
     await mobile.page.reload();
     await mobile.page.locator(".dd-projects").waitFor();
     assert.equal(await mobile.page.locator(".dd-projects").getAttribute("dir"), "rtl");
