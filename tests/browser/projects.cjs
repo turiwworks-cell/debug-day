@@ -42,7 +42,7 @@ async function seed(page, origin) {
     const { page, errors } = await h.context(false);
     const f = await seed(page, h.origin);
     page.setDefaultTimeout(10000);
-    const tab = (id) => page.locator(`.views [data-panel="${id}"]`),
+    const tab = (id) => page.locator(`.views [role="tab"][data-panel="${id}"]`),
       item = (id) => page.locator(`[data-board-id="life:${id}"]`),
       card = (id) => page.locator(`.dd-project-card[data-project-id="${id}"]`),
       read = () => page.evaluate(() => JSON.parse(localStorage.getItem("debug-day:v2"))),
@@ -184,7 +184,7 @@ async function seed(page, origin) {
     const off = await offline.newPage(), offlineErrors = [];
     off.on("pageerror", (error) => offlineErrors.push(error.message));
     await off.goto(pathToFileURL(file).href);
-    await off.locator('.views [data-panel="projects"]').click();
+    await off.locator('.views [role="tab"][data-panel="projects"]').click();
     assert.equal(await off.locator(".dd-project-card").count(), 2);
     await off.locator('[data-project-id="outreach"]').getByRole("button", { name: "Details" }).click();
     await off.locator('[data-project-history="done"]').waitFor();
