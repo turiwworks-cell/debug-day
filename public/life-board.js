@@ -127,6 +127,11 @@ function lifeItems(raw) {
       ...(!section && /^\d{4}-\d{2}-\d{2}$/.test(r.at||"") ? {at:r.at} : {}),
       ...(!section && Number.isFinite(r.baseW) ? {baseW:Math.max(160,r.baseW)} : {}),
       ...(!section && ["goal", "note"].includes(r.role) ? { role: r.role } : {}),
+      // Project roles and the continuation belong to this exact Feed item,
+      // not its title, parent, or linked copies.
+      ...(section && r.id !== DDcaptureId && ["project", "subproject"].includes(r.projectKind) ? { projectKind: r.projectKind } : {}),
+      ...(section && r.projectKind === "project" && r.id !== DDcaptureId && typeof r.nextNoteId === "string" && r.nextNoteId.length > 0 && r.nextNoteId.length <= 80 ? { nextNoteId: r.nextNoteId } : {}),
+      ...(!section && r.projectLog === true && /^\d{4}-\d{2}-\d{2}$/.test(r.at || "") ? { projectLog: true } : {}),
       // A soft budget on a section, a counter on a goal note (budgets.js).
       ...(section && DDbudgetOf(r) ? { budget: DDbudgetOf(r) } : {}),
       ...(!section && DDgoalClean(r.goal) ? { goal: DDgoalClean(r.goal) } : {}),
@@ -157,7 +162,31 @@ function lifeItems(raw) {
     if (!sections.has(it.parent) || it.parent === it.id || p) it.parent = "";
     if (it.parent) delete it.out;
   }
-  return items;
+  return DDlifeCleanProjectRefs(items);
+}
+
+// A continuation is a reference to a note still inside this exact project.
+// This also handles a note moved into another project or removed by MCP.
+export function DDlifeCleanProjectRefs(items) {
+  if (!items.some((i) => i.nextNoteId)) return items;
+  const index = new Map(items.map((i) => [i.id, i]));
+  let next;
+  items.forEach((i, n) => {
+    if (!i.nextNoteId) return;
+    let current = index.get(i.nextNoteId), project, seen = new Set();
+    if (current?.type === "sticky") {
+      while (current && !seen.has(current.id)) {
+        seen.add(current.id);
+        if (current.type === "section" && current.projectKind === "project") { project = current; break; }
+        current = index.get(current.parent);
+      }
+    }
+    if (i.projectKind === "project" && project?.id === i.id) return;
+    const { nextNoteId, ...rest } = i;
+    next ||= items.slice();
+    next[n] = rest;
+  });
+  return next || items;
 }
 
 // Keep only valid items: known parents, no loops, sane numbers. Order is the stacking order.

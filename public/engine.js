@@ -205,6 +205,24 @@ export function DDengineTaskFromNote(text, lane, setup = {}, makeId = () => cryp
   return task;
 }
 
+// The same action on a Feed note from Board or Projects. Identity is scoped to
+// the day and note; a repeated click (including during a pending React update)
+// cannot add the same note twice. Older tasks may have random IDs and are
+// recognised by noteRef, too.
+export const DDengineFeedTaskId = (date, noteId) => "feed-" + date + "-" + encodeURIComponent(noteId);
+export function DDengineFeedTask(note, date, setup, makeId, { projectRef, from = note.parent, fallback = "" } = {}) {
+  const task = DDengineTaskFromNote(note.text, setup.lanes?.[0]?.id || "", setup, makeId, from === DDcaptureId ? "" : from);
+  return { ...task, id: DDengineFeedTaskId(date, note.id), name: task.name || fallback, noteRef: note.id, ...(projectRef ? { projectRef } : {}) };
+}
+export function DDengineAddFeedTask(day, task) {
+  const blocks = day.blocks || [], existing = blocks.find((b) => b.noteRef === task.noteRef);
+  if (!existing) return { ...day, blocks: [...blocks, task] };
+  // If the note was already sent from the Board, a project send explicitly
+  // associates that very task, leaving its words, steps and section tag alone.
+  if (!task.projectRef || existing.projectRef === task.projectRef) return day;
+  return { ...day, blocks: blocks.map((b) => b === existing ? { ...b, projectRef: task.projectRef } : b) };
+}
+
 // Each day starts with a fresh Engine. The latest earlier day that had tasks,
 // counted back from `date`; `skip` steps further back, one such day at a time.
 export function DDengineEarlierDay(days = {}, date, skip = 0) {

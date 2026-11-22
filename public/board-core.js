@@ -799,6 +799,10 @@ export const DDboardCore = {
       if (data.kind === "sticky" || data.type === "sticky") data.at = DDtoday();
       let ref;
       if (item.kind === "life" && next.__life) {
+        // Copying content does not create a new project or a new log entry.
+        delete data.projectKind;
+        delete data.nextNoteId;
+        delete data.projectLog;
         data.id = newKey;
         data.x = point.x + item.x - (day.__lifeFrame?.x || 0);
         data.y = point.y + item.y - (day.__lifeFrame?.y || 0);

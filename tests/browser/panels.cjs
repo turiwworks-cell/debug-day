@@ -20,10 +20,10 @@ const { start, fixture } = require("./harness.cjs");
     // View tabs and section headings carry the panel's icon and color. Feelings and Stats are gone.
     assert.deepEqual(
       await page.locator(".views button").evaluateAll((tabs) => tabs.map((tab) => tab.dataset.panel)),
-      ["board", "calendar"],
+      ["board", "calendar", "projects"],
       "the Engine has no page of its own (5.67)",
     );
-    assert.equal(await page.locator(".views button .dd-panel-icon").count(), 2);
+    assert.equal(await page.locator(".views button .dd-panel-icon").count(), 3);
     // App changes was removed (5.28): no section, no panel.
     assert.equal(await page.locator('[data-section-id="lab"]').count(), 0);
 
@@ -38,7 +38,7 @@ const { start, fixture } = require("./harness.cjs");
     const modal = page.locator(".dd-command-modal");
     const first = modal.locator(".dd-result-group").first();
     assert.equal(await first.getAttribute("data-group"), "panels");
-    assert.equal(await first.locator(".dd-panel-row").count(), 7, "two Engine trips, then the panels, with Sections right after the Engine (Stats removed in 5.57)");
+    assert.equal(await first.locator(".dd-panel-row").count(), 8, "two Engine trips, then the panels, with Sections right after the Engine");
     // 5.69: the first two rows go to an Engine on the Board, said plainly.
     assert.match(await first.locator(".dd-panel-row").nth(0).innerText(), /Go to this section's Engine/);
     assert.match(await first.locator(".dd-panel-row").nth(0).innerText(), /You are on the Main board/);
@@ -77,7 +77,7 @@ const { start, fixture } = require("./harness.cjs");
     await page.locator(".dd-panel-map").waitFor();
     assert.deepEqual(
       await page.locator(".dd-panel-map .app-map-card").evaluateAll((cards) => cards.map((card) => card.dataset.panel)),
-      ["engine", "board", "habits", "calendar"],
+      ["engine", "board", "habits", "calendar", "projects"],
     );
     assert.match(await page.locator('.app-map-card[data-panel="habits"] small').innerText(), /0 of 1 today/);
     await page.keyboard.press("Digit0");

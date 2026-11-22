@@ -3,7 +3,8 @@ import { DDreconcileDay, DDrelation, DDconnectRelation, DDdisconnectRelation, DD
 import { DDconnectionGeometry, DDwireGap, DDgrowRect } from "./connections.js";
 import { DDundoRevert } from "./board-history.js";
 import { DDcreateBoardLayout, DDengineShift, DDnoteOnEngine } from "./board-layout.js";
-import { DDengineBus, DDengineGoBus, DDengineTaskFromNote, DDengineSources, DDengineSourceHistory, DDengineStrip, DDinstallEngineStyles, DDengineCarry, DDnoType, DDcarryCopies, DDmarkCarried } from "./engine.js";
+import { DDengineBus, DDengineGoBus, DDengineTaskFromNote, DDengineFeedTask, DDengineAddFeedTask, DDengineSources, DDengineSourceHistory, DDengineStrip, DDinstallEngineStyles, DDengineCarry, DDnoType, DDcarryCopies, DDmarkCarried } from "./engine.js";
+import { DDprojectOwner, DDprojectRole, DDprojectChoose } from "./projects.js";
 import { DDEngineOverlay } from "./engine-panel.js";
 import { DDengineSectionIds, DDinstallEngineQuietStyles } from "./engine-quiet.js";
 import { DDboardShortcuts, DDboardSearchRows, DDrootSelection, DDmarqueeSelection, DDselectionToolbar, DDBoardSearch, DDBoardTimer, DDBoardTimerButton, DDinstallBoardExperience, DDinstallZoomLock } from "./board-experience.js";
@@ -57,7 +58,7 @@ function DDpersianDay(date) {
 // A full-screen ask is fresh for a few seconds only, so an old one never surprises (5.85).
 // Did the app open on the board? (the same saved view the app starts from)
 const DDappOpensOnBoard = (() => {
-  try { const v = JSON.parse(localStorage.getItem("debug-day:ui") || "{}").view; return !["calendar", "stats", "insights", "setup"].includes(v); } catch { return true; }
+  try { const v = JSON.parse(localStorage.getItem("debug-day:ui") || "{}").view; return !["calendar", "projects", "stats", "insights", "setup"].includes(v); } catch { return true; }
 })();
 let DDboardOpened = false;
 function DDfreshFullscreenAsk(value) {
@@ -3211,13 +3212,12 @@ export function DDcreateBoard(deps) {
     }
     function sendToToday(Y) {
       if (!Y?.lifeId) return convertSticky(Y);
-      const already = noteOnDay(Y);
+      const already = (dayRef.current.blocks || []).find((b) => b.noteRef === Y.lifeId);
       if (already) { setSelected(new Set(["b:" + already.id])); onSelectBlock?.(already.id); setStatus(t("Already on this day", "همین حالا در این روز هست")); return; }
-      const parsed = DDengineTaskFromNote(Y.title, setup.lanes[0]?.id || "", setup, C), ct = C(),
-        // Capture is where ideas wait, not a project: its tasks get no section tag.
-        home = DDlifeItems(setup).find((i) => i.id === Y.lifeId)?.parent || layout.room || "",
-        from = home === DDcaptureId ? "" : home;
-      commit((d) => ({ ...d, blocks: [...d.blocks, { ...parsed, id: ct, name: parsed.name || DDUI("ایده از برد"), min: prefs.defaultMinutes, ...(from ? { from } : {}), noteRef: Y.lifeId }] }),
+      const items = DDlifeItems(setup), note = items.find((i) => i.id === Y.lifeId);
+      if (!note) return;
+      const task = DDengineFeedTask(note, day.date, setup, C, { from: note.parent || layout.room || "", projectRef: DDprojectOwner(items, note.id)?.id, fallback: DDUI("ایده از برد") }), ct = task.id;
+      commit((d) => DDengineAddFeedTask(d, task),
         t("Added to this day · the note stays in the Feed", "به این روز اضافه شد · نوت در فید می‌مونه"));
       setSelected(new Set(["b:" + ct])); onSelectBlock?.(ct);
     }
@@ -5668,6 +5668,16 @@ export function DDcreateBoard(deps) {
           places.length > 1 && item("sync-off", "Unsync this copy", "جدا کردن این کپی", "unsync", () => unsync(selectedNode)),
         ].filter(Boolean) : [];
         const dueItem = (sticky || selectedNode?.lifeSection) && selectedNodes.length === 1 && item("deadline", selectedNode.due ? "Deadline · " + DDdueDate(selectedNode.due, "en") : "Deadline…", selectedNode.due ? "ددلاین · " + DDdueDate(selectedNode.due, "fa") : "ددلاین…", "deadline", () => setDueEdit({ ref: selectedNode.id, x: menu.x, y: menu.y }), { checked: !!selectedNode.due });
+        const projectItem = selectedNodes.length === 1 && selectedNode?.lifeId && lifeList.find((i) => i.id === selectedNode.lifeId),
+          projectParent = projectItem && DDprojectOwner(lifeList, projectItem.parent),
+          projectKind = projectItem?.projectKind,
+          isContinuation = projectItem?.type === "sticky" && projectParent?.nextNoteId === projectItem.id,
+          roleChoice = projectItem?.type === "section" && projectItem.id !== DDcaptureId && (projectKind
+            ? item("project-remove", projectKind === "project" ? "Remove project role" : "Remove subproject role", projectKind === "project" ? "برداشتن علامت پروژه" : "برداشتن علامت زیرپروژه", "section", () => lifeChange((list) => DDprojectRole(list, projectItem.id, null)), { checked: true, disabled: allLocked })
+            : projectParent
+              ? item("project-sub", "Make it a subproject", "زیرپروژه کن", "section", () => lifeChange((list) => DDprojectRole(list, projectItem.id, "subproject")), { disabled: allLocked })
+              : item("project-make", "Make it a project", "پروژه کن", "section", () => lifeChange((list) => DDprojectRole(list, projectItem.id, "project")), { disabled: allLocked })),
+          continuationChoice = projectItem?.type === "sticky" && projectParent && (isContinuation || projectItem.text?.trim()) && item("project-next", isContinuation ? "Remove continuation" : "Continue from here", isContinuation ? "برداشتن قدم بعدی" : "ادامه از اینجا", "goal", () => lifeChange((list) => DDprojectChoose(list, projectParent.id, isContinuation ? "" : projectItem.id)), { checked: isContinuation, disabled: allLocked });
         const more = [
           // Documents (5.63): a note becomes a document and back; a document shows as a card or an icon.
           sticky && selectedNodes.length === 1 && !selectedNode.shape && !selectedNode.photo && item("doc-convert", selectedNode.doc ? "Convert to note" : "Convert to document", selectedNode.doc ? "تبدیل به نوت" : "تبدیل به داکیومنت", "document", () => toggleDocument(selectedNode), { disabled: allLocked }),
@@ -5726,10 +5736,12 @@ export function DDcreateBoard(deps) {
             ].filter(Boolean),
           }),
           sticky && selectedNode.lifeId && item("to-today", "Add to this day (note stays)", "افزودن به این روز (نوت می‌مونه)", "toPlan", () => sendToToday(selectedNode), { checked: !!noteOnDay(selectedNode) }),
+          continuationChoice,
           // Deadlines belong to the Feed: on a day note the item waits in More.
           selectedNode?.lifeId && dueItem,
           sticky && item("convert", "Convert note to task", "تبدیل نوت به کار", "task", () => convertSticky(selectedNode), { disabled: allLocked }),
           ...(selectedNode?.lifeSection ? [
+            roleChoice,
             item("section-note", "Add sticky note inside", "افزودن یادداشت داخل", "noteAdd", () => addLifeItem("sticky", selectedNode.lifeId)),
             item("section-inside", "Add section inside", "افزودن سکشن داخل", "sectionAdd", () => addLifeItem("section", selectedNode.lifeId)),
             item("section-remove", "Remove section, keep contents", "برداشتن سکشن با حفظ محتوا", "unframe", () => groupSelection(true), { shortcut: "Ctrl/Cmd+Shift+G" }),
@@ -6827,6 +6839,10 @@ export function DDcreateBoard(deps) {
           onOpenSection: (id) => {
             setEngine(false);
             enterRoom(id);
+          },
+          onOpenNote: (id) => {
+            setEngine(false);
+            revealSearchResult({ id: "life:" + id, lifeId: id, kind: "life" });
           },
           onClose: () => {
             setEngine(false);

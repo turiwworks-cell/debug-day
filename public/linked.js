@@ -9,7 +9,7 @@
 // Every copy is ordinary data, so Plan, Lanes, search, sync, export and MCP read
 // it as it is. DDsyncCopies runs after each change and makes the other copies
 // match the one that changed. Nothing here touches how a note looks.
-import { DDlifeFit } from "./life-board.js";
+import { DDlifeFit, DDlifeCleanProjectRefs } from "./life-board.js";
 import { DDnoteTags, DDsetNoteTags } from "./note-tags.js";
 
 const ID = /^[\w-]{1,64}$/;
@@ -172,7 +172,8 @@ function ancestors(items, id) {
 const rootPart = (r) => ({ text: r.text || "", color: r.color || "", ownColor: !!r.ownColor, w: r.w, h: r.h, style: r.style || null, tags: r.tags || null });
 // A copy's own fold is its own, so it is not part of what the copies share.
 const itemPart = (it, parentKey) => {
-  const { id, parent, syncKey, out, collapsed, ...rest } = it;
+  // Project choices are for a particular ID, not the contents being synced.
+  const { id, parent, syncKey, out, collapsed, projectKind, nextNoteId, projectLog, ...rest } = it;
   return { ...rest, parentKey };
 };
 // Everything that makes two copies "the same section", by key.
@@ -211,8 +212,8 @@ function rebuild(life, from, to) {
   for (const k of source) idFor.set(k.id, mine.get(k.syncKey)?.id || DDsyncItemId(to.id, k.syncKey));
   const gone = new Set(current.filter((k) => !keys.has(k.syncKey)).map((k) => k.id));
   const made = new Map(source.map((k) => {
-    const { id, parent, out, ...rest } = k, old = mine.get(k.syncKey);
-    return [idFor.get(k.id), { ...rest, id: idFor.get(k.id), parent: idFor.get(parent), ...(old?.collapsed !== undefined && k.type === "section" ? { collapsed: old.collapsed } : {}) }];
+    const { id, parent, out, projectKind, nextNoteId, projectLog, ...rest } = k, old = mine.get(k.syncKey);
+    return [idFor.get(k.id), { ...rest, id: idFor.get(k.id), parent: idFor.get(parent), ...(old?.collapsed !== undefined && k.type === "section" ? { collapsed: old.collapsed } : {}), ...(old?.projectKind ? { projectKind: old.projectKind } : {}), ...(old?.nextNoteId ? { nextNoteId: old.nextNoteId } : {}), ...(old?.projectLog ? { projectLog: true } : {}) }];
   }));
   const { text, color, ownColor, w, h, style, tags } = from;
   const root = { ...to, text, color, w, h };
@@ -266,7 +267,12 @@ function syncSections(next, before) {
 export function DDsyncCopies(next, before) {
   if (!next || !before || next === before) return next;
   try {
-    return syncNotes(syncSections(next, before), before);
+    const synced = syncNotes(syncSections(next, before), before), life = synced.setup?.life;
+    if (life?.items && life !== before.setup?.life) {
+      const items = DDlifeCleanProjectRefs(life.items);
+      if (items !== life.items) return { ...synced, setup: { ...synced.setup, life: { ...life, items } } };
+    }
+    return synced;
   } catch (error) {
     // Never lose a change because a copy could not follow it.
     console.warn("Debug Day: linked copies could not update", error);

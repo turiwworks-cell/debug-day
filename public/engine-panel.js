@@ -38,7 +38,7 @@ import { DDenergyOf, DDsetEnergy, DDenergyLabel } from "./energy.js";
 import { DDspentOf, DDspentText } from "./focus-time.js";
 import { DDsetTaskDone, DDtoggleSubtask, DDcleanBoard } from "./search.js";
 import { DDPlanNudges } from "./nudges.js";
-import { DDshortPath } from "./life-board.js";
+import { DDshortPath, DDlifeItems } from "./life-board.js";
 import { DDcaptureId } from "./section-keys.js";
 import { DDrepeats, DDsetRepeat, DDRoutinePanel, DDinstallRoutineStyles } from "./routine.js";
 import { DDflowItems, DDflowCanAdd, DDflowAdd, DDflowRemove, DDflowWaitingOn, DDflowWaves, DDflowStepRef, DDflowTaskRef } from "./flow.js";
@@ -507,6 +507,7 @@ function TaskRow(props) {
       onReveal,
       onFocusTimer,
       onOpenSection,
+      onOpenNote,
       makeId,
       flow,
       wave,
@@ -631,6 +632,7 @@ function TaskRow(props) {
           onChange,
           repeat,
           actions: [
+            onOpenNote && block.noteRef && ["origin-note", t("↖ Original note", "↖ نوت مبدأ"), () => onOpenNote(block.noteRef)],
             ["move", today ? t("→ Park", "→ پارک") : t("← Today", "← امروز"), () => onMove(block.id)],
             today && onTomorrow && ["tomorrow", t("Tomorrow", "فردا"), () => onTomorrow(block.id)],
             today && ["duplicate", t("Duplicate", "تکثیر"), () => onDuplicate(block.id)],
@@ -695,6 +697,7 @@ export function DDEnginePanel(props) {
       onReveal,
       onFocusTimer,
       onOpenSection,
+      onOpenNote,
       onClose,
       quickRef,
       findRef,
@@ -714,11 +717,18 @@ export function DDEnginePanel(props) {
     panel = R.useRef(null);
   DDinstallEnginePanelStyles();
   DDinstallRoutineStyles();
+  const focusedTask = (day.blocks || []).find((b) => b.id === focusId);
+  R.useEffect(() => {
+    if (!focusId) return;
+    // A project send opens its task even with the previous filter; do this
+    // once on arrival, not while someone is working through the list.
+    if (focusedTask?.projectRef && !DDengineShows(focusedTask, show, query)) { setShowState("all"); setQuery(""); }
+  }, [focusId, !!focusedTask]);
   R.useEffect(() => {
     if (!focusId) return;
     const row = panel.current?.querySelector?.(`[data-engine-task="${CSS.escape(focusId)}"]`);
     row?.scrollIntoView?.({ block: "center" });
-  }, [focusId]);
+  }, [focusId, !!focusedTask, show, query]);
   const setShow = (value) => (setShowState(value), remember("debug-day:engine-show", value)),
     toggleSteps = (id) =>
       setOpened((old) => {
@@ -852,6 +862,7 @@ export function DDEnginePanel(props) {
         onReveal,
         onFocusTimer,
         onOpenSection,
+        onOpenNote: block.noteRef && DDlifeItems(setup).some((i) => i.id === block.noteRef && i.type === "sticky") ? onOpenNote : undefined,
         flow: place === "today" ? flow : null,
         repeat: place === "today" && Array.isArray(setup.templates) && setup.templates.length ? { on: DDrepeats(setup, block), set: (on) => onSetup((s) => DDsetRepeat(s, block, on)) } : null,
       }),

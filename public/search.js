@@ -295,7 +295,7 @@ export function DDbuildSearchIndex(data, today) {
       extra: DDsubText(block.subtasks),
       group: "notes",
     });
-  for (const it of DDlifeItems(setup)) add({ id:"life:"+it.id,kind:"life",itemId:it.id,title:it.text || DDmediaTitle(it) || "Section",detail:"Feed · فید",category:"life",group:"life",extra:it.type,tags:it.type==="sticky"?DDnoteTags(it):[] });
+  for (const it of DDlifeItems(setup)) add({ id:"life:"+it.id,kind:"life",itemId:it.id,title:it.text || DDmediaTitle(it) || "Section",detail:"Feed · فید",category:"life",group:"life",extra:[it.type,it.projectKind==="project"?"project پروژه":it.projectKind==="subproject"?"subproject زیرپروژه":""].filter(Boolean).join(" "),tags:it.type==="sticky"?DDnoteTags(it):[] });
   return index;
 }
 export function DDmatchSearch(row, query) {

@@ -37,6 +37,18 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      # Same fixture, viewport and camera on the exact base revision. Keep
+      # the screenshot beside the new Board and Projects screenshots.
+      - name: Capture the base Board
+        if: github.event_name == 'pull_request' && matrix.part == 1
+        env:
+          DD_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$DD_BASE_SHA"
+          git worktree add --detach "$RUNNER_TEMP/debug-day-project-base" "$DD_BASE_SHA"
+          cp tests/browser/projects.cjs "$RUNNER_TEMP/debug-day-project-base/tests/browser/projects.cjs"
+          ln -s "$GITHUB_WORKSPACE/node_modules" "$RUNNER_TEMP/debug-day-project-base/node_modules"
+          DD_BASELINE=1 DD_SCREENSHOTS="$GITHUB_WORKSPACE/test-results" node "$RUNNER_TEMP/debug-day-project-base/tests/browser/projects.cjs"
       - run: node tests/browser/shard.mjs ${{ matrix.part }} 4
         env:
           DEBUG_DAY_SCREENSHOTS: test-results
