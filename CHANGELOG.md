@@ -1,3 +1,9 @@
+## 5.93.0 — 2026-11-22
+Branch: feature/projects-view
+- Mark a Feed section as a project or a subproject from its own menu; it keeps its place, contents and identity.
+- Projects show their own goal, deadline and chosen next note, with subprojects and history behind Details.
+- Record a dated note inside a project, or send its next note to today's Engine once; the task links back to its original note.
+
 ## 5.92.0 — 2026-11-20
 Branch: claude/project-thread-h96514
 - Near the 1.5 MB sync limit (80% and up), today's Engine says so in one calm line, once a day: "Your planner is 84% full", with "See what takes room" and "Not today".

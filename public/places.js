@@ -8,11 +8,11 @@
 // The day you are looking at is not part of a place: going back never changes the date.
 
 const LIST = "debug-day:places", ROOM = "debug-day:board-room", VIEW = "debug-day:board-view:";
-const VIEWS = ["plan", "board", "calendar", "stats", "insights", "setup"];
+const VIEWS = ["plan", "board", "calendar", "projects", "stats", "insights", "setup"];
 // A jump right after arriving (a section opening, then its note coming into view)
 // is one move, not two places.
 const SETTLE = 600, SEAL = 1500, KEEP = 300;
-const NAMES = { plan: "Engine", board: "Board", calendar: "Calendar", stats: "Stats", insights: "Insights", setup: "Settings" };
+const NAMES = { plan: "Engine", board: "Board", calendar: "Calendar", projects: "Projects", stats: "Stats", insights: "Insights", setup: "Settings" };
 
 let list = [], index = 0, started = false, setView = null, board = null, sealedAt = 0, arrivedAt = 0;
 const watchers = new Set();

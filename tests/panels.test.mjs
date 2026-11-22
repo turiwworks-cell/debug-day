@@ -75,7 +75,7 @@ test("Stats and Feelings are gone, so the app map shows one Calendar card", () =
     assert.ok(DDpanelOf(panel.partOf), panel.id);
     assert.ok(!cards.includes(panel.id), panel.id);
   }
-  assert.deepEqual(cards, ["engine", "board", "habits", "calendar"]);
+  assert.deepEqual(cards, ["engine", "board", "habits", "calendar", "projects"]);
   assert.equal(DDpanelOf("lab"), null, "App changes was removed (5.28)");
   assert.equal(DDpanelOf("feelings"), null, "the Feelings panel was removed");
   assert.equal(DDpanelOf("stats"), null, "Stats was removed (5.57)");

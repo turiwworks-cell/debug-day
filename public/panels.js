@@ -37,6 +37,15 @@ export const DDpanelList = [
     words: "calendar days month week reminders busy full done تقویم روز ماه هفته یادآور شلوغ پر انجام",
     isolate: false,
   },
+  {
+    id: "projects",
+    icon: "📁",
+    color: "#8A6E4B",
+    name: ["Projects", "پروژه‌ها"],
+    about: ["Your chosen sections, goals, next steps and history", "سکشن‌های انتخابی، هدف‌ها، قدم بعدی و سابقه"],
+    words: "projects project subproject goal continue history پروژه زیرپروژه هدف ادامه سابقه",
+    isolate: false,
+  },
 
 ];
 
@@ -126,6 +135,7 @@ const DDpanelLines = {
   calendar: '<path d="M4.6 2.8h6.8a2.4 2.4 0 012.4 2.4v1.1H2.2V5.2a2.4 2.4 0 012.4-2.4z" fill="currentColor" stroke="none" opacity=".2"/><rect x="2.2" y="2.8" width="11.6" height="11" rx="2.4"/><path d="M2.2 6.3h11.6M5.3 1.6v2.4M10.7 1.6v2.4"/><circle cx="10.3" cy="10.3" r="1.25" fill="currentColor" stroke="none"/>',
   stats: '<path d="M3 13.2V8.6M8 13.2V3M13 13.2V6.2"/>',
   sections: '<rect x="2.3" y="2.3" width="4.6" height="4.6" rx="1.2"/><rect x="9.1" y="2.3" width="4.6" height="4.6" rx="1.2"/><rect x="2.3" y="9.1" width="4.6" height="4.6" rx="1.2"/><rect x="9.1" y="9.1" width="4.6" height="4.6" rx="1.2"/>',
+  projects: '<rect x="2.1" y="3.1" width="11.8" height="10.8" rx="2.1" fill="currentColor" opacity=".16" stroke="none"/><rect x="2.1" y="3.1" width="11.8" height="10.8" rx="2.1"/><path d="M5.8 3.1v-1M10.2 3.1v-1M5.2 7h5.6M5.2 10h3.3"/>',
 };
 export function DDpanelGlyph(R, id) {
   const lines = DDpanelLines[id];

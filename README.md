@@ -109,6 +109,20 @@ On the mindmap Board the Engine has its own section (5.17), a dashed area around
 
 Every Life section opens as its own board (↗ on its name, in the selection toolbar, or in the Sections flowchart). The Board then lays out only that section and its contents, placed beside today's Engine (under it on a phone); it is the same `setup.life` data, shifted on screen, so nothing is copied. The path bar (`.dd-room-bar`) leads back; Esc with nothing selected steps out one level. While inside, `DDlifeKeepIn` keeps anything made or moved there inside the section, and new day notes become notes in it. The open section id is kept in `sessionStorage` (`debug-day:board-room`), so a reload stays inside.
 
+### Projects (5.93)
+
+Right-click an existing Feed section and choose **Make it a project**. Inside a project, mark only the sections you want as subprojects. No item is marked automatically, and removing a project role leaves the section and its contents untouched. To choose where to continue, right-click a note anywhere in the project and pick **Continue from here**.
+
+The Projects tab reads those same Feed items: the section's name, color, own deadline, goal note and chosen note. Details show explicitly marked subprojects, dated event notes and completed Engine tasks from the days currently in the planner (bring an archived month back to see its tasks). Record an event adds a note using a free spot without moving existing items. Send to Today opens the original Engine task if that note is already on the day. Its details link to the original Feed note.
+
+For a local, disposable browser check after `npm ci` and `npx playwright install chromium`:
+
+```sh
+DD_SCREENSHOTS=test-results node tests/browser/projects.cjs
+```
+
+The test uses an isolated fixture, not the live planner, and saves desktop, phone and Board screenshots. Set `DD_BASELINE=1` to capture only the fixed-camera Board fixture on a checkout of the base revision.
+
 ### Where tasks come from (5.19)
 
 An Engine task can carry `block.from`, the id of the Life section it came from (no `from` = the main board). It is set when a task is added inside a section's board or made from a note in a section, and changed with the "↖" picker on each Engine row. `DDengineSourceHistory` reads every day and returns, per section, each day's tasks from it or from sections inside it; nothing extra is stored. Sections show the last 14 days as dots beside their name (`DDengineStrip`), and a section's board lists the record under the section. The record is kept out of Stats on purpose.
