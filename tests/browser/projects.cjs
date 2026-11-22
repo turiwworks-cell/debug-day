@@ -152,6 +152,7 @@ async function seed(page, origin) {
     await card("outreach").getByRole("button", { name: "Details" }).click();
     assert.match(await card("outreach").locator('[data-project-history="done"]').innerText(), /Review three leads and their sites/);
     await card("personal").getByRole("button", { name: "Details" }).click();
+    await shot("projects-history");
     await card("personal").locator('[data-project-history="log"] button').click();
     await selected(log.id).waitFor();
     assert.equal((await read()).setup.life.items.find((i) => i.id === "lead").text, "Review three leads and their sites");
@@ -205,7 +206,12 @@ async function seed(page, origin) {
     await mobile.page.evaluate((data) => { localStorage.setItem("debug-day:v2", JSON.stringify(data)); localStorage.setItem("debug-day:ui", JSON.stringify({ view: "projects" })); }, mobileFixture);
     await mobile.page.reload();
     await mobile.page.locator(".dd-projects").waitFor();
-    assert.equal(await mobile.page.locator(".dd-projects").getAttribute("dir"), "rtl");
+    // Current Debug Day deliberately normalizes its UI language to English.
+    // A person's own words still follow their writing direction independently.
+    const mobilePersonal = mobile.page.locator('[data-project-id="personal"]');
+    assert.equal(await mobilePersonal.locator(".dd-project-name").evaluate((el) => getComputedStyle(el).direction), "ltr");
+    assert.equal(await mobilePersonal.locator(".dd-project-goal").evaluate((el) => getComputedStyle(el).direction), "rtl");
+    assert.equal(await mobilePersonal.locator(".dd-project-next").evaluate((el) => getComputedStyle(el).direction), "rtl");
     assert.equal(await mobile.page.locator(".dd-project-card").count(), 2);
     assert.equal(await mobile.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
     await shot("projects-mobile-fa", mobile.page);

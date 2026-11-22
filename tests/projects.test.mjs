@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
-import { DDprojectRole, DDprojectChoose, DDprojectOwner, DDprojectRecord, DDprojectCards } from "../public/projects.js";
+import { DDprojectRole, DDprojectChoose, DDprojectOwner, DDprojectRecord, DDprojectCards, DDProjectsPanel } from "../public/projects.js";
 import { DDnormalizeLife, DDlifeCleanProjectRefs, DDlifeUpdate } from "../public/life-board.js";
 import { DDengineFeedTask, DDengineAddFeedTask, DDengineFeedTaskId } from "../public/engine.js";
 import { DDsyncCopies } from "../public/linked.js";
@@ -164,4 +164,23 @@ test("sync storage and MCP read the same Feed IDs, task provenance and history",
     assert.equal(find(changed.life.items, "b").nextNoteId, undefined);
     assert.equal(find(changed.life.items, "lead").parent, "a");
   } finally { sql.close(); }
+});
+
+test("Projects also renders the Persian interface when given the Persian locale", () => {
+  const R = {
+    createElement: (type, props, ...children) => ({ type, props: props || {}, children: children.flat() }),
+    useMemo: (fn) => fn(),
+    useState: (initial) => [initial, () => {}],
+    useRef: () => ({ current: null }),
+  };
+  const panel = DDProjectsPanel({ React: R, setup: setup(marked()), days: {}, today: date, language: "fa" });
+  assert.equal(panel.props.dir, "rtl");
+  const card = panel.children[1].children[1];
+  const tree = card.type(card.props);
+  const words = JSON.stringify(tree);
+  assert.match(words, /Outreach/);
+  assert.match(words, /ادامه از اینجا/);
+  assert.match(words, /ثبت اتفاق/);
+  assert.match(words, /بفرست به امروز/);
+  assert.match(words, /"dir":"auto"/);
 });
