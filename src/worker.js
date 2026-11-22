@@ -7,10 +7,12 @@ import { DDmarksRebase } from "../public/pen.js";
 import { DDsyncCopies } from "../public/linked.js";
 import { oauth, oauthRoute, oauthAccess } from "./oauth.js";
 import { DDmcpMoreTools, DDmcpMoreCall } from "./mcp-tools.js";
+import { DDmcpBoardReadTools, DDmcpBoardWriteTools, DDmcpBoardRead, DDmcpBoardCall } from "./mcp-board.js";
+import { DDmcpPlannerReadTools, DDmcpPlannerWriteTools, DDmcpPlannerRead, DDmcpPlannerCall } from "./mcp-planner.js";
 import { DDarchiveOf, DDarchiveJoin, DDarchiveName } from "../public/archive.js";
 const MAX_BYTES = 1500000;
 const VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"];
-const INFO = { name: "debug-day", title: "Debug Day", version: "5.92.0" };
+const INFO = { name: "debug-day", title: "Debug Day", version: "5.93.0" };
 class HttpError extends Error {
   constructor(status, message) {
     super(message);
@@ -393,8 +395,8 @@ function tool(name, description, properties, required = [], write = false) {
     annotations: {
       title: name.replaceAll("_", " "),
       readOnlyHint: !write,
-      destructiveHint: name === "delete_block" || name === "delete_life_item",
-      idempotentHint: !name.startsWith("add_"),
+      destructiveHint: name.startsWith("delete_"),
+      idempotentHint: !name.startsWith("add_") && !name.startsWith("create_") && name !== "log_focus_time",
       openWorldHint: false,
     },
   };
@@ -584,6 +586,14 @@ const WRITE_TOOLS = [
 // Notes as documents and to-do lists, deadlines, comments, reminders, habits (5.79).
 const MORE_TOOLS = DDmcpMoreTools(tool, revisionSchema), MORE = new Set(MORE_TOOLS.map((t) => t.name));
 WRITE_TOOLS.push(...MORE_TOOLS);
+const BOARD_READ_TOOLS = DDmcpBoardReadTools(tool), BOARD_READ = new Set(BOARD_READ_TOOLS.map(t => t.name));
+const BOARD_WRITE_TOOLS = DDmcpBoardWriteTools(tool, revisionSchema), BOARD_WRITE = new Set(BOARD_WRITE_TOOLS.map(t => t.name));
+READ_TOOLS.push(...BOARD_READ_TOOLS);
+WRITE_TOOLS.push(...BOARD_WRITE_TOOLS);
+const PLANNER_READ_TOOLS = DDmcpPlannerReadTools(tool), PLANNER_READ = new Set(PLANNER_READ_TOOLS.map(t => t.name));
+const PLANNER_WRITE_TOOLS = DDmcpPlannerWriteTools(tool, revisionSchema), PLANNER_WRITE = new Set(PLANNER_WRITE_TOOLS.map(t => t.name));
+READ_TOOLS.push(...PLANNER_READ_TOOLS);
+WRITE_TOOLS.push(...PLANNER_WRITE_TOOLS);
 // Only tick cards take minutes; scored, counted and waiting cards take none.
 const timedMinutes = (block) =>
   ["count", "wait", "score"].includes(block.measure) ? 0 : block.min || 0;
@@ -593,9 +603,17 @@ function validateArgs(args, schema) {
   for (const k of schema.required || [])
     if (!Object.hasOwn(args, k)) throw Error("Missing " + k);
   for (const [k, v] of Object.entries(args)) {
+    if (!Object.hasOwn(schema.properties, k)) throw Error("Unknown argument " + k);
     const p = schema.properties[k];
-    if (!p) throw Error("Unknown argument " + k);
-    if (p.type === "array" && (!Array.isArray(v) || v.length > p.maxItems || v.some((item) => typeof item !== "string" || !item.trim() || item.length > p.items.maxLength))) throw Error("Invalid " + k);
+    if (p.type === "array") {
+      if (!Array.isArray(v) || (p.maxItems !== undefined && v.length > p.maxItems) || (p.minItems !== undefined && v.length < p.minItems)) throw Error("Invalid " + k);
+      for (const item of v) {
+        if (p.items.type === "string" && !String(item).trim()) throw Error("Invalid " + k);
+        try { validateArgs({ item }, { properties: { item: p.items } }); }
+        catch (e) { throw Error("Invalid " + k + ": " + e.message); }
+      }
+    }
+    if (p.type === "object") validateArgs(v, p);
     if (
       p.type === "string" &&
       (typeof v !== "string" ||
@@ -635,7 +653,8 @@ function createDay(setup, date, templateId) {
   const blocks = (template?.blocks || []).map((b) => {
     const copy = {
       ...b,
-      id: crypto.randomUUID(),
+      // Match the app's template-derived ID, so Repeat every day recognizes it.
+      id: "v" + b.id,
       done: false,
       subtasks: resetSubs(b.subtasks),
     };
@@ -731,6 +750,20 @@ async function callTool(name, args, env, access) {
   }
   if (name === "get_setup") return { revision, setup: data.setup };
   if (name === "get_life") return { revision, life:DDlifeState(data.setup) };
+  if (BOARD_READ.has(name)) {
+    if (name === "get_board" && args.date && DDarchiveOf(data.setup, args.date).length) throw Error("This day is archived; use get_day for its full contents");
+    return DDmcpBoardRead(name, args, data, revision);
+  }
+  if (PLANNER_READ.has(name)) return DDmcpPlannerRead(name, args, data, revision);
+  if (BOARD_WRITE.has(name) || PLANNER_WRITE.has(name)) {
+    if (args.expected_revision !== revision) throw Error("Conflict: the planner changed. Read it again before editing.");
+    if (args.date && DDarchiveOf(data.setup, args.date).length) throw Error("This day is archived. Bring it back in the app before editing it.");
+    const result = BOARD_WRITE.has(name) ? DDmcpBoardCall(name, args, data) : DDmcpPlannerCall(name, args, data);
+    if (!result.changed) return { revision, ...result };
+    for (const date of new Set([result.day, ...(result.reconcile_dates || [])].filter(Boolean))) data.days[date] = DDreconcileDay(data.days[date], before.days[date], data.setup, before.setup);
+    delete result.reconcile_dates;
+    return { ...(await save(env, data, revision, before)), ...result };
+  }
   if (["add_life_item","update_life_item","delete_life_item"].includes(name)) {
     if (args.expected_revision !== revision) throw Error("Conflict: the planner changed. Read get_life again before editing.");
     const state=DDlifeState(data.setup), previous=JSON.stringify(state);

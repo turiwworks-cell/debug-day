@@ -125,6 +125,17 @@ Sticky notes and connectors follow FigJam (5.14): the sticky tool previews the n
 
 MCP clients can read `get_life` and, with a write key, call `add_life_item`, `update_life_item` or `delete_life_item`. Every write needs the latest `expected_revision`; invalid parents, cycles, dimensions and colors are rejected. Deleting a section preserves its children.
 
+### MCP workspace tools (5.93)
+
+Use `list_sections` (search by title) and `get_section` (exact section ID) to inspect the board before editing it. `get_board` reads a saved day or the shared Feed, `search_workspace` searches all active content with the app's normal filters, and `get_planner_overview` lists dates, sections and archive metadata. `get_setup` and `get_day` still supply the underlying planner content; `get_day` also reads archived days. Archived data must be brought back in the app before editing.
+
+- `add_board_item` / `update_board_item` handle real shapes, notes, documents, to-do lists, plain text, sections, dimensions, colors, stroke, tags and deadlines. A shape is a native sticky with its shape style, not an image.
+- `add_connection`, `update_connection`, `delete_connection`, `add_drawing`, `update_drawing`, `delete_drawing`, `set_board_card`, `link_notes`, `set_goal_counter`, `set_section_details`, and `set_tag_color` use the canvas's shared data.
+- `create_section_diagram` creates many native nodes and lines **atomically** inside an existing section. Each node has a local `key`, a `type` (`section` or `sticky`), text and geometry (`x`, `y`, `w`, `h`). Optional `parent_key` names a new nested section; a connection's `from` and `to` are the node keys. Returned IDs are real board object IDs. Existing items remain untouched. For example, pass nodes `[{"key":"a","type":"sticky","text":"Design","shape":"rounded","x":60,"y":60,"w":240,"h":90},{"key":"b","type":"sticky","text":"Communication","shape":"rounded","x":60,"y":230,"w":240,"h":90}]` and connections `[{"from":"a","to":"b","style":"elbow","arrow":true}]` with the real `section_id` and `expected_revision`.
+- `add_step`, `update_step`, `delete_step`, `move_step`, `set_task_order`, `edit_task_details`, `park_task`, `move_task`, `delete_parked_task`, `set_task_repeat`, `set_daily_routine`, `set_day_journal`, `set_week_focus`, feeling and focus-time tools, and template/preference tools cover planning beyond the visual board. Existing note, comment, habit and reminder tools remain compatible.
+
+The read catalog is available to read credentials; the write catalog additionally requires the existing write grant. No raw snapshot replacement, credentials, account controls, device-local settings or backup restore operations are exposed. Explicit user intent is required before a write, and destructive tools require the user's specific request. Refresh tool discovery or reconnect the MCP client after deployment if its catalog is cached.
+
 
 ## Board side rails (5.20)
 
