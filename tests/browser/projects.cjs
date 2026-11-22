@@ -12,14 +12,15 @@ async function seed(page, origin) {
     ({ id, type: "section", parent, text, x, y, w, h, color, ownColor: true });
   const note = (id, text, parent, x, y, extra = {}) =>
     ({ id, type: "sticky", parent, text, x, y, w: 240, h: 180, color: "#FFE299", ...extra });
+  const due = (days) => new Date(Date.parse(f.date + "T12:00:00Z") + days * 864e5).toISOString().slice(0, 10);
   f.data.setup.life = { v: 2, frame: { x: 40, y: 1200 }, links: [], items: [
-    { ...section("personal", "The Way", 40, 40, 720, 660, "", "#A8E6B8"), due: "2099-12-01" },
-    { ...section("work", "Job", 820, 40, 920, 780, "", "#9DD6FF"), due: "2099-12-01" },
-    section("outreach", "Outreach", 24, 40, 840, 680, "work", "#D3B8FF"),
-    section("research", "Research", 24, 240, 500, 330, "outreach"),
+    { ...section("personal", "The Way", 40, 40, 720, 660, "", "#A8E6B8"), due: due(11) },
+    { ...section("work", "Job", 820, 40, 920, 780, "", "#9DD6FF"), due: due(40) },
+    section("outreach", "Outreach", 24, 100, 840, 660, "work", "#D3B8FF"),
+    section("research", "Research", 24, 320, 500, 300, "outreach"),
     note("goal", "Build a rhythm that lasts", "personal", 24, 40, { role: "goal" }),
     note("step", "Read the next chapter", "personal", 300, 40),
-    note("out-goal", "Find thoughtful startup teams", "outreach", 24, 24, { role: "goal" }),
+    note("out-goal", "Find thoughtful startup teams", "outreach", 24, 48, { role: "goal" }),
     note("lead", "Review the next three leads", "research", 24, 40),
     section("other1", "projects", 40, 850, 420, 300),
     section("other2", "Projects", 500, 850, 420, 300),
@@ -85,8 +86,8 @@ async function seed(page, origin) {
     await page.getByRole("button", { name: "Expand section", exact: true }).click();
     await page.waitForFunction(() => !JSON.parse(localStorage.getItem("debug-day:v2")).setup.life.items.find((i) => i.id === "personal").collapsed);
     const header = await item("personal").locator(":scope>.b4-node-body").boundingBox();
-    await page.mouse.move(header.x + header.width / 2, header.y + header.height / 2);
-    await page.mouse.down(); await page.mouse.move(header.x + header.width / 2 - 28, header.y + header.height / 2 + 20, { steps: 8 }); await page.mouse.up();
+    await page.mouse.move(header.x + header.width * .25, header.y + header.height / 2);
+    await page.mouse.down(); await page.mouse.move(header.x + header.width * .25 - 28, header.y + header.height / 2 + 20, { steps: 8 }); await page.mouse.up();
     await page.waitForFunction(() => JSON.parse(localStorage.getItem("debug-day:v2")).setup.life.items.find((i) => i.id === "personal").x !== 40);
     await board.focus(); await page.keyboard.press("Control+z");
     await page.waitForFunction(() => JSON.parse(localStorage.getItem("debug-day:v2")).setup.life.items.find((i) => i.id === "personal").x === 40);
