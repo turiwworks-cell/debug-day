@@ -1,3 +1,10 @@
+## 5.93.0 — 2026-11-22
+Branch: codex/mcp-workspace-tools
+- MCP can find sections and search across the planner, read a specific board, and work with native shapes, text, connectors, drawings, and linked notes.
+- Build complete editable diagrams in a shared section in one revision-checked write without replacing existing objects.
+- MCP can manage steps, task order, measure, repeat, Park, feelings, focus time, journals, weekly focus, day templates, and synced planner preferences.
+- Expanded read and write catalogs retain OAuth scopes, the existing separate keys, revision checks, typed validation and the same planner data. No visual or storage-schema changes.
+
 ## 5.92.0 — 2026-11-20
 Branch: claude/project-thread-h96514
 - Near the 1.5 MB sync limit (80% and up), today's Engine says so in one calm line, once a day: "Your planner is 84% full", with "See what takes room" and "Not today".
