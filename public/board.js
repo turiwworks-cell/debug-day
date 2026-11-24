@@ -5261,12 +5261,25 @@ export function DDcreateBoard(deps) {
       }, targetId ? t("Sent to ", "فرستاده شد به ") + name : t("Taken out of its section", "از سکشن بیرون اومد"));
       setSelected(new Set(refs));
     }
+    function placeWithReparent(d, nodes, positions) {
+      const other = [], movingLife = nodes.map((n) => n.lifeId).filter(Boolean);
+      for (const n of nodes) {
+        const p = positions[n.id];
+        if (!p || n.memberOf || locked.has(n.id)) continue;
+        if (n.lifeId && d.__life) {
+          if (nodes.some((k) => k.id === n.parentId)) continue;
+          const dx = p.x - n.x, dy = p.y - n.y;
+          if (dx || dy) d.__life.items = DDlifeMoveBy(d.__life.items, n.lifeId, dx, dy, movingLife, layout.room || "", { w: n.w, h: n.h });
+        } else other.push(n);
+      }
+      return other.length ? core.place(d, other, positions, mode) : d;
+    }
     function arrangeSelection(operation) {
       const nodes = selectedNodes.filter(
         (n) => !locked.has(n.id) && n.kind !== "frame",
       );
       commit(
-        (d) => core.place(d, nodes, core.arrange(nodes, operation), mode),
+        (d) => placeWithReparent(d, nodes, core.arrange(nodes, operation)),
         t("Selection aligned", "انتخاب تراز شد"),
       );
     }
