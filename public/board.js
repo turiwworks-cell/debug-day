@@ -4183,7 +4183,7 @@ export function DDcreateBoard(deps) {
             ) {
               event.preventDefault();
               event.stopPropagation();
-              finishEdit();
+              finishEdit(undefined, { escape: event.key === "Escape" });
             }
           },
         }),
