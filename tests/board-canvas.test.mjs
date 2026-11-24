@@ -101,3 +101,11 @@ test("an arrow stops a little short of the card it points at (5.80)", () => {
   assert.equal(DDwireGap({ automatic: true }, {}).from, 0, "the mind map's own branches still touch their cards");
   assert.equal(DDgrowRect(null, 4), null);
 });
+
+test("sticky notes soft-snap near 1x and 1.5x base and allow free width elsewhere (5.95.0)", async () => {
+  const { DDstickySnap } = await import("../public/stickies.js");
+  assert.equal(DDstickySnap(245, 240), 240, "soft-snaps near square");
+  assert.equal(DDstickySnap(345, 240), 360, "soft-snaps near 1.5x wide");
+  assert.equal(DDstickySnap(300, 240), 300, "keeps free width between square and wide");
+  assert.equal(DDstickySnap(520, 240), 520, "allows wider notes past 1.5x");
+});

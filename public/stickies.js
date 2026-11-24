@@ -18,7 +18,13 @@ export function DDstickyDateLabel(date,language) {
 // The day a note is written: today as the app counts it (5.86.3).
 export const DDstickyToday = () => DDtoday();
 export const DDstickyHeight = (width, content) => Math.ceil(Math.max(width, content));
-export const DDstickySnap = (width, base = 240) => Math.abs(width-base) <= Math.abs(width-base*1.5) ? base : base*1.5;
+// Soft magnetic snap near square (base) and wide (1.5× base), free width everywhere else (5.95.0).
+export const DDstickySnap = (width, base = 240) => {
+  const b = Math.round(base), w = Math.max(b, Math.round(width)), wide = Math.round(base * 1.5);
+  if (Math.abs(w - b) <= 20) return b;
+  if (Math.abs(w - wide) <= 20) return wide;
+  return w;
+};
 export function DDstickyFormat(text, start, end, kind) {
  if(kind === "todo") {
   const a=text.lastIndexOf("\n",start-1)+1,b=text.indexOf("\n",end),stop=b<0?text.length:b;
