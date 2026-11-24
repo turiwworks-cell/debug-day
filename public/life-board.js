@@ -233,7 +233,14 @@ export function DDlifeVisible(items, it) {
 export function DDlifeInFrame(items, it) {
   const p = it?.parent && items.find((i) => i.id === it.parent);
   if (!p) return true;
-  const cx = it.x + (it.w || 240) / 2, cy = it.y + (it.collapsed ? 38 : it.h || 240) / 2;
+  const rawW = it.w || 240,
+    // Plain text hugs its words (5.61) while keeping its max wrap width in `w` (often 640);
+    // judge its frame membership by its visual width so short text never vanishes near the right edge.
+    w = it.style?.plain && !it.style?.fixed
+      ? Math.min(rawW, Math.max(24, Math.max(...String(it.text || "").split("\n").map((l) => l.length)) * ((it.style?.textSize || 24) * 0.6) + 16))
+      : rawW,
+    cx = it.x + w / 2,
+    cy = it.y + (it.collapsed ? 38 : it.h || 240) / 2;
   return cx >= 0 && cx <= p.w && cy >= 0 && cy <= p.h;
 }
 // Is this thing drawn on the board of `room` ("" is the main board)?
@@ -380,6 +387,7 @@ export function DDlifeAdd(items, spec) {
       ...(!section && ["goal", "note"].includes(spec.role) ? { role: spec.role } : {}),
       ...(!section && DDgoalClean(spec.goal) ? { goal: DDgoalClean(spec.goal) } : {}),
       ...(DDdueClean(spec.due) ? { due: DDdueClean(spec.due) } : {}),
+      ...(!section && DDtagList(spec.tags).length ? { tags: DDtagList(spec.tags) } : {}),
       ...(!section && DDmediaList(spec.media).length ? { media: DDmediaList(spec.media) } : {}),
       ...(spec.style ? { style: { ...spec.style } } : {}),
       color: spec.color || (section ? "#A8DAFF" : "#FFE299"),
@@ -474,28 +482,33 @@ export function DDlifeRemove(items, id) {
 // dropping on empty space leaves the section it was in.
 // `moving` lists other items dragged together; they never become the target.
 // Where a section takes a drop. A folded section is only its name bar, and a
-// section inside a folded one is hidden, so it takes nothing: empty space stays
-// empty. The open section board (`room`) always counts as open.
+// section inside a folded one, hidden outside its parent's frame, or outside
+// the open section board (`room`) takes nothing: empty space stays empty.
 function dropArea(items, s, room = "") {
+  if (!DDlifeShown(items, s, room)) return null;
   const folded = (it) => it.collapsed && it.id !== room;
-  let p = s.parent, hops = 0;
-  while (p && p !== room && hops++ < 60) {
+  let p = s.id === room ? "" : s.parent, hops = 0, inRoom = !room || s.id === room;
+  while (p && hops++ < 60) {
+    if (p === room) { inRoom = true; break; }
     const it = find(items, p);
     if (!it) break;
     if (folded(it)) return null;
     p = it.parent;
   }
+  if (!inRoom) return null;
   const a = DDlifeAbs(items, s.id);
   return { x: a.x, y: a.y, w: s.w, h: folded(s) ? 38 : s.h, folded: folded(s) };
 }
-export function DDlifeDropTarget(items, id, dx, dy, moving = [], room = "") {
+export function DDlifeDropTarget(items, id, dx, dy, moving = [], room = "", size = null) {
   const it = find(items, id);
   if (!it) return null;
-  const abs = DDlifeAbs(items, id),
+  const w = Number.isFinite(size?.w) && size.w > 0 ? size.w : it.w,
+    h = Number.isFinite(size?.h) && size.h > 0 ? size.h : (it.collapsed ? 38 : it.h),
+    abs = DDlifeAbs(items, id),
     ax = abs.x + dx,
     ay = abs.y + dy,
-    cx = ax + it.w / 2,
-    cy = ay + it.h / 2,
+    cx = ax + w / 2,
+    cy = ay + h / 2,
     skip = new Set([...DDlifeDescendants(items, id), ...moving]);
   let target = null,
     area = Infinity;
@@ -507,17 +520,17 @@ export function DDlifeDropTarget(items, id, dx, dy, moving = [], room = "") {
     // not silently reparent it or grow that neighbour into a huge white box.
     // A folded section takes a section only when its name bar is under the middle.
     const inside = it.type === "section" && !a.folded
-      ? ax >= a.x && ay >= a.y && ax + it.w <= a.x + a.w && ay + it.h <= a.y + a.h
+      ? ax >= a.x && ay >= a.y && ax + w <= a.x + a.w && ay + h <= a.y + a.h
       : cx >= a.x && cx <= a.x + a.w && cy >= a.y && cy <= a.y + a.h;
     if (inside && a.w * a.h < area) ((target = s), (area = a.w * a.h));
   }
   return target;
 }
-export function DDlifeMoveBy(items, id, dx, dy, moving = [], room = "") {
+export function DDlifeMoveBy(items, id, dx, dy, moving = [], room = "", size = null) {
   const it = find(items, id);
   if (!it || (!dx && !dy)) return items;
   const abs = DDlifeAbs(items, id), ax = abs.x + dx, ay = abs.y + dy,
-    target = DDlifeDropTarget(items, id, dx, dy, moving, room);
+    target = DDlifeDropTarget(items, id, dx, dy, moving, room, size);
   const base = target ? DDlifeAbs(items, target.id) : { x: 0, y: 0 },
     moved = { ...it, parent: target ? target.id : "", x: Math.round(ax - base.x), y: Math.round(ay - base.y) };
   if (target) delete moved.out;
@@ -751,4 +764,3 @@ export function DDinstallLifeStyles() {
   if (typeof document !== "undefined" && !document.getElementById("dd-life-css"))
     document.head.append(Object.assign(document.createElement("style"), { id: "dd-life-css", textContent: DDlifeCSS }));
 }
-
