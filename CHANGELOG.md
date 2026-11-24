@@ -1,3 +1,10 @@
+## 5.95.0 — 2026-11-24
+Branch: feat/board-comfort
+- Sticky notes now support free widths with a soft magnetic snap near square (`1×`) and wide (`1.5×`) instead of locking strictly to two widths.
+- When only one end of a bent connector is dragged across its manual bend, the stranded bend resets automatically so the line routes cleanly around cards instead of kinking.
+- Clicking away from an empty plain text box (`T`) no longer deletes it immediately; press `Esc` to discard an empty text box.
+- Added unit test in `tests/board-canvas.test.mjs` for soft-snap free sticky widths.
+
 ## 5.94.0 — 2026-11-24
 Branch: feat/board-drop-and-layers
 - Dragging a note, text, or section highlights the section it will land in; hovering over a folded section shows a clear "Drop into …" pill before you release.
