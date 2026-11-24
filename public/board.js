@@ -15,7 +15,7 @@ import {
   DDlifeHead,
   DDlifeItems,
   DDlifeParentAt,
-  DDlifeState, DDlifeHistory, DDlifeCompact, DDlifeMoveBy, DDlifeRemove, DDlifeDescendants, DDlifeAdopt, DDlifePath, DDlifeKeepIn, DDlifeInFrame, DDlifeShown, DDlifeHome, DDlifeRelease,
+  DDlifeState, DDlifeHistory, DDlifeCompact, DDlifeMoveBy, DDlifeDropTarget, DDlifeRemove, DDlifeDescendants, DDlifeAdopt, DDlifePath, DDlifeKeepIn, DDlifeInFrame, DDlifeShown, DDlifeHome, DDlifeRelease,
   DDSectionChip, DDsetSectionColor, DDsectionPath, DDsectionPalette, DDlifeSendTo, DDlifeTakeOut, DDcaptureEnsure,
 } from "./life-board.js";
 import{DDBoardRails,DDinstallRailStyles,DDsetRailRole,DDrailPreferences,DDrailScope}from"./rails.js";
