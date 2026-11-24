@@ -3758,16 +3758,16 @@ export function DDcreateBoard(deps) {
                   (Jt) => {
                     const Xn = clean(Jt.canvas?.board4),
                       On = { ...(Xn.layouts[mode] || {}) };
-                    for (const ra of DDrootSelection(layout.nodes, selected).map(n=>n.id)) {
-                      const ma = layout.map.get(ra);
-                      if (!(!ma || locked.has(ra) || ma.memberOf))
-                        if (ma.lifeId) {
-                          const i = Jt.__life.items.find((i) => i.id === ma.lifeId);
-                          if (i && !selected.has(ma.parentId)) {i.x += yn; i.y += An;}
-                        } else if (ma.noteId) {
-                          const Oa = Jt.notes.find((fa) => fa.id === ma.noteId);
-                          ((Oa.x += yn), (Oa.y += An));
-                        } else On[ra] = { x: ma.x + yn, y: ma.y + An };
+                    const roots = DDrootSelection(layout.nodes, selected).filter((n) => !locked.has(n.id) && !n.memberOf),
+                      movingLife = roots.map((n) => n.lifeId).filter(Boolean);
+                    for (const ma of roots) {
+                      if (ma.lifeId) {
+                        if (!selected.has(ma.parentId))
+                          Jt.__life.items = DDlifeMoveBy(Jt.__life.items, ma.lifeId, yn, An, movingLife, layout.room || "", { w: ma.w, h: ma.h });
+                      } else if (ma.noteId) {
+                        const Oa = Jt.notes.find((fa) => fa.id === ma.noteId);
+                        if (Oa) ((Oa.x += yn), (Oa.y += An));
+                      } else On[ma.id] = { x: ma.x + yn, y: ma.y + An };
                     }
                     return (
                       (Xn.layouts = { ...Xn.layouts, [mode]: On }),
