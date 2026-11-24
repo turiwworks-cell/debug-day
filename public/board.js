@@ -592,7 +592,22 @@ export function DDcreateBoard(deps) {
         const a = deltas.get(l.from), b = deltas.get(l.to);
         return a && b && Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5 && (a.x || a.y) ? a : null;
       };
-      const move = (l) => { const s = step(l); return s ? { ...l, bend: { x: Math.round(l.bend.x + s.x), y: Math.round(l.bend.y + s.y) } } : l; };
+      const move = (l) => {
+        if (!l?.bend) return l;
+        const s = step(l);
+        if (s) return { ...l, bend: { x: Math.round(l.bend.x + s.x), y: Math.round(l.bend.y + s.y) } };
+        // If only one end moved and crossed over the old manual bend, reset the bend so the line routes cleanly.
+        const a = deltas.get(l.from), b = deltas.get(l.to);
+        if (Boolean(a) !== Boolean(b)) {
+          const movedId = a ? l.from : l.to, d = a || b, n = layout.map.get(movedId);
+          if (n) {
+            const bx = l.bend.x, by = l.bend.y, cx0 = n.x + n.w / 2, cy0 = n.y + n.h / 2, cx1 = cx0 + d.x, cy1 = cy0 + d.y;
+            const crossed = (cx0 - bx) * (cx1 - bx) < 0 || (cy0 - by) * (cy1 - by) < 0;
+            if (crossed) { const { bend, ...rest } = l; return rest; }
+          }
+        }
+        return l;
+      };
       const board = doc.canvas?.board4;
       if (board) {
         if (Array.isArray(board.links)) board.links = board.links.map(move);
