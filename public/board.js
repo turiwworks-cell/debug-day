@@ -439,11 +439,11 @@ export function DDcreateBoard(deps) {
       if (frame) for (const note of (d.notes || []).filter((n) => !known.has(n.id) && n.kind !== "emoji")) {
         const ref = "sticky:" + note.id, { width, height, ...style } = d.canvas?.board4?.styles?.[ref] || {},
           w = width || 240, h = height || 240;
-        if (DDnoteOnEngine(engine, note)) continue;
+        if (DDnoteOnEngine(engine, note, d.canvas?.board4?.styles?.[ref])) continue;
         const items = d.__life.items, inside = DDlifeDescendants(items, roomId),
           target = DDlifeParentAt(items, note.x - frame.x + w / 2, note.y - frame.y - DDlifeHead + h / 2, new Set(items.filter((i) => !inside.has(i.id)).map((i) => i.id)), roomId) || items.find((i) => i.id === roomId),
           base = DDlifeAbs(items, target.id), id = items.some((i) => i.id === note.id) ? "lf-" + C() : note.id;
-        d.__life.items = DDlifeAdd(items, { id, type: "sticky", parent: target.id, text: note.text, color: note.color, x: Math.round(note.x - frame.x - base.x), y: Math.round(note.y - frame.y - DDlifeHead - base.y), w, h, style, syncId: note.syncId });
+        d.__life.items = DDlifeAdd(items, { id, type: "sticky", parent: target.id, text: note.text, role: note.role, goal: note.goal, due: note.due, at: note.at, baseW: note.baseW, tags: note.tags, media: note.media, color: note.color, x: Math.round(note.x - frame.x - base.x), y: Math.round(note.y - frame.y - DDlifeHead - base.y), w, h, style, syncId: note.syncId });
         d.notes = d.notes.filter((n) => n !== note);
         transferRef(d, ref, "life:" + id);
       }
