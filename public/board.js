@@ -1822,7 +1822,7 @@ export function DDcreateBoard(deps) {
             if (engineArea)
               for (const ref of ct.refs) {
                 const node = layout.map.get(ref), pos = ot[ref];
-                if (!node || !pos || node.kind !== "sticky" || node.memberOf || locked.has(ref) || ct.refs.includes(node.parentId) || within(node, node, engineArea) || !within(pos, node, engineArea)) continue;
+                if (!node || !pos || node.kind !== "sticky" || node.plain || node.shape || node.photo || node.doc || node.todo || node.memberOf || locked.has(ref) || ct.refs.includes(node.parentId) || within(node, node, engineArea) || !within(pos, node, engineArea)) continue;
                 const center = { x: pos.x + node.w / 2, y: pos.y + node.h / 2 },
                   dist = (n) => Math.hypot(n.x + n.w / 2 - center.x, n.y + n.h / 2 - center.y),
                   lane = layout.nodes.filter((n) => n.kind === "lane").sort((a, b) => dist(a) - dist(b))[0],
