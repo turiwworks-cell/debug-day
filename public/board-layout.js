@@ -26,11 +26,17 @@ export function DDengineShift(saved, allDays, today) {
   return last ? pick(last) : { x: 0, y: 0 };
 }
 
-// Does a day note sit on the Engine (judged by the middle of a default note)?
+// Does a day note sit on the Engine (judged by its actual/estimated box center)?
 // Those notes are the Engine's and show on every section's board too (5.53).
-export function DDnoteOnEngine(engine, note) {
+export function DDnoteOnEngine(engine, note, style = null) {
   if (!engine || !note) return false;
-  const x = (Number.isFinite(note.x) ? note.x : 40) + 120, y = (Number.isFinite(note.y) ? note.y : 40) + 80;
+  const rawW = Number.isFinite(style?.width) ? style.width : 240,
+    w = style?.plain && !style?.fixed
+      ? Math.min(rawW, Math.max(24, Math.max(...String(note.text || "").split("\n").map((l) => l.length)) * ((style?.textSize || 24) * 0.6) + 16))
+      : rawW,
+    h = Number.isFinite(style?.height) ? style.height : (style?.plain ? 40 : 160),
+    x = (Number.isFinite(note.x) ? note.x : 40) + w / 2,
+    y = (Number.isFinite(note.y) ? note.y : 40) + h / 2;
   return x >= engine.x && x <= engine.x + engine.w && y >= engine.y && y <= engine.y + engine.h;
 }
 export function DDcreateBoardLayout(deps) {
@@ -252,7 +258,7 @@ export function DDcreateBoardLayout(deps) {
               (Pa.total
                 ? ` \xB7 ${Pa.done}/${Pa.total} ${t("steps", "\u0642\u062F\u0645")}`
                 : "") +
-              (DDenergyOf(Fn) ? " \xB7 " + DDenergyLabel(DDenergyOf(Fn), DDlanguage) : ""),
+              (DDenergyOf(Fn) ? " · " + DDenergyLabel(DDenergyOf(Fn), DDlanguage) : ""),
             min: measure.DDmeasureOf(Fn) === "time" ? Fn.min : 0,
             done: Fn.done,
             emoji: Fn.emo || Dl.emo,
@@ -334,7 +340,7 @@ export function DDcreateBoardLayout(deps) {
     // Notes on the Engine are the Engine's: they stay there in every section's
     // board too (5.53). Other day notes belong to the main board.
     const engineBox = roomItem ? Y.find((n) => n.section === "engine") : null,
-      onEngine = (n) => DDnoteOnEngine(engineBox, n);
+      onEngine = (n) => DDnoteOnEngine(engineBox, n, model.styles["sticky:" + n.id]);
     for (const Jt of (day.notes || []).filter(
       (n) =>
         n.kind !== "emoji" &&
