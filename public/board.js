@@ -439,11 +439,11 @@ export function DDcreateBoard(deps) {
       if (frame) for (const note of (d.notes || []).filter((n) => !known.has(n.id) && n.kind !== "emoji")) {
         const ref = "sticky:" + note.id, { width, height, ...style } = d.canvas?.board4?.styles?.[ref] || {},
           w = width || 240, h = height || 240;
-        if (DDnoteOnEngine(engine, note)) continue;
+        if (DDnoteOnEngine(engine, note, d.canvas?.board4?.styles?.[ref])) continue;
         const items = d.__life.items, inside = DDlifeDescendants(items, roomId),
           target = DDlifeParentAt(items, note.x - frame.x + w / 2, note.y - frame.y - DDlifeHead + h / 2, new Set(items.filter((i) => !inside.has(i.id)).map((i) => i.id)), roomId) || items.find((i) => i.id === roomId),
           base = DDlifeAbs(items, target.id), id = items.some((i) => i.id === note.id) ? "lf-" + C() : note.id;
-        d.__life.items = DDlifeAdd(items, { id, type: "sticky", parent: target.id, text: note.text, color: note.color, x: Math.round(note.x - frame.x - base.x), y: Math.round(note.y - frame.y - DDlifeHead - base.y), w, h, style, syncId: note.syncId });
+        d.__life.items = DDlifeAdd(items, { id, type: "sticky", parent: target.id, text: note.text, role: note.role, goal: note.goal, due: note.due, at: note.at, baseW: note.baseW, tags: note.tags, media: note.media, color: note.color, x: Math.round(note.x - frame.x - base.x), y: Math.round(note.y - frame.y - DDlifeHead - base.y), w, h, style, syncId: note.syncId });
         d.notes = d.notes.filter((n) => n !== note);
         transferRef(d, ref, "life:" + id);
       }
@@ -757,7 +757,7 @@ export function DDcreateBoard(deps) {
       moveDrawingGroup: (dx, dy) => {
         const nodes = DDrootSelection(layout.nodes, selected).filter(n => !locked.has(n.id));
         const positions = Object.fromEntries(nodes.map(n => [n.id, { x: n.x + dx, y: n.y + dy }]));
-        commit(d => pen.moveDraft(carryBends(core.place(d, nodes, positions, mode), groupDeltas(nodes, dx, dy)), dx, dy), t("Selection moved", "انتخاب جابه‌جا شد"));
+        commit(d => pen.moveDraft(carryBends(placeWithReparent(d, nodes, positions), groupDeltas(nodes, dx, dy)), dx, dy), t("Selection moved", "انتخاب جابه‌جا شد"));
       },
       commit: (change, message) => commit(change, message), toWorld, getCamera: () => cam.current, viewport, setStatus,
       pinching: () => !!pinch.current || touches.current.size > 1, panKey: () => space.current,
@@ -1822,7 +1822,7 @@ export function DDcreateBoard(deps) {
             if (engineArea)
               for (const ref of ct.refs) {
                 const node = layout.map.get(ref), pos = ot[ref];
-                if (!node || !pos || node.kind !== "sticky" || node.memberOf || locked.has(ref) || ct.refs.includes(node.parentId) || within(node, node, engineArea) || !within(pos, node, engineArea)) continue;
+                if (!node || !pos || node.kind !== "sticky" || node.plain || node.shape || node.photo || node.doc || node.todo || node.memberOf || locked.has(ref) || ct.refs.includes(node.parentId) || within(node, node, engineArea) || !within(pos, node, engineArea)) continue;
                 const center = { x: pos.x + node.w / 2, y: pos.y + node.h / 2 },
                   dist = (n) => Math.hypot(n.x + n.w / 2 - center.x, n.y + n.h / 2 - center.y),
                   lane = layout.nodes.filter((n) => n.kind === "lane").sort((a, b) => dist(a) - dist(b))[0],
@@ -1850,20 +1850,20 @@ export function DDcreateBoard(deps) {
                 if (ct.refs.includes(node.parentId)) continue;
                 const target = DDlifeParentAt(Tt.__life.items, pos.x - frame.x + node.w/2, pos.y - frame.y - DDlifeHead + node.h/2, DDlifeDescendants(Tt.__life.items,node.lifeId), layout.room || "");
                 const inside = pos.x + node.w/2 >= frame.x && pos.x + node.w/2 <= frame.x + frame.w && pos.y + node.h/2 >= frame.y + DDlifeHead && pos.y + node.h/2 <= frame.y + frame.h;
-                if (!inside && !target && !node.lifeSection) {
+                if (!layout.room && !inside && !target && !node.lifeSection) {
                   const old = Tt.__life.items.find((i) => i.id === node.lifeId), id=Tt.notes.some((i)=>i.id===old.id)?C():old.id;
-                  Tt.notes.push({ id, kind: "sticky", text: old.text, role: old.role, ...(old.goal ? { goal: old.goal } : {}), ...(old.due ? { due: old.due } : {}), at:old.at, baseW:old.baseW, color: old.color || node.color, x: pos.x, y: pos.y, ...(old.syncId ? { syncId: old.syncId } : {}), ...(old.media ? { media: old.media } : {}) });
+                  Tt.notes.push({ id, kind: "sticky", text: old.text, role: old.role, ...(old.goal ? { goal: old.goal } : {}), ...(old.due ? { due: old.due } : {}), ...(old.tags?.length ? { tags: old.tags } : {}), at:old.at, baseW:old.baseW, color: old.color || node.color, x: pos.x, y: pos.y, ...(old.syncId ? { syncId: old.syncId } : {}), ...(old.media ? { media: old.media } : {}) });
                   Tt.canvas ||= {}; Tt.canvas.board4 ||= {};
                   Tt.canvas.board4.styles ||= {}; Tt.canvas.board4.styles["sticky:" + id] = { width: old.w, height: old.h, ...old.style };
                   Tt.__life.items = Tt.__life.items.filter((i) => i.id !== old.id);
                   transferRef(Tt,ref,"sticky:"+id);
-                } else { Tt.__life.items = DDlifeMoveBy(Tt.__life.items,node.lifeId,pos.x-node.x,pos.y-node.y,movingLife,layout.room || ""); intoFolded(node.lifeId); }
+                } else { Tt.__life.items = DDlifeMoveBy(Tt.__life.items,node.lifeId,pos.x-node.x,pos.y-node.y,movingLife,layout.room || "",{ w: node.w, h: node.h }); intoFolded(node.lifeId); }
                 delete ot[ref];
               } else if (frame && node.noteId && node.kind === "sticky" && !ct.frame) {
                 const target = DDlifeParentAt(Tt.__life.items, pos.x - frame.x + node.w/2, pos.y - frame.y - DDlifeHead + node.h/2, undefined, layout.room || "");
                 if (target) {
                   const old = Tt.notes.find((i) => i.id === node.noteId), base = DDlifeAbs(Tt.__life.items,target.id),id=Tt.__life.items.some((i)=>i.id===old.id)?"lf-"+C():old.id;
-                  Tt.__life.items = DDlifeAdd(Tt.__life.items,{id,type:"sticky",parent:target.id,text:old.text,role:old.role,goal:old.goal,due:old.due,at:old.at,baseW:old.baseW,color:old.color,x:pos.x-frame.x-base.x,y:pos.y-frame.y-DDlifeHead-base.y,w:node.w,h:node.h,style:model.styles[node.id],syncId:old.syncId,media:old.media});
+                  Tt.__life.items = DDlifeAdd(Tt.__life.items,{id,type:"sticky",parent:target.id,text:old.text,role:old.role,goal:old.goal,due:old.due,tags:old.tags,at:old.at,baseW:old.baseW,color:old.color,x:pos.x-frame.x-base.x,y:pos.y-frame.y-DDlifeHead-base.y,w:node.fitMax||node.w,h:node.h,style:model.styles[node.id],syncId:old.syncId,media:old.media});
                   Tt.notes = Tt.notes.filter((i) => i.id !== old.id);
                   transferRef(Tt,node.id,"life:"+id); delete ot[ref]; intoFolded(id);
                 }
@@ -3758,16 +3758,16 @@ export function DDcreateBoard(deps) {
                   (Jt) => {
                     const Xn = clean(Jt.canvas?.board4),
                       On = { ...(Xn.layouts[mode] || {}) };
-                    for (const ra of DDrootSelection(layout.nodes, selected).map(n=>n.id)) {
-                      const ma = layout.map.get(ra);
-                      if (!(!ma || locked.has(ra) || ma.memberOf))
-                        if (ma.lifeId) {
-                          const i = Jt.__life.items.find((i) => i.id === ma.lifeId);
-                          if (i && !selected.has(ma.parentId)) {i.x += yn; i.y += An;}
-                        } else if (ma.noteId) {
-                          const Oa = Jt.notes.find((fa) => fa.id === ma.noteId);
-                          ((Oa.x += yn), (Oa.y += An));
-                        } else On[ra] = { x: ma.x + yn, y: ma.y + An };
+                    const roots = DDrootSelection(layout.nodes, selected).filter((n) => !locked.has(n.id) && !n.memberOf),
+                      movingLife = roots.map((n) => n.lifeId).filter(Boolean);
+                    for (const ma of roots) {
+                      if (ma.lifeId) {
+                        if (!selected.has(ma.parentId))
+                          Jt.__life.items = DDlifeMoveBy(Jt.__life.items, ma.lifeId, yn, An, movingLife, layout.room || "", { w: ma.w, h: ma.h });
+                      } else if (ma.noteId) {
+                        const Oa = Jt.notes.find((fa) => fa.id === ma.noteId);
+                        if (Oa) ((Oa.x += yn), (Oa.y += An));
+                      } else On[ma.id] = { x: ma.x + yn, y: ma.y + An };
                     }
                     return (
                       (Xn.layouts = { ...Xn.layouts, [mode]: On }),
@@ -5261,12 +5261,25 @@ export function DDcreateBoard(deps) {
       }, targetId ? t("Sent to ", "فرستاده شد به ") + name : t("Taken out of its section", "از سکشن بیرون اومد"));
       setSelected(new Set(refs));
     }
+    function placeWithReparent(d, nodes, positions) {
+      const other = [], movingLife = nodes.map((n) => n.lifeId).filter(Boolean);
+      for (const n of nodes) {
+        const p = positions[n.id];
+        if (!p || n.memberOf || locked.has(n.id)) continue;
+        if (n.lifeId && d.__life) {
+          if (nodes.some((k) => k.id === n.parentId)) continue;
+          const dx = p.x - n.x, dy = p.y - n.y;
+          if (dx || dy) d.__life.items = DDlifeMoveBy(d.__life.items, n.lifeId, dx, dy, movingLife, layout.room || "", { w: n.w, h: n.h });
+        } else other.push(n);
+      }
+      return other.length ? core.place(d, other, positions, mode) : d;
+    }
     function arrangeSelection(operation) {
       const nodes = selectedNodes.filter(
         (n) => !locked.has(n.id) && n.kind !== "frame",
       );
       commit(
-        (d) => core.place(d, nodes, core.arrange(nodes, operation), mode),
+        (d) => placeWithReparent(d, nodes, core.arrange(nodes, operation)),
         t("Selection aligned", "انتخاب تراز شد"),
       );
     }

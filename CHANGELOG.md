@@ -1,3 +1,11 @@
+## 5.93.1 — 2026-11-24
+Branch: fix/board-no-vanishing
+- Moving a note or text on the Board (drag, arrow keys, Align, or mixed drawing drag) no longer drops it into invisible sections or leaves it hidden outside its section's frame.
+- Short plain text objects (`T`) keep their visual width when checking whether they sit inside a section's frame or where they land, instead of using their 640px max wrap width.
+- Dragging plain text, shapes, photos, documents, or to-do lists over the Engine no longer turns them into tasks and removes them.
+- Dragging a Feed note outside the frame inside a section's own board keeps it in the Feed without stripping its photo, tags, deadline, or goal, and `DDnoteOnEngine` uses actual/estimated note dimensions.
+- Added unit tests in `tests/life-board.test.mjs` covering hidden/out-of-room drop targets, plain-text frame bounds, rendered-size drops, and tag preservation.
+
 ## 5.93.0 — 2026-11-22
 Branch: codex/mcp-workspace-tools
 - MCP can find sections and search across the planner, read a specific board, and work with native shapes, text, connectors, drawings, and linked notes.
@@ -1063,12 +1071,10 @@ Branch: feat/board-interaction-controls
 - Extracted the board into readable modules and added browser and pure-operation regression coverage.
 
 ## 5.0.1 — 2026-10-23
-Branch: claude/project-thread-xnja7m
+Branch: claude/project-thread-txnja7m
 - Added the app's core purpose to `CLAUDE.md`: everything stays in sync across Board, Lanes, Plan and every view; and the app is an artist's planner, not a rigid hour-by-hour scheduler.
 
 ## 5.0.0 — 2026-10-23
 Branch: claude/project-thread-xnja7m
 - Baseline: starting the changelog from the current version (5.0.0).
 - Added `CLAUDE.md` with rules for all agents: work on a separate branch and merge, and log version + changes here after every change.
-
-
