@@ -269,7 +269,7 @@ const { start, fixture } = require("./harness.cjs");
         const pasted = d.notes[2];
         assert.equal(pasted.text, "Orbit idea");
         assert.equal(pasted.color, "#123456");
-        assert.equal(d.canvas.board4.styles["sticky:" + pasted.id].width, 360);
+        assert.equal(d.canvas.board4.styles["sticky:" + pasted.id].width, 320);
         await page
           .getByRole("button", { name: t("Undo", "واگرد"), exact: true })
           .click();
