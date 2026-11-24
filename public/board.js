@@ -2691,7 +2691,7 @@ export function DDcreateBoard(deps) {
         }),
         setWireId(null));
     }
-    function finishEdit(Y) {
+    function finishEdit(Y, opts = {}) {
       flushNote();
       const G = editingRef.current;
       if (!G) return;
@@ -2700,8 +2700,9 @@ export function DDcreateBoard(deps) {
       returnFromEdit();
       const ct = layout.map.get(G.ref),
         ot = (Y ?? G.value).trim();
-      // An empty text object leaves nothing behind (an empty note stays, as a note).
+      // An empty text object goes away on Escape, but stays on accidental blur so you can click away to copy text (5.95.0).
       if (ct?.kind === "sticky" && ct.plain && !ot) {
+        if (!opts.escape) return;
         commit((d) => {
           if (ct.lifeId) d.__life.items = d.__life.items.filter((i) => i.id !== ct.lifeId);
           else d.notes = d.notes.filter((n) => n.id !== ct.noteId);
