@@ -7,6 +7,8 @@ import {
   DDlifeAdd,
   DDlifeRemove,
   DDlifeMoveBy,
+  DDlifeDropTarget,
+  DDlifeParentAt,
   DDlifeAbs,
   DDlifeBounds,
   DDlifeColor,
@@ -212,4 +214,38 @@ test("a section outside the Feed stays out of it (5.29)", () => {
   assert.equal(DDnormalizeLife({ items: [...items, { id: "s", type: "section", parent: "a", x: 0, y: 0, w: 100, h: 100, out: true }] }).items.find((i) => i.id === "s").out, undefined, "only a top section can be outside");
   assert.equal(DDlifeRelease(items, "free").find((i) => i.id === "q").out, true, "what drops out of it stays outside the Feed");
   assert.equal(DDlifeMoveBy(items, "free", -2000, 0).find((i) => i.id === "free").out, true, "the board decides; a move keeps the mark unless it lands in a section");
+});
+
+test("invisible sections and out-of-room sections never swallow drops (5.93.1)", () => {
+  const items = [
+    { id: "a", type: "section", parent: "", x: 0, y: 0, w: 400, h: 300 },
+    // Hidden on the main board because it sits outside A's frame (lives on A's own board).
+    { id: "hidden", type: "section", parent: "a", x: 600, y: 0, w: 300, h: 200 },
+    // Unrelated top-level section outside A.
+    { id: "other", type: "section", parent: "", x: 1100, y: 0, w: 400, h: 300 },
+    { id: "n", type: "sticky", parent: "", x: 50, y: 50, w: 100, h: 100, text: "card" },
+    { id: "inA", type: "sticky", parent: "a", x: 50, y: 50, w: 100, h: 100, text: "in A" },
+  ];
+  // Main board: dropping over the invisible section's coordinates must not join it.
+  assert.equal(DDlifeDropTarget(items, "n", 650, 20), null);
+  assert.equal(DDlifeParentAt(items, 700, 100), null);
+  // Inside A's own board: "hidden" IS visible so drops can land in it, while "other" is outside the room.
+  assert.equal(DDlifeDropTarget(items, "inA", 650, 20, [], "a")?.id, "hidden");
+  assert.equal(DDlifeDropTarget(items, "inA", 1150, 20, [], "a"), null);
+  assert.equal(DDlifeParentAt(items, 1200, 100, new Set(), "a"), null);
+});
+
+test("short plain text stays visible and drops using rendered size instead of max 640px wrap width (5.93.1)", () => {
+  const items = [
+    { id: "a", type: "section", parent: "", x: 0, y: 0, w: 420, h: 300 },
+    { id: "b", type: "section", parent: "", x: 460, y: 0, w: 400, h: 300 },
+    { id: "txt", type: "sticky", parent: "a", x: 260, y: 80, w: 640, h: 40, text: "Title", style: { plain: true, textSize: 24 } },
+  ];
+  assert.equal(DDlifeInFrame(items, items[2]), true, "short plain text in right half of section stays in frame");
+  // Moving 40px right with rendered width 80px stays in section A (does not jump into B).
+  const moved = DDlifeMoveBy(items, "txt", 40, 0, [], "", { w: 80, h: 32 });
+  assert.equal(moved.find((i) => i.id === "txt").parent, "a");
+  // Adding a Feed note preserves tags.
+  const added = DDlifeAdd(items, { id: "tagged", type: "sticky", parent: "a", text: "Hi", tags: ["art", "urgent"] });
+  assert.deepEqual(added.find((i) => i.id === "tagged").tags, ["art", "urgent"]);
 });
