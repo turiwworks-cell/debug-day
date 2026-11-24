@@ -1604,6 +1604,7 @@ export function DDcreateBoard(deps) {
       for (const [Y, G] of elementRefs.current) {
         if (G.style.transform) G.style.transform = "";
         if (G.classList.contains("b4-drop-target") || G.classList.contains("dd-alt-ghost")) G.classList.remove("b4-drop-target", "dd-alt-ghost");
+        if (G.dataset.dropFolded) delete G.dataset.dropFolded;
         const ct = layout.map.get(Y);
         if (ct) {
           if (G.style.width !== ct.w + "px") G.style.width = ct.w + "px";
