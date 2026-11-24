@@ -1450,6 +1450,31 @@ export function DDcreateBoard(deps) {
           const Jt = elementRefs.current.get(An);
           Jt && (Jt.style.transform = `translate3d(${Pt}px,${yn}px,0)`);
         }
+        // Live drop-target preview: highlight the section a dragged card/section will land in.
+        if (!G.frame && !G.alt) {
+          const frame = layout.map.get("section:life"),
+            primary = G.refs.map((r) => layout.map.get(r)).find((n) => n && (n.kind === "sticky" || n.lifeSection) && !G.refs.includes(n.parentId));
+          let target = null;
+          if (frame && primary) {
+            const items = DDlifeItems(setup), movingLife = G.refs.map((r) => layout.map.get(r)?.lifeId).filter(Boolean);
+            if (primary.lifeId) target = DDlifeDropTarget(items, primary.lifeId, Pt, yn, movingLife, layout.room || "", { w: primary.w, h: primary.h });
+            else if (primary.noteId && primary.kind === "sticky") {
+              const s0 = G.starts[primary.id];
+              if (s0) target = DDlifeParentAt(items, s0.x + Pt - frame.x + primary.w / 2, s0.y + yn - frame.y - DDlifeHead + primary.h / 2, undefined, layout.room || "");
+            }
+          }
+          const nextId = target && target.id !== layout.room ? "life:" + target.id : null;
+          if (G.dropTarget !== nextId) {
+            const prevEl = G.dropTarget && elementRefs.current.get(G.dropTarget);
+            if (prevEl) { prevEl.classList.remove("b4-drop-target"); delete prevEl.dataset.dropFolded; }
+            const nextEl = nextId && elementRefs.current.get(nextId);
+            if (nextEl) {
+              nextEl.classList.add("b4-drop-target");
+              if (target.collapsed) nextEl.dataset.dropFolded = t("Drop into “" + (target.text || "Section") + "”", "رها کن تا بره داخل «" + (target.text || "سکشن") + "»");
+            }
+            G.dropTarget = nextId;
+          }
+        }
         paintWires(); paintSelection();
         return;
       }
