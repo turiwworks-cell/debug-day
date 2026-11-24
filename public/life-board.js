@@ -756,6 +756,9 @@ export const DDlifeCSS = `
 .dd-plan-life button{min-height:36px;padding:4px 8px}
 @media(pointer:coarse){.b4-sticky-head{height:44px!important;gap:2px;padding:0 4px!important}.b4-sticky-head button,.b4-life-section>.b4-node-actions button{min-width:44px!important;min-height:44px!important}.b4-life-section>.b4-node-body,.b4-life-section>.b4-node-actions{height:44px;top:-50px}.dd-native-colors button{width:36px;height:36px}.dd-plan-life button{min-height:44px}}
 .b2-viewport[data-tool=select]:not(.b4-panning),.b2-viewport[data-tool=select]:not(.b4-panning) .b4-node,.b2-viewport[data-tool=select]:not(.b4-panning) .dd-note-preview{cursor:default}
+.b6 .b4-life-section.b4-drop-target{outline:calc(2.5px * var(--b4-inverse,1)) solid var(--board-selection,#0088FF)!important;outline-offset:calc(3px * var(--b4-inverse,1));background:color-mix(in srgb,var(--board-selection,#0088FF) 12%,var(--paper))!important}
+.b6 .b4-life-section.b4-drop-target[data-drop-folded]::after{content:attr(data-drop-folded);position:absolute;left:calc(10px * var(--dd-sec-k,1));top:calc(100% + 6px * var(--b4-inverse,1));padding:calc(3px * var(--b4-inverse,1)) calc(8px * var(--b4-inverse,1));border-radius:999px;background:var(--board-selection,#0088FF);color:#fff;font:600 calc(11px * var(--b4-inverse,1))/1.2 var(--sans,system-ui);white-space:nowrap;pointer-events:none;z-index:80;box-shadow:0 4px 12px #0003}
+.b6 .b4-life-section[data-room=true]{border-style:dashed;border-width:2px;box-shadow:0 0 0 1px color-mix(in srgb,var(--node-color) 28%,transparent)}
 @media (prefers-reduced-motion:reduce){.dd-life-tools{transition:none}}
 `;
 

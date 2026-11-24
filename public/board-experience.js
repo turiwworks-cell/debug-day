@@ -322,6 +322,7 @@ export const DDboardExperienceCSS = `
 .b6-align-label{color:var(--ink-3);font-size:11px;margin-bottom:-6px}
 .b6-align-note{color:var(--ink-3);font-size:11px;line-height:1.4;margin:0}
 .b6 .dd-wire-pop-note{font-size:10px;color:#fffb;white-space:nowrap;padding-inline:4px 2px}
+.b6 .b4-sticky[data-board-id^="sticky:"]:not(.b4-plain):not(.b4-shape):not(.b4-doc):not(.b4-todo-card) .dd-sticky-footer::after{content:" · Today";opacity:.72}
 @media(max-width:700px){.b6 .dd-wire-pop-note{display:none}.b6 .b4-sticky.b4-plain .dd-note-preview{padding:4px 6px!important}}
 `;
 

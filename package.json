@@ -1,6 +1,6 @@
 {
   "name": "debug-day-cloudflare",
-  "version": "5.93.1",
+  "version": "5.94.0",
   "private": true,
   "type": "module",
   "scripts": {

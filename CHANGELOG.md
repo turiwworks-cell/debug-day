@@ -1,3 +1,10 @@
+## 5.94.0 — 2026-11-24
+Branch: feat/board-drop-and-layers
+- Dragging a note, text, or section highlights the section it will land in; hovering over a folded section shows a clear "Drop into …" pill before you release.
+- Layer ordering (`[` / `]` Bring to front / Send to back) now applies uniformly to Feed notes alongside day notes and tasks instead of keeping Feed notes locked at one fixed layer.
+- Inside a section's own board, the section's main-board frame wears a dashed boundary so it is clear what shows on the Main board vs. outside the frame.
+- Today-only day notes show a subtle `· Today` suffix on their date footer so they are easy to tell apart from persistent Feed notes without changing sticky-note styling.
+
 ## 5.93.1 — 2026-11-24
 Branch: fix/board-no-vanishing
 - Moving a note or text on the Board (drag, arrow keys, Align, or mixed drawing drag) no longer drops it into invisible sections or leaves it hidden outside its section's frame.

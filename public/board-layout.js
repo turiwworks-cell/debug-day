@@ -365,12 +365,13 @@ export function DDcreateBoardLayout(deps) {
     // A section's own board shows everything in it; any other board shows only
     // what sits inside each frame (search shows every match).
     if (lf) for (const it of items.filter((i) => roomItem ? roomSet.has(i.id) && roomVisible(i) && DDlifeShown(items, i, roomItem.id) : DDlifeVisible(items, i) && (ddNodeMatches || DDlifeShown(items, i)))) {
-      const a = DDlifeAbs(items, it.id), color = it.type === "section" ? DDsectionTint(items, it.id).fill : DDlifeColor(items, it);
+      const a = DDlifeAbs(items, it.id), color = it.type === "section" ? DDsectionTint(items, it.id).fill : DDlifeColor(items, it),
+        stackIdx = it.type === "section" ? -1 : model.stack.indexOf("life:" + it.id);
       Y.push({ id: "life:" + it.id, lifeId: it.id, lifeSection: it.type === "section", kind: it.type === "section" ? "life-section" : "sticky", room: roomItem?.id === it.id || undefined, boardOnly: (roomItem && it.parent === roomItem.id && !DDlifeInFrame(items, it)) || undefined,
         title: it.text || (it.type === "section" ? t("Section","سکشن") : ""), color, textColor: it.style?.plain || DDshapeClear(it.style) ? "var(--ink)" : core.contrast(color), ownColor: (it.type === "section" && !!it.parent && !!it.ownColor && !!it.color) || undefined, collapsed: it.collapsed, parentId: it.parent ? "life:" + it.parent : null,
         x: lf.x + a.x, y: lf.y + DDlifeHead + a.y, w: it.w, h: it.collapsed ? 38 : it.h,
         at: it.at, baseW:it.baseW || 240, syncId: it.syncId || undefined, due: it.due || undefined,
-        ...it.style, opacity: it.style?.opacity ?? 1, stack: it.type === "section" ? 2 + ddNestDepth(it.id) : 20 });
+        ...it.style, opacity: it.style?.opacity ?? 1, stack: it.type === "section" ? 2 + ddNestDepth(it.id) : stackIdx >= 0 ? 15 + stackIdx + 1 : 20 });
     }
     for (const n of Y) {
       if (n.lifeId) continue;
