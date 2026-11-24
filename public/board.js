@@ -4317,6 +4317,8 @@ export function DDcreateBoard(deps) {
           "data-life-id": Y.lifeId,
           "data-life-type": Y.lifeId ? (Y.lifeSection ? "section" : "sticky") : undefined,
           "data-engine-section": Y.lifeSection && engineSections.has(Y.lifeId) ? true : undefined,
+          "data-room": Y.room ? true : undefined,
+          "data-board-only": Y.boardOnly ? true : undefined,
           "data-collapsed": Y.collapsed,
           // Marks the note that shows the "+" buttons, so CSS can hide its ports
           // without a :has() rule (that rule restyled every port on each key typed).
