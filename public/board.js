@@ -757,7 +757,7 @@ export function DDcreateBoard(deps) {
       moveDrawingGroup: (dx, dy) => {
         const nodes = DDrootSelection(layout.nodes, selected).filter(n => !locked.has(n.id));
         const positions = Object.fromEntries(nodes.map(n => [n.id, { x: n.x + dx, y: n.y + dy }]));
-        commit(d => pen.moveDraft(carryBends(core.place(d, nodes, positions, mode), groupDeltas(nodes, dx, dy)), dx, dy), t("Selection moved", "انتخاب جابه‌جا شد"));
+        commit(d => pen.moveDraft(carryBends(placeWithReparent(d, nodes, positions), groupDeltas(nodes, dx, dy)), dx, dy), t("Selection moved", "انتخاب جابه‌جا شد"));
       },
       commit: (change, message) => commit(change, message), toWorld, getCamera: () => cam.current, viewport, setStatus,
       pinching: () => !!pinch.current || touches.current.size > 1, panKey: () => space.current,
