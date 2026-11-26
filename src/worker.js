@@ -7,12 +7,12 @@ import { DDmarksRebase } from "../public/pen.js";
 import { DDsyncCopies } from "../public/linked.js";
 import { oauth, oauthRoute, oauthAccess } from "./oauth.js";
 import { DDmcpMoreTools, DDmcpMoreCall } from "./mcp-tools.js";
-import { DDmcpBoardReadTools, DDmcpBoardWriteTools, DDmcpBoardRead, DDmcpBoardCall } from "./mcp-board.js";
+import { DDmcpPlaceNote, DDmcpBoardReadTools, DDmcpBoardWriteTools, DDmcpBoardRead, DDmcpBoardCall } from "./mcp-board.js";
 import { DDmcpPlannerReadTools, DDmcpPlannerWriteTools, DDmcpPlannerRead, DDmcpPlannerCall } from "./mcp-planner.js";
 import { DDarchiveOf, DDarchiveJoin, DDarchiveName } from "../public/archive.js";
 const MAX_BYTES = 1500000;
 const VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"];
-const INFO = { name: "debug-day", title: "Debug Day", version: "5.95.0" };
+const INFO = { name: "debug-day", title: "Debug Day", version: "5.95.1" };
 class HttpError extends Error {
   constructor(status, message) {
     super(message);
@@ -555,7 +555,7 @@ const WRITE_TOOLS = [
   ),
   tool(
     "add_note",
-    "Add a sticky note to an existing day and its board. Read get_day first. Requires explicit user intent to edit.",
+    "Add a sticky note to a saved day. Explicit board coordinates inside a shared section place it there across days and return its life: ref. Read get_day first. Requires explicit user intent to edit.",
     {
       date: daySchema,
       expected_revision: revisionSchema,
@@ -798,6 +798,10 @@ async function callTool(name, args, env, access) {
     if (args.expected_revision !== revision)
       throw Error("Conflict: the planner changed. Read it again before editing.");
     const result = DDmcpMoreCall(name, args, data);
+    if (name === "update_note") {
+      const d = data.days[args.date], ref = DDmcpPlaceNote(data, args, d, d.notes.find(n => n.id === result.id));
+      if (ref) Object.assign(result, { ref, id: ref.slice(5), changed: true });
+    }
     if (!result.changed) return { revision, ...result };
     if (result.day) data.days[result.day] = DDreconcileDay(data.days[result.day], before.days[result.day], data.setup);
     return { ...(await save(env, data, revision, before)), ...result };
@@ -1077,9 +1081,11 @@ async function callTool(name, args, env, access) {
       }
     }
   }
+  const ref = name === "add_note" && DDmcpPlaceNote(data, args, day, day.notes.find(n => n.id === id));
+  if (ref) id = ref.slice(5);
   data.days[args.date] = DDreconcileDay(day, previousDay, data.setup);
   const saved = await save(env, data, revision, before);
-  return { ...saved, id, day: args.date, changed: true };
+  return { ...saved, id, ...(ref ? { ref } : {}), day: args.date, changed: true };
 }
 function decodeHeader(value) {
   if (value?.startsWith("=?base64?") && value.endsWith("?=")) {

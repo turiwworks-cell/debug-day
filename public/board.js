@@ -1,3 +1,4 @@
+import { DDplaceSectionNote } from "./section-notes.js";
 import { DDcompletion, DDTaskMetadata, DDTaskTags, DDpriorityLabel } from "./planner.js";
 import { DDreconcileDay, DDrelation, DDconnectRelation, DDdisconnectRelation, DDrewireRelation, DDremoveOrder, DDmoveOrder } from "./relations.js";
 import { DDconnectionGeometry, DDwireGap, DDgrowRect } from "./connections.js";
@@ -1901,13 +1902,12 @@ export function DDcreateBoard(deps) {
                 } else { Tt.__life.items = DDlifeMoveBy(Tt.__life.items,node.lifeId,pos.x-node.x,pos.y-node.y,movingLife,layout.room || "",{ w: node.w, h: node.h }); intoFolded(node.lifeId); }
                 delete ot[ref];
               } else if (frame && node.noteId && node.kind === "sticky" && !ct.frame) {
-                const target = DDlifeParentAt(Tt.__life.items, pos.x - frame.x + node.w/2, pos.y - frame.y - DDlifeHead + node.h/2, undefined, layout.room || "");
-                if (target) {
-                  const old = Tt.notes.find((i) => i.id === node.noteId), base = DDlifeAbs(Tt.__life.items,target.id),id=Tt.__life.items.some((i)=>i.id===old.id)?"lf-"+C():old.id;
-                  Tt.__life.items = DDlifeAdd(Tt.__life.items,{id,type:"sticky",parent:target.id,text:old.text,role:old.role,goal:old.goal,due:old.due,tags:old.tags,at:old.at,baseW:old.baseW,color:old.color,x:pos.x-frame.x-base.x,y:pos.y-frame.y-DDlifeHead-base.y,w:node.fitMax||node.w,h:node.h,style:model.styles[node.id],syncId:old.syncId,media:old.media});
-                  Tt.notes = Tt.notes.filter((i) => i.id !== old.id);
-                  transferRef(Tt,node.id,"life:"+id); delete ot[ref]; intoFolded(id);
-                }
+                const old = Tt.notes.find(i => i.id === node.noteId);
+                if (layout.room && DDnoteOnEngine(layout.map.get("section:engine"), { ...old, ...pos }, model.styles[ref])) continue;
+                const moved = DDplaceSectionNote(Tt, Tt.__life, old, frame, {
+                  ...pos, w: node.fitMax || node.w, hitWidth: node.w, h: node.h, room: layout.room || "",
+                });
+                if (moved) { delete ot[ref]; intoFolded(moved.slice(5)); }
               }
             }
             // A section moved out of the Feed stays where it is dropped, on the
@@ -5403,21 +5403,28 @@ export function DDcreateBoard(deps) {
         toWorld(rect.left + rect.width / 2, rect.top + rect.height / 2);
       const result = core.paste(base || boardDocument(), payload, at, mode, C);
       if (!result.refs.length) return;
-      const frame=layout.map.get("section:life"), target=frame&&(DDlifeParentAt(result.day.__life.items,at.x-frame.x,at.y-frame.y-DDlifeHead,layout.room?outsideRoom(result.day.__life.items):undefined,layout.room||"")||(layout.room?result.day.__life.items.find((i)=>i.id===layout.room):null));
-      if (target) {
-        const base=DDlifeAbs(result.day.__life.items,target.id);
-        for(const ref of result.refs.filter((r)=>r.startsWith("life:"))){
-          const it=result.day.__life.items.find((i)=>"life:"+i.id===ref);
-          if(it&&it.type==="sticky"&&!it.parent){it.parent=target.id;it.x-=base.x;it.y-=base.y;}
-        }
-        for (const ref of [...result.refs]) if(ref.startsWith("sticky:")) {
-          const old=result.day.notes.find((i)=>"sticky:"+i.id===ref), style=result.day.canvas?.board4?.styles?.[ref]||{};
-          if(!old)continue;
-          // Same words and look in the section, and its lines come along.
-          const {width,height,...look}=style;
-          result.day.__life.items=DDlifeAdd(result.day.__life.items,{id:old.id,type:"sticky",parent:target.id,text:old.text,role:old.role,goal:old.goal,due:old.due,at:old.at,baseW:old.baseW,color:old.color,x:old.x-frame.x-base.x,y:old.y-frame.y-DDlifeHead-base.y,w:width||240,h:height||240,style:look,syncId:old.syncId,media:old.media});
-          result.day.notes=result.day.notes.filter((i)=>i!==old);
-          transferRef(result.day,ref,"life:"+old.id);result.refs[result.refs.indexOf(ref)]="life:"+old.id;
+      const frame = layout.map.get("section:life"), room = layout.room || "", life = result.day.__life;
+      // Only existing sections receive the paste. A pasted section already carries its children.
+      const existing = DDlifeItems(setup), engine = room && layout.map.get("section:engine");
+      const anchor = frame && DDlifeParentAt(existing, at.x - frame.x, at.y - frame.y - DDlifeHead, undefined, room);
+      if (frame) for (const [i, ref] of result.refs.entries()) {
+        const sticky = ref.startsWith("sticky:") && result.day.notes.find(n => "sticky:" + n.id === ref);
+        const item = ref.startsWith("life:") && life.items.find(n => "life:" + n.id === ref);
+        if (!sticky && (!item || item.type !== "sticky" || item.parent)) continue;
+        const style = result.day.canvas?.board4?.styles?.[ref] || {};
+        const x = sticky ? sticky.x : item.x + frame.x, y = sticky ? sticky.y : item.y + frame.y + DDlifeHead;
+        const w = item?.w || style.width || 240, h = item?.h || style.height || 240;
+        if (sticky && DDnoteOnEngine(engine, sticky, style)) continue;
+        const target = DDlifeParentAt(existing, x - frame.x + w / 2, y - frame.y - DDlifeHead + h / 2, undefined, room)
+          || anchor || (room && existing.find(n => n.id === room));
+        if (!target) continue;
+        if (sticky) {
+          result.refs[i] = DDplaceSectionNote(result.day, life, sticky, frame, { target, w, h }) || ref;
+        } else {
+          const origin = DDlifeAbs(existing, target.id);
+          item.parent = target.id;
+          item.x -= origin.x;
+          item.y -= origin.y;
         }
       }
       commit(() => result.day, message || t("Pasted", "چسبانده شد"));

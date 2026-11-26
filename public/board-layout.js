@@ -1,3 +1,4 @@
+import { DDfeedFrame } from "./section-notes.js";
 // Where every card on the Board sits, worked out from the day, the Feed and
 // the saved places, and nothing else: it reads and never writes. The Board keeps
 // the result in a memo and draws it. Moved out of board.js as it was (5.46.6),
@@ -126,8 +127,7 @@ export function DDcreateBoardLayout(deps) {
     function lifeFrame(Y) {
       if (ddNodeMatches) return;
       const b = life.DDlifeBounds(life.DDlifeItems(setup)),
-        legacy = Object.entries(allDays || {}).sort(([a],[b])=>a.localeCompare(b)).map(([,d])=>d.canvas?.board4?.layouts?.mindmap?.["section:life"] || d.canvas?.board4?.layouts?.lanes?.["section:life"]).find((p)=>Number.isFinite(p?.x)&&Number.isFinite(p?.y)),
-        saved = { x: legacy?.x ?? 2400, y: legacy?.y ?? 80, ...setup.life?.frame },
+        saved = DDfeedFrame(setup, allDays),
         node = {
           id: "section:life",
           kind: "frame",

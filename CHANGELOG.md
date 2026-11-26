@@ -1,3 +1,8 @@
+## 5.95.1 — 2026-11-26
+Branch: fix/shared-section-note-placement
+- Notes created or moved into a shared section through the planner tools now stay there across days, with their appearance and connections.
+- Group paste places each note in the section beneath it and keeps copied section trees together.
+
 ## 5.95.0 — 2026-11-24
 Branch: feat/board-comfort
 - Sticky notes now support free widths with a soft magnetic snap near square (`1×`) and wide (`1.5×`) instead of locking strictly to two widths.

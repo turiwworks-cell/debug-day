@@ -122,7 +122,7 @@ function lifeItems(raw) {
       w: limit(r.w, 60, 2e4, section ? 480 : 240),
       h: limit(r.h, 40, 2e4, section ? 320 : 240),
       // The Inbox became Capture (5.55); a name the person gave it stays.
-      text: typeof r.text === "string" ? (section && r.id === DDcaptureId && r.text === "Inbox" ? "Capture" : r.text.slice(0, 4000)) : "",
+      text: typeof r.text === "string" ? (section && r.id === DDcaptureId && r.text === "Inbox" ? "Capture" : section ? r.text.slice(0, 4000) : r.text) : "",
       collapsed: section && !!r.collapsed,
       ...(!section && /^\d{4}-\d{2}-\d{2}$/.test(r.at||"") ? {at:r.at} : {}),
       ...(!section && Number.isFinite(r.baseW) ? {baseW:Math.max(160,r.baseW)} : {}),

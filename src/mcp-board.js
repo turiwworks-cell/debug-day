@@ -1,3 +1,4 @@
+import { DDfeedFrame, DDplaceSectionNote } from "../public/section-notes.js";
 // MCP board editing uses the very same objects as the canvas. A shape is a
 // sticky with an appearance, not a second type of note. No raw state writes.
 import { DDlifeState, DDlifeAdd, DDlifeDescendants, DDnormalizeLife, DDlifePath } from "../public/life-board.js";
@@ -174,6 +175,15 @@ function dayNotes(d, args, create) {
   return item;
 }
 
+// Coordinate-based tools place notes on the main board, just like a pointer drop.
+export function DDmcpPlaceNote(data, args, day, note) {
+  if (!note || (!Number.isFinite(args.x) && !Number.isFinite(args.y))) return null;
+  const life = DDlifeState(data.setup);
+  const ref = DDplaceSectionNote(day, life, note, DDfeedFrame(data.setup, data.days));
+  if (ref) data.setup.life = life;
+  return ref;
+}
+
 function refs(data, d) {
   const r = new Set(DDlifeState(data.setup).items.map(i => "life:" + i.id));
   if (d) {
@@ -255,7 +265,9 @@ export function DDmcpBoardCall(name, args, data) {
       b.styles[key] = DDboardCore.style(s);
     }
     for (const k of ["locked", "hidden"]) if (own(args, k)) { const set = new Set(b[k] || []); if (args[k]) set.add(key); else set.delete(key); b[k] = [...set]; }
-    return { changed: JSON.stringify(d) !== old, day: args.date, ref: key };
+    const placed = key.startsWith("sticky:") && (args.mode || b.mode || "mindmap") !== "lanes"
+      && DDmcpPlaceNote(data, args, d, d.notes?.find(n => "sticky:" + n.id === key));
+    return { changed: !!placed || JSON.stringify(d) !== old, day: args.date, ref: placed || key };
   }
   if (["add_drawing", "update_drawing", "delete_drawing"].includes(name)) {
     const t = area(data, args), areaBoard = t.feed ? t.life : board(t.day), strokes = areaBoard.strokes || [], old = JSON.stringify(strokes);
@@ -323,7 +335,9 @@ export function DDmcpBoardCall(name, args, data) {
   if (name === "add_board_item" || name === "update_board_item") {
     const create = name === "add_board_item";
     const item = t.feed ? (create ? addLife(t.life, args) : editLife(t.life, args)) : dayNotes(t.day, args, create);
-    result.id = item.id; result.ref = (t.feed ? "life:" : "sticky:") + item.id;
+    const placed = !t.feed && DDmcpPlaceNote(data, args, t.day, item);
+    result.ref = placed || (t.feed ? "life:" : "sticky:") + item.id;
+    result.id = placed ? placed.slice(5) : item.id;
   } else {
     let links = t.feed ? t.life.links : (board(t.day).links ||= []);
     if (name === "add_connection") {
@@ -354,5 +368,5 @@ export function DDmcpBoardCall(name, args, data) {
     }
   }
   if (t.feed) data.setup.life = DDnormalizeLife(t.life);
-  return { ...result, ...(t.feed ? {} : { day: args.date }), changed: JSON.stringify(t.feed ? data.setup.life : t.day) !== original };
+  return { ...result, ...(t.feed ? {} : { day: args.date }), changed: (!t.feed && result.ref?.startsWith("life:")) || JSON.stringify(t.feed ? data.setup.life : t.day) !== original };
 }

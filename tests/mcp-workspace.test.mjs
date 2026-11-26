@@ -81,6 +81,31 @@ test("MCP board access: real nested diagram, native shapes and connected data", 
   } finally { f.sql.close(); }
 });
 
+test("placing day notes inside a shared section keeps their positions and links across dates", async () => {
+  const f = await fixture();
+  try {
+    const text = "Reference ".repeat(450);
+    const created = await f.write("add_note", { date: day, text, x: 2450, y: 210 });
+    assert.equal(created.ref, "life:" + created.id);
+    const loose = await f.write("add_board_item", { date: day, type: "sticky", text: "Sketch", x: 80, y: 30, w: 300, h: 180, text_color: "#123456" });
+    assert.equal(loose.ref, "sticky:" + loose.id);
+    const wire = await f.write("add_connection", { date: day, from: loose.ref, to: created.ref });
+    const moved = await f.write("set_board_card", { date: day, card_ref: loose.ref, x: 2700, y: 470 });
+    assert.equal(moved.ref, "life:" + loose.id);
+    const second = await f.write("add_board_item", { date: tomorrow, type: "sticky", x: 2600, y: 300 });
+    const daily = await f.write("add_note", { date: tomorrow, text: "Day only" });
+    const edited = await f.write("update_note", { date: tomorrow, note_id: daily.id, x: 2660, y: 420 });
+    assert.equal(edited.ref, "life:" + daily.id);
+    const shared = await f.ok("get_section", { section_id: "collection" });
+    assert.equal(shared.items.find(n => n.id === created.id).text, text);
+    for (const id of [created.id, loose.id, second.id, daily.id]) assert.equal(shared.items.filter(n => n.id === id).length, 1);
+    const item = shared.items.find(n => n.id === loose.id);
+    assert.deepEqual([item.x, item.y, item.w, item.h, item.style.textColor], [300, 300, 300, 180, "#123456"]);
+    assert.ok(shared.links.some(l => l.id === wire.id && l.from === moved.ref && l.to === created.ref));
+    for (const date of [day, tomorrow]) assert.equal((await f.ok("get_day", { date })).day.notes.length, 0);
+  } finally { f.sql.close(); }
+});
+
 test("MCP Planner access: task tree, orders, measures, templates, routine and settings", async () => {
   const f = await fixture();
   try {
