@@ -435,6 +435,7 @@ export function DDusePen(ctx) {
     [eraseCursor, setEraseCursor] = R.useState(null),
     [stylePreview, setStylePreview] = R.useState(null),
     [drag, setDrag] = R.useState(null),
+    stopSelectionDrag = R.useRef(null),
     draft = R.useRef(null), drawing = R.useRef(null), raf = R.useRef(0), shownRef = R.useRef([]), selRef = R.useRef(sel), ctxRef = R.useRef(ctx);
   ctxRef.current = ctx;
   selRef.current = sel;
@@ -826,6 +827,8 @@ export function DDusePen(ctx) {
     addStroke(DDsimplifyStroke(g.rawPoints, 0.7 / ctxRef.current.getCamera().z));
   }
 
+  R.useEffect(() => () => stopSelectionDrag.current?.(), []);
+
   // Start dragging the currently selected strokes (either by grabbing a stroke or its bounding box).
   function startMoveDrag(e, targetKeys) {
     const start = { x: e.clientX, y: e.clientY }, id = e.pointerId;
@@ -839,6 +842,7 @@ export function DDusePen(ctx) {
       setDrag({ keys: targetKeys, dx, dy });
     };
     const stop = () => {
+      stopSelectionDrag.current = null;
       window.removeEventListener("pointermove", mv);
       window.removeEventListener("pointerup", end);
       window.removeEventListener("pointercancel", end);
@@ -848,6 +852,7 @@ export function DDusePen(ctx) {
       stop(); setDrag(null);
       if (moved && last && ev.type !== "pointercancel") moveKeys(targetKeys, last.dx, last.dy);
     };
+    stopSelectionDrag.current = stop;
     window.addEventListener("pointermove", mv);
     window.addEventListener("pointerup", end);
     window.addEventListener("pointercancel", end);
@@ -861,10 +866,12 @@ export function DDusePen(ctx) {
     c.finishEdit?.(); c.setMenu?.(null);
     const key = keyOf(s), next = e.shiftKey ? new Set(sel) : sel.has(key) ? new Set(sel) : new Set([key]);
     if (e.shiftKey && sel.has(key)) next.delete(key); else next.add(key);
-    if (!e.shiftKey) c.clearBoardSelection();
+    const mixed = c.selected.size && (e.shiftKey || sel.has(key));
+    if (!e.shiftKey && !mixed) c.clearBoardSelection();
     setSel(next);
     c.viewport.current?.focus({ preventScroll: true });
     if (e.shiftKey && !next.has(key)) return;
+    if (mixed && c.startMixedMove(e)) return;
     startMoveDrag(e, next);
   }
 
@@ -885,7 +892,7 @@ export function DDusePen(ctx) {
     e.stopPropagation(); e.preventDefault();
     c.finishEdit?.(); c.setMenu?.(null);
     c.viewport.current?.focus({ preventScroll: true });
-    startMoveDrag(e, new Set(sel));
+    if (!c.selected.size || !c.startMixedMove(e)) startMoveDrag(e, new Set(sel));
   }
 
   // Dragging any of the 8 bounding-box handles scales the selected strokes.
@@ -921,6 +928,7 @@ export function DDusePen(ctx) {
       setDrag(lastTx);
     };
     const stop = () => {
+      stopSelectionDrag.current = null;
       window.removeEventListener("pointermove", mv);
       window.removeEventListener("pointerup", end);
       window.removeEventListener("pointercancel", end);
@@ -932,6 +940,7 @@ export function DDusePen(ctx) {
         applyTransformKeys(keys, lastTx, t("Drawing resized", "اندازهٔ خط تغییر کرد"));
       }
     };
+    stopSelectionDrag.current = stop;
     window.addEventListener("pointermove", mv);
     window.addEventListener("pointerup", end);
     window.addEventListener("pointercancel", end);
@@ -992,6 +1001,18 @@ export function DDusePen(ctx) {
       return d;
     },
     selection: picked,
+    cancelForNavigation: () => { cancel(); stopSelectionDrag.current?.(); setDrag(null); },
+    movingElements: (refs, moveSelection) => {
+      const ink = ctx.viewport.current?.querySelector(".dd-ink");
+      if (!ink) return [];
+      const moving = new Set(refs);
+      const groups = [...ink.querySelectorAll("[data-stroke-id]")].filter(el =>
+        (moveSelection && el.classList.contains("selected")) ||
+        (el.dataset.strokeHome === "feed" && moving.has(el.dataset.strokeParent ? "life:" + el.dataset.strokeParent : "section:life")));
+      const box = ink.querySelector(".dd-ink-bbox");
+      if (box && picked.length && groups.filter(el => el.classList.contains("selected")).length === picked.length) groups.push(box);
+      return groups;
+    },
     hasSelection: picked.length > 0,
     opts,
     eraser,
@@ -1089,7 +1110,7 @@ export function DDusePen(ctx) {
         const path = d ? DDstrokePath(pts) : pathOf(s.points);
         const col = isPicked && stylePreview?.color ? stylePreview.color : isPicked && stylePreview?.fill ? stylePreview.fill : s.color;
         const op = isPicked && stylePreview?.opacity !== undefined ? stylePreview.opacity : (s.opacity ?? 1);
-        return h("g", { key, "data-stroke-id": s.id, "data-stroke-home": s.life ? "feed" : "day", className: isPicked ? "selected" : undefined },
+        return h("g", { key, "data-stroke-id": s.id, "data-stroke-home": s.life ? "feed" : "day", "data-stroke-parent": s.parent || undefined, className: isPicked ? "selected" : undefined },
           h("path", {
             d: path,
             className: "dd-ink-hit",

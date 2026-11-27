@@ -1,11 +1,11 @@
 const { chromium, devices } = require("playwright");
-async function start() {
+async function start(browserType = chromium) {
   const { startServer } = await import("./server.mjs");
   const server = await startServer();
-  const browser = await chromium
+  const browser = await browserType
     .launch({
       headless: true,
-      ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+      ...(browserType === chromium && process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
         ? {
             executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
             args: [
@@ -78,6 +78,7 @@ async function fixture(page, origin) {
   });
   await page.goto(origin);
   await page.waitForSelector(".views", { state: "attached" });
+  await page.waitForFunction(() => localStorage.getItem("debug-day:v2") !== null);
   return page.evaluate(() => {
     const data = JSON.parse(localStorage.getItem("debug-day:v2"));
     const date = new Date().toLocaleDateString("en-CA");

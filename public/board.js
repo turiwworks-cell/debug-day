@@ -341,6 +341,8 @@ export function DDcreateBoard(deps) {
       gesture = useRef(null),
       touches = useRef(new Map()),
       pinch = useRef(null),
+      nativeGestureZoom = useRef(null),
+      inkPreview = useRef(null),
       space = useRef(!1),
       preview = useRef(new Map()),
       pointerWire = useRef(null),
@@ -770,6 +772,12 @@ export function DDcreateBoard(deps) {
       },
       openPenContext: (e) => openContext(e, { pen: true }),
       clearBoardSelection: () => { setSelected(new Set()); setWireId(null); setWireSelection(null); },
+      startMixedMove: (event) => {
+        const node = DDrootSelection(layout.nodes, selected).find(n => !locked.has(n.id) && !n.room && n.kind !== "frame");
+        if (!node) return false;
+        startSelectionMove(event, node, selected, false, true);
+        return true;
+      },
       moveDrawingGroup: (dx, dy) => {
         const nodes = DDrootSelection(layout.nodes, selected).filter(n => !locked.has(n.id));
         const positions = Object.fromEntries(nodes.map(n => [n.id, { x: n.x + dx, y: n.y + dy }]));
@@ -961,7 +969,7 @@ export function DDcreateBoard(deps) {
           ct = wireRefs.current.get(Y.id);
         if (!G || !ct) continue;
         for (const St of ct.querySelectorAll("path[data-wire-path]"))
-          St.setAttribute("d", G.d);
+          if (St.getAttribute("d") !== G.d) St.setAttribute("d", G.d);
         for (const [St, Tt] of [
           ["from", G.p],
           ["to", G.q],
@@ -1257,6 +1265,9 @@ export function DDcreateBoard(deps) {
       setWireId(null);
       G.blockId && onSelectBlock?.(G.blockId);
       if (!ct.has(G.id) || locked.has(G.id)) return;
+      startSelectionMove(Y, G, ct, ddConnect);
+    }
+    function startSelectionMove(Y, G, ct, ddConnect, fromInk = false) {
       const moving = new Set(ct);
       for (const ref of [...moving]) {
         const n = layout.map.get(ref);
@@ -1288,12 +1299,12 @@ export function DDcreateBoard(deps) {
         ),
         moved: false,
         frame: G.kind === "frame",
-        tapRef: G.id,
+        tapRef: fromInk ? null : G.id,
         // A double-click on a section's name renames it; on its empty area it adds a note.
         onName: !!Y.target.closest(".b4-node-body"),
         shift: Y.shiftKey,
         // Alt (Option) drag drops a copy and leaves the original in place.
-        alt: Y.altKey && !ddConnect,
+        alt: Y.altKey && !ddConnect && !fromInk,
         connect: ddConnect,
         connectFrom: connecting,
       };
@@ -1466,6 +1477,10 @@ export function DDcreateBoard(deps) {
           const Jt = elementRefs.current.get(An);
           Jt && (Jt.style.transform = `translate3d(${Pt}px,${yn}px,0)`);
         }
+        if (!G.alt) {
+          if (!inkPreview.current) inkPreview.current = pen.movingElements(G.refs, !G.feed && !G.engine);
+          for (const el of inkPreview.current) el.setAttribute("transform", `translate(${Pt} ${yn})`);
+        }
         // Live drop-target preview: highlight the section a dragged card/section will land in.
         if (!G.frame && !G.alt) {
           const frame = layout.map.get("section:life"),
@@ -1613,6 +1628,8 @@ export function DDcreateBoard(deps) {
         ct.classList.toggle("b4-drop-target", G === Y);
     }
     function clearPreview() {
+      for (const el of inkPreview.current || []) el.removeAttribute("transform");
+      inkPreview.current = null;
       if (guideSvg.current) guideSvg.current.replaceChildren();
       viewport.current?.classList.remove("dd-alt-copying");
       for (const el of root.current?.querySelectorAll(".dd-alt-original") || []) el.remove();
@@ -1637,7 +1654,7 @@ export function DDcreateBoard(deps) {
         marquee.current && (marquee.current.style.display = "none"),
         paintWires(), paintSelection());
     }
-    function cancelGesture() {
+    function cancelGesture(keepCamera = false) {
       root.current?.querySelector(".dd-life")?.dispatchEvent(new Event("dd-life-cancel"));
       pendingContext.current = null;
       (moveRAF.current && cancelAnimationFrame(moveRAF.current),
@@ -1646,14 +1663,14 @@ export function DDcreateBoard(deps) {
       const Y = gesture.current;
       if (
         ((gesture.current = null),
-        Y?.kind === "pan" && ((cam.current = Y.camera), queueCamera()),
+        Y?.kind === "pan" && !keepCamera && ((cam.current = Y.camera), queueCamera()),
         Y)
       )
         try {
           viewport.current.releasePointerCapture(Y.pointerId);
         } catch {}
-      (clearPreview(),
-        (pinch.current = null),
+      if (!keepCamera || (Y && Y.kind !== "pan")) clearPreview();
+      ((pinch.current = null),
         touches.current.clear(),
         setStatus(""));
     }
@@ -2075,7 +2092,7 @@ export function DDcreateBoard(deps) {
                 : "Select the target node; dragging moves the node",
             );
           }
-        } else if (ct.kind === "move" && !ct.moved && !ct.engine && !ct.feed) {
+        } else if (ct.kind === "move" && ct.tapRef && !ct.moved && !ct.engine && !ct.feed) {
           const node = layout.map.get(ct.tapRef);
           if (doubleTap(ct.tapRef, Y)) {
             if ((node?.lifeSection || node?.kind === "frame") && !ct.onName) noteHere(Y);
@@ -2085,63 +2102,55 @@ export function DDcreateBoard(deps) {
         clearPreview();
       }
     }
-    function downCapture(Y) {
-      if (Y.pointerType === "touch")
-        if (
-          (touches.current.set(Y.pointerId, { x: Y.clientX, y: Y.clientY }),
-          touches.current.size === 2)
-        ) {
-          (Y.preventDefault(), Y.stopPropagation());
-          const G = { ...cam.current },
-            ct = [...touches.current.entries()];
-          (cancelGesture(), (cam.current = G), (touches.current = new Map(ct)));
-          const ot = [...touches.current.values()];
-          if (ot.length === 2) {
-            const St = {
-              x: (ot[0].x + ot[1].x) / 2,
-              y: (ot[0].y + ot[1].y) / 2,
-            };
-            pinch.current = {
-              distance: Math.hypot(ot[1].x - ot[0].x, ot[1].y - ot[0].y),
-              camera: { ...cam.current },
-              world: toWorld(St.x, St.y),
-            };
-          }
-          viewport.current.setPointerCapture(Y.pointerId);
-        } else
-          Y.currentTarget._lastTouch = {
-            id: Y.pointerId,
-            x: Y.clientX,
-            y: Y.clientY,
-          };
+    function touchCenter() {
+      const [a, b] = touches.current.values();
+      if (!b) return { x: a.x, y: a.y, distance: 0 };
+      return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, distance: Math.hypot(b.x - a.x, b.y - a.y) };
+    }
+    function anchorTouches() {
+      const center = touchCenter();
+      pinch.current = { world: toWorld(center.x, center.y), distance: center.distance, zoom: cam.current.z };
+    }
+    function downCapture(e) {
+      if (e.pointerType !== "touch") return;
+      nativeGestureZoom.current = null;
+      cancelAnimationFrame(glide.current);
+      glide.current = 0;
+      touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (touches.current.size < 2) return;
+      e.preventDefault(); e.stopPropagation();
+      if (!pinch.current) {
+        const contacts = new Map(touches.current);
+        cancelGesture(true);
+        pen.cancelForNavigation();
+        touches.current = contacts;
+      }
+      for (const id of touches.current.keys()) viewport.current.setPointerCapture(id);
+      anchorTouches();
+    }
+    function moveTouches(e) {
+      if (e.pointerType !== "touch" || !touches.current.has(e.pointerId)) return;
+      touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const anchor = pinch.current;
+      if (!anchor) return;
+      e.preventDefault(); e.stopPropagation();
+      const center = touchCenter(), rect = viewport.current.getBoundingClientRect();
+      const z = anchor.distance ? Math.max(0.05, Math.min(8, anchor.zoom * center.distance / anchor.distance)) : anchor.zoom;
+      cam.current = { x: center.x - rect.left - anchor.world.x * z, y: center.y - rect.top - anchor.world.y * z, z };
+      queueCamera();
+    }
+    function endTouch(e) {
+      if (!touches.current.delete(e.pointerId) || !pinch.current) return;
+      e.stopPropagation();
+      if (touches.current.size) {
+        // The point under the remaining finger stays put and immediately becomes the pan anchor.
+        anchorTouches();
+      } else {
+        pinch.current = null;
+        saveCamera();
+      }
     }
     function pointerMove(Y) {
-      if (
-        Y.pointerType === "touch" &&
-        touches.current.has(Y.pointerId) &&
-        (touches.current.set(Y.pointerId, { x: Y.clientX, y: Y.clientY }),
-        pinch.current && touches.current.size === 2)
-      ) {
-        const G = [...touches.current.values()],
-          ct = { x: (G[0].x + G[1].x) / 2, y: (G[0].y + G[1].y) / 2 },
-          ot = viewport.current.getBoundingClientRect(),
-          St = pinch.current,
-          Tt = Math.max(
-            0.05,
-            Math.min(
-              8,
-              (St.camera.z * Math.hypot(G[1].x - G[0].x, G[1].y - G[0].y)) /
-                Math.max(1, St.distance),
-            ),
-          );
-        ((cam.current = {
-          x: ct.x - ot.left - St.world.x * Tt,
-          y: ct.y - ot.top - St.world.y * Tt,
-          z: Tt,
-        }),
-          queueCamera());
-        return;
-      }
       gesture.current &&
         ((latestMove.current = {
           pointerId: Y.pointerId,
@@ -2161,13 +2170,6 @@ export function DDcreateBoard(deps) {
         const p = toWorld(Y.clientX, Y.clientY);
         showGhost({ x: p.x - 120, y: p.y - 120, w: 240, h: 240 });
       }
-    }
-    function pointerUp(Y) {
-      if ((touches.current.delete(Y.pointerId), pinch.current)) {
-        touches.current.size === 0 && ((pinch.current = null), saveCamera());
-        return;
-      }
-      endGesture(Y);
     }
     function backgroundDown(Y, sectionBackground = false) {
       const nodeEl = Y.target.closest("[data-board-id]"),
@@ -3457,7 +3459,6 @@ export function DDcreateBoard(deps) {
       duplicate: duplicate,
       cancelGesture: cancelGesture,
       pointerMove: pointerMove,
-      pointerUp: pointerUp,
       finishEdit: finishEdit,
       goEngine: goEngine,
     }),
@@ -3520,7 +3521,7 @@ export function DDcreateBoard(deps) {
             const text=event.target.closest(".dd-note-preview");
             if(editor || (text && text.scrollHeight>text.clientHeight+1))return;
             event.preventDefault();
-            if (gesture.current) return;
+            if (gesture.current || pinch.current) return;
             const unit =
               event.deltaMode === 1
                 ? 16
@@ -3558,12 +3559,20 @@ export function DDcreateBoard(deps) {
             else api.current.setZoom(core.zoomStep(cam.current.z, step));
           },
           // Safari pinch: zoom around the fingers, never the page.
-          pinch = { z: 1 },
-          gestureStart = (event) => { event.preventDefault(); pinch.z = cam.current.z; },
-          gestureChange = (event) => { event.preventDefault(); if (event.scale) api.current.setZoom(pinch.z * event.scale, event.clientX, event.clientY); };
+          gestureStart = (event) => {
+            event.preventDefault();
+            nativeGestureZoom.current = touches.current.size ? null : cam.current.z;
+          },
+          gestureChange = (event) => {
+            event.preventDefault();
+            if (nativeGestureZoom.current !== null && !touches.current.size && event.scale)
+              api.current.setZoom(nativeGestureZoom.current * event.scale, event.clientX, event.clientY);
+          },
+          gestureEnd = () => { nativeGestureZoom.current = null; };
         window.addEventListener("debug-day-board-zoom", keyZoom);
-        Y.addEventListener("gesturestart", gestureStart, { passive: !1 });
-        Y.addEventListener("gesturechange", gestureChange, { passive: !1 });
+        Y.addEventListener("gesturestart", gestureStart, { passive: false });
+        Y.addEventListener("gesturechange", gestureChange, { passive: false });
+        Y.addEventListener("gestureend", gestureEnd);
         const ct = new ResizeObserver(() => api.current.paintCamera());
         return (
           ct.observe(Y),
@@ -3572,6 +3581,7 @@ export function DDcreateBoard(deps) {
             window.removeEventListener("debug-day-board-zoom", keyZoom);
             Y.removeEventListener("gesturestart", gestureStart);
             Y.removeEventListener("gesturechange", gestureChange);
+            Y.removeEventListener("gestureend", gestureEnd);
           }
         );
       }, []),
@@ -6193,18 +6203,20 @@ export function DDcreateBoard(deps) {
           "data-mode": viewMode,
           "data-grid": grid,
           onPointerDownCapture: downCapture,
-          onPointerUpCapture: (e) => touches.current.delete(e.pointerId),
-          onPointerCancelCapture: (e) => touches.current.delete(e.pointerId),
+          onPointerMoveCapture: moveTouches,
+          onPointerUpCapture: endTouch,
+          onPointerCancelCapture: endTouch,
           onPointerDown: backgroundDown,
           onPointerMove: pointerMove,
           onPointerLeave: () => { if (!gesture.current) hideGhost(); },
-          onPointerUp: pointerUp,
+          onPointerUp: (e) => endGesture(e),
           onPointerCancel: (Y) => {
-            (touches.current.delete(Y.pointerId), api.current.cancelGesture());
+            api.current.cancelGesture(Y.pointerType === "touch");
           },
           onLostPointerCapture: (Y) => {
-            gesture.current?.pointerId === Y.pointerId &&
-              api.current.cancelGesture();
+            if (Y.target !== viewport.current || viewport.current.hasPointerCapture(Y.pointerId)) return;
+            endTouch(Y);
+            if (gesture.current?.pointerId === Y.pointerId) api.current.cancelGesture(Y.pointerType === "touch");
           },
         },
         _.createElement(

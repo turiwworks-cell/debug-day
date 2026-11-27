@@ -160,11 +160,22 @@ const results=[];
   });
   await scenario('mixed-drag-single-undo',async({page,key,screen,day,check})=>{
    await key('Control+a');const before=await day();
-   const p=await screen(170,320);await page.mouse.move(p.x,p.y);await page.mouse.down();await page.mouse.move(p.x+80,p.y+40,{steps:8});await page.mouse.up();await page.waitForTimeout(150);
-   const after=await day();
-   check(after.canvas.board4.strokes.find(s=>s.id==='s1').pts!==before.canvas.board4.strokes[0].pts,'mixed drag left strokes behind');
-   await key('Control+z');const undone=await day();
-   check(undone.notes[0].x===before.notes[0].x && undone.canvas.board4.strokes.find(s=>s.id==='s1').pts===before.canvas.board4.strokes[0].pts,'mixed drag undo was not atomic');
+   const note=page.locator('[data-board-id="sticky:n"]'), ink=page.locator('[data-stroke-id="s1"] .dd-ink-line');
+   for(const grab of [[170,320],[500,250]]) {
+     await key('Control+a');
+     const n0=await note.boundingBox(), i0=await ink.boundingBox(), p=await screen(...grab);
+     await page.mouse.move(p.x,p.y);await page.mouse.down();await page.mouse.move(p.x+80,p.y+40,{steps:8});
+     await page.evaluate(()=>new Promise(ok=>requestAnimationFrame(()=>requestAnimationFrame(ok))));
+     const n1=await note.boundingBox(),i1=await ink.boundingBox();
+     const dx=n1.x-n0.x, dy=n1.y-n0.y;
+     check(Math.abs(dx)>20 && Math.abs(i1.x-i0.x-dx)<1 && Math.abs(i1.y-i0.y-dy)<1,'note and ink separated during drag from '+grab);
+     check((await day()).canvas.board4.strokes.find(s=>s.id==='s1').pts===before.canvas.board4.strokes[0].pts,'preview wrote ink before drop');
+     await page.mouse.up();await page.waitForTimeout(150);
+     const after=await day();
+     check(after.canvas.board4.strokes.find(s=>s.id==='s1').pts!==before.canvas.board4.strokes[0].pts,'mixed drag left strokes behind');
+     await key('Control+z');const undone=await day();
+     check(undone.notes[0].x===before.notes[0].x && undone.canvas.board4.strokes.find(s=>s.id==='s1').pts===before.canvas.board4.strokes[0].pts,'mixed drag undo was not atomic');
+   }
    return 'passed';
   });
   await scenario('mobile-pen-properties-custom-color',async({page,key,draw,day,check})=>{

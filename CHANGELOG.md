@@ -1,3 +1,8 @@
+## 5.95.2 — 2026-11-27
+Branch: fix/board-drag-and-touch
+- Selected notes and pen strokes move together throughout a drag, including when grabbed by the drawing. One undo restores the selection’s positions.
+- Lifting a finger during a pinch keeps the board anchored and lets the remaining finger pan. Safari gesture events no longer overwrite an active touch zoom.
+
 ## 5.95.1 — 2026-11-26
 Branch: fix/shared-section-note-placement
 - Notes created or moved into a shared section through the planner tools now stay there across days, with their appearance and connections.
